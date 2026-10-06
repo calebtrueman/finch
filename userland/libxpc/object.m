@@ -1,0 +1,124 @@
+/*
+ * Copyright (c) 2026 The Finch Project contributors.
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ *
+ * XPC object classes. Built without ARC: lifetime is managed by libdispatch's
+ * os_object retain/release (OS_object), as for dispatch objects.
+ */
+
+#import <objc/runtime.h>
+#import <os/object.h>
+#import <os/object_private.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "internal.h"
+
+@interface OS_xpc_object : OS_object <OS_xpc_object>
+@end
+
+@implementation OS_xpc_object
+
+- (void)dealloc
+{
+	_xpc_object_dispose(self);
+	[super dealloc];
+}
+
+@end
+
+/* One subclass per type. Apple's classes carry no extra methods we rely on. */
+#define XPC_CLASS(name) \
+	@interface OS_xpc_##name : OS_xpc_object \
+	@end \
+	@implementation OS_xpc_##name \
+	@end
+
+XPC_CLASS(null)
+XPC_CLASS(bool)
+XPC_CLASS(int64)
+XPC_CLASS(uint64)
+XPC_CLASS(double)
+XPC_CLASS(date)
+XPC_CLASS(data)
+XPC_CLASS(string)
+XPC_CLASS(uuid)
+XPC_CLASS(fd)
+XPC_CLASS(array)
+XPC_CLASS(dictionary)
+XPC_CLASS(error)
+
+/*
+ * The exported type symbols are the classes themselves (as in Apple's
+ * libxpc, where _xpc_type_dictionary and OBJC_CLASS_$_OS_xpc_dictionary share
+ * an address).
+ */
+#define XPC_TYPE_ALIAS(name) \
+	__asm__(".globl __xpc_type_" #name "\n" \
+	        ".set __xpc_type_" #name ", _OBJC_CLASS_$_OS_xpc_" #name);
+
+XPC_TYPE_ALIAS(null)
+XPC_TYPE_ALIAS(bool)
+XPC_TYPE_ALIAS(int64)
+XPC_TYPE_ALIAS(uint64)
+XPC_TYPE_ALIAS(double)
+XPC_TYPE_ALIAS(date)
+XPC_TYPE_ALIAS(data)
+XPC_TYPE_ALIAS(string)
+XPC_TYPE_ALIAS(uuid)
+XPC_TYPE_ALIAS(fd)
+XPC_TYPE_ALIAS(array)
+XPC_TYPE_ALIAS(dictionary)
+XPC_TYPE_ALIAS(error)
+
+xpc_object_t
+_xpc_object_alloc(xpc_type_t type, size_t size)
+{
+	return (xpc_object_t)_os_object_alloc_realized((const void *)type, size);
+}
+
+void
+_xpc_object_dispose(xpc_object_t obj)
+{
+	xpc_type_t type = xpc_get_type(obj);
+
+	if (type == XPC_TYPE_DICTIONARY || type == XPC_TYPE_ERROR) {
+		_xpc_dictionary_dispose((struct _xpc_dictionary_s *)obj);
+	} else if (type == XPC_TYPE_ARRAY) {
+		_xpc_array_dispose((struct xpc_array_s *)obj);
+	} else if (type == XPC_TYPE_FD) {
+		close(((struct xpc_fd_s *)obj)->fd);
+	}
+	/* Strings and data keep their bytes inline; scalars own nothing. */
+}
+
+#pragma mark - Public object API
+
+xpc_type_t
+xpc_get_type(xpc_object_t object)
+{
+	return (xpc_type_t)object_getClass((id)object);
+}
+
+xpc_object_t
+xpc_retain(xpc_object_t object)
+{
+	return os_retain(object);
+}
+
+void
+xpc_release(xpc_object_t object)
+{
+	os_release(object);
+}
+
+const char *
+xpc_type_get_name(xpc_type_t type)
+{
+	const char *name = class_getName((Class)type);
+
+	if (strncmp(name, "OS_xpc_", 7) == 0) {
+		return name + 7;
+	}
+	return name;
+}

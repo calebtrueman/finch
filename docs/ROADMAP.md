@@ -69,7 +69,10 @@ Apple's is closed. Developed in the emulated M4 first. The map is
       sandbox, quarantine, …). Start with the subset our binaries actually import.
   - [ ] **libxpc**, the next gating piece: Apple-ABI-compatible XPC objects and
         connections, with the Mach bootstrap/service registry in finch-init. Mac apps and
-        most of libSystem's upper half depend on it.
+        most of libSystem's upper half depend on it. Plan and progress:
+        `docs/design/XPC.md`.
+    - [x] X1 object model and value types (100/462 imported symbols)
+    - [ ] X2 wire format, X3 Mach transport, X4 finch-init bootstrap server, X5 swap in
   - [x] libmalloc no longer depends on libcorecrypto
   - [ ] libsystem_featureflags (ABI known: `_os_feature_enabled_impl`,
         `_os_feature_enabled_simple_impl`)

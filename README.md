@@ -52,6 +52,7 @@ foundation for an open replacement for iOS on iPhone/iPad hardware.
 - [Hardware](docs/HARDWARE.md): target machines and the dev/test setup
 - [Dev VM](docs/DEV_VM.md): emulated M4 for kernel/userland work
 - [Brand](branding/BRAND.md): logo, colours and usage
+- [XPC design](docs/design/XPC.md): Finch's ABI-compatible libxpc
 
 ## Layout
 

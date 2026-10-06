@@ -95,6 +95,10 @@ copy_headers "${SRC}/libplatform/private" "${INC}"
 # dyld: <mach-o/dyld_priv.h>, dyld_introspection.h, ... (public ones lose to the SDK).
 copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
 
+# libdispatch: <os/object_private.h> etc. and <dispatch/private.h>, <dispatch/mach_private.h>, ...
+copy_headers "${SRC}/libdispatch/os" "${INC}/os" -maxdepth 1
+copy_headers "${SRC}/libdispatch/private" "${INC}/dispatch" -maxdepth 1
+
 # libclosure: <Block.h>, <Block_private.h>.
 cp "${SRC}/libclosure/Block_private.h" "${INC}/"
 
