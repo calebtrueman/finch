@@ -1,0 +1,11 @@
+# Build output
+/build/
+/out/
+*.o
+*.kc
+# Never commit Apple proprietary material
+/borrowed/
+/firmware/
+*.kext/
+*.kdk
+.DS_Store
