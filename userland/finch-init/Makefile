@@ -9,9 +9,13 @@ CFLAGS  := -arch arm64e -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror
 
 all: $(OUT)/finch-init
 
-$(OUT)/finch-init: finch-init.c
+# finch_xpc_pipe_request_routine is Finch libxpc SPI, absent from the SDK's
+# libxpc stubs: resolved at load time from /usr/lib/system/libxpc.dylib.
+SPI     := -Wl,-U,_finch_xpc_pipe_request_routine
+
+$(OUT)/finch-init: finch-init.c bootstrapd.c bootstrapd.h
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $(SPI) -o $@ finch-init.c bootstrapd.c
 	codesign -f -s - -i org.finch.init $@
 
 clean:

@@ -10,10 +10,12 @@
  *
  *   1. attach to /dev/console,
  *   2. publish the OS version sysctls from SystemVersion.plist,
- *   3. run /etc/finch/rc if present (one-shot boot script),
- *   4. keep an interactive login shell (zsh, else bash) alive on the console,
+ *   3. serve the Mach bootstrap namespace (bootstrapd.c), which every process
+ *      inherits as its bootstrap port,
+ *   4. run /etc/finch/rc if present (one-shot boot script),
+ *   5. keep an interactive login shell (zsh, else bash) alive on the console,
  *      respawning it on exit,
- *   5. reap every orphaned process re-parented to PID 1.
+ *   6. reap every orphaned process re-parented to PID 1.
  *
  * Service supervision, mounting, and IPC bootstrap (Mach bootstrap port) come
  * later; see docs/ROADMAP.md, Phase 1.
@@ -23,6 +25,8 @@
  */
 
 #include <errno.h>
+#include <mach/mach.h>
+#include <servers/bootstrap.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -36,6 +40,8 @@
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include "bootstrapd.h"
 
 #define FINCH_INIT_VERSION "0.0.1"
 #define CONSOLE            "/dev/console"
@@ -155,6 +161,20 @@ describe_exit(const char *what, int status)
 	} else if (WIFSIGNALED(status)) {
 		logmsg("%s killed by signal %d", what, WTERMSIG(status));
 	}
+}
+
+/* Become the bootstrap server; children inherit the port across fork/exec. */
+static void
+start_bootstrap_server(void)
+{
+	mach_port_t port = bootstrapd_start();
+
+	if (port == MACH_PORT_NULL) {
+		logmsg("bootstrap server failed to start; Mach services unavailable");
+		return;
+	}
+	task_set_special_port(mach_task_self(), TASK_BOOTSTRAP_PORT, port);
+	bootstrap_port = port;
 }
 
 static void
@@ -292,6 +312,7 @@ main(void)
 		logmsg("warning: not running as PID 1");
 	}
 
+	start_bootstrap_server();
 	run_rc_script();
 
 	for (;;) {

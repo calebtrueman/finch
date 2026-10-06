@@ -108,3 +108,18 @@ sandbox extensions, and the Apple-account-backed services.
   `xpc_copy_entitlement_for_token(key, NULL)`, where NULL means "self".
   Next: X4, finch-init as bootstrap server, after which `bootstrap_look_up` becomes real
   (user lookups via opendirectoryd depend on it).
+- **X4 (2026-10-06): finch-init is the bootstrap server.** `userland/finch-init/bootstrapd.c`
+  (a registry thread in PID 1) answers launchd's check_in and look_up routines
+  (XPC-protocol.md, "Bootstrap"), and Finch libxpc's `bootstrap_*` now speak that protocol.
+  The rules: check-in creates a service and moves the receive right to the caller; a live
+  name can't be taken over; a name is released when its owner dies. Host tests:
+  `tests/bootstrap-test.c` (24/24, clean under ASan/UBSan) runs the real server against the
+  real client, including XPC connections and sessions resolved through it. VM:
+  `finch-xpc-service-test` spawns a listener process and talks to it with a connection and
+  a session, then checks that the name is released when the listener exits. All of that
+  passes on Finch. Bug found on the way: libxpc must initialise `bootstrap_port` itself
+  (at startup and after fork). Apple's libxpc had been masking this in the host tests.
+  FINCH-NOT-YET: declared services (MachServices from launchd plists, which reserve a
+  name and launch the job on demand), ownership policy, per-user domains.
+  Next: libsystem_darwin and libsystem_info on Finch libxpc, then service supervision in
+  finch-init.

@@ -37,3 +37,35 @@ are Mach port descriptors, in order. The payload then holds only their type word
 Apple's server accepts this exact handshake from a non-libxpc client
 (`server-capture.c`), which confirms the client side of the protocol is complete for
 basic messaging.
+
+## Bootstrap (launchd's registry protocol)
+
+Captured from Apple's libxpc with `tools/xpc-capture/bootstrap-capture.c` (macOS 26.4.1).
+`bootstrap_look_up`, `bootstrap_look_up2` and `bootstrap_check_in` are xpc_pipe routines
+sent to the task's bootstrap port. They use **`msgh_id = 0x40000000 | routine`** and a
+send-once reply right. The request is a complex message whose only descriptor is the
+`domain-port` send right.
+
+| Routine | id | Request dictionary |
+|---|---|---|
+| check_in | 206 (`0x400000ce`) | `handle: uint64 0`, `flags: uint64`, `name: string`, `type: uint64 7`, `domain-port: mach_send` |
+| look_up / look_up2 | 207 (`0x400000cf`) | the same fields, plus `instance: uuid (zero)` and `targetpid: int64` |
+
+Type 7 means "Mach service". The reply (`msgh_id 0x20000000`) carries `error` (int64, 0 on
+success). On success it also carries `port`: a `mach_send` for look_up, or a
+`mach_recv` (the moved receive right) for check_in. launchd also sends `req_pid` and
+`rec_execcnt`, and finch-init does the same.
+
+Differences from Apple:
+
+- Apple's client only accepts replies from PID 1. Finch's client doesn't check, because a
+  parent that controls a child's bootstrap port already controls the child.
+- finch-init puts Mach bootstrap codes in `error` (1102 unknown service, 1103 service
+  active, …). Finch's client also maps errno-style codes in case it ever talks to a
+  launchd-like server.
+- Apple's `xpc_pipe_receive` rejects routine message ids, so a bootstrap server has to
+  use Finch's libxpc. finch-init reads the routine number with the Finch SPI
+  `finch_xpc_pipe_request_routine()`.
+- **libxpc owns `bootstrap_port`.** libsystem_kernel only declares it. libxpc's
+  initializer, and its atfork-child hook (a forked child has a fresh port space), fetch
+  it with `task_get_special_port(TASK_BOOTSTRAP_PORT)`.

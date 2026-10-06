@@ -133,6 +133,8 @@ xpc_dictionary_create(const char *const *keys, xpc_object_t const *values, size_
 	d->reply_port = MACH_PORT_NULL;
 	d->reply_msgid = 0;
 	d->connection = NULL;
+	d->msgid = 0;
+	d->has_audit = false;
 	for (size_t i = 0; i < count; i++) {
 		xpc_dictionary_set_value(d, keys[i], values[i]);
 	}

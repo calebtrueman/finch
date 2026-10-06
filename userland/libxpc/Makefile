@@ -63,6 +63,14 @@ $(OUT)/test/conn-test: tests/conn-test.c $(OUT)/test/libxpc-finch.dylib
 	    -Wno-incompatible-pointer-types-discards-qualifiers \
 	    tests/conn-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
 
+BOOTSTRAPD := ../finch-init/bootstrapd.c ../finch-init/bootstrapd.h
+
+$(OUT)/test/bootstrap-test: tests/bootstrap-test.c $(BOOTSTRAPD) $(OUT)/test/libxpc-finch.dylib
+	$(CC) -arch arm64 -mmacosx-version-min=26.0 -O1 -g -fblocks -Wall \
+	    -Wno-incompatible-pointer-types-discards-qualifiers \
+	    tests/bootstrap-test.c ../finch-init/bootstrapd.c \
+	    -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
+
 $(OUT)/test/plist-test: tests/plist-test.c $(OUT)/test/libxpc-finch.dylib
 	$(CC) -arch arm64 -mmacosx-version-min=26.0 -O1 -g -fblocks -Wall \
 	    tests/plist-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
@@ -71,11 +79,12 @@ $(OUT)/test/plist-test: tests/plist-test.c $(OUT)/test/libxpc-finch.dylib
 PLISTS = $(shell ls /System/Library/LaunchDaemons/*.plist /System/Library/LaunchAgents/*.plist 2>/dev/null | head -200) \
          $(shell find /System/Library/CoreServices /Library/Preferences -maxdepth 3 -name '*.plist' 2>/dev/null | head -200)
 
-test: $(OUT)/test/xpc-test $(OUT)/test/serial-test $(OUT)/test/interop-test $(OUT)/test/conn-test $(OUT)/test/plist-test
+test: $(OUT)/test/xpc-test $(OUT)/test/serial-test $(OUT)/test/interop-test $(OUT)/test/conn-test $(OUT)/test/bootstrap-test $(OUT)/test/plist-test
 	$(OUT)/test/xpc-test 2>/dev/null
 	$(OUT)/test/serial-test tests/fixtures/apple-25E253.txt 2>/dev/null
 	$(OUT)/test/interop-test 2>/dev/null
 	$(OUT)/test/conn-test 2>/dev/null
+	$(OUT)/test/bootstrap-test 2>/dev/null
 	$(OUT)/test/plist-test $(PLISTS) 2>/dev/null | tail -5
 
 clean:
@@ -89,17 +98,20 @@ clean:
 ASAN    := $(OUT)/asan
 SANFLAGS := -fsanitize=address,undefined -fno-omit-frame-pointer -O1
 
-asan: $(SRCS) $(HDRS) tests/xpc-test.c tests/serial-test.c
+asan: $(SRCS) $(HDRS) tests/*.c $(BOOTSTRAPD)
 	@mkdir -p $(ASAN)
 	$(CC) -arch arm64 $(COMMON) $(SANFLAGS) -dynamiclib \
 	    -install_name @rpath/libxpc-finch.dylib $(SRCS) -lobjc -o $(ASAN)/libxpc-finch.dylib
-	for t in xpc-test serial-test interop-test conn-test; do \
+	for t in xpc-test serial-test interop-test conn-test bootstrap-test; do \
 	    $(CC) -arch arm64 -mmacosx-version-min=26.0 -g -fblocks $(SANFLAGS) \
 	        -Wno-incompatible-pointer-types-discards-qualifiers tests/$$t.c \
+	        $$([ $$t = bootstrap-test ] && echo ../finch-init/bootstrapd.c) \
 	        -L$(ASAN) -lxpc-finch -lobjc -Wl,-rpath,$(ASAN) -o $(ASAN)/$$t || exit 1; \
 	done
 	$(ASAN)/xpc-test 2>&1 | grep -v '^objc\['
 	$(ASAN)/serial-test tests/fixtures/apple-25E253.txt 2>&1 | grep -v '^objc\['
 	$(ASAN)/interop-test 2>&1 | grep -v '^objc\['
+	$(ASAN)/conn-test 2>&1 | grep -v '^objc\['
+	$(ASAN)/bootstrap-test 2>&1 | grep -v '^objc\['
 
 .PHONY: asan

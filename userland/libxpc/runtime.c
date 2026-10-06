@@ -36,11 +36,22 @@ void xpc_atfork_prepare(void);
 void xpc_atfork_parent(void);
 void xpc_atfork_child(void);
 
+/* libsystem_kernel declares bootstrap_port but leaves it unset; libxpc fills
+ * it in, at startup and again in a forked child (whose port space is new). */
+static void
+_xpc_fetch_bootstrap_port(void)
+{
+	mach_port_t bp = MACH_PORT_NULL;
+
+	if (task_get_special_port(mach_task_self(), TASK_BOOTSTRAP_PORT, &bp) == KERN_SUCCESS) {
+		bootstrap_port = bp;
+	}
+}
+
 void
 _libxpc_initializer(void)
 {
-	/* Nothing to set up yet: connections and pipes are created on demand, and
-	 * bootstrap_port is initialised by libsystem_kernel's mach_init. */
+	_xpc_fetch_bootstrap_port();
 }
 
 void
@@ -56,8 +67,9 @@ xpc_atfork_parent(void)
 void
 xpc_atfork_child(void)
 {
-	/* A forked child inherits none of the parent's connections' receive
-	 * rights' meaning; connections are per-process and must be recreated. */
+	/* Connections and pipes don't survive fork (their rights stayed in the
+	 * parent); only the bootstrap port is re-established. */
+	_xpc_fetch_bootstrap_port();
 }
 
 #pragma mark - Entitlements
@@ -244,8 +256,13 @@ xpc_dictionary_get_audit_token(xpc_object_t xdict, audit_token_t *token)
 	struct _xpc_dictionary_s *d = xdict;
 
 	memset(token, 0, sizeof(*token));
-	if (xpc_get_type(xdict) == XPC_TYPE_DICTIONARY && d->connection != NULL) {
+	if (xpc_get_type(xdict) != XPC_TYPE_DICTIONARY) {
+		return;
+	}
+	if (d->connection != NULL) {
 		xpc_connection_get_audit_token((xpc_connection_t)d->connection, token);
+	} else if (d->has_audit) {
+		*token = d->audit;   /* pipe request */
 	}
 }
 

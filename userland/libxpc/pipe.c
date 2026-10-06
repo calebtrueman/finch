@@ -91,23 +91,30 @@ xpc_pipe_simpleroutine(xpc_pipe_t pipe, xpc_object_t message)
 	    message, XPC_MSGID_MESSAGE, MACH_PORT_NULL, 0, 0, MACH_MSG_TIMEOUT_NONE));
 }
 
+static pid_t
+_xpc_trailer_pid(mach_msg_header_t *h)
+{
+	mach_msg_audit_trailer_t *t = (void *)((uint8_t *)h + round_msg(h->msgh_size));
+	return t->msgh_trailer_size >= sizeof(*t) ? (pid_t)t->msgh_audit.val[5] : -1;
+}
+
 int
-xpc_pipe_routine_with_flags(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t *reply, uint64_t flags)
+_xpc_pipe_routine_port(mach_port_t port, uint32_t msgid, xpc_object_t message,
+    xpc_object_t *reply, pid_t *sender_pid)
 {
 	mach_port_t rp = MACH_PORT_NULL;
 	mach_msg_header_t *h = NULL;
 	kern_return_t kr;
 
-	(void)flags;
 	*reply = NULL;
-	if (!MACH_PORT_VALID(pipe->port)) {
+	if (!MACH_PORT_VALID(port)) {
 		return EPIPE;
 	}
 	if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &rp) != KERN_SUCCESS) {
 		return ENOMEM;
 	}
-	kr = _xpc_message_send(pipe->port, MACH_MSG_TYPE_COPY_SEND, message,
-	    XPC_MSGID_PIPE_ROUTINE, rp, MACH_MSG_TYPE_MAKE_SEND_ONCE, 0, MACH_MSG_TIMEOUT_NONE);
+	kr = _xpc_message_send(port, MACH_MSG_TYPE_COPY_SEND, message,
+	    msgid, rp, MACH_MSG_TYPE_MAKE_SEND_ONCE, 0, MACH_MSG_TIMEOUT_NONE);
 	if (kr == MACH_MSG_SUCCESS) {
 		/* If the server drops the request, the send-once right dies and the
 		 * kernel delivers a send-once notification here instead of a reply. */
@@ -115,6 +122,9 @@ xpc_pipe_routine_with_flags(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t 
 	}
 	if (kr == MACH_MSG_SUCCESS) {
 		if (h->msgh_id == (mach_msg_id_t)XPC_MSGID_REPLY) {
+			if (sender_pid) {
+				*sender_pid = _xpc_trailer_pid(h);
+			}
 			*reply = _xpc_message_decode(h);
 		} else {
 			mach_msg_destroy(h);
@@ -124,6 +134,13 @@ xpc_pipe_routine_with_flags(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t 
 	}
 	mach_port_mod_refs(mach_task_self(), rp, MACH_PORT_RIGHT_RECEIVE, -1);
 	return _xpc_errno_from_kr(kr);
+}
+
+int
+xpc_pipe_routine_with_flags(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t *reply, uint64_t flags)
+{
+	(void)flags;
+	return _xpc_pipe_routine_port(pipe->port, XPC_MSGID_PIPE_ROUTINE, message, reply, NULL);
 }
 
 int
@@ -145,6 +162,14 @@ xpc_pipe_receive(mach_port_t port, xpc_object_t *message)
 		return _xpc_errno_from_kr(kr);
 	}
 	d = _xpc_message_decode(h);
+	if (d != NULL) {
+		mach_msg_audit_trailer_t *t = (void *)((uint8_t *)h + round_msg(h->msgh_size));
+		d->msgid = (uint32_t)h->msgh_id;
+		if (t->msgh_trailer_size >= sizeof(*t)) {
+			d->has_audit = true;
+			d->audit = t->msgh_audit;
+		}
+	}
 	if (d != NULL && MACH_PORT_VALID(h->msgh_remote_port) &&
 	    MACH_MSGH_BITS_REMOTE(h->msgh_bits) == MACH_MSG_TYPE_PORT_SEND_ONCE) {
 		d->reply_port = h->msgh_remote_port;   /* answered via create_reply */
@@ -175,4 +200,21 @@ xpc_pipe_routine_reply(xpc_object_t reply)
 		mach_port_deallocate(mach_task_self(), rp);
 	}
 	return _xpc_errno_from_kr(kr);
+}
+
+/* Finch SPI for finch-init's bootstrap server: the routine number of a request
+ * received with xpc_pipe_receive (launchd-style msgh_id 0x40000000 | routine),
+ * or 0 for a plain pipe request. */
+uint32_t finch_xpc_pipe_request_routine(xpc_object_t request);
+
+uint32_t
+finch_xpc_pipe_request_routine(xpc_object_t request)
+{
+	struct _xpc_dictionary_s *d = request;
+
+	if (xpc_get_type(request) != XPC_TYPE_DICTIONARY ||
+	    (d->msgid & 0xff000000u) != XPC_MSGID_PIPE_ROUTINE) {
+		return 0;
+	}
+	return d->msgid & 0x00ffffffu;
 }

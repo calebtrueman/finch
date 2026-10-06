@@ -4,14 +4,19 @@ OUT     ?= ../../build/userland
 CC      := xcrun -sdk macosx clang
 CFLAGS  := -arch arm64e -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror
 
-all: $(OUT)/finch-libsystem-test
+all: $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test
 
 $(OUT)/finch-libsystem-test: libsystem-test.c
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -o $@ $<
 	codesign -f -s - -i org.finch.test.libsystem $@
 
+$(OUT)/finch-xpc-service-test: xpc-service-test.c
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fblocks -o $@ $<
+	codesign -f -s - -i org.finch.test.xpc-service $@
+
 clean:
-	rm -f $(OUT)/finch-libsystem-test
+	rm -f $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test
 
 .PHONY: all clean

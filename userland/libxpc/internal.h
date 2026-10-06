@@ -153,6 +153,9 @@ struct _xpc_dictionary_s {
 	mach_port_t reply_port;
 	uint32_t reply_msgid;       /* message id to answer with */
 	xpc_object_t connection;    /* received messages: the connection (retained) */
+	uint32_t msgid;             /* received pipe requests: the Mach message id */
+	bool has_audit;             /* received pipe requests: sender's audit token */
+	audit_token_t audit;
 };
 
 /*
@@ -188,6 +191,10 @@ XPC_INTERNAL kern_return_t _xpc_message_send(mach_port_t dest, mach_msg_type_nam
 XPC_INTERNAL kern_return_t _xpc_message_receive(mach_port_t port, mach_msg_option_t options,
     mach_msg_timeout_t timeout, mach_msg_header_t **out);
 XPC_INTERNAL xpc_object_t _xpc_message_decode(mach_msg_header_t *msg);
+/* Pipe routine with an explicit message id (bootstrap uses 0x40000000 | routine).
+ * On success *reply is the decoded reply and, if non-NULL, *sender_pid its sender. */
+XPC_INTERNAL int _xpc_pipe_routine_port(mach_port_t port, uint32_t msgid, xpc_object_t message,
+    xpc_object_t *reply, pid_t *sender_pid);
 
 /* Apple-named private API used internally too */
 void xpc_connection_get_audit_token(xpc_connection_t connection, audit_token_t *token);
