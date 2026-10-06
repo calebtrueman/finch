@@ -254,11 +254,17 @@ publish_os_version(void)
 static void
 print_banner(void)
 {
+	/* Brand colours (branding/BRAND.md): Finch Green and Slate, 24-bit ANSI. */
+	static const char green[] = "\033[1;38;2;72;107;82m";
+	static const char slate[] = "\033[38;2;154;160;166m";
+	static const char reset[] = "\033[0m";
 	struct utsname u;
 
-	printf("\nFinch init %s (pid %d)\n", FINCH_INIT_VERSION, getpid());
+	printf("\n  %sfinch%s\n  %sAn open OS for Apple Silicon%s\n\n",
+	    green, reset, slate, reset);
+	printf("Finch init %s (pid %d)\n", FINCH_INIT_VERSION, getpid());
 	if (uname(&u) == 0) {
-		printf("%s %s %s\n%s\n\n", u.sysname, u.release, u.machine, u.version);
+		printf("%s%s%s\n\n", slate, u.version, reset);
 	}
 	fflush(stdout);
 }

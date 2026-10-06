@@ -9,7 +9,7 @@
 #
 # Projects without a usable Xcode project get a recipe script instead:
 # userland/oss/<project>.build.sh (called with SRC, OBJ, STAGE, SDKROOT,
-# FINCH_SDK_CFLAGS).
+# FINCH_SDK_CFLAGS, FINCH_PRIVATE_CFLAGS).
 #
 # Keeps going past failing targets; prints which products were installed.
 set -uo pipefail
@@ -39,6 +39,13 @@ grep -rl --include='*.xcconfig' 'Makefiles/CoreOS/Xcode/BSD.xcconfig' "${SRC}" 2
         sed -i '' 's|"<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"|"'"${FINCH_ROOT}"'/userland/sdk/BSD.xcconfig"|' "$f"
     done
 
+# Projects that are part of libSystem itself need xnu's private headers (and a
+# matching Availability set) ahead of the public SDK. Opt in with a marker file.
+fr="${FINCH_ROOT}/build/xnu-work/fakeroot"
+private_first="-I${SDK}/availability -I${fr}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -I${fr}/usr/local/include"
+cflags_private=""
+[[ -f "${FINCH_ROOT}/userland/oss/${project}.private-first" ]] && cflags_private="${private_first}"
+
 # Per-project Finch overrides (use $(inherited) to extend project settings).
 xcconfig=()
 [[ -f "${FINCH_ROOT}/userland/oss/${project}.xcconfig" ]] \
@@ -54,6 +61,7 @@ if [[ -x "${recipe}" ]]; then
     # Non-Xcode project: run Finch's build recipe instead.
     SRC="${SRC}" OBJ="${FINCH_ROOT}/build/obj/${project}" STAGE="${stage}" \
         FINCH_SDK_CFLAGS="-idirafter ${SDK}/include -F${SDK}/Frameworks" \
+        FINCH_PRIVATE_CFLAGS="${private_first}" \
         SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" "${recipe}" > "${LOG}" 2>&1
 else
 xcodebuild install "${targets[@]}" -project "${SRC}/${project}.xcodeproj" ${xcconfig[@]+"${xcconfig[@]}"} \
@@ -63,7 +71,7 @@ xcodebuild install "${targets[@]}" -project "${SRC}/${project}.xcodeproj" ${xcco
     SYMROOT="${FINCH_ROOT}/build/sym/${project}" \
     CODE_SIGNING_ALLOWED=NO \
     GCC_TREAT_WARNINGS_AS_ERRORS=NO \
-    OTHER_CFLAGS='$(inherited) -Wno-error -idirafter '"${SDK}/include"' -F'"${SDK}/Frameworks" \
+    OTHER_CFLAGS='$(inherited) -Wno-error '"${cflags_private}"' -idirafter '"${SDK}/include"' -F'"${SDK}/Frameworks" \
     -IDEBuildingContinueBuildingAfterErrors=YES \
     > "${LOG}" 2>&1
 fi

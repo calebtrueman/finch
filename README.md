@@ -1,7 +1,21 @@
-# Finch
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/logo-dark.png">
+    <img src="branding/logo.png" alt="finch: an open OS for Apple Silicon" width="360">
+  </picture>
+</p>
 
-**Darwin, evolved.** An open-source operating system for Apple Silicon Macs, built on
-Darwin/XNU, that aims to run Mac software.
+<p align="center"><b>Darwin, evolved.</b> An open-source operating system for Apple Silicon Macs,<br>
+built on Darwin/XNU, that aims to run Mac software.</p>
+
+<p align="center"><i>Built in the open. For a more open tomorrow.</i></p>
+
+## Status
+
+Early development (Phase 1 of the [roadmap](docs/ROADMAP.md)). On an emulated M4, Finch
+boots its own XNU build and its own PID 1 (`finch-init`), and runs a userland built from
+Apple's open source, including zsh, bash, about 230 core commands and `libsystem_kernel`.
+Real hardware is next.
 
 ## Principles
 
@@ -32,6 +46,7 @@ foundation for an open replacement for iOS on iPhone/iPad hardware.
 - [Licensing](docs/LICENSING.md): what we can import, from whom, and how
 - [Hardware](docs/HARDWARE.md): target machines and the dev/test setup
 - [Dev VM](docs/DEV_VM.md): emulated M4 for kernel/userland work
+- [Brand](branding/BRAND.md): logo, colours and usage
 
 ## Layout
 
@@ -43,6 +58,7 @@ userland/      Darwin userspace built from Apple open source
 frameworks/    Foundation/AppKit/etc. compatibility layer
 desktop/       Finch's window server, compositor, shell
 tools/         build system, image builder, host-side utilities
+branding/      logo, icons, colours
 third_party/   imported non-Apple projects (Mesa, m1n1, …)
 docs/          design docs
 ```
