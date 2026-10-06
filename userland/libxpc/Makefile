@@ -12,7 +12,7 @@ SDK     := $(ROOT)/build/sdk
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 CC      := xcrun -sdk macosx clang
 
-SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c connection.c bootstrap.c plist.c
+SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c connection.c bootstrap.c plist.c runtime.c compat.c
 HDRS    := internal.h
 
 COMMON  := -mmacosx-version-min=26.0 -O2 -g -fblocks -fno-objc-arc \
@@ -21,7 +21,7 @@ COMMON  := -mmacosx-version-min=26.0 -O2 -g -fblocks -fno-objc-arc \
            -I$(SDK)/override -I$(SDK)/availability -idirafter $(SDK)/include
 LIBS    := -L$(SDKROOT)/usr/lib/system -lsystem_kernel -lsystem_platform \
            -lsystem_pthread -lsystem_malloc -lsystem_c -lsystem_blocks \
-           -ldispatch -lcompiler_rt -lobjc
+           -ldispatch -ldyld -lcompiler_rt -Wl,-upward-lobjc
 
 VERSION := 3102.100.102
 

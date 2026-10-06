@@ -189,7 +189,11 @@ XPC_INTERNAL kern_return_t _xpc_message_receive(mach_port_t port, mach_msg_optio
     mach_msg_timeout_t timeout, mach_msg_header_t **out);
 XPC_INTERNAL xpc_object_t _xpc_message_decode(mach_msg_header_t *msg);
 
-/* ports.c: Apple-named private API used internally too */
+/* Apple-named private API used internally too */
+void xpc_connection_get_audit_token(xpc_connection_t connection, audit_token_t *token);
+xpc_object_t xpc_create_from_plist(const void *data, size_t length);
+
+/* ports.c */
 mach_port_t xpc_endpoint_copy_listener_port_4sim(xpc_object_t endpoint);
 
 /* object.m */

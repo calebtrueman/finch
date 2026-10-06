@@ -92,3 +92,19 @@ sandbox extensions, and the Apple-account-backed services.
   Apple listener**. 9/9, clean under ASan/UBSan. `bootstrap_*` are placeholders until X4.
   Coverage: 144/462 imported symbols. Top missing: `bootstrap_look_up2`,
   `os_transaction_create`, `xpc_connection_activate`, `xpc_create_from_plist`.
+- **X5 (2026-10-06): the VM runs on Finch's libxpc.** On macOS 26, libobjc links
+  libswiftCore, which brings Foundation, CoreFoundation and about 170 other libraries
+  into every process. The real requirement is therefore the *transitive* import closure:
+  290 libxpc symbols, not the 119 that libSystem's own libraries import. `plist.c`
+  (`xpc_create_from_plist`, 341/341 files identical to Apple's, fuzzed), `runtime.c`
+  (libSystem initializer and atfork hooks, csops entitlements, bundles, pipe-by-name) and
+  `compat.c` (sessions and listeners over connections, rich errors, entitlement-based
+  peer requirements, transactions, shmem, pointers, send-once rights, reply helpers,
+  `_availability_version_check`) now cover all 290. The deliberate gaps are marked
+  `FINCH-NOT-YET` and fail safe: activities never fire, event streams are silent,
+  launchd job routines return `ENOTSUP`, and code-signing requirements never match.
+  Boot result: finch-init (PID 1), rc and zsh run with `/usr/lib/system/libxpc.dylib`
+  checksum-identical to the build. The one boot bug: libnotify calls
+  `xpc_copy_entitlement_for_token(key, NULL)`, where NULL means "self".
+  Next: X4, finch-init as bootstrap server, after which `bootstrap_look_up` becomes real
+  (user lookups via opendirectoryd depend on it).

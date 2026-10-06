@@ -5,3 +5,4 @@
 build/userland/finch-init   /usr/appleinternal/sbin/launchd.finch
 userland/etc/finch/rc       /etc/finch/rc
 build/userland/finch-libsystem-test /usr/local/bin/finch-libsystem-test
+build/userland/libxpc/libxpc.dylib /usr/lib/system/libxpc.dylib

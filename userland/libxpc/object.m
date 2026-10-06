@@ -17,6 +17,9 @@
 extern const struct _xpc_type_s _xpc_type_pipe;
 void _xpc_pipe_dispose(xpc_object_t obj);
 void _xpc_connection_dispose(xpc_object_t obj);
+void _xpc_bundle_dispose(xpc_object_t obj);
+void _xpc_compat_dispose(xpc_object_t obj);
+extern const struct _xpc_type_s _xpc_type_bundle;
 
 @interface OS_xpc_object : OS_object <OS_xpc_object>
 @end
@@ -56,6 +59,20 @@ XPC_CLASS(mach_recv)
 XPC_CLASS(endpoint)
 XPC_CLASS(pipe)
 XPC_CLASS(connection)
+XPC_CLASS(bundle)
+XPC_CLASS(activity)
+XPC_CLASS(pointer)
+XPC_CLASS(rich_error)
+XPC_CLASS(shmem)
+XPC_CLASS(mach_send_once)
+XPC_CLASS(session)
+XPC_CLASS(listener)
+XPC_CLASS(peer_requirement)
+XPC_CLASS(transaction)
+XPC_CLASS(file_transfer)
+XPC_CLASS(serializer)
+XPC_CLASS(service)
+XPC_CLASS(service_instance)
 
 /*
  * The exported type symbols are the classes themselves (as in Apple's
@@ -84,6 +101,20 @@ XPC_TYPE_ALIAS(mach_recv)
 XPC_TYPE_ALIAS(endpoint)
 XPC_TYPE_ALIAS(pipe)
 XPC_TYPE_ALIAS(connection)
+XPC_TYPE_ALIAS(bundle)
+XPC_TYPE_ALIAS(activity)
+XPC_TYPE_ALIAS(pointer)
+XPC_TYPE_ALIAS(rich_error)
+XPC_TYPE_ALIAS(shmem)
+XPC_TYPE_ALIAS(mach_send_once)
+XPC_TYPE_ALIAS(session)
+XPC_TYPE_ALIAS(listener)
+XPC_TYPE_ALIAS(peer_requirement)
+XPC_TYPE_ALIAS(transaction)
+XPC_TYPE_ALIAS(file_transfer)
+XPC_TYPE_ALIAS(serializer)
+XPC_TYPE_ALIAS(service)
+XPC_TYPE_ALIAS(service_instance)
 
 xpc_object_t
 _xpc_object_alloc(xpc_type_t type, size_t size)
@@ -109,6 +140,8 @@ _xpc_object_dispose(xpc_object_t obj)
 		}
 	} else if (type == XPC_TYPE_MACH_SEND) {
 		mach_port_deallocate(mach_task_self(), ((struct xpc_mach_send_s *)obj)->port);
+	} else if (type == (xpc_type_t)&_xpc_type_bundle) {
+		_xpc_bundle_dispose(obj);
 	} else if (type == XPC_TYPE_CONNECTION) {
 		_xpc_connection_dispose(obj);
 	} else if (type == (xpc_type_t)&_xpc_type_pipe) {
@@ -116,6 +149,7 @@ _xpc_object_dispose(xpc_object_t obj)
 	} else if (type == XPC_TYPE_ENDPOINT) {
 		mach_port_deallocate(mach_task_self(), ((struct xpc_endpoint_s *)obj)->port);
 	}
+	_xpc_compat_dispose(obj);
 	/* Strings and data keep their bytes inline; scalars own nothing. */
 }
 
