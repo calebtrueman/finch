@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// bash-3.2's conftypes.h has no arm64 case and falls back to CONF_HOSTTYPE,
+// which Apple's internal build supplies. macOS's bash reports "arm64".
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) CONF_HOSTTYPE='"arm64"'

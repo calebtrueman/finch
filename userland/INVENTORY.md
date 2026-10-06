@@ -70,7 +70,10 @@ pieces can be replaced one at a time.
 | Item | Source | Status |
 |---|---|---|
 | `/usr/lib/dyld` | dyld-1376.6 | OPEN |
-| `bash`, `sh` | Prebuilt by darwin-vm ([ios-cli-tools](https://github.com/jprx/ios-cli-tools)) | Next: rebuild from bash-144 / zsh-118 |
+| `bash`, `zsh` + modules | bash-144, zsh-118 | **Built by Finch** (zsh is the console shell) |
+| `bc`, `dc` | bc-35 | **Built by Finch** |
+| `sh` | Prebuilt by darwin-vm | TODO: macOS's `sh` is a small shim that execs bash/zsh/dash |
+| `/usr/lib/i18n/*` (iconv modules) | libiconv-115.100.1 | Missing from the ramdisk; build it |
 | file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds | Apple OSS (`userland/projects.txt`) | **Built by Finch**: 188 binaries via `tools/build-oss.sh` |
 | `mount_*`, `fsck_*`, `newfs_*` (from the restore ramdisk) | diskdev_cmds / hfs; APFS tools are closed | Mixed |
 

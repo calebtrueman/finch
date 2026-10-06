@@ -11,7 +11,8 @@
  *   1. attach to /dev/console,
  *   2. publish the OS version sysctls from SystemVersion.plist,
  *   3. run /etc/finch/rc if present (one-shot boot script),
- *   4. keep an interactive shell alive on the console, respawning it on exit,
+ *   4. keep an interactive login shell (zsh, else bash) alive on the console,
+ *      respawning it on exit,
  *   5. reap every orphaned process re-parented to PID 1.
  *
  * Service supervision, mounting, and IPC bootstrap (Mach bootstrap port) come
@@ -24,6 +25,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +41,8 @@
 #define CONSOLE            "/dev/console"
 #define RC_SCRIPT          "/etc/finch/rc"
 #define SYSTEM_VERSION     "/System/Library/CoreServices/SystemVersion.plist"
-#define DEFAULT_SHELL      "/bin/bash"
+#define DEFAULT_SHELL      "/bin/zsh"   /* as on macOS */
+#define FALLBACK_SHELL     "/bin/bash"
 #define RESPAWN_DELAY_SEC  1
 
 static void
@@ -263,7 +266,9 @@ print_banner(void)
 int
 main(void)
 {
-	char *shell_argv[] = { "-bash", "-i", NULL };
+	char *shell_argv[3] = { NULL, "-i", NULL };
+	const char *shell_path;
+	bool have_zsh;
 	pid_t shell;
 	int status;
 
@@ -284,7 +289,12 @@ main(void)
 	run_rc_script();
 
 	for (;;) {
-		shell = spawn_on_console(DEFAULT_SHELL, shell_argv);
+		/* Login shell: argv[0] is "-<name>". Re-checked each respawn. */
+		have_zsh = access(DEFAULT_SHELL, X_OK) == 0;
+		shell_path = have_zsh ? DEFAULT_SHELL : FALLBACK_SHELL;
+		shell_argv[0] = have_zsh ? "-zsh" : "-bash";
+		setenv("SHELL", shell_path, 1);
+		shell = spawn_on_console(shell_path, shell_argv);
 		if (shell > 0) {
 			status = wait_for(shell);
 			describe_exit("console shell", status);

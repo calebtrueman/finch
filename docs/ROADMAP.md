@@ -28,7 +28,10 @@ Apple's is closed. Developed in the emulated M4 first. The map is
       bash/zsh ourselves, replacing darwin-vm's prebuilt sysroot.
   - [x] file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds: 188 binaries build and
         run under finch-init (`tools/build-oss.sh`, 2026-10-06)
-  - [ ] bash / zsh, bc, and the deferred tools (see `userland/INVENTORY.md`)
+  - [x] bash 3.2 (bash-144), zsh 5.9 + modules (zsh-118, via `userland/oss/zsh.build.sh`),
+        bc/dc. zsh is the console shell.
+  - [ ] libiconv i18n modules (`/usr/lib/i18n`, needed by zsh prompt expansion)
+  - [ ] Deferred tools (see `userland/INVENTORY.md`)
   - [ ] Finch `reboot` / `halt` / `shutdown` (Apple's need closed launchd SPI)
   - [x] Ramdisk grown to 600 MiB without sudo (raw APFS resize); writable tmpfs for /tmp
         and /var/{tmp,run,log,root}

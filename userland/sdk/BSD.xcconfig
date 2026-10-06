@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Finch stand-in for Apple's internal <DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig,
+// which many apple-oss-distributions projects include but Apple doesn't publish.
+// tools/build-oss.sh rewrites those includes to point here. Settings are
+// reconstructed from the public pieces (e.g. bc's simplified BSD.xcconfig) and
+// from what the projects evidently expect.
+
+CODE_SIGN_IDENTITY = -
+CURRENT_PROJECT_VERSION = $(RC_ProjectSourceVersion)
+DEAD_CODE_STRIPPING = YES
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+PREBINDING = NO
+VERSION_INFO_PREFIX = __
+VERSIONING_SYSTEM = apple-generic
+ALWAYS_SEARCH_USER_PATHS = NO
+INSTALL_MODE_FLAG = u+w,go-w,a+rX
