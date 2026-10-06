@@ -59,11 +59,17 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         closed libsystem_trace), header-only `corecrypto/ccrng.h` over getentropy(2)
         (no libcorecrypto), generated dyld version constants, `_atexit_receipt`
         (App Store exit hook recorded, not run).
-  - [ ] libsystem_info, libsystem_darwin, libsystem_notify, libsystem_m, dyld, …
+  - [ ] libsystem_darwin, libsystem_info: **blocked on XPC** (`xpc/private.h`,
+        `os/transaction_private.h`; libdarwin also wants APFS's `apfs_fsctl.h`). Do 1.4's
+        libxpc first.
+  - [ ] libsystem_notify, libsystem_m, dyld, …
   - [ ] Finch CrashReporterClient (`__crash_info` annotations; Libc currently builds
         with its no-op fallback)
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
+  - [ ] **libxpc**, the next gating piece: Apple-ABI-compatible XPC objects and
+        connections, with the Mach bootstrap/service registry in finch-init. Mac apps and
+        most of libSystem's upper half depend on it.
   - [x] libmalloc no longer depends on libcorecrypto
   - [ ] libsystem_featureflags (ABI known: `_os_feature_enabled_impl`,
         `_os_feature_enabled_simple_impl`)
