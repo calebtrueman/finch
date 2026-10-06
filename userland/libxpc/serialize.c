@@ -21,7 +21,8 @@
  * count the bytes after the length field. Port-carrying types have only their
  * type word in the payload; the right travels as the next Mach port
  * descriptor of the message (docs/design/XPC-protocol.md):
- *   fd 0xb000 (fileport), mach send 0xd000, endpoint 0x12000.
+ *   fd 0xb000 (fileport), mach send 0xd000, endpoint 0x12000,
+ *   mach receive 0x15000 (moved: encoding takes the right out of the object).
  * Messages use magic "CPX@" instead of the standalone serialization's.
  *
  * The decoder parses data from other processes: every read is bounds-checked
@@ -52,6 +53,7 @@ enum {
 	XPC_WIRE_FD         = 0xb000,
 	XPC_WIRE_MACH_SEND  = 0xd000,
 	XPC_WIRE_ENDPOINT   = 0x12000,
+	XPC_WIRE_MACH_RECV  = 0x15000,
 	XPC_WIRE_ARRAY      = 0xe000,
 	XPC_WIRE_DICTIONARY = 0xf000,
 };
@@ -220,6 +222,14 @@ encode(struct wbuf *w, xpc_object_t o)
 			return;
 		}
 		w_u32(w, XPC_WIRE_MACH_SEND);
+	} else if (t == XPC_TYPE_MACH_RECV) {
+		mach_port_t r = ((struct xpc_mach_recv_s *)o)->port;
+		if (!w_port(w, r, MACH_MSG_TYPE_MOVE_RECEIVE)) {
+			w->failed = true;
+			return;
+		}
+		((struct xpc_mach_recv_s *)o)->port = MACH_PORT_NULL;   /* moves with the message */
+		w_u32(w, XPC_WIRE_MACH_RECV);
 	} else if (t == XPC_TYPE_ENDPOINT) {
 		if (!w_port(w, ((struct xpc_endpoint_s *)o)->port, MACH_MSG_TYPE_COPY_SEND)) {
 			w->failed = true;
@@ -433,6 +443,10 @@ decode(struct rbuf *r, int depth)
 	case XPC_WIRE_MACH_SEND: {
 		mach_port_t port = r_port(r);
 		return MACH_PORT_VALID(port) ? _xpc_mach_send_adopt(port) : NULL;
+	}
+	case XPC_WIRE_MACH_RECV: {
+		mach_port_t port = r_port(r);
+		return MACH_PORT_VALID(port) ? xpc_mach_recv_create(port) : NULL;
 	}
 	case XPC_WIRE_ENDPOINT: {
 		mach_port_t port = r_port(r);

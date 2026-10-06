@@ -26,6 +26,8 @@
 /* Types without a public XPC_TYPE_* macro (declared by Finch's xpc/private.h). */
 extern const struct _xpc_type_s _xpc_type_mach_send;
 #define XPC_TYPE_MACH_SEND (&_xpc_type_mach_send)
+extern const struct _xpc_type_s _xpc_type_mach_recv;
+#define XPC_TYPE_MACH_RECV (&_xpc_type_mach_recv)
 
 #define XPC_INTERNAL __attribute__((visibility("hidden")))
 
@@ -85,6 +87,12 @@ struct xpc_fd_s {
 struct xpc_mach_send_s {
 	XPC_OBJECT_HEADER;
 	mach_port_t port;           /* owned send right */
+};
+
+/* A receive right; moving it into a message (or extracting it) empties this. */
+struct xpc_mach_recv_s {
+	XPC_OBJECT_HEADER;
+	mach_port_t port;           /* owned receive right, or MACH_PORT_NULL */
 };
 
 /* An endpoint names a listener: it holds a send right to the listener port. */
@@ -167,6 +175,7 @@ XPC_INTERNAL xpc_object_t _xpc_deserialize_message(const void *data, size_t leng
 XPC_INTERNAL xpc_object_t _xpc_fd_adopt(int fd);
 XPC_INTERNAL xpc_object_t _xpc_mach_send_adopt(mach_port_t port);
 XPC_INTERNAL xpc_object_t _xpc_endpoint_adopt(mach_port_t port);
+xpc_object_t xpc_mach_recv_create(mach_port_t port);
 
 /* message.c: Mach transport for XPC messages (docs/design/XPC-protocol.md) */
 #define XPC_MSGID_MESSAGE     0x10000000u

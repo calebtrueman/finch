@@ -14,8 +14,14 @@ void
 _xpc_ports_free(struct xpc_ports *ports)
 {
 	for (size_t i = 0; i < ports->count; i++) {
-		if (ports->desc[i].name != MACH_PORT_NULL) {
-			mach_port_deallocate(mach_task_self(), ports->desc[i].name);
+		mach_port_t name = ports->desc[i].name;
+		if (!MACH_PORT_VALID(name)) {
+			continue;
+		}
+		if (ports->desc[i].disposition == MACH_MSG_TYPE_PORT_RECEIVE) {
+			mach_port_mod_refs(mach_task_self(), name, MACH_PORT_RIGHT_RECEIVE, -1);
+		} else {
+			mach_port_deallocate(mach_task_self(), name);
 		}
 	}
 	free(ports->desc);
@@ -125,4 +131,58 @@ xpc_endpoint_create_mach_port_4sim(mach_port_t port)
 		return NULL;
 	}
 	return _xpc_endpoint_adopt(port);
+}
+
+#pragma mark - Receive rights
+
+/* Takes ownership of the receive right. */
+xpc_object_t
+xpc_mach_recv_create(mach_port_t port)
+{
+	struct xpc_mach_recv_s *o;
+
+	if (!MACH_PORT_VALID(port)) {
+		return NULL;
+	}
+	o = _xpc_object_alloc(XPC_TYPE_MACH_RECV, sizeof(*o));
+	o->port = port;
+	return o;
+}
+
+/* Hands the receive right to the caller (once). */
+mach_port_t xpc_mach_recv_extract_right(xpc_object_t xrecv);
+
+mach_port_t
+xpc_mach_recv_extract_right(xpc_object_t xrecv)
+{
+	struct xpc_mach_recv_s *o = xrecv;
+	mach_port_t port;
+
+	if (xpc_get_type(xrecv) != XPC_TYPE_MACH_RECV) {
+		return MACH_PORT_NULL;
+	}
+	port = o->port;
+	o->port = MACH_PORT_NULL;
+	return port;
+}
+
+void xpc_dictionary_set_mach_recv(xpc_object_t xdict, const char *key, mach_port_t port);
+mach_port_t xpc_dictionary_extract_mach_recv(xpc_object_t xdict, const char *key);
+
+void
+xpc_dictionary_set_mach_recv(xpc_object_t xdict, const char *key, mach_port_t port)
+{
+	xpc_object_t v = xpc_mach_recv_create(port);
+
+	if (v != NULL) {
+		xpc_dictionary_set_value(xdict, key, v);
+		xpc_release(v);
+	}
+}
+
+mach_port_t
+xpc_dictionary_extract_mach_recv(xpc_object_t xdict, const char *key)
+{
+	xpc_object_t v = xpc_dictionary_get_value(xdict, key);
+	return v ? xpc_mach_recv_extract_right(v) : MACH_PORT_NULL;
 }

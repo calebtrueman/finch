@@ -12,7 +12,7 @@ SDK     := $(ROOT)/build/sdk
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 CC      := xcrun -sdk macosx clang
 
-SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c connection.c bootstrap.c
+SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c connection.c bootstrap.c plist.c
 HDRS    := internal.h
 
 COMMON  := -mmacosx-version-min=26.0 -O2 -g -fblocks -fno-objc-arc \
@@ -63,11 +63,20 @@ $(OUT)/test/conn-test: tests/conn-test.c $(OUT)/test/libxpc-finch.dylib
 	    -Wno-incompatible-pointer-types-discards-qualifiers \
 	    tests/conn-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
 
-test: $(OUT)/test/xpc-test $(OUT)/test/serial-test $(OUT)/test/interop-test $(OUT)/test/conn-test
+$(OUT)/test/plist-test: tests/plist-test.c $(OUT)/test/libxpc-finch.dylib
+	$(CC) -arch arm64 -mmacosx-version-min=26.0 -O1 -g -fblocks -Wall \
+	    tests/plist-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
+
+# Real plists from this Mac, compared against Apple's parser.
+PLISTS = $(shell ls /System/Library/LaunchDaemons/*.plist /System/Library/LaunchAgents/*.plist 2>/dev/null | head -200) \
+         $(shell find /System/Library/CoreServices /Library/Preferences -maxdepth 3 -name '*.plist' 2>/dev/null | head -200)
+
+test: $(OUT)/test/xpc-test $(OUT)/test/serial-test $(OUT)/test/interop-test $(OUT)/test/conn-test $(OUT)/test/plist-test
 	$(OUT)/test/xpc-test 2>/dev/null
 	$(OUT)/test/serial-test tests/fixtures/apple-25E253.txt 2>/dev/null
 	$(OUT)/test/interop-test 2>/dev/null
 	$(OUT)/test/conn-test 2>/dev/null
+	$(OUT)/test/plist-test $(PLISTS) 2>/dev/null | tail -5
 
 clean:
 	rm -rf $(OUT)

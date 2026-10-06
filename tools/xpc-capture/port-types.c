@@ -16,6 +16,7 @@ typedef void *xpc_pipe_t;
 xpc_pipe_t xpc_pipe_create_from_port(mach_port_t port, uint64_t flags);
 int xpc_pipe_simpleroutine(xpc_pipe_t pipe, xpc_object_t message);
 xpc_object_t xpc_mach_send_create(mach_port_t port);
+xpc_object_t xpc_mach_recv_create(mach_port_t port);
 
 static void
 send_and_dump(mach_port_t rcv, xpc_pipe_t p, const char *label, xpc_object_t value)
@@ -54,6 +55,9 @@ main(void)
 	xpc_pipe_t p = xpc_pipe_create_from_port(rcv, 0);
 
 	send_and_dump(rcv, p, "mach_send", xpc_mach_send_create(other));
+	mach_port_t recv_right;
+	mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &recv_right);
+	send_and_dump(rcv, p, "mach_recv", xpc_mach_recv_create(recv_right));
 	xpc_connection_t l = xpc_connection_create(NULL, dispatch_get_main_queue());
 	xpc_connection_set_event_handler(l, ^(xpc_object_t e) { (void)e; });
 	xpc_connection_resume(l);

@@ -19,6 +19,8 @@ _xpc_ports_release_moved(struct xpc_ports *ports)
 	for (size_t i = 0; i < ports->count; i++) {
 		if (ports->desc[i].disposition == MACH_MSG_TYPE_MOVE_SEND) {
 			mach_port_deallocate(mach_task_self(), ports->desc[i].name);
+		} else if (ports->desc[i].disposition == MACH_MSG_TYPE_MOVE_RECEIVE) {
+			mach_port_mod_refs(mach_task_self(), ports->desc[i].name, MACH_PORT_RIGHT_RECEIVE, -1);
 		}
 	}
 }

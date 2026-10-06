@@ -52,6 +52,7 @@ XPC_CLASS(array)
 XPC_CLASS(dictionary)
 XPC_CLASS(error)
 XPC_CLASS(mach_send)
+XPC_CLASS(mach_recv)
 XPC_CLASS(endpoint)
 XPC_CLASS(pipe)
 XPC_CLASS(connection)
@@ -79,6 +80,7 @@ XPC_TYPE_ALIAS(array)
 XPC_TYPE_ALIAS(dictionary)
 XPC_TYPE_ALIAS(error)
 XPC_TYPE_ALIAS(mach_send)
+XPC_TYPE_ALIAS(mach_recv)
 XPC_TYPE_ALIAS(endpoint)
 XPC_TYPE_ALIAS(pipe)
 XPC_TYPE_ALIAS(connection)
@@ -100,6 +102,11 @@ _xpc_object_dispose(xpc_object_t obj)
 		_xpc_array_dispose((struct xpc_array_s *)obj);
 	} else if (type == XPC_TYPE_FD) {
 		close(((struct xpc_fd_s *)obj)->fd);
+	} else if (type == XPC_TYPE_MACH_RECV) {
+		mach_port_t p = ((struct xpc_mach_recv_s *)obj)->port;
+		if (MACH_PORT_VALID(p)) {
+			mach_port_mod_refs(mach_task_self(), p, MACH_PORT_RIGHT_RECEIVE, -1);
+		}
 	} else if (type == XPC_TYPE_MACH_SEND) {
 		mach_port_deallocate(mach_task_self(), ((struct xpc_mach_send_s *)obj)->port);
 	} else if (type == XPC_TYPE_CONNECTION) {
