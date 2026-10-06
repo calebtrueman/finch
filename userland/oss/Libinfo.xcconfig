@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Libinfo includes its own private headers with <angle> brackets, expecting
+// them in /usr/local/include from Apple's installhdrs phase. Search the
+// source subprojects directly instead.
+HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/Libinfo $(SRCROOT)/lookup.subproj $(SRCROOT)/gen.subproj $(SRCROOT)/dns.subproj $(SRCROOT)/membership.subproj $(SRCROOT)/nis.subproj $(SRCROOT)/rpc.subproj $(SRCROOT)/util.subproj
+
+// Apple's build sets the version from RC_ProjectSourceVersion.
+DYLIB_CURRENT_VERSION = 600
+
+// Darwin Directory (libsystem_darwindirectory) is closed source, and on macOS
+// Libinfo only uses it behind a feature flag that defaults off. Finch builds
+// without it: lookups go cache -> files -> directory services -> mDNS.
+GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*] = CONFIG_MAC DS_AVAILABLE SYNTH_ROOTFS DEBUG=0 __DARWIN_NON_CANCELABLE=1 __MigTypeCheck=1 INET6=1
+LIBDARWINDIRECTORY_LDFLAGS[sdk=macos*] =

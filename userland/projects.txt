@@ -16,6 +16,7 @@ libplatform     libplatform-375.100.10
 libutil         libutil-73
 libmd           libmd-7
 CommonCrypto    CommonCrypto-600035
+configd         configd-1405.100.8
 
 # Shells and extras
 bash            bash-144

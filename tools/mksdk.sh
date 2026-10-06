@@ -95,9 +95,18 @@ copy_headers "${SRC}/libplatform/private" "${INC}"
 # dyld: <mach-o/dyld_priv.h>, dyld_introspection.h, ... (public ones lose to the SDK).
 copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
 
+# configd: <dnsinfo.h> (the resolver configuration read by Libinfo's mDNS module).
+[[ -f "${SRC}/configd/dnsinfo/dnsinfo.h" ]] || die "missing configd (run tools/fetch-src.sh configd)"
+cp "${SRC}/configd/dnsinfo/dnsinfo.h" "${INC}/dnsinfo.h"
+
 # libdispatch: <os/object_private.h> etc. and <dispatch/private.h>, <dispatch/mach_private.h>, ...
 copy_headers "${SRC}/libdispatch/os" "${INC}/os" -maxdepth 1
 copy_headers "${SRC}/libdispatch/private" "${INC}/dispatch" -maxdepth 1
+# The SDK's public <dispatch/base.h> defines DISPATCH_ENUM_SPI_AVAILABLE(...)
+# as API_UNAVAILABLE, which can't take the version arguments the private
+# headers pass. To an SPI client these enum values are simply available.
+find "${INC}/dispatch" -name '*_private.h' -exec \
+    sed -i '' 's/DISPATCH_ENUM_SPI_AVAILABLE(/DISPATCH_ENUM_API_AVAILABLE(/g' {} +
 
 # libclosure: <Block.h>, <Block_private.h>.
 cp "${SRC}/libclosure/Block_private.h" "${INC}/"

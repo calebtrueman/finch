@@ -123,3 +123,21 @@ sandbox extensions, and the Apple-account-backed services.
   name and launch the job on demand), ownership policy, per-user domains.
   Next: libsystem_darwin and libsystem_info on Finch libxpc, then service supervision in
   finch-init.
+- **libsystem_info and libsystem_darwin (2026-10-06): built by Finch, on Finch libxpc.**
+  Finch's `xpc/private.h` (`userland/sdk/include`) declares the libxpc SPI these
+  components compile against. Other unpublished headers are reconstructed from first-hand
+  sources:
+  - `opendirectory/odipc.h`: OD service names and RPC keys, taken from `launchctl` and the
+    strings in macOS 26.4's libsystem_info.
+  - `bootstrap_priv.h`: flags from launchd-842.
+  - `dns_sd_private.h`: one symbol that libsystem_dnssd exports.
+  - `dnsinfo.h`: copied from configd-1405.100.8, now pinned.
+  - `os/transaction_private.h`.
+
+  Libinfo builds without the closed Darwin Directory module. libdarwin's dead APFS
+  fast path is compiled out (`userland/patches/Libc/0002`). Exports match Apple's: 431/431
+  for libsystem_info and 75/75 for libsystem_darwin. In the VM, `id` and `whoami`
+  resolve through Finch's libsystem_info using /etc files.
+  Measured: a fresh process takes about 2 s to start in the emulator, because there's
+  no dyld shared cache and each process maps about 170 dylibs one by one. A Finch shared
+  cache is worth doing before services start launching on demand.

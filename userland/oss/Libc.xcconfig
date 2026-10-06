@@ -13,5 +13,8 @@ CR_LDFLAGS =
 VARIANT_CANCELABLE_MACROS = -DVARIANT_CANCELABLE -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0
 VARIANT_DARWINEXTSN_CANCELABLE_MACROS = -DVARIANT_CANCELABLE -DVARIANT_DARWINEXTSN -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0
 
-// Apple's build sets the version from RC_ProjectSourceVersion.
-OTHER_LDFLAGS = $(inherited) -Wl,-current_version,1752.100.10
+// Apple's build sets the version from RC_ProjectSourceVersion. Only
+// libsystem_c carries it; libsystem_darwin ships unversioned (1), and TAPI
+// verification checks the product against that.
+FINCH_VERSION_LDFLAGS_c = -Wl,-current_version,1752.100.10
+OTHER_LDFLAGS = $(inherited) $(FINCH_VERSION_LDFLAGS_$(PRODUCT_NAME))

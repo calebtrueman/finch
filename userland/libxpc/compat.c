@@ -1098,3 +1098,31 @@ _availability_version_check(uint32_t count, finch_build_version_t versions[])
 	}
 	return true;   /* no constraint for this platform */
 }
+
+#pragma mark - User sessions (FINCH-NOT-YET: one session)
+
+bool xpc_user_sessions_enabled(void);
+uid_t xpc_user_sessions_get_foreground_uid(int *error);
+uid_t xpc_user_sessions_get_session_uid(void);
+typedef struct xpc_pipe_s *xpc_pipe_t;
+xpc_pipe_t xpc_pipe_create(const char *name, uint64_t flags);
+xpc_pipe_t xpc_pipe_create_with_user_session_uid(const char *name, uid_t uid, uint64_t flags);
+
+bool xpc_user_sessions_enabled(void) { return false; }
+
+uid_t
+xpc_user_sessions_get_foreground_uid(int *error)
+{
+	if (error) *error = ENOTSUP;
+	return (uid_t)-1;
+}
+
+uid_t xpc_user_sessions_get_session_uid(void) { return 0; }
+
+/* One session: the per-user namespace is the global one. */
+xpc_pipe_t
+xpc_pipe_create_with_user_session_uid(const char *name, uid_t uid, uint64_t flags)
+{
+	(void)uid;
+	return xpc_pipe_create(name, flags);
+}

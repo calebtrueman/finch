@@ -28,6 +28,7 @@ extern char **environ;
 static int
 serve(void)
 {
+	fprintf(stderr, "server %d: starting (bootstrap port 0x%x)\n", getpid(), bootstrap_port);
 	xpc_connection_t l = xpc_connection_create_mach_service(SERVICE, NULL,
 	    XPC_CONNECTION_MACH_SERVICE_LISTENER);
 
@@ -44,6 +45,7 @@ serve(void)
 		xpc_connection_resume(peer);
 	});
 	xpc_connection_resume(l);
+	fprintf(stderr, "server %d: listening\n", getpid());
 	dispatch_main();
 }
 
@@ -68,10 +70,16 @@ main(int argc, char **argv)
 		printf("FAILED: spawn\n");
 		return 1;
 	}
-	for (int i = 0; i < 100 && bootstrap_look_up(bootstrap_port, SERVICE, &sp) != BOOTSTRAP_SUCCESS; i++) {
+	int waited_ms = 0;
+	for (; waited_ms < 30000 && bootstrap_look_up(bootstrap_port, SERVICE, &sp) != BOOTSTRAP_SUCCESS; waited_ms += 50) {
 		usleep(50000);
 	}
-	printf("service registered by pid %d: %s\n", child, MACH_PORT_VALID(sp) ? "yes" : "NO");
+	printf("service registered by pid %d: %s (after %d ms)\n", child, MACH_PORT_VALID(sp) ? "yes" : "NO", waited_ms);
+	if (!MACH_PORT_VALID(sp)) {
+		pid_t w = waitpid(child, &status, WNOHANG);
+		printf("server pid %d: %s (status 0x%x)\n", child,
+		    w == child ? "exited" : w == 0 ? "still running" : "unknown", w == child ? status : 0);
+	}
 	failures += !MACH_PORT_VALID(sp);
 
 	xpc_connection_t c = xpc_connection_create_mach_service(SERVICE, NULL, 0);

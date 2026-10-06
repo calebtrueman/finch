@@ -111,6 +111,10 @@ finch_xcconfig="${obj}/finch.xcconfig"
     [[ -f "${FINCH_ROOT}/userland/oss/${project}.xcconfig" ]] \
         && echo "#include \"${FINCH_ROOT}/userland/oss/${project}.xcconfig\""
     echo "OTHER_CFLAGS = \$(inherited) -Wno-error ${cflags_private} -idirafter ${SDK}/include -F${SDK}/Frameworks"
+    # TAPI re-parses the installed headers to build .tbd files; it needs the
+    # same header order as the compiler, or private availability macros fail.
+    [[ -n "${cflags_private}" ]] \
+        && echo "OTHER_TAPI_FLAGS = \$(inherited) ${private_first} -idirafter ${SDK}/include -F${SDK}/Frameworks"
 } > "${finch_xcconfig}"
 
 xcodebuild install "${targets[@]}" -project "${xcodeproj}" -xcconfig "${finch_xcconfig}" \

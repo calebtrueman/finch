@@ -30,8 +30,8 @@ pieces can be replaced one at a time.
 | libsystem_pthread | libpthread-539.100.4 | **Built by Finch** (+2 unpublished exports; Finch JIT/SPRR header) |
 | libsystem_malloc | libmalloc-812.100.31 | **Built by Finch** (no longer links libcorecrypto) |
 | libsystem_c | Libc-1752.100.10 | **Built by Finch** (no longer links libcorecrypto) |
-| libsystem_darwin | Libc-1752.100.10 (libdarwin) | OPEN |
-| libsystem_info | Libinfo-600 | OPEN |
+| libsystem_darwin | Libc-1752.100.10 (libdarwin) | **Built by Finch** (APFS dir-stats fast path compiled out; it was already unused) |
+| libsystem_info | Libinfo-600 | **Built by Finch** (without the closed Darwin Directory module, which is feature-flagged off on macOS) |
 | libsystem_notify | Libnotify-348.100.7 | OPEN |
 | libsystem_blocks | libclosure-96 | **Built by Finch** |
 | libdispatch | libdispatch-1542.100.32 | **Built by Finch** (build config reconstructed) |
@@ -49,7 +49,7 @@ pieces can be replaced one at a time.
 | libsystem_m | Libm | STALE: use FreeBSD msun or LLVM libc |
 | libcorecrypto | corecrypto (source-viewable, non-OSS license) | CLOSED |
 | libsystem_trace | os_log / os_activity | CLOSED |
-| libxpc, liblaunch | XPC / launchd | CLOSED |
+| libxpc, liblaunch | XPC / launchd | CLOSED: **replaced by Finch libxpc** (`userland/libxpc`, ABI-compatible; bootstrap served by finch-init) |
 | libquarantine | Quarantine | CLOSED |
 | libsystem_sandbox, libsystem_secinit | Sandbox | CLOSED |
 | libsystem_containermanager | Containers | CLOSED |
