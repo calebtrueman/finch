@@ -30,7 +30,11 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         run under finch-init (`tools/build-oss.sh`, 2026-10-06)
   - [ ] bash / zsh, bc, and the deferred tools (see `userland/INVENTORY.md`)
   - [ ] Finch `reboot` / `halt` / `shutdown` (Apple's need closed launchd SPI)
-  - [ ] Root-owned files in the image; grow the ramdisk (96% full)
+  - [x] Ramdisk grown to 600 MiB without sudo (raw APFS resize); writable tmpfs for /tmp
+        and /var/{tmp,run,log,root}
+  - [ ] Root-owned files in dev images (they arrive as uid 99; the root fs can't be
+        remounted read-write). Build release images with root.
+  - [ ] Writable /var/db (System Policy denies tmpfs there)
 - [ ] **1.3 Open libSystem from source.** Swap dylibs one at a time, starting with
       libsystem_kernel from our own xnu build.
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,

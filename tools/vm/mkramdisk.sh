@@ -20,12 +20,18 @@ ROOT="${FINCH_ROOT}/build/root"
 
 mkdir -p "${OUT}"
 cp "${FW}/ramdisk.dmg" "${OUT}/ramdisk.dmg"
-# Note: the base image is raw APFS (no partition map), which hdiutil can't
-# resize; it has ~23 MB free. Growing it is a TODO once the overlay outgrows that.
+# Grow the image. It's raw APFS with no partition map, which `hdiutil resize`
+# rejects, so extend the file and let APFS grow its container into the new
+# space (no sudo needed for a user-attached image).
+truncate -s "${RAMDISK_SIZE:-600m}" "${OUT}/ramdisk.dmg"
+dev=$(hdiutil attach -nomount -imagekey diskimage-class=CRawDiskImage "${OUT}/ramdisk.dmg" | awk 'NR==1{print $1}')
+diskutil apfs resizeContainer "${dev}" 0 >/dev/null || die "APFS resize failed"
+hdiutil detach "${dev}" >/dev/null
 cp "${FW}/all_hashes" "${OUT}/all_hashes"
 
 mnt="$(mktemp -d)"
-hdiutil attach -owners off -nobrowse -mountpoint "${mnt}" "${OUT}/ramdisk.dmg" >/dev/null
+hdiutil attach -owners off -nobrowse -mountpoint "${mnt}" \
+    -imagekey diskimage-class=CRawDiskImage "${OUT}/ramdisk.dmg" >/dev/null
 trap 'hdiutil detach "${mnt}" >/dev/null; rmdir "${mnt}"' EXIT
 
 # cdhash of every Mach-O slice in a file, for the trust cache.
@@ -36,6 +42,9 @@ add_hashes() {
     done >> "${OUT}/all_hashes"
 }
 is_macho() { file -b "$1" | grep -q '^Mach-O'; }
+
+# 0. Mount points for the tmpfs the boot script lays over the read-only root.
+mkdir -p "${mnt}/private/tmp" "${mnt}"/private/var/{tmp,run,log,root}
 
 # 1. Apple OSS staging tree.
 if [[ -d "${ROOT}" ]]; then
@@ -71,4 +80,4 @@ fi
 
 sort -u -o "${OUT}/all_hashes" "${OUT}/all_hashes"
 python3 "${FINCH_ROOT}/third_party/darwin-vm/build_tc.py" "${OUT}/all_hashes" "${OUT}/ramdisk.tc"
-echo "built ${OUT}/ramdisk.dmg ($(wc -l < "${OUT}/all_hashes" | tr -d ' ') trusted hashes)"
+echo "built ${OUT}/ramdisk.dmg ($(df -h "${mnt}" | awk 'NR==2{print $4}') free, $(wc -l < "${OUT}/all_hashes" | tr -d ' ') trusted hashes)"

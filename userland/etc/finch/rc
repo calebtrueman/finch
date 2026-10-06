@@ -2,4 +2,16 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Finch boot script, run once by finch-init before the console shell starts.
 
+# The VM's root is a read-only APFS ramdisk (APFS refuses to remount it
+# read-write). As in macOS recovery, the writable directories get tmpfs. The
+# kernel's System Policy refuses mounts over /private/var itself and over
+# /private/var/db, so each other writable /var subdirectory gets its own. Mount points are created at image
+# build time (tools/vm/mkramdisk.sh).
+for dir in /private/tmp /private/var/tmp /private/var/run /private/var/log \
+           /private/var/root; do
+    mount_tmpfs "$dir" || echo "rc: warning: tmpfs on $dir failed"
+done
+chmod 1777 /private/tmp /private/var/tmp
+chmod 750 /private/var/root
+
 echo "rc: Finch userland coming up"
