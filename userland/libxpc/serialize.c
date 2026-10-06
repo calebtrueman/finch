@@ -18,9 +18,11 @@
  *   dictionary 0xf000 u32 body length, u32 count, (key NUL-terminated pad 4, object)*
  *
  * All integers are little-endian; everything is 4-byte aligned. Body lengths
- * count the bytes after the length field. Port-carrying types (fd, mach
- * send/receive, endpoint, shmem) travel as Mach descriptors and arrive with
- * the transport (step X3).
+ * count the bytes after the length field. Port-carrying types have only their
+ * type word in the payload; the right travels as the next Mach port
+ * descriptor of the message (docs/design/XPC-protocol.md):
+ *   fd 0xb000 (fileport), mach send 0xd000, endpoint 0x12000.
+ * Messages use magic "CPX@" instead of the standalone serialization's.
  *
  * The decoder parses data from other processes: every read is bounds-checked
  * and nesting depth is limited.
@@ -28,6 +30,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/fileport.h>
+#include <unistd.h>
 
 #include "internal.h"
 
@@ -45,6 +49,9 @@ enum {
 	XPC_WIRE_DATA       = 0x8000,
 	XPC_WIRE_STRING     = 0x9000,
 	XPC_WIRE_UUID       = 0xa000,
+	XPC_WIRE_FD         = 0xb000,
+	XPC_WIRE_MACH_SEND  = 0xd000,
+	XPC_WIRE_ENDPOINT   = 0x12000,
 	XPC_WIRE_ARRAY      = 0xe000,
 	XPC_WIRE_DICTIONARY = 0xf000,
 };
@@ -61,7 +68,30 @@ struct wbuf {
 	uint8_t *p;
 	size_t len, cap;
 	bool failed;
+	struct xpc_ports *ports;    /* NULL: port-carrying values are an error */
 };
+
+/* Queue a port descriptor; the message moves or copies the right. */
+static bool
+w_port(struct wbuf *w, mach_port_t port, mach_msg_type_name_t disposition)
+{
+	struct xpc_ports *pp = w->ports;
+
+	if (pp == NULL || !MACH_PORT_VALID(port)) {
+		return false;
+	}
+	if (pp->count == pp->cap) {
+		pp->cap = pp->cap ? pp->cap * 2 : 4;
+		pp->desc = reallocf(pp->desc, pp->cap * sizeof(*pp->desc));
+		if (pp->desc == NULL) {
+			abort();
+		}
+	}
+	pp->desc[pp->count++] = (mach_msg_port_descriptor_t){
+		.name = port, .disposition = disposition, .type = MACH_MSG_PORT_DESCRIPTOR,
+	};
+	return true;
+}
 
 static void
 w_reserve(struct wbuf *w, size_t n)
@@ -174,21 +204,43 @@ encode(struct wbuf *w, xpc_object_t o)
 			return true;
 		});
 		w_len_fill(w, slot);
+	} else if (t == XPC_TYPE_FD) {
+		fileport_t fp = MACH_PORT_NULL;
+		/* A fileport carries the open file; the send right moves with the message. */
+		if (fileport_makeport(((struct xpc_fd_s *)o)->fd, &fp) != 0 ||
+		    !w_port(w, fp, MACH_MSG_TYPE_MOVE_SEND)) {
+			if (MACH_PORT_VALID(fp)) mach_port_deallocate(mach_task_self(), fp);
+			w->failed = true;
+			return;
+		}
+		w_u32(w, XPC_WIRE_FD);
+	} else if (t == XPC_TYPE_MACH_SEND) {
+		if (!w_port(w, ((struct xpc_mach_send_s *)o)->port, MACH_MSG_TYPE_COPY_SEND)) {
+			w->failed = true;
+			return;
+		}
+		w_u32(w, XPC_WIRE_MACH_SEND);
+	} else if (t == XPC_TYPE_ENDPOINT) {
+		if (!w_port(w, ((struct xpc_endpoint_s *)o)->port, MACH_MSG_TYPE_COPY_SEND)) {
+			w->failed = true;
+			return;
+		}
+		w_u32(w, XPC_WIRE_ENDPOINT);
 	} else {
-		/* fds, ports, errors, connections: not representable inline. */
+		/* errors, connections: not representable on the wire. */
 		w->failed = true;
 	}
 }
 
-void *
-xpc_make_serialization(xpc_object_t object, size_t *length)
+static void *
+_xpc_serialize(xpc_object_t object, size_t *length, uint32_t magic, struct xpc_ports *ports)
 {
-	struct wbuf w = { NULL, 0, 0, false };
+	struct wbuf w = { NULL, 0, 0, false, ports };
 
 	if (xpc_get_type(object) != XPC_TYPE_DICTIONARY) {
 		return NULL;   /* the top level of a message is a dictionary */
 	}
-	w_u32(&w, XPC_SERIAL_MAGIC);
+	w_u32(&w, magic);
 	w_u32(&w, XPC_SERIAL_VERSION);
 	encode(&w, object);
 	if (w.failed) {
@@ -201,12 +253,40 @@ xpc_make_serialization(xpc_object_t object, size_t *length)
 	return w.p;
 }
 
+void *
+xpc_make_serialization(xpc_object_t object, size_t *length)
+{
+	return _xpc_serialize(object, length, XPC_SERIAL_MAGIC, NULL);
+}
+
+void *
+_xpc_serialize_message(xpc_object_t dict, size_t *length, struct xpc_ports *ports)
+{
+	return _xpc_serialize(dict, length, XPC_MESSAGE_MAGIC, ports);
+}
+
 #pragma mark - Decoder
 
 struct rbuf {
 	const uint8_t *p;
 	size_t len, off;
+	struct xpc_ports *ports;    /* received descriptors; NULL if none */
 };
+
+/* Take the next received port (ownership moves to the caller). */
+static mach_port_t
+r_port(struct rbuf *r)
+{
+	struct xpc_ports *pp = r->ports;
+	mach_port_t port;
+
+	if (pp == NULL || pp->next >= pp->count) {
+		return MACH_PORT_NULL;
+	}
+	port = pp->desc[pp->next].name;
+	pp->desc[pp->next++].name = MACH_PORT_NULL;
+	return port;
+}
 
 static bool
 r_take(struct rbuf *r, void *out, size_t n)
@@ -254,6 +334,7 @@ r_sub(struct rbuf *r, struct rbuf *sub)
 	sub->p = r->p + r->off;
 	sub->len = body;
 	sub->off = 0;
+	sub->ports = r->ports;
 	r->off += body;
 	return true;
 }
@@ -343,20 +424,34 @@ decode(struct rbuf *r, int depth)
 		}
 		return d;
 	}
+	case XPC_WIRE_FD: {
+		mach_port_t fp = r_port(r);
+		int fd = MACH_PORT_VALID(fp) ? fileport_makefd(fp) : -1;
+		if (MACH_PORT_VALID(fp)) mach_port_deallocate(mach_task_self(), fp);
+		return fd >= 0 ? _xpc_fd_adopt(fd) : NULL;
+	}
+	case XPC_WIRE_MACH_SEND: {
+		mach_port_t port = r_port(r);
+		return MACH_PORT_VALID(port) ? _xpc_mach_send_adopt(port) : NULL;
+	}
+	case XPC_WIRE_ENDPOINT: {
+		mach_port_t port = r_port(r);
+		return MACH_PORT_VALID(port) ? _xpc_endpoint_adopt(port) : NULL;
+	}
 	default:
-		return NULL;   /* unknown or port-carrying type (X3) */
+		return NULL;   /* unknown type */
 	}
 }
 
-xpc_object_t
-xpc_create_from_serialization(const void *data, size_t length)
+static xpc_object_t
+_xpc_deserialize(const void *data, size_t length, uint32_t want_magic, struct xpc_ports *ports)
 {
-	struct rbuf r = { data, length, 0 };
+	struct rbuf r = { data, length, 0, ports };
 	uint32_t magic, version;
 	xpc_object_t o;
 
 	if (data == NULL || !r_u32(&r, &magic) || !r_u32(&r, &version) ||
-	    magic != XPC_SERIAL_MAGIC || version != XPC_SERIAL_VERSION) {
+	    magic != want_magic || version != XPC_SERIAL_VERSION) {
 		return NULL;
 	}
 	o = decode(&r, 0);
@@ -365,4 +460,16 @@ xpc_create_from_serialization(const void *data, size_t length)
 		return NULL;
 	}
 	return o;
+}
+
+xpc_object_t
+xpc_create_from_serialization(const void *data, size_t length)
+{
+	return _xpc_deserialize(data, length, XPC_SERIAL_MAGIC, NULL);
+}
+
+xpc_object_t
+_xpc_deserialize_message(const void *data, size_t length, struct xpc_ports *ports)
+{
+	return _xpc_deserialize(data, length, XPC_MESSAGE_MAGIC, ports);
 }

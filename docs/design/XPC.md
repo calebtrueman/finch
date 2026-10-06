@@ -73,3 +73,11 @@ sandbox extensions, and the Apple-account-backed services.
   them in hash order, so those are compared by meaning, not bytes. The decoder is fuzzed
   (every truncation plus 5,000 random corruptions per sample) and is clean under
   `make asan`. Port-carrying types (fd, Mach rights, endpoints, shmem) come with X3.
+- **X3a (2026-10-06):** Mach transport for messages (`message.c`), port-carrying
+  values (fd as fileport, Mach send rights, endpoints), and `xpc_pipe`
+  (`pipe.c`: create_from_port, simpleroutine, routine, receive, routine_reply), plus
+  `xpc_dictionary_create_reply`. `tests/interop-test.c` runs Finch's and Apple's libxpc
+  in one process and exchanges real Mach messages both ways, with fds crossing in each
+  direction (9/9, also under ASan). Gotcha: Apple's `xpc_pipe_receive` returns `EAGAIN`
+  when its wait is interrupted, and callers retry.
+  Next: X3b, connections (w00t handshake, listeners, peers, async/sync replies).

@@ -19,8 +19,13 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <limits.h>
+#include <mach/mach.h>
 #include <uuid/uuid.h>
 #include <xpc/xpc.h>
+
+/* Types without a public XPC_TYPE_* macro (declared by Finch's xpc/private.h). */
+extern const struct _xpc_type_s _xpc_type_mach_send;
+#define XPC_TYPE_MACH_SEND (&_xpc_type_mach_send)
 
 #define XPC_INTERNAL __attribute__((visibility("hidden")))
 
@@ -77,6 +82,17 @@ struct xpc_fd_s {
 	int fd;                     /* owned; closed on dispose */
 };
 
+struct xpc_mach_send_s {
+	XPC_OBJECT_HEADER;
+	mach_port_t port;           /* owned send right */
+};
+
+/* An endpoint names a listener: it holds a send right to the listener port. */
+struct xpc_endpoint_s {
+	XPC_OBJECT_HEADER;
+	mach_port_t port;           /* owned send right */
+};
+
 struct xpc_null_s {
 	XPC_OBJECT_HEADER;
 };
@@ -124,7 +140,44 @@ struct _xpc_dictionary_s {
 	struct xpc_dict_entry_s *entries;
 	uint32_t *index;            /* index_size slots: entry position + 1, 0 = empty */
 	size_t index_size;
+	/* Message context: a received request's reply right (send-once), or, on a
+	 * reply created with xpc_dictionary_create_reply, the right to answer on. */
+	mach_port_t reply_port;
+	uint32_t reply_msgid;       /* message id to answer with */
 };
+
+/*
+ * Port descriptors carried alongside a serialized message (fds, Mach rights,
+ * endpoints). Encoding appends; decoding consumes in order and sets consumed
+ * entries to MACH_PORT_NULL so the caller can release what's left.
+ */
+struct xpc_ports {
+	mach_msg_port_descriptor_t *desc;
+	size_t count, cap, next;
+};
+XPC_INTERNAL void _xpc_ports_free(struct xpc_ports *ports);
+
+/* serialize.c: message payload with CPX@ magic (ports may be NULL). */
+#define XPC_MESSAGE_MAGIC 0x40585043u   /* "CPX@" */
+XPC_INTERNAL void *_xpc_serialize_message(xpc_object_t dict, size_t *length, struct xpc_ports *ports);
+XPC_INTERNAL xpc_object_t _xpc_deserialize_message(const void *data, size_t length, struct xpc_ports *ports);
+
+/* Adopting constructors (take ownership; no dup / extra right). */
+XPC_INTERNAL xpc_object_t _xpc_fd_adopt(int fd);
+XPC_INTERNAL xpc_object_t _xpc_mach_send_adopt(mach_port_t port);
+XPC_INTERNAL xpc_object_t _xpc_endpoint_adopt(mach_port_t port);
+
+/* message.c: Mach transport for XPC messages (docs/design/XPC-protocol.md) */
+#define XPC_MSGID_MESSAGE     0x10000000u
+#define XPC_MSGID_REPLY       0x20000000u
+#define XPC_MSGID_PIPE_ROUTINE 0x40000000u
+#define XPC_MSGID_HANDSHAKE   0x77303074u   /* 'w00t' */
+XPC_INTERNAL kern_return_t _xpc_message_send(mach_port_t dest, mach_msg_type_name_t dest_disp,
+    xpc_object_t dict, uint32_t msgid, mach_port_t reply, mach_msg_type_name_t reply_disp,
+    mach_msg_option_t options, mach_msg_timeout_t timeout);
+XPC_INTERNAL kern_return_t _xpc_message_receive(mach_port_t port, mach_msg_option_t options,
+    mach_msg_timeout_t timeout, mach_msg_header_t **out);
+XPC_INTERNAL xpc_object_t _xpc_message_decode(mach_msg_header_t *msg);
 
 /* object.m */
 XPC_INTERNAL xpc_object_t _xpc_object_alloc(xpc_type_t type, size_t size);

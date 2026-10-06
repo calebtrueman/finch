@@ -130,6 +130,8 @@ xpc_dictionary_create(const char *const *keys, xpc_object_t const *values, size_
 	d->count = d->used = d->capacity = d->index_size = 0;
 	d->entries = NULL;
 	d->index = NULL;
+	d->reply_port = MACH_PORT_NULL;
+	d->reply_msgid = 0;
 	for (size_t i = 0; i < count; i++) {
 		xpc_dictionary_set_value(d, keys[i], values[i]);
 	}
@@ -153,6 +155,10 @@ _xpc_dictionary_dispose(struct _xpc_dictionary_s *d)
 	}
 	free(d->entries);
 	free(d->index);
+	if (MACH_PORT_VALID(d->reply_port)) {
+		/* An unanswered request: dropping the send-once right tells the sender. */
+		mach_port_deallocate(mach_task_self(), d->reply_port);
+	}
 }
 
 size_t
@@ -312,4 +318,29 @@ xpc_dictionary_get_array(xpc_object_t d, const char *k)
 {
 	xpc_object_t v = xpc_dictionary_get_value(d, k);
 	return v && xpc_get_type(v) == XPC_TYPE_ARRAY ? v : NULL;
+}
+
+#pragma mark - Replies
+
+xpc_object_t
+xpc_dictionary_create_reply(xpc_object_t original)
+{
+	struct _xpc_dictionary_s *req = _xpc_dict(original), *reply;
+
+	if (req == NULL || !MACH_PORT_VALID(req->reply_port)) {
+		return NULL;   /* not a request expecting a reply (or already answered) */
+	}
+	reply = xpc_dictionary_create(NULL, NULL, 0);
+	/* The reply takes over the request's send-once right. */
+	reply->reply_port = req->reply_port;
+	reply->reply_msgid = XPC_MSGID_REPLY;
+	req->reply_port = MACH_PORT_NULL;
+	return reply;
+}
+
+bool
+xpc_dictionary_expects_reply(xpc_object_t xdict)
+{
+	struct _xpc_dictionary_s *d = _xpc_dict(xdict);
+	return d != NULL && MACH_PORT_VALID(d->reply_port) && d->reply_msgid == 0;
 }

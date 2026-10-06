@@ -14,6 +14,9 @@
 
 #include "internal.h"
 
+extern const struct _xpc_type_s _xpc_type_pipe;
+void _xpc_pipe_dispose(xpc_object_t obj);
+
 @interface OS_xpc_object : OS_object <OS_xpc_object>
 @end
 
@@ -47,6 +50,9 @@ XPC_CLASS(fd)
 XPC_CLASS(array)
 XPC_CLASS(dictionary)
 XPC_CLASS(error)
+XPC_CLASS(mach_send)
+XPC_CLASS(endpoint)
+XPC_CLASS(pipe)
 
 /*
  * The exported type symbols are the classes themselves (as in Apple's
@@ -70,6 +76,9 @@ XPC_TYPE_ALIAS(fd)
 XPC_TYPE_ALIAS(array)
 XPC_TYPE_ALIAS(dictionary)
 XPC_TYPE_ALIAS(error)
+XPC_TYPE_ALIAS(mach_send)
+XPC_TYPE_ALIAS(endpoint)
+XPC_TYPE_ALIAS(pipe)
 
 xpc_object_t
 _xpc_object_alloc(xpc_type_t type, size_t size)
@@ -88,6 +97,12 @@ _xpc_object_dispose(xpc_object_t obj)
 		_xpc_array_dispose((struct xpc_array_s *)obj);
 	} else if (type == XPC_TYPE_FD) {
 		close(((struct xpc_fd_s *)obj)->fd);
+	} else if (type == XPC_TYPE_MACH_SEND) {
+		mach_port_deallocate(mach_task_self(), ((struct xpc_mach_send_s *)obj)->port);
+	} else if (type == (xpc_type_t)&_xpc_type_pipe) {
+		_xpc_pipe_dispose(obj);
+	} else if (type == XPC_TYPE_ENDPOINT) {
+		mach_port_deallocate(mach_task_self(), ((struct xpc_endpoint_s *)obj)->port);
 	}
 	/* Strings and data keep their bytes inline; scalars own nothing. */
 }
