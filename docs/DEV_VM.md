@@ -65,7 +65,7 @@ before building QEMU:
 
 - 0001: clear FEAT_LVA (`ID_AA64MMFR2_EL1.VARange`). Apple Silicon doesn't have it, and
   DEVELOPMENT kernels assert on it (`vm_sanitize.c`). This bug panicked the first
-  `ps` run under finch-init.
+  `ps` run under finch-init. Reported upstream: https://github.com/jprx/darwin-vm/issues/14
 
 ## Booting the Finch kernel
 
