@@ -57,6 +57,20 @@ FINCH_INIT=1 expect tools/vm/smoke.exp
 `tools/vm/run.sh` uses `build/vm/ramdisk.dmg` when it exists. Otherwise it uses darwin-vm's
 base ramdisk.
 
+## Apple open-source commands
+
+```sh
+tools/fetch-src.sh                       # clone projects pinned in userland/projects.txt
+tools/mksdk.sh                           # private-header overlay -> build/sdk
+tools/build-oss.sh file_cmds executables # xcodebuild -> build/root (signed)
+tools/build-oss.sh shell_cmds All_OSX
+tools/build-oss.sh text_cmds executables
+tools/build-oss.sh adv_cmds Desktop
+tools/build-oss.sh system_cmds All_MacOSX
+tools/vm/mkramdisk.sh                    # overlays build/root, trusts every Mach-O, checks dylib deps
+FINCH_INIT=1 expect tools/vm/smoke.exp "ls -la /bin" "df -h /"
+```
+
 ## QEMU patches
 
 Finch carries patches against `qemu-sptm` in `third_party/patches/qemu-sptm/`. Apply them

@@ -1,0 +1,18 @@
+# Apple open-source projects Finch builds, pinned to the macOS 26.4 release
+# (https://github.com/apple-oss-distributions/distribution-macOS, branch macos-264).
+# <project> <tag>
+
+# Commands
+file_cmds       file_cmds-479
+shell_cmds      shell_cmds-329
+text_cmds       text_cmds-199
+system_cmds     system_cmds-1042.100.6.0.1
+adv_cmds        adv_cmds-237
+
+# Header sources for the private SDK overlay (tools/mksdk.sh)
+Libc            Libc-1752.100.10
+Libinfo         Libinfo-600
+libplatform     libplatform-375.100.10
+libutil         libutil-73
+libmd           libmd-7
+CommonCrypto    CommonCrypto-600035

@@ -3,6 +3,8 @@
 # Boot the emulated M4, run a few commands in the console shell, quit.
 #   expect tools/vm/smoke.exp            # stock launchd as PID 1
 #   FINCH_INIT=1 expect tools/vm/smoke.exp   # finch-init as PID 1
+#   expect tools/vm/smoke.exp "cmd1" "cmd2"   # run these instead of the defaults
+# Exits 3 if any command output mentions dyld (a missing library or symbol).
 set timeout 300
 log_user 1
 set root [file normalize [file dirname [info script]]/../..]
@@ -14,13 +16,18 @@ expect {
   "panic" { puts "\n### PANIC"; exit 2 }
   timeout { puts "\n### TIMEOUT waiting for shell"; exit 1 }
 }
-foreach cmd {
-  "uname -a"
-  "sysctl hw.model kern.osversion"
-  "ps -axo pid,ppid,comm"
-} {
+set cmds $argv
+if {[llength $cmds] == 0} {
+  set cmds {"uname -a" "sysctl hw.model kern.osversion" "ps -axo pid,ppid,comm"}
+}
+set dyld_errors 0
+foreach cmd $cmds {
   send "$cmd\r"
-  expect -re $prompt
+  expect {
+    -re "dyld\\\[\\d+\\\]|dyld: " { incr dyld_errors; exp_continue }
+    -re $prompt {}
+  }
 }
 send "\x01x"
 expect eof
+if {$dyld_errors > 0} { puts "\n### $dyld_errors dyld error(s)"; exit 3 }

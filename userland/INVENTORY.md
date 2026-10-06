@@ -70,5 +70,21 @@ pieces can be replaced one at a time.
 | Item | Source | Status |
 |---|---|---|
 | `/usr/lib/dyld` | dyld-1376.6 | OPEN |
-| `bash`, `ls`, `cat`, and other `/bin` and `/sbin` tools from darwin-vm's sysroot | Prebuilt by darwin-vm ([ios-cli-tools](https://github.com/jprx/ios-cli-tools)) | Rebuild from shell_cmds / file_cmds / text_cmds / bash / zsh / system_cmds |
+| `bash`, `sh` | Prebuilt by darwin-vm ([ios-cli-tools](https://github.com/jprx/ios-cli-tools)) | Next: rebuild from bash-144 / zsh-118 |
+| file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds | Apple OSS (`userland/projects.txt`) | **Built by Finch**: 188 binaries via `tools/build-oss.sh` |
 | `mount_*`, `fsck_*`, `newfs_*` (from the restore ramdisk) | diskdev_cmds / hfs; APFS tools are closed | Mixed |
+
+## Deferred commands (don't build yet)
+
+| Tool | Project | Blocker |
+|---|---|---|
+| mtree | file_cmds | APFS private headers (APFS is closed) |
+| install | file_cmds | macOS libmd lacks the incremental SHA-512 API |
+| ipcs | file_cmds | needs xnu kernel-private types |
+| nohup, shutdown | shell_cmds, system_cmds | `vproc_priv.h` (closed launchd SPI) |
+| reboot | system_cmds | kextmanager MIG (kext_tools) |
+| su, login, passwd, chpass | shell_cmds, system_cmds | `rootless.h` and other private SPI; wait for the Finch security model |
+| md5 | text_cmds | sha224.h and the libmd incremental API |
+| pkill | adv_cmds | `sysmon.h` (closed) |
+| gencat | adv_cmds | `msgcat.h` |
+| latency, sc_usage, lskq, gcore, zprint, nvram, … | system_cmds | kernel-private tracing / zone / kqueue interfaces |

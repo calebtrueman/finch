@@ -26,6 +26,11 @@ Apple's is closed. Developed in the emulated M4 first. The map is
       (2026-10-06).
 - [ ] **1.2 Commands from source.** Build shell_cmds, file_cmds, text_cmds, system_cmds and
       bash/zsh ourselves, replacing darwin-vm's prebuilt sysroot.
+  - [x] file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds: 188 binaries build and
+        run under finch-init (`tools/build-oss.sh`, 2026-10-06)
+  - [ ] bash / zsh, bc, and the deferred tools (see `userland/INVENTORY.md`)
+  - [ ] Finch `reboot` / `halt` / `shutdown` (Apple's need closed launchd SPI)
+  - [ ] Root-owned files in the image; grow the ramdisk (96% full)
 - [ ] **1.3 Open libSystem from source.** Swap dylibs one at a time, starting with
       libsystem_kernel from our own xnu build.
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
