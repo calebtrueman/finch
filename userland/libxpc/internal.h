@@ -144,6 +144,7 @@ struct _xpc_dictionary_s {
 	 * reply created with xpc_dictionary_create_reply, the right to answer on. */
 	mach_port_t reply_port;
 	uint32_t reply_msgid;       /* message id to answer with */
+	xpc_object_t connection;    /* received messages: the connection (retained) */
 };
 
 /*
@@ -178,6 +179,9 @@ XPC_INTERNAL kern_return_t _xpc_message_send(mach_port_t dest, mach_msg_type_nam
 XPC_INTERNAL kern_return_t _xpc_message_receive(mach_port_t port, mach_msg_option_t options,
     mach_msg_timeout_t timeout, mach_msg_header_t **out);
 XPC_INTERNAL xpc_object_t _xpc_message_decode(mach_msg_header_t *msg);
+
+/* ports.c: Apple-named private API used internally too */
+mach_port_t xpc_endpoint_copy_listener_port_4sim(xpc_object_t endpoint);
 
 /* object.m */
 XPC_INTERNAL xpc_object_t _xpc_object_alloc(xpc_type_t type, size_t size);

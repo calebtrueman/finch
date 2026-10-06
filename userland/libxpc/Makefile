@@ -12,7 +12,7 @@ SDK     := $(ROOT)/build/sdk
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 CC      := xcrun -sdk macosx clang
 
-SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c
+SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c connection.c bootstrap.c
 HDRS    := internal.h
 
 COMMON  := -mmacosx-version-min=26.0 -O2 -g -fblocks -fno-objc-arc \
@@ -58,10 +58,16 @@ $(OUT)/test/interop-test: tests/interop-test.c $(OUT)/test/libxpc-finch.dylib
 	    -Wno-incompatible-pointer-types-discards-qualifiers \
 	    tests/interop-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
 
-test: $(OUT)/test/xpc-test $(OUT)/test/serial-test $(OUT)/test/interop-test
+$(OUT)/test/conn-test: tests/conn-test.c $(OUT)/test/libxpc-finch.dylib
+	$(CC) -arch arm64 -mmacosx-version-min=26.0 -O1 -g -fblocks -Wall \
+	    -Wno-incompatible-pointer-types-discards-qualifiers \
+	    tests/conn-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
+
+test: $(OUT)/test/xpc-test $(OUT)/test/serial-test $(OUT)/test/interop-test $(OUT)/test/conn-test
 	$(OUT)/test/xpc-test 2>/dev/null
 	$(OUT)/test/serial-test tests/fixtures/apple-25E253.txt 2>/dev/null
 	$(OUT)/test/interop-test 2>/dev/null
+	$(OUT)/test/conn-test 2>/dev/null
 
 clean:
 	rm -rf $(OUT)
@@ -78,7 +84,7 @@ asan: $(SRCS) $(HDRS) tests/xpc-test.c tests/serial-test.c
 	@mkdir -p $(ASAN)
 	$(CC) -arch arm64 $(COMMON) $(SANFLAGS) -dynamiclib \
 	    -install_name @rpath/libxpc-finch.dylib $(SRCS) -lobjc -o $(ASAN)/libxpc-finch.dylib
-	for t in xpc-test serial-test interop-test; do \
+	for t in xpc-test serial-test interop-test conn-test; do \
 	    $(CC) -arch arm64 -mmacosx-version-min=26.0 -g -fblocks $(SANFLAGS) \
 	        -Wno-incompatible-pointer-types-discards-qualifiers tests/$$t.c \
 	        -L$(ASAN) -lxpc-finch -lobjc -Wl,-rpath,$(ASAN) -o $(ASAN)/$$t || exit 1; \

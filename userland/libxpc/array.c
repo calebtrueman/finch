@@ -184,20 +184,26 @@ void xpc_array_set_string(xpc_object_t a, size_t i, const char *s) { _xpc_array_
 void xpc_array_set_uuid(xpc_object_t a, size_t i, const uuid_t u) { _xpc_array_set_new(a, i, xpc_uuid_create(u)); }
 void xpc_array_set_fd(xpc_object_t a, size_t i, int fd) { _xpc_array_set_new(a, i, xpc_fd_create(fd)); }
 
-bool xpc_array_get_bool(xpc_object_t a, size_t i) { return xpc_bool_get_value(xpc_array_get_value(a, i)); }
-int64_t xpc_array_get_int64(xpc_object_t a, size_t i) { return xpc_int64_get_value(xpc_array_get_value(a, i)); }
-uint64_t xpc_array_get_uint64(xpc_object_t a, size_t i) { return xpc_uint64_get_value(xpc_array_get_value(a, i)); }
-double xpc_array_get_double(xpc_object_t a, size_t i) { return xpc_double_get_value(xpc_array_get_value(a, i)); }
-int64_t xpc_array_get_date(xpc_object_t a, size_t i) { return xpc_date_get_value(xpc_array_get_value(a, i)); }
-const char *xpc_array_get_string(xpc_object_t a, size_t i) { return xpc_string_get_string_ptr(xpc_array_get_value(a, i)); }
-const uint8_t *xpc_array_get_uuid(xpc_object_t a, size_t i) { return xpc_uuid_get_bytes(xpc_array_get_value(a, i)); }
-int xpc_array_dup_fd(xpc_object_t a, size_t i) { return xpc_fd_dup(xpc_array_get_value(a, i)); }
+bool xpc_array_get_bool(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_bool_get_value(v) : 0; }
+int64_t xpc_array_get_int64(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_int64_get_value(v) : 0; }
+uint64_t xpc_array_get_uint64(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_uint64_get_value(v) : 0; }
+double xpc_array_get_double(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_double_get_value(v) : 0; }
+int64_t xpc_array_get_date(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_date_get_value(v) : 0; }
+const char *xpc_array_get_string(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_string_get_string_ptr(v) : NULL; }
+const uint8_t *xpc_array_get_uuid(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_uuid_get_bytes(v) : NULL; }
+int xpc_array_dup_fd(xpc_object_t a, size_t i) { xpc_object_t v = xpc_array_get_value(a, i); return v ? xpc_fd_dup(v) : 0; }
 
 const void *
 xpc_array_get_data(xpc_object_t a, size_t i, size_t *length)
 {
 	xpc_object_t v = xpc_array_get_value(a, i);
 
+	if (v == NULL) {
+		if (length) {
+			*length = 0;
+		}
+		return NULL;
+	}
 	if (length) {
 		*length = xpc_data_get_length(v);
 	}

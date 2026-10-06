@@ -132,6 +132,7 @@ xpc_dictionary_create(const char *const *keys, xpc_object_t const *values, size_
 	d->index = NULL;
 	d->reply_port = MACH_PORT_NULL;
 	d->reply_msgid = 0;
+	d->connection = NULL;
 	for (size_t i = 0; i < count; i++) {
 		xpc_dictionary_set_value(d, keys[i], values[i]);
 	}
@@ -158,6 +159,9 @@ _xpc_dictionary_dispose(struct _xpc_dictionary_s *d)
 	if (MACH_PORT_VALID(d->reply_port)) {
 		/* An unanswered request: dropping the send-once right tells the sender. */
 		mach_port_deallocate(mach_task_self(), d->reply_port);
+	}
+	if (d->connection) {
+		xpc_release(d->connection);
 	}
 }
 
@@ -286,20 +290,26 @@ void xpc_dictionary_set_string(xpc_object_t d, const char *k, const char *s) { _
 void xpc_dictionary_set_uuid(xpc_object_t d, const char *k, const uuid_t u) { _xpc_dictionary_set_new(d, k, xpc_uuid_create(u)); }
 void xpc_dictionary_set_fd(xpc_object_t d, const char *k, int fd) { _xpc_dictionary_set_new(d, k, xpc_fd_create(fd)); }
 
-bool xpc_dictionary_get_bool(xpc_object_t d, const char *k) { return xpc_bool_get_value(xpc_dictionary_get_value(d, k)); }
-int64_t xpc_dictionary_get_int64(xpc_object_t d, const char *k) { return xpc_int64_get_value(xpc_dictionary_get_value(d, k)); }
-uint64_t xpc_dictionary_get_uint64(xpc_object_t d, const char *k) { return xpc_uint64_get_value(xpc_dictionary_get_value(d, k)); }
-double xpc_dictionary_get_double(xpc_object_t d, const char *k) { return xpc_double_get_value(xpc_dictionary_get_value(d, k)); }
-int64_t xpc_dictionary_get_date(xpc_object_t d, const char *k) { return xpc_date_get_value(xpc_dictionary_get_value(d, k)); }
-const char *xpc_dictionary_get_string(xpc_object_t d, const char *k) { return xpc_string_get_string_ptr(xpc_dictionary_get_value(d, k)); }
-const uint8_t *xpc_dictionary_get_uuid(xpc_object_t d, const char *k) { return xpc_uuid_get_bytes(xpc_dictionary_get_value(d, k)); }
-int xpc_dictionary_dup_fd(xpc_object_t d, const char *k) { return xpc_fd_dup(xpc_dictionary_get_value(d, k)); }
+bool xpc_dictionary_get_bool(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_bool_get_value(v) : 0; }
+int64_t xpc_dictionary_get_int64(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_int64_get_value(v) : 0; }
+uint64_t xpc_dictionary_get_uint64(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_uint64_get_value(v) : 0; }
+double xpc_dictionary_get_double(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_double_get_value(v) : 0; }
+int64_t xpc_dictionary_get_date(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_date_get_value(v) : 0; }
+const char *xpc_dictionary_get_string(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_string_get_string_ptr(v) : NULL; }
+const uint8_t *xpc_dictionary_get_uuid(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_uuid_get_bytes(v) : NULL; }
+int xpc_dictionary_dup_fd(xpc_object_t d, const char *k) { xpc_object_t v = xpc_dictionary_get_value(d, k); return v ? xpc_fd_dup(v) : 0; }
 
 const void *
 xpc_dictionary_get_data(xpc_object_t d, const char *k, size_t *length)
 {
 	xpc_object_t v = xpc_dictionary_get_value(d, k);
 
+	if (v == NULL) {
+		if (length) {
+			*length = 0;
+		}
+		return NULL;
+	}
 	if (length) {
 		*length = xpc_data_get_length(v);
 	}

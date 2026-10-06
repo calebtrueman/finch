@@ -16,6 +16,7 @@
 
 extern const struct _xpc_type_s _xpc_type_pipe;
 void _xpc_pipe_dispose(xpc_object_t obj);
+void _xpc_connection_dispose(xpc_object_t obj);
 
 @interface OS_xpc_object : OS_object <OS_xpc_object>
 @end
@@ -53,6 +54,7 @@ XPC_CLASS(error)
 XPC_CLASS(mach_send)
 XPC_CLASS(endpoint)
 XPC_CLASS(pipe)
+XPC_CLASS(connection)
 
 /*
  * The exported type symbols are the classes themselves (as in Apple's
@@ -79,6 +81,7 @@ XPC_TYPE_ALIAS(error)
 XPC_TYPE_ALIAS(mach_send)
 XPC_TYPE_ALIAS(endpoint)
 XPC_TYPE_ALIAS(pipe)
+XPC_TYPE_ALIAS(connection)
 
 xpc_object_t
 _xpc_object_alloc(xpc_type_t type, size_t size)
@@ -99,6 +102,8 @@ _xpc_object_dispose(xpc_object_t obj)
 		close(((struct xpc_fd_s *)obj)->fd);
 	} else if (type == XPC_TYPE_MACH_SEND) {
 		mach_port_deallocate(mach_task_self(), ((struct xpc_mach_send_s *)obj)->port);
+	} else if (type == XPC_TYPE_CONNECTION) {
+		_xpc_connection_dispose(obj);
 	} else if (type == (xpc_type_t)&_xpc_type_pipe) {
 		_xpc_pipe_dispose(obj);
 	} else if (type == XPC_TYPE_ENDPOINT) {

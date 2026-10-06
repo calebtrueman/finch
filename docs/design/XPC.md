@@ -42,7 +42,7 @@ or `tools/check-exports.sh /usr/lib/system/libxpc.dylib` once ours builds.
 |---|---|---|
 | X1 ✅ | **Object model + value types**: null, bool, int64, uint64, double, date, data, string, uuid, fd, array, dictionary, error. Create/get/set/apply, copy, equal, hash, `xpc_copy_description`. | Host unit tests pass. Exports match Apple's names for this subset. |
 | X2 ✅ | **Wire format**: serialize/deserialize compatible with Apple's (`'CPX@'` message magic), so Finch processes can talk to borrowed Apple daemons and vice versa. | Round-trip tests; decodes captured Apple messages. |
-| X3 | **Transport**: Mach-message connections on `dispatch_mach` channels (libdispatch `mach_private.h`), listeners, replies (sync and async), `xpc_pipe_*`, endpoints, `bootstrap_*`. | Two processes in the VM exchange messages. |
+| X3 ✅ | **Transport**: Mach-message connections on `dispatch_mach` channels (libdispatch `mach_private.h`), listeners, replies (sync and async), `xpc_pipe_*`, endpoints, `bootstrap_*`. | Two processes in the VM exchange messages. |
 | X4 | **finch-init as bootstrap server**: owns the bootstrap port, registers Mach services from launchd-format plists (`MachServices`), launches on demand. | A test daemon is looked up and launched by name. |
 | X5 | **Swap into the VM**: replace Apple's libxpc. Then unblock libsystem_darwin and libsystem_info (Finch `xpc/private.h`). | VM boots on Finch libxpc; check-exports clean for imported symbols. |
 
@@ -81,3 +81,14 @@ sandbox extensions, and the Apple-account-backed services.
   direction (9/9, also under ASan). Gotcha: Apple's `xpc_pipe_receive` returns `EAGAIN`
   when its wait is interrupted, and callers retry.
   Next: X3b, connections (w00t handshake, listeners, peers, async/sync replies).
+- **X3b (2026-10-06):** Connections (`connection.c`): anonymous and Mach-service
+  listeners, peers, clients from endpoints and service names, the w00t handshake, one-way
+  messages, async and sync replies (send-once reply rights, with dropped requests becoming
+  errors instead of hangs), server-to-client messages, death detection (client:
+  dead-name on S, giving interrupted+reconnect for named services and invalid for
+  endpoints; peer: no-senders on S, giving invalid), audit-token getters, contexts and
+  finalizers. `tests/conn-test.c`: Finch↔Finch (incl. 200 concurrent requests and fds
+  over a connection), an **Apple client → Finch listener**, and a **Finch client →
+  Apple listener**. 9/9, clean under ASan/UBSan. `bootstrap_*` are placeholders until X4.
+  Coverage: 144/462 imported symbols. Top missing: `bootstrap_look_up2`,
+  `os_transaction_create`, `xpc_connection_activate`, `xpc_create_from_plist`.

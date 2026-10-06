@@ -74,7 +74,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
     - [x] X1 object model and value types (100/462 imported symbols)
     - [x] X2 wire format, byte-compatible with Apple's (checked against captured samples,
           fuzzed under ASan)
-    - [ ] X3 Mach transport, X4 finch-init bootstrap server, X5 swap in
+    - [x] X3 Mach transport: pipes and connections, interoperating with Apple's libxpc in
+          both directions (144/462 imported symbols)
+    - [ ] X4 finch-init bootstrap server, X5 swap in
   - [x] libmalloc no longer depends on libcorecrypto
   - [ ] libsystem_featureflags (ABI known: `_os_feature_enabled_impl`,
         `_os_feature_enabled_simple_impl`)
