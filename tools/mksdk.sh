@@ -95,6 +95,9 @@ copy_headers "${SRC}/libplatform/private" "${INC}"
 # dyld: <mach-o/dyld_priv.h>, dyld_introspection.h, ... (public ones lose to the SDK).
 copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
 
+# libclosure: <Block.h>, <Block_private.h>.
+cp "${SRC}/libclosure/Block_private.h" "${INC}/"
+
 # Libsystem: <os/alloc_once_private.h>.
 cp "${SRC}/Libsystem/alloc_once_private.h" "${INC}/os/"
 

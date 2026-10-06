@@ -1,0 +1,36 @@
+diff --git a/stdlib/FreeBSD/atexit.c b/stdlib/FreeBSD/atexit.c
+index d3d63cf..0e6802a 100644
+--- a/stdlib/FreeBSD/atexit.c
++++ b/stdlib/FreeBSD/atexit.c
+@@ -336,3 +336,31 @@ __cxa_thread_atexit(void(*f)(void*), void* arg)
+ }
+ #endif
+ #pragma clang diagnostic pop
++
++/*
++ * Finch: _atexit_receipt(), exported by Apple's libsystem_c (Foundation
++ * imports it) but missing from the published source. Apple's version records
++ * whether the process is a Mac App Store app (code-signing validation
++ * category); at exit, an App Store app then gets CommerceCore's receipt
++ * handler. App Store commerce is out of scope for Finch, so the flag is
++ * recorded the same way but no exit handler is run.
++ */
++#include <System/sys/codesign.h>
++
++#define FINCH_CS_VALIDATION_CATEGORY_APP_STORE 4   /* kern/cs_blobs.h */
++
++static bool _atexit_receipt_enabled;
++
++int _atexit_receipt(void);
++
++int
++_atexit_receipt(void)
++{
++	unsigned int category = 0;
++
++	if (csops(0, CS_OPS_VALIDATION_CATEGORY, &category, sizeof(category)) == 0 &&
++	    category == FINCH_CS_VALIDATION_CATEGORY_APP_STORE) {
++		_atexit_receipt_enabled = true;
++	}
++	return 0;
++}

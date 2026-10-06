@@ -29,7 +29,7 @@ pieces can be replaced one at a time.
 | libsystem_platform | libplatform-375.100.10 | **Built by Finch** (Apple ships no Xcode project; Finch adds 9 unpublished exports) |
 | libsystem_pthread | libpthread-539.100.4 | **Built by Finch** (+2 unpublished exports; Finch JIT/SPRR header) |
 | libsystem_malloc | libmalloc-812.100.31 | **Built by Finch** (no longer links libcorecrypto) |
-| libsystem_c | Libc-1752.100.10 | OPEN |
+| libsystem_c | Libc-1752.100.10 | **Built by Finch** (no longer links libcorecrypto) |
 | libsystem_darwin | Libc-1752.100.10 (libdarwin) | OPEN |
 | libsystem_info | Libinfo-600 | OPEN |
 | libsystem_notify | Libnotify-348.100.7 | OPEN |

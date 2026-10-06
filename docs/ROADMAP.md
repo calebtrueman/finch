@@ -55,7 +55,13 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] `finch-libsystem-test` (userland/tests) passes in the VM: malloc, pthread, dispatch,
         string/bit ops. The JIT toggle is untestable in QEMU (no SPRR); verify on bare metal.
   - [x] libsystem_blocks (libclosure). 19/19 exports.
-  - [ ] libsystem_c, libsystem_info, libsystem_darwin, libsystem_notify, dyld, …
+  - [x] libsystem_c (Libc). 1328/1328 exports. Finch `os/log_private.h` (ABI of the
+        closed libsystem_trace), header-only `corecrypto/ccrng.h` over getentropy(2)
+        (no libcorecrypto), generated dyld version constants, `_atexit_receipt`
+        (App Store exit hook recorded, not run).
+  - [ ] libsystem_info, libsystem_darwin, libsystem_notify, libsystem_m, dyld, …
+  - [ ] Finch CrashReporterClient (`__crash_info` annotations; Libc currently builds
+        with its no-op fallback)
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
   - [x] libmalloc no longer depends on libcorecrypto
@@ -102,6 +108,19 @@ binaries.
 ## Phase 5: Finch 1.0
 Installer, updates, Finch desktop polish, security model (code signing, sandbox, SIP-like
 protections under Finch's own keys).
+
+## Phase 6: Windows software
+Run Windows applications on Finch, as CrossOver and Game Porting Toolkit do on macOS.
+- **Wine** (LGPL-2.1, dynamically linked component) for the Win32/Win64 API layer.
+- **ARM64 Windows apps** first: they need no CPU translation.
+- **x86-64 apps:** BORROW Rosetta 2 from the user's macOS install at first. The open
+  replacement is an x86 translator ported to Darwin: FEX-Emu or Box64 (MIT), or Wine's
+  ARM64EC path with FEX.
+- **Graphics:** DXVK / vkd3d-proton (Direct3D → Vulkan) on Mesa's Vulkan driver for AGX,
+  which Phase 3/4 bring up anyway.
+
+**Exit:** a defined corpus of Windows apps (ARM64 and x86-64) runs on Finch with no
+Apple binaries.
 
 ## Beyond: Finch for iPhone/iPad
 Depends on a bootrom/iBoot path to unsigned code on target devices, which is not

@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// libCrashReporterClient.a (crash-report annotations) is Apple-internal. Libc's
+// sources already fall back to no-op CRSetCrashLogMessage() without its header,
+// so only the link flag needs to go. TODO: a Finch CrashReporterClient that
+// fills the __DATA,__crash_info annotations.
+CR_LDFLAGS =
+
+// Cancelable variants must compile with __DARWIN_NON_CANCELABLE=0 so e.g. creat()
+// gets its plain symbol (the base build produces creat$NOCANCEL). Apple's
+// internal build does this via unpublished LIBC_ALIAS_* handling. The
+// published sources require it (sleep.c/pause.c #error on a mismatch), and the
+// dyld/static variants pass the same flags.
+VARIANT_CANCELABLE_MACROS = -DVARIANT_CANCELABLE -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0
+VARIANT_DARWINEXTSN_CANCELABLE_MACROS = -DVARIANT_CANCELABLE -DVARIANT_DARWINEXTSN -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0
+
+// Apple's build sets the version from RC_ProjectSourceVersion.
+OTHER_LDFLAGS = $(inherited) -Wl,-current_version,1752.100.10

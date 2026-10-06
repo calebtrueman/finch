@@ -34,6 +34,11 @@ Real hardware is next.
 6. **No Apple account features.** iCloud, App Store, iMessage, FaceTime and Apple ID are
    out of scope.
 
+## Windows software
+
+A later goal (roadmap Phase 6): run Windows applications through Wine, with an open
+x86-64 translator (FEX-Emu / Box64) instead of Rosetta 2.
+
 ## Long-term
 
 If Finch works on the Mac, the same base (kernel, drivers, frameworks) becomes the
