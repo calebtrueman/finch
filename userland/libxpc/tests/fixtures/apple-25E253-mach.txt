@@ -1,0 +1,30 @@
+# Raw Mach messages sent by Apple's libxpc, macOS 25E253 (tools/xpc-capture/mach-capture.c)
+[pipe-simpleroutine] size=64 id=0x10000000 bits=0x00001100 remote=none local=move-send voucher=none complex=0
+  payload(40)=435058400500000000f00000180000000100000068690000009000000600000066696e6368000000
+[pipe-simpleroutine-fd] size=88 id=0x10000000 bits=0x80001100 remote=none local=move-send voucher=none complex=1
+  descriptors=1
+  [0] port disposition=move-send
+  payload(48)=435058400500000000f0000020000000020000006664000000b0000068690000009000000600000066696e6368000000
+[pipe-routine] size=60 id=0x40000000 bits=0x00001112 remote=move-send-once local=move-send voucher=none complex=0
+  payload(36)=435058400500000000f0000014000000010000006f700000003000000100000000000000
+[connection-handshake] size=52 id=0x77303074 bits=0x80001100 remote=none local=move-send voucher=none complex=1
+  descriptors=2
+  [0] port disposition=move-receive
+  [1] port disposition=move-send
+  payload(0)=
+[connection-message] size=68 id=0x10000000 bits=0x00001100 remote=none local=move-send voucher=none complex=0
+  payload(44)=435058400500000000f000001c0000000100000068656c6c6f0000000090000006000000776f726c64000000
+[connection-message] no message (0x10004003)
+[connection-with-reply] size=68 id=0x10000000 bits=0x00001112 remote=move-send-once local=move-send voucher=none complex=0
+  payload(44)=435058400500000000f000001c0000000100000068656c6c6f0000000090000006000000776f726c64000000
+[connection-with-reply] no message (0x10004003)
+[connection-after-cancel] no message (0x10004003)
+
+# Apple's libxpc as a server, driven by a raw-Mach client (tools/xpc-capture/server-capture.c)
+(handshake kr=0x0)
+(sent message, kr=0x0)
+[server-reply] size=64 id=0x20000000 bits=0x00001200 reply-disp=0 complex=0
+  payload(40)=435058400500000000f000001800000001000000616e737765720000009000000400000079657300
+(sent message, kr=0x0)
+[server-push] size=64 id=0x10000000 bits=0x00001100 reply-disp=0 complex=0
+  payload(40)=435058400500000000f0000018000000010000007075736800000000009000000200000078000000
