@@ -43,7 +43,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] libsystem_kernel (xnu libsyscall + patch 0003), running in the VM (2026-10-06).
         Missing vs Apple's build: 7 legacy `__stat`-family stubs, `register_uexc_handler`,
         and 2 version symbols; nothing imports them.
-  - [ ] libsystem_platform, libsystem_pthread, libsystem_malloc, libdispatch, libsystem_c, …
+  - [x] libsystem_platform (libplatform; recipe from its published xcconfigs, plus Finch
+        `ffs`/`fls`, SME-safe string routines and one Swift tracing no-op). 185/185 exports.
+  - [ ] libsystem_pthread, libsystem_malloc, libdispatch, libsystem_c, …
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
 - [ ] **1.5 dyld from source.**

@@ -8,7 +8,7 @@
 #   build/sdk/availability -> SDK-compatible private Availability headers (-I, first)
 #
 # Needs: tools/build-kernel.sh run once (for xnu's installed private headers)
-#        tools/fetch-src.sh (for the header projects)
+#        tools/fetch-src.sh (for the header projects, incl. libSystem ones)
 set -euo pipefail
 
 FINCH_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -86,6 +86,15 @@ copy_headers "${SRC}/Libc/os" "${INC}/os" -maxdepth 1
 # libplatform: private headers (_simple.h, os/*_private.h, ...).
 copy_headers "${SRC}/libplatform/private" "${INC}"
 
+# dyld: <mach-o/dyld_priv.h>, dyld_introspection.h, ... (public ones lose to the SDK).
+copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
+
+# Libsystem: <os/alloc_once_private.h>.
+cp "${SRC}/Libsystem/alloc_once_private.h" "${INC}/os/"
+
+# libpthread: private headers (<pthread/tsd_private.h>, <sys/qos_private.h>, ...).
+copy_headers "${SRC}/libpthread/private" "${INC}"
+
 # Libinfo: membershipPriv.h and other *Priv / *_private headers.
 (cd "${SRC}/Libinfo" && find . \( -name '*Priv*.h' -o -name '*_private.h' \) -exec cp {} "${INC}/" \;)
 
@@ -118,5 +127,14 @@ done
 for h in sha256 sha512; do
     fetch "https://raw.githubusercontent.com/freebsd/freebsd-src/release/14.3.0/sys/crypto/sha2/${h}.h" "${INC}/${h}.h"
 done
+
+# <AppleFeatures/AppleFeatures.h>: Apple-internal feature-flag header, not
+# published. libplatform includes it without using any of its macros.
+mkdir -p "${INC}/AppleFeatures"
+cat > "${INC}/AppleFeatures/AppleFeatures.h" <<'EOT'
+/* Finch stand-in for Apple's unpublished internal feature-flag header.
+ * Projects that include it without testing its macros build against this. */
+#pragma once
+EOT
 
 echo "built ${SDK} ($(find "${INC}" -name '*.h' | wc -l | tr -d ' ') headers)"

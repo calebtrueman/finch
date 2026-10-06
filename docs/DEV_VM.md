@@ -71,6 +71,19 @@ tools/vm/mkramdisk.sh                    # overlays build/root, trusts every Mac
 FINCH_INIT=1 expect tools/vm/smoke.exp "ls -la /bin" "df -h /"
 ```
 
+## libSystem pieces
+
+```sh
+tools/build-oss.sh libsyscall          # -> libsystem_kernel.dylib (needs tools/build-kernel.sh first)
+tools/build-oss.sh libplatform         # -> libsystem_platform.dylib
+tools/check-exports.sh /usr/lib/system/libsystem_platform.dylib
+```
+
+`check-exports.sh` compares our dylib with Apple's original and fails if any binary in the
+image imports a missing symbol, whether directly or through the libSystem umbrella.
+Run it before booting a swapped library: a missing symbol in PID 1's closure panics the
+boot.
+
 ## QEMU patches
 
 Finch carries patches against `qemu-sptm` in `third_party/patches/qemu-sptm/`. Apply them

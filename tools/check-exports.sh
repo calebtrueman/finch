@@ -40,8 +40,10 @@ hdiutil attach -readonly -nobrowse -mountpoint "${mnt}" -imagekey diskimage-clas
 find "${mnt}" -type f \( -perm +111 -o -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null \
     | while IFS= read -r -d '' f; do
         file -b "$f" | grep -q Mach-O || continue
+        # Count imports bound to this library directly, or through the
+        # libSystem umbrella (which re-exports every /usr/lib/system dylib).
         nm -um "$f" 2>/dev/null | awk -v lib="(from ${leaf})" -v F="${f#"${mnt}"}" \
-            'index($0, lib) { print $(NF-2), F }'
+            'index($0, lib) || index($0, "(from libSystem)") { print $(NF-2), F }'
     done | sort -u > "${tmp}/imports"
 
 awk 'NR == FNR { m[$1] = 1; next } ($1 in m)' "${tmp}/missing" "${tmp}/imports" > "${tmp}/needed"

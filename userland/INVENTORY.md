@@ -26,7 +26,7 @@ pieces can be replaced one at a time.
 |---|---|---|
 | libSystem.B | Libsystem-1356 | OPEN |
 | libsystem_kernel | xnu-12377.101.15 (libsyscall) | **Built by Finch** (plus Finch `work_interval_instance_*`; Apple ships unpublished additions) |
-| libsystem_platform | libplatform-375.100.10 | OPEN |
+| libsystem_platform | libplatform-375.100.10 | **Built by Finch** (Apple ships no Xcode project; Finch adds 9 unpublished exports) |
 | libsystem_pthread | libpthread-539.100.4 | OPEN |
 | libsystem_malloc | libmalloc-812.100.31 | OPEN |
 | libsystem_c | Libc-1752.100.10 | OPEN |
