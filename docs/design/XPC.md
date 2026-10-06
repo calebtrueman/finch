@@ -41,7 +41,7 @@ or `tools/check-exports.sh /usr/lib/system/libxpc.dylib` once ours builds.
 | Step | What | Done when |
 |---|---|---|
 | X1 ✅ | **Object model + value types**: null, bool, int64, uint64, double, date, data, string, uuid, fd, array, dictionary, error. Create/get/set/apply, copy, equal, hash, `xpc_copy_description`. | Host unit tests pass. Exports match Apple's names for this subset. |
-| X2 | **Wire format**: serialize/deserialize compatible with Apple's (`'CPX@'` message magic), so Finch processes can talk to borrowed Apple daemons and vice versa. | Round-trip tests; decodes captured Apple messages. |
+| X2 ✅ | **Wire format**: serialize/deserialize compatible with Apple's (`'CPX@'` message magic), so Finch processes can talk to borrowed Apple daemons and vice versa. | Round-trip tests; decodes captured Apple messages. |
 | X3 | **Transport**: Mach-message connections on `dispatch_mach` channels (libdispatch `mach_private.h`), listeners, replies (sync and async), `xpc_pipe_*`, endpoints, `bootstrap_*`. | Two processes in the VM exchange messages. |
 | X4 | **finch-init as bootstrap server**: owns the bootstrap port, registers Mach services from launchd-format plists (`MachServices`), launches on demand. | A test daemon is looked up and launched by name. |
 | X5 | **Swap into the VM**: replace Apple's libxpc. Then unblock libsystem_darwin and libsystem_info (Finch `xpc/private.h`). | VM boots on Finch libxpc; check-exports clean for imported symbols. |
@@ -65,3 +65,11 @@ sandbox extensions, and the Apple-account-backed services.
   - Host tests run next to the system libxpc, so the ObjC runtime warns that the
     `OS_xpc_*` classes are implemented twice. That's expected: every call in the test
     binds to Finch's library.
+- **X2 (2026-10-06):** Wire format for every inline value type (`serialize.c`), with
+  `xpc_make_serialization` / `xpc_create_from_serialization` at Apple's ABI. Ground truth
+  comes from `tools/xpc-capture`, which records Apple's own serializations on a real Mac
+  (`userland/libxpc/tests/fixtures/apple-25E253.txt`). Finch decodes all 16 samples and
+  re-encodes them byte for byte. The exception is multi-key dictionaries: Apple writes
+  them in hash order, so those are compared by meaning, not bytes. The decoder is fuzzed
+  (every truncation plus 5,000 random corruptions per sample) and is clean under
+  `make asan`. Port-carrying types (fd, Mach rights, endpoints, shmem) come with X3.

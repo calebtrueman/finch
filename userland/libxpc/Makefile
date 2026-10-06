@@ -12,7 +12,7 @@ SDK     := $(ROOT)/build/sdk
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 CC      := xcrun -sdk macosx clang
 
-SRCS    := object.m values.c array.c dictionary.c error.c description.c
+SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c
 HDRS    := internal.h
 
 COMMON  := -mmacosx-version-min=26.0 -O2 -g -fblocks -fno-objc-arc \
@@ -36,7 +36,9 @@ $(OUT)/libxpc.dylib: $(SRCS) $(HDRS) Makefile
 	    $(SRCS) $(LIBS) -o $@
 	codesign -f -s - $@
 
-# Host test build: arm64, @rpath install name, loaded next to the system libxpc.
+# Host test build: arm64, @rpath install name, loaded next to the system libxpc
+# (stderr is dropped in `make test`: the ObjC runtime warns about the duplicate
+# OS_xpc_* classes, which is expected there).
 $(OUT)/test/libxpc-finch.dylib: $(SRCS) $(HDRS) Makefile
 	@mkdir -p $(OUT)/test
 	$(CC) -arch arm64 $(COMMON) -dynamiclib \
@@ -47,10 +49,35 @@ $(OUT)/test/xpc-test: tests/xpc-test.c $(OUT)/test/libxpc-finch.dylib
 	    -Wno-incompatible-pointer-types-discards-qualifiers \
 	    tests/xpc-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
 
-test: $(OUT)/test/xpc-test
-	$(OUT)/test/xpc-test
+$(OUT)/test/serial-test: tests/serial-test.c $(OUT)/test/libxpc-finch.dylib
+	$(CC) -arch arm64 -mmacosx-version-min=26.0 -O1 -g -fblocks -Wall \
+	    tests/serial-test.c -L$(OUT)/test -lxpc-finch -lobjc -Wl,-rpath,$(OUT)/test -o $@
+
+test: $(OUT)/test/xpc-test $(OUT)/test/serial-test
+	$(OUT)/test/xpc-test 2>/dev/null
+	$(OUT)/test/serial-test tests/fixtures/apple-25E253.txt 2>/dev/null
 
 clean:
 	rm -rf $(OUT)
 
 .PHONY: all test clean
+
+# Same tests under AddressSanitizer + UndefinedBehaviorSanitizer: the wire
+# decoder parses data from other processes, so out-of-bounds reads must fail
+# loudly, not silently.
+ASAN    := $(OUT)/asan
+SANFLAGS := -fsanitize=address,undefined -fno-omit-frame-pointer -O1
+
+asan: $(SRCS) $(HDRS) tests/xpc-test.c tests/serial-test.c
+	@mkdir -p $(ASAN)
+	$(CC) -arch arm64 $(COMMON) $(SANFLAGS) -dynamiclib \
+	    -install_name @rpath/libxpc-finch.dylib $(SRCS) -lobjc -o $(ASAN)/libxpc-finch.dylib
+	for t in xpc-test serial-test; do \
+	    $(CC) -arch arm64 -mmacosx-version-min=26.0 -g -fblocks $(SANFLAGS) \
+	        -Wno-incompatible-pointer-types-discards-qualifiers tests/$$t.c \
+	        -L$(ASAN) -lxpc-finch -lobjc -Wl,-rpath,$(ASAN) -o $(ASAN)/$$t || exit 1; \
+	done
+	$(ASAN)/xpc-test 2>&1 | grep -v '^objc\['
+	$(ASAN)/serial-test tests/fixtures/apple-25E253.txt 2>&1 | grep -v '^objc\['
+
+.PHONY: asan
