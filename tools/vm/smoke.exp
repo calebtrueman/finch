@@ -1,0 +1,16 @@
+set timeout 300
+log_user 1
+cd [file dirname [file normalize [info script]]]/../../third_party/darwin-vm
+spawn ./run.sh
+expect {
+  "bash-3.2#" {}
+  timeout { puts "\n### TIMEOUT waiting for shell"; exit 1 }
+}
+send "uname -a\r"
+expect "bash-3.2#"
+send "sysctl hw.model hw.ncpu hw.memsize kern.osversion\r"
+expect "bash-3.2#"
+send "ls /\r"
+expect "bash-3.2#"
+send "\x01x"
+expect eof

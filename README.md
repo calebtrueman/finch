@@ -31,6 +31,7 @@ foundation for an open replacement for iOS on iPhone/iPad hardware.
 - [Roadmap](docs/ROADMAP.md): phased milestones with exit criteria
 - [Licensing](docs/LICENSING.md): what we can import, from whom, and how
 - [Hardware](docs/HARDWARE.md): target machines and the dev/test setup
+- [Dev VM](docs/DEV_VM.md): emulated M4 for kernel/userland work
 
 ## Layout
 

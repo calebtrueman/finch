@@ -1,0 +1,9 @@
+[submodule "third_party/darwin-vm"]
+	path = third_party/darwin-vm
+	url = https://github.com/jprx/darwin-vm.git
+[submodule "tools/darwin-xnu-build"]
+	path = tools/darwin-xnu-build
+	url = https://github.com/blacktop/darwin-xnu-build.git
+[submodule "kernel/xnu"]
+	path = kernel/xnu
+	url = https://github.com/apple-oss-distributions/xnu.git
