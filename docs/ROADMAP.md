@@ -40,6 +40,10 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [ ] Writable /var/db (System Policy denies tmpfs there)
 - [ ] **1.3 Open libSystem from source.** Swap dylibs one at a time, starting with
       libsystem_kernel from our own xnu build.
+  - [x] libsystem_kernel (xnu libsyscall + patch 0003), running in the VM (2026-10-06).
+        Missing vs Apple's build: 7 legacy `__stat`-family stubs, `register_uexc_handler`,
+        and 2 version symbols; nothing imports them.
+  - [ ] libsystem_platform, libsystem_pthread, libsystem_malloc, libdispatch, libsystem_c, …
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
 - [ ] **1.5 dyld from source.**

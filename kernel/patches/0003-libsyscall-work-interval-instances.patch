@@ -1,0 +1,148 @@
+diff --git a/libsyscall/wrappers/work_interval.c b/libsyscall/wrappers/work_interval.c
+index 89d2d0cce..9524d2979 100644
+--- a/libsyscall/wrappers/work_interval.c
++++ b/libsyscall/wrappers/work_interval.c
+@@ -272,3 +272,143 @@ work_interval_copy_port(work_interval_t interval_handle, mach_port_t *port)
+ 
+ 	return 0;
+ }
++
++/*
++ * Finch: work interval instances.
++ *
++ * Apple's libsystem_kernel exports a work_interval_instance_* layer that isn't
++ * in the published source; libdispatch's os_workgroup uses it. The calls are
++ * performance-controller hints, so this implementation keeps the per-instance
++ * timing state and reports each finished instance through the published
++ * work_interval_notify(). Telemetry isn't collected: callers get zeroes.
++ */
++
++struct work_interval_instance {
++	work_interval_t wii_interval;
++	uint64_t        wii_id;
++	uint64_t        wii_start;
++	uint64_t        wii_finish;
++	uint64_t        wii_deadline;
++	uint64_t        wii_complexity;
++};
++
++static uint64_t work_interval_instance_next_id = 1;
++
++work_interval_instance_t
++work_interval_instance_alloc(work_interval_t interval_handle)
++{
++	/* libsystem_kernel has malloc (wired up by libmalloc) but no calloc. */
++	work_interval_instance_t wii = malloc(sizeof(*wii));
++
++	if (wii != NULL) {
++		bzero(wii, sizeof(*wii));
++		wii->wii_interval = interval_handle;
++		wii->wii_id = __atomic_fetch_add(&work_interval_instance_next_id, 1,
++		    __ATOMIC_RELAXED);
++	}
++	return wii;
++}
++
++void
++work_interval_instance_free(work_interval_instance_t wii)
++{
++	free(wii);
++}
++
++void
++work_interval_instance_clear(work_interval_instance_t wii)
++{
++	wii->wii_start = wii->wii_finish = wii->wii_deadline = wii->wii_complexity = 0;
++}
++
++void
++work_interval_instance_set_start(work_interval_instance_t wii, uint64_t start)
++{
++	wii->wii_start = start;
++}
++
++void
++work_interval_instance_set_finish(work_interval_instance_t wii, uint64_t finish)
++{
++	wii->wii_finish = finish;
++}
++
++void
++work_interval_instance_set_deadline(work_interval_instance_t wii, uint64_t deadline)
++{
++	wii->wii_deadline = deadline;
++}
++
++void
++work_interval_instance_set_complexity(work_interval_instance_t wii, uint64_t complexity)
++{
++	wii->wii_complexity = complexity;
++}
++
++uint64_t
++work_interval_instance_get_start(work_interval_instance_t wii)
++{
++	return wii->wii_start;
++}
++
++uint64_t
++work_interval_instance_get_finish(work_interval_instance_t wii)
++{
++	return wii->wii_finish;
++}
++
++uint64_t
++work_interval_instance_get_deadline(work_interval_instance_t wii)
++{
++	return wii->wii_deadline;
++}
++
++uint64_t
++work_interval_instance_get_complexity(work_interval_instance_t wii)
++{
++	return wii->wii_complexity;
++}
++
++uint64_t
++work_interval_instance_get_id(work_interval_instance_t wii)
++{
++	return wii->wii_id;
++}
++
++int
++work_interval_instance_start(work_interval_instance_t wii)
++{
++	if (wii->wii_interval == NULL) {
++		errno = EINVAL;
++		return -1;
++	}
++	return 0;
++}
++
++int
++work_interval_instance_update(work_interval_instance_t wii)
++{
++	return work_interval_instance_start(wii);
++}
++
++int
++work_interval_instance_finish(work_interval_instance_t wii)
++{
++	if (wii->wii_interval == NULL) {
++		errno = EINVAL;
++		return -1;
++	}
++	if (wii->wii_finish == 0) {
++		wii->wii_finish = mach_absolute_time();
++	}
++	return work_interval_notify(wii->wii_interval, wii->wii_start,
++	           wii->wii_finish, wii->wii_deadline, 0, 0);
++}
++
++void
++work_interval_instance_get_telemetry_data(work_interval_instance_t wii,
++    work_interval_data_t data, size_t size)
++{
++	(void)wii;
++	bzero(data, size);
++}

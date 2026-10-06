@@ -21,3 +21,9 @@ CommonCrypto    CommonCrypto-600035
 bash            bash-144
 zsh             zsh-118
 bc              bc-35
+
+# libSystem
+libdispatch     libdispatch-1542.100.32
+libpthread      libpthread-539.100.4
+libmalloc       libmalloc-812.100.31
+Libsystem       Libsystem-1356

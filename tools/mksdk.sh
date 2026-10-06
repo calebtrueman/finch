@@ -5,6 +5,7 @@
 #
 #   build/sdk/include      -> pass with -idirafter (public SDK headers win)
 #   build/sdk/Frameworks   -> pass with -F (System.framework PrivateHeaders)
+#   build/sdk/availability -> SDK-compatible private Availability headers (-I, first)
 #
 # Needs: tools/build-kernel.sh run once (for xnu's installed private headers)
 #        tools/fetch-src.sh (for the header projects)
@@ -42,6 +43,36 @@ rsync -a "${sysfw}" "${SDK}/Frameworks/"
 copy_headers "${sysfw}/Versions/B/PrivateHeaders" "${INC}"
 
 chmod -R u+w "${SDK}"   # xnu installs headers read-only
+
+# Availability for private-first builds (e.g. libsyscall): the SDK's public
+# Availability*.h plus xnu's AvailabilityInternalPrivate.h, rewritten to match.
+# The private header comes from AvailabilityVersions-157.2, whose argument-
+# counting selector lists stop at 13; the SDK's go to 15, so each SPI_AVAILABLE
+# etc. would pick the wrong arity. Extend the lists to the SDK's 15.
+mkdir -p "${SDK}/availability"
+sed -E 's/\(__VA_ARGS__,(__API_[A-Z_]+)13,/(__VA_ARGS__,\115,\114,\113,/g' \
+    "${XNU_ROOT}/usr/local/include/AvailabilityInternalPrivate.h" \
+    > "${SDK}/availability/AvailabilityInternalPrivate.h"
+# Platforms that private headers name but the public SDK has no macros for
+# (e.g. bridgeos, the T2/secure-chip OS, and xros, visionOS's internal name).
+# Clang just warns on an unknown platform in an availability attribute.
+sdk_avail="$(xcrun --sdk macosx --show-sdk-path)/usr/include/AvailabilityInternal.h"
+used_platforms=$(grep -rhoE '(SPI|API)_[A-Z_]*\(.*\)' \
+        "${sysfw}/Versions/B/PrivateHeaders" "${XNU_ROOT}/usr/local/include" \
+    | grep -oE '\b[a-z][A-Za-z]*\(' | tr -d '(' | sort -u)
+for p in ${used_platforms}; do
+    grep -q "define __API_AVAILABLE_PLATFORM_${p}(" "${sdk_avail}" && continue
+    cat >> "${SDK}/availability/AvailabilityInternalPrivate.h" <<EOT
+
+#ifndef __API_AVAILABLE_PLATFORM_${p}
+#define __API_AVAILABLE_PLATFORM_${p}(x) ${p},introduced=x
+#define __API_DEPRECATED_PLATFORM_${p}(x,y) ${p},introduced=x,deprecated=y
+#define __API_OBSOLETED_PLATFORM_${p}(x,y,z) ${p},introduced=x,deprecated=y,obsoleted=z
+#define __API_UNAVAILABLE_PLATFORM_${p} ${p},unavailable
+#endif
+EOT
+done
+cp "${XNU_ROOT}/usr/local/include/AvailabilityProhibitedInternal.h" "${SDK}/availability/"
 
 # The AvailabilityVersions-generated internal headers use a different macro
 # numbering than the public SDK's AvailabilityInternal.h and break any header
