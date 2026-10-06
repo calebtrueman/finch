@@ -9,5 +9,6 @@ Hard rules:
 - Never copy GPL code (Asahi Linux kernel drivers, Darling) into Finch kexts or APSL/MIT
   code. Follow the clean-room rule in `docs/LICENSING.md`.
 - Pin Apple open-source imports to exact tags (e.g., `xnu-12377.101.15`).
-- The dev machine (M4) is the build host. Don't change its boot security settings.
-  Experimental boots go on a separate test Mac.
+- The M4 is the only machine (build host + test target). Test in QEMU (darwin-vm) first,
+  then a VZ VM, then bare metal. On metal, only touch the boot policy of the dedicated
+  Finch APFS container, never the main macOS. See `docs/HARDWARE.md`.

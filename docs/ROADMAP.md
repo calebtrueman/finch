@@ -9,7 +9,9 @@ ends with something that boots.
 Build XNU from source and boot it on real Apple Silicon with Apple's own kexts.
 - [ ] Reproducible XNU build for `xnu-12377.101.15` (matches dev machine) with KDK
 - [ ] Build a kernel collection: our XNU + BORROWED kexts from the installed macOS
-- [ ] Boot it on the test Mac (Permissive Security, `kmutil configure-boot`)
+- [ ] Boot stock Darwin in darwin-vm (emulated M4), then boot our XNU there
+- [ ] Create the isolated Finch APFS container on the M4. Permissive Security for that
+      OS only. Boot our kernel collection on bare metal.
 - [ ] A visible Finch fingerprint (e.g., `uname -v` contains `FINCH`)
 
 **Exit:** macOS userland runs on a kernel we compiled.
