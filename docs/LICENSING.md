@@ -13,12 +13,18 @@ review this. The rules below exist to keep us out of trouble until then.
 | m1n1 | MIT | Import |
 | Mesa (incl. asahi driver) | MIT | Import |
 | Asahi **documentation** (wiki, register notes) | Docs | Use as reference |
-| Asahi **Linux kernel drivers** | GPL-2.0 | **Reference only, under the clean-room rule** |
+| Asahi Linux kernel code, **dual-licensed** files (e.g. `drivers/gpu/drm/asahi`: `GPL-2.0-only OR MIT`) | MIT option | Import under MIT. Keep the SPDX line and copyright. |
+| Asahi Linux kernel code, **GPL-only** files | GPL-2.0 | **Reference only, under the clean-room rule** |
 | GNUstep | LGPL | Case by case. Dynamic linking is fine; avoid copying it into APSL/MIT files. |
 | Darling | GPL-3.0 | Ideas and research only. No code. |
 | Apple proprietary binaries (kexts, frameworks, firmware) | Apple EULA | **Never committed, never redistributed.** Loaded from the user's own macOS install at runtime only. |
 
 ## Clean-room rule for GPL drivers
+
+Check each file's SPDX header first. Much of Asahi's newer Rust code is dual-licensed
+`GPL-2.0-only OR MIT`, and we take that code under MIT. The rule below applies only to
+GPL-only files.
+
 
 APSL-2.0 and GPL-2.0 are mutually incompatible, so copying Linux driver code into an XNU
 kext produces something nobody can legally distribute.

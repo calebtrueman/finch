@@ -63,11 +63,13 @@ interrupt controller (AIC), IOMMU (DART), NVMe (ANS), display coprocessor (DCP),
 
 - The Asahi Linux team has documented almost all of this hardware for M1/M2, and now M3.
   Their **documentation** and m1n1 tooling are our map.
-- Their **Linux kernel drivers are GPL-2**, which is incompatible with XNU's APSL-2.0.
-  We do not paste that code into kexts. See [LICENSING.md](LICENSING.md) for the
-  clean-room rule.
-- **Mesa's Asahi GPU userspace driver (MIT)** is directly importable. The kernel-side
-  GPU driver is the part we would have to write.
+- Their **Linux kernel code is licensed per file.** GPL-only files are incompatible
+  with XNU's APSL-2.0 and are reference-only (clean-room rule). Dual-licensed files,
+  including the Rust GPU kernel driver `drm/asahi` (`GPL-2.0-only OR MIT`), can be
+  ported under MIT. See [LICENSING.md](LICENSING.md).
+- **Mesa's Asahi GPU userspace driver (MIT)** is directly importable. Together with
+  `drm/asahi` under MIT, that covers both halves of the GPU stack as a starting point
+  rather than a from-scratch rewrite.
 
 Replacement order, roughly by how much it unlocks: AIC → DART → ANS (storage) →
 framebuffer/DCP → SMC/PMGR → USB → input → audio → Wi-Fi/BT (Broadcom) → AGX GPU.
