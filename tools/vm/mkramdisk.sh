@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Build build/vm/ramdisk.dmg + ramdisk.tc: darwin-vm's base ramdisk plus the
 # Finch files listed in tools/vm/overlay.txt. No sudo needed; the base image
 # (third_party/darwin-vm/firmware/ramdisk.dmg) is never modified.

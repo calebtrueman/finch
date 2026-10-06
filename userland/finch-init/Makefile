@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # finch-init: built with the host Xcode toolchain against the macOS SDK.
 # arm64e matches the rest of the Darwin userland; it runs as a platform binary
 # because tools/vm/mkramdisk.sh adds its cdhash to the trust cache.

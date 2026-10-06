@@ -2,7 +2,7 @@
  * finch-init: Finch's PID 1.
  *
  * Copyright (c) 2026 The Finch Project.
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: MIT OR Apache-2.0
  *
  * Apple's launchd is closed source (and, as of macOS 26, written in Swift on top
  * of the closed Swift runtime), so Finch brings its own init. This first version

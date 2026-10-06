@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Build the Finch kernel (Apple's XNU + kernel/patches) and link it with Apple's
 # kexts from the installed KDK into a bootable kernel collection.
 #

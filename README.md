@@ -46,3 +46,9 @@ tools/         build system, image builder, host-side utilities
 third_party/   imported non-Apple projects (Mesa, m1n1, …)
 docs/          design docs
 ```
+
+## License
+
+Finch's own code is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE),
+at your option. Changes to Apple's open-source files keep Apple's license (APSL-2.0). See
+[docs/LICENSING.md](docs/LICENSING.md).

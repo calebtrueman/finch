@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Boot the emulated M4 (darwin-vm's qemu-sptm) with Finch's kernel collection
 # and ramdisk.
 #

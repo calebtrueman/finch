@@ -1,4 +1,5 @@
 #!/usr/bin/expect -f
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Boot the emulated M4, run a few commands in the console shell, quit.
 #   expect tools/vm/smoke.exp            # stock launchd as PID 1
 #   FINCH_INIT=1 expect tools/vm/smoke.exp   # finch-init as PID 1

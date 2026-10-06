@@ -3,6 +3,23 @@
 This is not legal advice. Before Finch ships anything publicly, a real lawyer should
 review this. The rules below exist to keep us out of trouble until then.
 
+## Finch's own code
+
+Original Finch code is dual-licensed **MIT OR Apache-2.0**, at the user's option (see
+`LICENSE-MIT` and `LICENSE-APACHE`). Every source file carries
+`SPDX-License-Identifier: MIT OR Apache-2.0`.
+
+- **Why dual:** MIT keeps our code GPL-2.0-compatible, so Asahi Linux and other GPL
+  projects can take our driver and hardware work. Apache-2.0 offers an explicit patent
+  grant to those who want it. Rust and much of the Asahi ecosystem use the same
+  arrangement.
+- **Exception: changes to Apple's files.** Patches to XNU or other APSL-licensed files
+  (`kernel/patches/`) stay APSL-2.0, as that license requires. New standalone files,
+  such as Finch kexts, use MIT OR Apache-2.0.
+- **Imported code** keeps its original license and headers.
+
+Contributions are accepted under the same dual license (inbound = outbound).
+
 ## Sources
 
 | Source | License | How we use it |
