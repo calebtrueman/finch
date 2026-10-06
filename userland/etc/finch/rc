@@ -1,0 +1,4 @@
+#!/bin/sh
+# Finch boot script, run once by finch-init before the console shell starts.
+
+echo "rc: Finch userland coming up"

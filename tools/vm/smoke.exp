@@ -1,16 +1,25 @@
+#!/usr/bin/expect -f
+# Boot the emulated M4, run a few commands in the console shell, quit.
+#   expect tools/vm/smoke.exp            # stock launchd as PID 1
+#   FINCH_INIT=1 expect tools/vm/smoke.exp   # finch-init as PID 1
 set timeout 300
 log_user 1
-cd [file dirname [file normalize [info script]]]/../../third_party/darwin-vm
-spawn ./run.sh
+set root [file normalize [file dirname [info script]]/../..]
+set prompt {[#$] $}
+
+spawn $root/tools/vm/run.sh
 expect {
-  "bash-3.2#" {}
+  -re $prompt {}
+  "panic" { puts "\n### PANIC"; exit 2 }
   timeout { puts "\n### TIMEOUT waiting for shell"; exit 1 }
 }
-send "uname -a\r"
-expect "bash-3.2#"
-send "sysctl hw.model hw.ncpu hw.memsize kern.osversion\r"
-expect "bash-3.2#"
-send "ls /\r"
-expect "bash-3.2#"
+foreach cmd {
+  "uname -a"
+  "sysctl hw.model kern.osversion"
+  "ps -axo pid,ppid,comm"
+} {
+  send "$cmd\r"
+  expect -re $prompt
+}
 send "\x01x"
 expect eof

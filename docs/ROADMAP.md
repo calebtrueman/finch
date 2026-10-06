@@ -18,13 +18,22 @@ Build XNU from source and boot it on real Apple Silicon with Apple's own kexts.
 **Exit:** macOS userland runs on a kernel we compiled.
 
 ## Phase 1: Our userland boots
-Replace the userland with Darwin built from Apple open source.
-- [ ] Build system that fetches/pins apple-oss-distributions tags (`tools/`)
-- [ ] libSystem, dyld, objc4, CF, launchd, zsh, core BSD tools from source
-- [ ] Finch root image on its own APFS volume
-- [ ] Boot to a text console / SSH shell with no macOS userland
+Replace the userland with Darwin built from Apple's open source, plus Finch code where
+Apple's is closed. Developed in the emulated M4 first. The map is
+`userland/INVENTORY.md`.
+- [x] **1.1 Finch PID 1.** `finch-init` replaces the closed launchd: console, OS version
+      sysctls, rc script, respawning shell, orphan reaping. Boot with `FINCH_INIT=1`
+      (2026-10-06).
+- [ ] **1.2 Commands from source.** Build shell_cmds, file_cmds, text_cmds, system_cmds and
+      bash/zsh ourselves, replacing darwin-vm's prebuilt sysroot.
+- [ ] **1.3 Open libSystem from source.** Swap dylibs one at a time, starting with
+      libsystem_kernel from our own xnu build.
+- [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
+      sandbox, quarantine, …). Start with the subset our binaries actually import.
+- [ ] **1.5 dyld from source.**
+- [ ] Finch root image on its own APFS volume (bare-metal Tier 3)
 
-**Exit:** "PureDarwin on Apple Silicon." A minimal Finch boots to a shell.
+**Exit:** the VM boots to a shell with no closed-source Apple binaries above the kernel.
 
 ## Phase 2: First pixels and first app
 - [ ] Framebuffer console via the iBoot-initialized display (simple framebuffer)

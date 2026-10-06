@@ -18,6 +18,7 @@ submodule's working tree and are never committed.
 ```sh
 brew install jq ipsw ninja pkgconf glib pixman python@3.13
 git submodule update --init --recursive third_party/darwin-vm
+git -C third_party/darwin-vm/qemu-sptm apply ../../patches/qemu-sptm/*.patch
 
 # Build QEMU. Notes:
 # - The host has MacPorts in /opt/local, which shadows Homebrew; put Homebrew first.
@@ -43,6 +44,28 @@ echo y | ./fix_perms.sh firmware/ramdisk.dmg
 - Interactive: `cd third_party/darwin-vm && ./run.sh`. Quit with `Ctrl-A x`.
 - Automated smoke test: `expect tools/vm/smoke.exp`. It boots to the root shell, runs
   `uname -a` and `sysctl`, and quits.
+
+## Finch userland in the VM
+
+```sh
+make -C userland/finch-init       # -> build/userland/finch-init
+tools/vm/mkramdisk.sh             # base ramdisk + tools/vm/overlay.txt -> build/vm/ (no sudo)
+FINCH_INIT=1 tools/vm/run.sh      # boot with finch-init as PID 1 (launchdsuffix=finch)
+FINCH_INIT=1 expect tools/vm/smoke.exp
+```
+
+`tools/vm/run.sh` uses `build/vm/ramdisk.dmg` when it exists. Otherwise it uses darwin-vm's
+base ramdisk.
+
+## QEMU patches
+
+Finch carries patches against `qemu-sptm` in `third_party/patches/qemu-sptm/`. Apply them
+before building QEMU:
+`git -C third_party/darwin-vm/qemu-sptm apply ../../patches/qemu-sptm/*.patch`
+
+- 0001: clear FEAT_LVA (`ID_AA64MMFR2_EL1.VARange`). Apple Silicon doesn't have it, and
+  DEVELOPMENT kernels assert on it (`vm_sanitize.c`). This bug panicked the first
+  `ps` run under finch-init.
 
 ## Booting the Finch kernel
 

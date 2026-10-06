@@ -1,0 +1,24 @@
+diff --git a/hw/arm/darwin.c b/hw/arm/darwin.c
+index 246476d..cd0223d 100644
+--- a/hw/arm/darwin.c
++++ b/hw/arm/darwin.c
+@@ -11,6 +11,7 @@
+ #include "qemu/option.h"
+ #include "qemu/config-file.h"
+ #include "cpregs.h"
++#include "cpu-features.h"
+ #include "hw/arm/exynos4210.h"
+ #include "system/system.h"
+ #include "hw/core/sysbus.h"
+@@ -231,6 +232,11 @@ static void darwin_init(MachineState *ms) {
+     // SPTM requires EL2, and non-SPTM XNU can run in either EL1 or EL2, so just always use EL2
+     set_feature(&cpu->env, ARM_FEATURE_EL2);
+ 
++    // Apple Silicon has no FEAT_LVA (52-bit VAs), but the "max" CPU advertises it.
++    // DEVELOPMENT/DEBUG xnu asserts VARange == 0 (osfmk/vm/vm_sanitize.c), so match
++    // the real hardware.
++    FIELD_DP64_IDREG(&cpu->isar, ID_AA64MMFR2, VARANGE, 0);
++
+     struct dtree_node *cpu_node = adt_find_node(dt_root, "cpus/cpu0");
+     u32 dtree_frq = *(u32*)adt_get_prop_val(cpu_node, "clock-frequency");
+     cpu->gt_cntfrq_hz = dtree_frq;

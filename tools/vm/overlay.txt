@@ -1,0 +1,6 @@
+# Files installed into the Finch VM ramdisk by tools/vm/mkramdisk.sh.
+# <source, relative to repo root>  <destination path inside the ramdisk>
+# Executables are added to the trust cache automatically.
+
+build/userland/finch-init   /usr/appleinternal/sbin/launchd.finch
+userland/etc/finch/rc       /etc/finch/rc

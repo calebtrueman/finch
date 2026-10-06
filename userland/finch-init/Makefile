@@ -1,0 +1,19 @@
+# finch-init: built with the host Xcode toolchain against the macOS SDK.
+# arm64e matches the rest of the Darwin userland; it runs as a platform binary
+# because tools/vm/mkramdisk.sh adds its cdhash to the trust cache.
+
+OUT     ?= ../../build/userland
+CC      := xcrun -sdk macosx clang
+CFLAGS  := -arch arm64e -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror
+
+all: $(OUT)/finch-init
+
+$(OUT)/finch-init: finch-init.c
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -o $@ $<
+	codesign -f -s - -i org.finch.init $@
+
+clean:
+	rm -f $(OUT)/finch-init
+
+.PHONY: all clean
