@@ -45,7 +45,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         and 2 version symbols; nothing imports them.
   - [x] libsystem_platform (libplatform; recipe from its published xcconfigs, plus Finch
         `ffs`/`fls`, SME-safe string routines and one Swift tracing no-op). 185/185 exports.
-  - [ ] libsystem_pthread, libsystem_malloc, libdispatch, libsystem_c, …
+  - [x] libsystem_pthread (libpthread + `userland/patches/libpthread`; Finch
+        `<os/thread_self_restrict.h>` for the JIT write-protect toggle). 209/209 exports.
+  - [ ] libsystem_malloc, libdispatch, libsystem_c, …
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
 - [ ] **1.5 dyld from source.**

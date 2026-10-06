@@ -33,6 +33,17 @@ else
     targets=(-alltargets)
 fi
 
+# Finch patches to this project (userland/patches/<project>/*.patch), applied
+# idempotently to the build/src checkout.
+for p in "${FINCH_ROOT}/userland/patches/${project}"/*.patch; do
+    [[ -f "$p" ]] || continue
+    if git -C "${SRC}" apply --check "$p" 2>/dev/null; then
+        git -C "${SRC}" apply "$p"
+    elif ! git -C "${SRC}" apply --check --reverse "$p" 2>/dev/null; then
+        echo "error: patch does not apply: $p" >&2; exit 1
+    fi
+done
+
 # Apple's internal base config isn't published; point includes at Finch's.
 grep -rl --include='*.xcconfig' 'Makefiles/CoreOS/Xcode/BSD.xcconfig' "${SRC}" 2>/dev/null \
     | while read -r f; do
@@ -42,9 +53,12 @@ grep -rl --include='*.xcconfig' 'Makefiles/CoreOS/Xcode/BSD.xcconfig' "${SRC}" 2
 # Projects that are part of libSystem itself need xnu's private headers (and a
 # matching Availability set) ahead of the public SDK. Opt in with a marker file.
 fr="${FINCH_ROOT}/build/xnu-work/fakeroot"
-private_first="-I${SDK}/availability -I${fr}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -I${fr}/usr/local/include"
+private_first="-I${SDK}/override -I${SDK}/availability -I${fr}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -I${fr}/usr/local/include"
 cflags_private=""
 [[ -f "${FINCH_ROOT}/userland/oss/${project}.private-first" ]] && cflags_private="${private_first}"
+# Declarations Apple's internal headers would supply (force-included).
+[[ -f "${FINCH_ROOT}/userland/oss/${project}.prelude.h" ]] \
+    && cflags_private+=" -include ${FINCH_ROOT}/userland/oss/${project}.prelude.h"
 
 # Per-project Finch overrides (use $(inherited) to extend project settings).
 xcconfig=()

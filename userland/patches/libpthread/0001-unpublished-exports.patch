@@ -1,0 +1,74 @@
+diff --git a/private/pthread/qos_private.h b/private/pthread/qos_private.h
+index ff5ac69..73ebef8 100644
+--- a/private/pthread/qos_private.h
++++ b/private/pthread/qos_private.h
+@@ -192,6 +192,11 @@ __API_AVAILABLE(macos(10.15.1), ios(13.2), tvos(13.2), watchos(6.2))
+ int
+ pthread_prefer_alternate_cluster_self(void);
+ 
++// Finch: Apple-exported but unpublished; same request as the cluster variant.
++__API_AVAILABLE(macos(10.15.1), ios(13.2), tvos(13.2), watchos(6.2))
++int
++pthread_prefer_alternate_amx_self(void);
++
+ /*!
+  * @const PTHREAD_MAX_PARALLELISM_PHYSICAL
+  * Flag that can be used with pthread_qos_max_parallelism() and
+diff --git a/src/pthread_mutex.c b/src/pthread_mutex.c
+index a199031..daa7acb 100644
+--- a/src/pthread_mutex.c
++++ b/src/pthread_mutex.c
+@@ -90,6 +90,23 @@ int __pthread_mutex_default_opt_policy = _PTHREAD_MTX_OPT_POLICY_DEFAULT;
+ bool __pthread_mutex_use_ulock = _PTHREAD_MTX_OPT_ULOCK_DEFAULT;
+ bool __pthread_mutex_ulock_adaptive_spin = _PTHREAD_MTX_OPT_ADAPTIVE_DEFAULT;
+ 
++/*
++ * Finch: legacy mutex mode. Apple's libsystem_pthread exports
++ * _pthread_mutex_enable_legacy_mode() (LaunchServices imports it), but it's
++ * missing from the published source. Matching Apple's behaviour, it makes
++ * mutexes initialised afterwards use the regular signature instead of the
++ * fast-path one.
++ */
++static bool __pthread_mutex_legacy_mode;
++
++void _pthread_mutex_enable_legacy_mode(void);
++
++void
++_pthread_mutex_enable_legacy_mode(void)
++{
++	__pthread_mutex_legacy_mode = true;
++}
++
+ static inline bool
+ _pthread_mutex_policy_validate(int policy)
+ {
+@@ -1756,6 +1773,7 @@ _pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr,
+ 
+ 	long sig = _PTHREAD_MUTEX_SIG;
+ 	if (mutex->mtxopts.options.type == PTHREAD_MUTEX_NORMAL &&
++			!__pthread_mutex_legacy_mode &&
+ 			(_pthread_mutex_is_fairshare(mutex) ||
+ 			 _pthread_mutex_is_firstfit(mutex))) {
+ 		// rdar://18148854 _pthread_mutex_lock & pthread_mutex_unlock fastpath
+diff --git a/src/qos.c b/src/qos.c
+index 173671b..700f3a3 100644
+--- a/src/qos.c
++++ b/src/qos.c
+@@ -327,6 +327,17 @@ pthread_prefer_alternate_cluster_self(void)
+ 	return _pthread_set_properties_self(_PTHREAD_SET_SELF_ALTERNATE_CLUSTER, 0, 0);
+ }
+ 
++/*
++ * Finch: exported by Apple's libsystem_pthread but missing from the published
++ * source. Apple's implementation makes the same request as
++ * pthread_prefer_alternate_cluster_self().
++ */
++int
++pthread_prefer_alternate_amx_self(void)
++{
++	return _pthread_set_properties_self(_PTHREAD_SET_SELF_ALTERNATE_CLUSTER, 0, 0);
++}
++
+ 
+ pthread_override_t
+ pthread_override_qos_class_start_np(pthread_t thread,  qos_class_t qc, int relpri)

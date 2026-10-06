@@ -92,6 +92,9 @@ copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
 # Libsystem: <os/alloc_once_private.h>.
 cp "${SRC}/Libsystem/alloc_once_private.h" "${INC}/os/"
 
+# libmalloc: private headers (stack_logging.h, malloc_private.h, ...).
+copy_headers "${SRC}/libmalloc/private" "${INC}"
+
 # libpthread: private headers (<pthread/tsd_private.h>, <sys/qos_private.h>, ...).
 copy_headers "${SRC}/libpthread/private" "${INC}"
 
@@ -136,5 +139,10 @@ cat > "${INC}/AppleFeatures/AppleFeatures.h" <<'EOT'
  * Projects that include it without testing its macros build against this. */
 #pragma once
 EOT
+
+# Finch-written replacements for headers Apple publishes redacted
+# (userland/sdk/include). Searched first in private-first builds.
+rm -rf "${SDK}/override"
+cp -R "${FINCH_ROOT}/userland/sdk/include" "${SDK}/override"
 
 echo "built ${SDK} ($(find "${INC}" -name '*.h' | wc -l | tr -d ' ') headers)"
