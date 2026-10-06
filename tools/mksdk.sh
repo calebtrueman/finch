@@ -80,8 +80,14 @@ cp "${XNU_ROOT}/usr/local/include/AvailabilityProhibitedInternal.h" "${SDK}/avai
 # no-op annotation, which is all a build needs.
 rm -f "${INC}/AvailabilityInternalPrivate.h" "${INC}/AvailabilityProhibitedInternal.h"
 
-# Libc: private os/ headers (os/assumes.h, ...).
+# Libc: private os/ headers (os/assumes.h, ...), libdarwin's <os/*.h>, and the
+# LOCALHDRS that Libc installs to /usr/local/include (xcodescripts/headers.sh).
 copy_headers "${SRC}/Libc/os" "${INC}/os" -maxdepth 1
+copy_headers "${SRC}/Libc/libdarwin/h" "${INC}/os" -maxdepth 1
+for h in darwin/libc_private.h darwin/libc_hooks.h gen/utmpx_thread.h nls/FreeBSD/msgcat.h \
+         gen/thread_stack_pcs.h libdarwin/h/dirstat.h darwin/subsystem.h darwin/_libc_init.h; do
+    cp "${SRC}/Libc/${h}" "${INC}/"
+done
 
 # libplatform: private headers (_simple.h, os/*_private.h, ...).
 copy_headers "${SRC}/libplatform/private" "${INC}"

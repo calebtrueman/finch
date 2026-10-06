@@ -65,6 +65,19 @@ xcconfig=()
 [[ -f "${FINCH_ROOT}/userland/oss/${project}.xcconfig" ]] \
     && xcconfig=(-xcconfig "${FINCH_ROOT}/userland/oss/${project}.xcconfig")
 
+# Xcode's incremental builds don't notice changes to the Finch inputs above
+# (e.g. new linker flags), so fingerprint them and build clean on any change.
+obj="${FINCH_ROOT}/build/obj/${project}"
+inputs_hash=$(cat "${FINCH_ROOT}/userland/oss/${project}".* \
+        "${FINCH_ROOT}/userland/patches/${project}"/*.patch \
+        "${FINCH_ROOT}/userland/sdk/BSD.xcconfig" 2>/dev/null \
+    | cat - <(find "${SDK}" -type f -print0 | xargs -0 shasum 2>/dev/null) | shasum | cut -c1-16)
+if [[ "$(cat "${obj}/.finch-inputs" 2>/dev/null)" != "${inputs_hash}" ]]; then
+    rm -rf "${obj}" "${FINCH_ROOT}/build/sym/${project}"
+fi
+mkdir -p "${obj}"
+echo "${inputs_hash}" > "${obj}/.finch-inputs"
+
 # Stage into a per-project DSTROOT, then merge, so we know exactly what this
 # project produced.
 stage="${FINCH_ROOT}/build/stage/${project}"

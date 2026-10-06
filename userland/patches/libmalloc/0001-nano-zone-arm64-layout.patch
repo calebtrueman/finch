@@ -1,0 +1,17 @@
+diff --git a/src/nano_zone.h b/src/nano_zone.h
+index e9828c5..acb68a8 100644
+--- a/src/nano_zone.h
++++ b/src/nano_zone.h
+@@ -33,7 +33,11 @@
+ 
+ /*************          nanozone address field layout        ******************/
+ 
+-#if defined(__x86_64)
++// Finch: Apple's published header has only the x86_64 layout ("#error Unknown
++// Architecture" otherwise). Apple's arm64 libmalloc contains no v1 nano zone
++// code (it uses nanov2), so these widths only have to keep the shared
++// definitions compiling; use the x86_64 layout for arm64 as well.
++#if defined(__x86_64) || defined(__arm64__)
+ #define NANO_MAG_BITS			6
+ #define NANO_BAND_BITS			17
+ #define NANO_SLOT_BITS			4

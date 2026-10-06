@@ -47,9 +47,15 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         `ffs`/`fls`, SME-safe string routines and one Swift tracing no-op). 185/185 exports.
   - [x] libsystem_pthread (libpthread + `userland/patches/libpthread`; Finch
         `<os/thread_self_restrict.h>` for the JIT write-protect toggle). 209/209 exports.
-  - [ ] libsystem_malloc, libdispatch, libsystem_c, …
+  - [x] libsystem_malloc (libmalloc; Finch `<os/feature_private.h>` ABI-compatible with
+        Apple's libsystem_featureflags; header-only Finch SHA-256 replaces the libcorecrypto
+        dependency). 118/118 exports.
+  - [ ] libdispatch, libsystem_c, libsystem_blocks, libsystem_info, …
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
+  - [x] libmalloc no longer depends on libcorecrypto
+  - [ ] libsystem_featureflags (ABI known: `_os_feature_enabled_impl`,
+        `_os_feature_enabled_simple_impl`)
 - [ ] **1.5 dyld from source.**
 - [ ] Finch root image on its own APFS volume (bare-metal Tier 3)
 

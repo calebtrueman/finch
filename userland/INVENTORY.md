@@ -28,7 +28,7 @@ pieces can be replaced one at a time.
 | libsystem_kernel | xnu-12377.101.15 (libsyscall) | **Built by Finch** (plus Finch `work_interval_instance_*`; Apple ships unpublished additions) |
 | libsystem_platform | libplatform-375.100.10 | **Built by Finch** (Apple ships no Xcode project; Finch adds 9 unpublished exports) |
 | libsystem_pthread | libpthread-539.100.4 | **Built by Finch** (+2 unpublished exports; Finch JIT/SPRR header) |
-| libsystem_malloc | libmalloc-812.100.31 | OPEN |
+| libsystem_malloc | libmalloc-812.100.31 | **Built by Finch** (no longer links libcorecrypto) |
 | libsystem_c | Libc-1752.100.10 | OPEN |
 | libsystem_darwin | Libc-1752.100.10 (libdarwin) | OPEN |
 | libsystem_info | Libinfo-600 | OPEN |
@@ -54,7 +54,7 @@ pieces can be replaced one at a time.
 | libsystem_sandbox, libsystem_secinit | Sandbox | CLOSED |
 | libsystem_containermanager | Containers | CLOSED |
 | libsystem_coreservices | CoreServices | CLOSED |
-| libsystem_featureflags | Feature flags | CLOSED |
+| libsystem_featureflags | Feature flags | CLOSED (Finch header `os/feature_private.h` matches its ABI; implementation TODO) |
 | libsystem_networkextension | NetworkExtension | CLOSED |
 | libsystem_symptoms | Symptoms | CLOSED |
 | libsystem_trial | Trial | CLOSED |

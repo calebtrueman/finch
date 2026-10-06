@@ -1,0 +1,5 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Apple's build sets the project version from RC_ProjectSourceVersion.
+CURRENT_PROJECT_VERSION = 812.100.31
+// Finch's <corecrypto/ccsha2.h> is header-only: don't link the closed library.
+OTHER_LDFLAGS = $(inherited) -Wl,-dead_strip_dylibs
