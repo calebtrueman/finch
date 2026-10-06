@@ -52,12 +52,11 @@ Startup Options.
     a second Mac (or an Apple Store). This is unlikely, since custom kernels don't touch
     iBoot or the system recoveryOS, but it isn't impossible.
 
-## Disk space ⚠
+## Disk space
 
-The internal SSD has about **58 GB free** (494 GB total). One IPSW is about 18 GB. XNU
-plus userland builds, QEMU images and a Tier 3 container (≥40 GB) won't all fit. Get an
-**external SSD** for IPSWs, build output and VM images, and reserve internal space for
-the Tier 3 container.
+The internal SSD had about 172 GB free after cleanup on 2026-10-06 (494 GB total). That
+is enough for Tier 1–3 work. Use an external SSD for IPSW archives and old build trees
+so internal space stays free for the Tier 3 container (≥40 GB).
 
 ## M4-specific reality
 
