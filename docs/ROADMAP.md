@@ -50,7 +50,11 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] libsystem_malloc (libmalloc; Finch `<os/feature_private.h>` ABI-compatible with
         Apple's libsystem_featureflags; header-only Finch SHA-256 replaces the libcorecrypto
         dependency). 118/118 exports.
-  - [ ] libdispatch, libsystem_c, libsystem_blocks, libsystem_info, …
+  - [x] libdispatch (config reconstructed: Apple publishes libdispatch.xcconfig nearly
+        empty). 410/411 exports (missing: an unused watchdog helper).
+  - [x] `finch-libsystem-test` (userland/tests) passes in the VM: malloc, pthread, dispatch,
+        string/bit ops. The JIT toggle is untestable in QEMU (no SPRR); verify on bare metal.
+  - [ ] libsystem_c, libsystem_blocks, libsystem_info, libsystem_darwin, dyld, …
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
   - [x] libmalloc no longer depends on libcorecrypto

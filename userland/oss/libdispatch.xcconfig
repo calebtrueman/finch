@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Apple publishes libdispatch's xcodeconfig/libdispatch.xcconfig with almost
+// all settings removed. This restores what the libdispatch target needs:
+// search paths and language settings the sources assume, hidden-by-default
+// visibility (exports are DISPATCH_EXPORT), and link flags matching the
+// dependencies of macOS 26.4's libdispatch.dylib, plus the alias, order and
+// interposable lists Apple ships in xcodeconfig/.
+
+HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR) $(PROJECT_DIR)/private $(PROJECT_DIR)/src $(PROJECT_DIR)/os
+USE_HEADERMAP = NO
+GCC_C_LANGUAGE_STANDARD = gnu11
+CLANG_CXX_LANGUAGE_STANDARD = gnu++17
+GCC_ENABLE_CPP_EXCEPTIONS = NO
+GCC_ENABLE_CPP_RTTI = NO
+GCC_SYMBOLS_PRIVATE_EXTERN = YES
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) __DARWIN_NON_CANCELABLE=1 OS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY=1 __PTHREAD_EXPOSE_INTERNALS__=1
+LINK_WITH_STANDARD_LIBRARIES = NO
+CURRENT_PROJECT_VERSION = 1542.100.32
+OTHER_LDFLAGS = $(inherited) -umbrella System -nodefaultlibs -L$(SDKROOT)/usr/lib/system -ldyld -lcompiler_rt -lsystem_kernel -lsystem_platform -lsystem_pthread -lsystem_malloc -lsystem_c -lsystem_blocks -lunwind -Wl,-upward-lsystem_darwin -Wl,-upward-lobjc -Wl,-alias_list,$(SRCROOT)/xcodeconfig/libdispatch.aliases -Wl,-order_file,$(SRCROOT)/xcodeconfig/libdispatch.order -Wl,-interposable_list,$(SRCROOT)/xcodeconfig/libdispatch.interposable -Wl,-current_version,1542.100.32 -Wl,-compatibility_version,1
+
+// Product identity (also stripped from the published config).
+PRODUCT_NAME = dispatch
+EXECUTABLE_PREFIX = lib
+INSTALL_PATH = /usr/lib/system
+LD_DYLIB_INSTALL_NAME = /usr/lib/system/libdispatch.dylib

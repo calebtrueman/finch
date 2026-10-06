@@ -44,6 +44,12 @@ for p in "${FINCH_ROOT}/userland/patches/${project}"/*.patch; do
     fi
 done
 
+# Optional pre-build step (e.g. generated headers), run in the source tree.
+if [[ -x "${FINCH_ROOT}/userland/oss/${project}.pre.sh" ]]; then
+    (cd "${SRC}" && "${FINCH_ROOT}/userland/oss/${project}.pre.sh") \
+        || { echo "error: ${project}.pre.sh failed" >&2; exit 1; }
+fi
+
 # Apple's internal base config isn't published; point includes at Finch's.
 grep -rl --include='*.xcconfig' 'Makefiles/CoreOS/Xcode/BSD.xcconfig' "${SRC}" 2>/dev/null \
     | while read -r f; do

@@ -1,0 +1,28 @@
+diff --git a/config/config.h b/config/config.h
+index c4d3eab..fca0c4e 100644
+--- a/config/config.h
++++ b/config/config.h
+@@ -153,7 +153,8 @@
+ #define HAVE__PTHREAD_WORKQUEUE_ALLOW_SEND_SIGNALS 1
+ 
+ /* Define to 1 if you have the <pthread_machdep.h> header file. */
+-#define HAVE_PTHREAD_MACHDEP_H 1
++/* Finch: pthread_machdep.h was removed from Libc long ago; tsd.h works without it. */
++/* #undef HAVE_PTHREAD_MACHDEP_H */
+ 
+ /* Define to 1 if you have the `pthread_main_np' function. */
+ #define HAVE_PTHREAD_MAIN_NP 1
+diff --git a/src/internal.h b/src/internal.h
+index 102828b..78d8bfd 100644
+--- a/src/internal.h
++++ b/src/internal.h
+@@ -1070,7 +1070,8 @@ _dispatch_ktrace_impl(uint32_t code, uint64_t a, uint64_t b,
+ #endif // OS_EVENTLINK_USE_MACH_EVENTLINK
+ 
+ #ifndef DISPATCH_SEND_ACTIVITY_IN_MSGV
+-#error __OPEN_SOURCE__ unhandled OS version check
++/* Finch: Apple's published source has an "#error __OPEN_SOURCE__ unhandled OS
++ * version check" placeholder here; the version logic below handles it. */
+ #if DISPATCH_MIN_REQUIRED_OSX_AT_LEAST(130000) && (defined(__arm64__) || defined(__LP64__))
+ #define DISPATCH_SEND_ACTIVITY_IN_MSGV 1
+ #else
