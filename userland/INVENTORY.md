@@ -33,7 +33,7 @@ pieces can be replaced one at a time.
 | libsystem_darwin | Libc-1752.100.10 (libdarwin) | OPEN |
 | libsystem_info | Libinfo-600 | OPEN |
 | libsystem_notify | Libnotify-348.100.7 | OPEN |
-| libsystem_blocks | libclosure-96 | OPEN |
+| libsystem_blocks | libclosure-96 | **Built by Finch** |
 | libdispatch | libdispatch-1542.100.32 | **Built by Finch** (build config reconstructed) |
 | libdyld | dyld-1376.6 | OPEN |
 | libcopyfile | copyfile-240 | OPEN |

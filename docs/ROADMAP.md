@@ -54,7 +54,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         empty). 410/411 exports (missing: an unused watchdog helper).
   - [x] `finch-libsystem-test` (userland/tests) passes in the VM: malloc, pthread, dispatch,
         string/bit ops. The JIT toggle is untestable in QEMU (no SPRR); verify on bare metal.
-  - [ ] libsystem_c, libsystem_blocks, libsystem_info, libsystem_darwin, dyld, …
+  - [x] libsystem_blocks (libclosure). 19/19 exports.
+  - [ ] libsystem_c, libsystem_info, libsystem_darwin, libsystem_notify, dyld, …
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
   - [x] libmalloc no longer depends on libcorecrypto

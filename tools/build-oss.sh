@@ -89,6 +89,15 @@ echo "${inputs_hash}" > "${obj}/.finch-inputs"
 stage="${FINCH_ROOT}/build/stage/${project}"
 rm -rf "${stage}"
 
+# The Xcode project is usually <project>.xcodeproj; otherwise use the only one.
+xcodeproj="${SRC}/${project}.xcodeproj"
+if [[ ! -d "${xcodeproj}" ]]; then
+    shopt -s nullglob
+    projs=("${SRC}"/*.xcodeproj)
+    shopt -u nullglob
+    [[ ${#projs[@]} -eq 1 ]] && xcodeproj="${projs[0]}"
+fi
+
 recipe="${FINCH_ROOT}/userland/oss/${project}.build.sh"
 if [[ -x "${recipe}" ]]; then
     # Non-Xcode project: run Finch's build recipe instead.
@@ -97,7 +106,7 @@ if [[ -x "${recipe}" ]]; then
         FINCH_PRIVATE_CFLAGS="${private_first}" \
         SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" "${recipe}" > "${LOG}" 2>&1
 else
-xcodebuild install "${targets[@]}" -project "${SRC}/${project}.xcodeproj" ${xcconfig[@]+"${xcconfig[@]}"} \
+xcodebuild install "${targets[@]}" -project "${xcodeproj}" ${xcconfig[@]+"${xcconfig[@]}"} \
     -sdk macosx ARCHS=arm64e ONLY_ACTIVE_ARCH=NO \
     DSTROOT="${stage}" \
     OBJROOT="${FINCH_ROOT}/build/obj/${project}" \
