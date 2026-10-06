@@ -1,0 +1,9 @@
+# Apple kexts that can't be linked against the open-source XNU build.
+# Each one depends on kernel code Apple doesn't publish. tools/build-kernel.sh drops
+# them from the kernel collection. One bundle id per line; '#' starts a comment.
+
+# Needs SEPHibernatorService (closed hibernation/SEP code missing from public xnu).
+com.apple.driver.SEPHibernation
+
+# Needs _sptm_cputrace_is_mode_supported (not exported by public xnu's SPTM glue).
+com.apple.driver.AppleProcessorTrace

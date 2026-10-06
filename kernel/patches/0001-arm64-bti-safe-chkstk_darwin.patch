@@ -1,0 +1,60 @@
+diff --git a/osfmk/arm64/finch_chkstk.s b/osfmk/arm64/finch_chkstk.s
+new file mode 100644
+index 000000000..db4e49f49
+--- /dev/null
++++ b/osfmk/arm64/finch_chkstk.s
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (c) 2026 The Finch Project. All rights reserved.
++ *
++ * Licensed under the Apple Public Source License 2.0, as is the rest of xnu.
++ */
++
++/*
++ * __chkstk_darwin: stack probe emitted by clang for frames larger than a page.
++ *
++ * Finch defines this in-kernel instead of taking it from the public Xcode
++ * toolchain's libclang_rt.cc_kext.a, whose copy lacks a BTI landing pad. On
++ * BTI-enforcing kernels (e.g. T8132), an indirect branch to that copy faults,
++ * and the fault handler itself calls __chkstk_darwin, which recurses until the
++ * exception stack is exhausted ("Invalid kernel stack pointer" panic before the
++ * console comes up).
++ *
++ * Contract (matches compiler-rt): x9 = bytes about to be allocated. Touch each
++ * page from sp down to sp - x9. Only x9 and x10 may be clobbered.
++ */
++
++#include <arm64/asm.h>
++
++	.text
++	.align 2
++	.globl EXT(__chkstk_darwin)
++	.globl EXT(__chkstk_darwin_probe)
++LEXT(__chkstk_darwin)
++	ARM64_PROLOG
++LEXT(__chkstk_darwin_probe)
++	cmp		x9, #0x1, lsl #12
++	mov		x10, sp
++	b.lo	Lfinch_chkstk_tail
++Lfinch_chkstk_loop:
++	sub		x10, x10, #0x1, lsl #12
++	ldrb	wzr, [x10]
++	sub		x9, x9, #0x1, lsl #12
++	cmp		x9, #0x1, lsl #12
++	b.hi	Lfinch_chkstk_loop
++Lfinch_chkstk_tail:
++	sub		x10, x10, x9
++	ldrb	wzr, [x10]
++	ret
+diff --git a/osfmk/conf/files.arm64 b/osfmk/conf/files.arm64
+index f54b7afbd..e432943f4 100644
+--- a/osfmk/conf/files.arm64
++++ b/osfmk/conf/files.arm64
+@@ -76,6 +76,7 @@ osfmk/arm/preemption_disable.c	standard
+ osfmk/arm64/mcount.s		optional profile
+ osfmk/arm64/memcmp_zero.s	standard
+ osfmk/arm64/strnlen.s   standard
++osfmk/arm64/finch_chkstk.s standard
+ osfmk/arm64/strncmp.s   standard
+ 
+ osfmk/arm/model_dep.c		standard

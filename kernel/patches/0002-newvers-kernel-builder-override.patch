@@ -1,0 +1,12 @@
+diff --git a/config/newvers.pl b/config/newvers.pl
+index 443e76d84..35f7ae192 100755
+--- a/config/newvers.pl
++++ b/config/newvers.pl
+@@ -61,6 +61,7 @@ my $BUILD_CONFIG = "unknown";
+ $BUILD_CONFIG = $ENV{'CURRENT_KERNEL_CONFIG_LC'} if defined($ENV{'CURRENT_KERNEL_CONFIG_LC'});
+ my $BUILDER=`whoami`;
+ $BUILDER =~ s/[\n\t]//g;
++$BUILDER = $ENV{'KERNEL_BUILDER'} if ($ENV{'KERNEL_BUILDER'});
+ my $RC_STRING = $ENV{'RC_ProjectNameAndSourceVersion'} . "~" . $ENV{'RC_ProjectBuildVersion'} if defined($ENV{'RC_XBS'});
+ 
+ # Handle four scenarios:

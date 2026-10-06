@@ -44,6 +44,34 @@ echo y | ./fix_perms.sh firmware/ramdisk.dmg
 - Automated smoke test: `expect tools/vm/smoke.exp`. It boots to the root shell, runs
   `uname -a` and `sysctl`, and quits.
 
+## Booting the Finch kernel
+
+```sh
+tools/build-kernel.sh --install   # build XNU + patches, link KC, make it darwin-vm's bootkc
+expect tools/vm/smoke.exp
+```
+
+The original kernelcache from Apple's restore image is kept at `firmware/kcs/stock.release`. To go back to it:
+`ln -sfn kcs/stock.release third_party/darwin-vm/firmware/bootkc`.
+
+## Debugging an early panic
+
+If nothing prints, the kernel probably panicked before the console came up. Run QEMU with
+`-s -S`, then attach lldb to the kernel collection. darwin-vm loads it slid by 0x20000000:
+
+```
+target create build/kc/finch-0.0.1.t8132.development
+target modules load --file finch-0.0.1.t8132.development --slide 0x20000000
+gdb-remote 127.0.0.1:1234
+br set -n panic_with_thread_kernel_state
+c
+```
+
 ## Status
 - 2026-10-06: the stock 25E253 kernel boots to a root shell. It reports
   `hw.model: Mac16,10` with 10 CPUs and 8 GB.
+- 2026-10-06: **the Finch kernel boots** to a root shell:
+  `Darwin Kernel Version 25.4.0 … finch:finch-0.0.1/xnu-12377.101.15/DEVELOPMENT_ARM64_T8132`.
+  The first attempt panicked before the console came up. The public Xcode's
+  `libclang_rt.cc_kext.a` `__chkstk_darwin` has no `bti c` landing pad, so a BTI fault
+  recursed until the stack overflowed. Fixed by `kernel/patches/0001`.
