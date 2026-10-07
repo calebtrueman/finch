@@ -1,0 +1,221 @@
+diff --git a/mDNSShared/dnssd_clientstub.c b/mDNSShared/dnssd_clientstub.c
+index eb87b64..f003f09 100644
+--- a/mDNSShared/dnssd_clientstub.c
++++ b/mDNSShared/dnssd_clientstub.c
+@@ -251,6 +251,12 @@ struct DNSServiceAttribute_s {
+     uint32_t timestamp;    //Timestamp in seconds since epoch time to indicate when the service/record is registered.
+     bool hostkeyhash_is_set;
+     bool timestamp_is_set;
++    // Finch: the rest of the attribute as macOS 26.4's libsystem_dnssd lays it out.
++    uint32_t failover_policy;           // +0x10
++    uint32_t validation_policy;         // +0x14
++    size_t validation_data_len;         // +0x18
++    uint8_t *validation_data;           // +0x20
++    uint8_t *resolver_override;         // +0x28: a uuid_t, or NULL
+ };
+ 
+ const DNSServiceAttribute kDNSServiceAttributeAAAAFallback = {
+@@ -336,6 +342,10 @@ void DNSSD_API DNSServiceAttributeDeallocate(DNSServiceAttributeRef attr)
+     saref_finalized++;
+ #endif
+     DNSServiceAttributeRef tmp = attr;
++    if (tmp) {
++        mdns_free(tmp->validation_data);
++        mdns_free(tmp->resolver_override);
++    }
+     mdns_free(tmp);
+ }
+ 
+@@ -3091,3 +3101,192 @@ static DNSServiceErrorType _DNSServiceSleepKeepalive_sockaddr
+     return kDNSServiceErr_NoError;
+ }
+ #endif
++
++// ***************************************************************************
++// Finch: exports of macOS 26.4's libsystem_dnssd that live in sources Apple
++// doesn't publish. Behaviour read from that library; written for Finch.
++
++#include <os/lock.h>
++#include <uuid/uuid.h>
++#include <xpc/xpc.h>
++
++#ifndef SO_DELEGATED
++#define SO_DELEGATED        0x1107  // set socket's delegate {pid_t}
++#endif
++#ifndef SO_DELEGATED_UUID
++#define SO_DELEGATED_UUID   0x1108  // set socket's delegate {uuid_t}
++#endif
++
++const DNSServiceAttribute kDNSServiceAttrAllowFailover = { .failover_policy = 1 };
++const DNSServiceAttribute kDNSServiceAttrValidationRequired = { .validation_policy = 1 };
++
++DNSServiceAttributeRef DNSSD_API DNSServiceAttrCreate(void)
++{
++    DNSServiceAttributeRef attr = (DNSServiceAttributeRef)mdns_calloc(1, sizeof(*attr));
++    if (!attr) __builtin_trap();
++    return attr;
++}
++
++void DNSSD_API DNSServiceAttrFree(DNSServiceAttributeRef attr)
++{
++    DNSServiceAttributeDeallocate(attr);
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceAttrSetFailoverPolicy(DNSServiceAttributeRef attr, uint32_t policy)
++{
++    attr->failover_policy = policy;
++    return kDNSServiceErr_NoError;
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceAttrSetValidationPolicy(DNSServiceAttributeRef attr, uint32_t policy)
++{
++    attr->validation_policy = policy;
++    return kDNSServiceErr_NoError;
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceAttrSetValidationData(DNSServiceAttributeRef attr, const uint8_t *data, size_t len)
++{
++    if (len > UINT16_MAX) return kDNSServiceErr_Invalid;
++    mdns_free(attr->validation_data);
++    attr->validation_data = NULL;
++    attr->validation_data_len = 0;
++    if (data && len) {
++        attr->validation_data = (uint8_t *)mdns_malloc(len);
++        if (!attr->validation_data) __builtin_trap();
++        memcpy(attr->validation_data, data, len);
++        attr->validation_data_len = len;
++    }
++    attr->validation_policy = 1;
++    return kDNSServiceErr_NoError;
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceAttributeSetResolverOverride(DNSServiceAttributeRef attr, const uuid_t uuid)
++{
++    mdns_free(attr->resolver_override);
++    attr->resolver_override = NULL;
++    if (uuid) {
++        attr->resolver_override = (uint8_t *)mdns_calloc(1, sizeof(uuid_t));
++        if (!attr->resolver_override) __builtin_trap();
++        uuid_copy(attr->resolver_override, uuid);
++    }
++    return kDNSServiceErr_NoError;
++}
++
++// Validation data comes back from mDNSResponder's DNSSEC path; this client
++// doesn't receive any yet.
++const uint8_t * DNSSD_API DNSServiceGetValidationData(DNSServiceRef sdRef, size_t *len)
++{
++    (void)sdRef;
++    if (len) *len = 0;
++    return NULL;
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceBrowseEx(DNSServiceRef *sdRef, DNSServiceFlags flags, uint32_t interfaceIndex,
++    const char *regtype, const char *domain, const DNSServiceAttribute *attr, DNSServiceBrowseReply callBack, void *context)
++{
++    return DNSServiceBrowseInternal(sdRef, flags, interfaceIndex, regtype, domain, attr, callBack, context);
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceResolveEx(DNSServiceRef *sdRef, DNSServiceFlags flags, uint32_t interfaceIndex,
++    const char *name, const char *regtype, const char *domain, const DNSServiceAttribute *attr,
++    DNSServiceResolveReply callBack, void *context)
++{
++    return DNSServiceResolveInternal(sdRef, flags, interfaceIndex, name, regtype, domain, attr, callBack, context);
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceQueryRecordEx(DNSServiceRef *sdRef, DNSServiceFlags flags, uint32_t interfaceIndex,
++    const char *name, uint16_t rrtype, uint16_t rrclass, const DNSServiceAttribute *attr,
++    DNSServiceQueryRecordReply callBack, void *context)
++{
++    return DNSServiceQueryRecordInternal(sdRef, flags, interfaceIndex, name, rrtype, rrclass, attr, callBack, context);
++}
++
++DNSServiceErrorType DNSSD_API DNSServiceGetAddrInfoEx(DNSServiceRef *sdRef, DNSServiceFlags flags, uint32_t interfaceIndex,
++    DNSServiceProtocol protocol, const char *hostname, const DNSServiceAttribute *attr,
++    DNSServiceGetAddrInfoReply callBack, void *context)
++{
++    return DNSServiceGetAddrInfoInternal(sdRef, flags, interfaceIndex, protocol, hostname, attr, callBack, context);
++}
++
++static os_unfair_lock g_defaults_lock = OS_UNFAIR_LOCK_INIT;
++static xpc_object_t g_defaults;
++
++// Resolver defaults for this process (a resolver configuration plist and
++// whether privacy is required), kept for requests to the daemon.
++DNSServiceErrorType DNSSD_API DNSServiceSetResolverDefaults(const void *plist_data, size_t plist_len, bool require_privacy)
++{
++    if (plist_len > 0x8000) return kDNSServiceErr_Invalid;
++    xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
++    if (!dict) return kDNSServiceErr_NoMemory;
++    xpc_dictionary_set_bool(dict, "require_privacy", require_privacy);
++    if (plist_data && plist_len)
++        xpc_dictionary_set_data(dict, "resolver_config_plist_data", plist_data, plist_len);
++    os_unfair_lock_lock(&g_defaults_lock);
++    xpc_object_t old = g_defaults;
++    g_defaults = dict;
++    os_unfair_lock_unlock(&g_defaults_lock);
++    if (old) xpc_release(old);
++    return kDNSServiceErr_NoError;
++}
++
++#if !TARGET_OS_SIMULATOR
++DNSServiceErrorType DNSSD_API DNSServiceCreateDelegateConnection(DNSServiceRef *sdRef, int32_t pid, uuid_t uuid)
++{
++    char *ptr;
++    size_t len = sizeof(int32_t);
++    ipc_msg_hdr *hdr;
++    DNSServiceErrorType err;
++
++    if (!sdRef) return kDNSServiceErr_BadParam;
++    err = ConnectToServer(sdRef, 0, connection_delegate_request, ConnectionResponse, NULL, NULL);
++    if (err) return err;    // On error ConnectToServer leaves *sdRef set to NULL
++
++    hdr = create_hdr(connection_delegate_request, &len, &ptr, 0, *sdRef);
++    if (!hdr) { DNSServiceRefDeallocate(*sdRef); *sdRef = NULL; return kDNSServiceErr_NoMemory; }
++
++    if (pid && setsockopt((*sdRef)->sockfd, SOL_SOCKET, SO_DELEGATED, &pid, sizeof(pid)) == -1) {
++        syslog(LOG_WARNING, "dnssd_clientstub DNSServiceCreateDelegateConnection: Could not setsockopt() for PID[%d], no entitlements or process(pid) invalid errno:%d (%s)", pid, errno, strerror(errno));
++        mdns_free(hdr);
++        DNSServiceRefDeallocate(*sdRef);
++        *sdRef = NULL;
++        return kDNSServiceErr_NoAuth;
++    }
++    if (!pid && setsockopt((*sdRef)->sockfd, SOL_SOCKET, SO_DELEGATED_UUID, uuid, sizeof(uuid_t)) == -1) {
++        syslog(LOG_WARNING, "dnssd_clientstub DNSServiceCreateDelegateConnection: Could not setsockopt() for UUID, no entitlements or UUID invalid errno:%d (%s)", errno, strerror(errno));
++        mdns_free(hdr);
++        DNSServiceRefDeallocate(*sdRef);
++        *sdRef = NULL;
++        return kDNSServiceErr_NoAuth;
++    }
++    put_uint32((uint32_t)pid, &ptr);
++
++    err = deliver_request(hdr, *sdRef);     // Will free hdr for us
++    if (err) { DNSServiceRefDeallocate(*sdRef); *sdRef = NULL; }
++    return err;
++}
++#endif
++
++DNSServiceErrorType DNSSD_API PeerConnectionRelease(DNSServiceFlags flags, const char *name, const char *regtype, const char *domain)
++{
++    DNSServiceOp *tmp = NULL;
++    char *ptr;
++    size_t len;
++    ipc_msg_hdr *hdr;
++    DNSServiceErrorType err;
++
++    if (!name || !regtype || !domain) return kDNSServiceErr_BadParam;
++    err = ConnectToServer(&tmp, 0, release_request, NULL, NULL, NULL);
++    if (err) return err;
++
++    len = sizeof(DNSServiceFlags) + strlen(name) + 1 + strlen(regtype) + 1 + strlen(domain) + 1;
++    hdr = create_hdr(release_request, &len, &ptr, 0, tmp);
++    if (!hdr) { DNSServiceRefDeallocate(tmp); return kDNSServiceErr_NoMemory; }
++
++    put_flags(flags, &ptr);
++    put_string(name, &ptr);
++    put_string(regtype, &ptr);
++    put_string(domain, &ptr);
++    err = deliver_request(hdr, tmp);        // Will free hdr for us
++    DNSServiceRefDeallocate(tmp);
++    return err;
++}

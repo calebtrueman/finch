@@ -45,6 +45,8 @@ steps=(
     "copyfile|oss copyfile copyfile"
     "syslog|oss syslog libsystem_asl"
     "configd|oss configd libsystem_configuration"
+    "dnssd|oss mDNSResponder"
+    "libmacho|oss cctools"
     "libiconv|oss libiconv charset libiconv iconv mkesdb mkcsmapper iconv_modules"
     "libsystem-finch|make -s -C userland/libsystem"
     "Libsystem|oss Libsystem Libsystem"

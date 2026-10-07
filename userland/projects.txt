@@ -42,3 +42,5 @@ removefile      removefile-85.100.6
 syslog          syslog-406
 mDNSResponder   mDNSResponder-2881.100.56.0.1
 objc4           objc4-951.7
+# libmacho: latest published cctools (Apple ships libmacho 1040)
+cctools         cctools-1035.1.102
