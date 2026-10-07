@@ -1,0 +1,11 @@
+diff --git a/openbsm/libbsm/bsm_audit.c b/openbsm/libbsm/bsm_audit.c
+index 9930bc3..7818ba2 100644
+--- a/openbsm/libbsm/bsm_audit.c
++++ b/openbsm/libbsm/bsm_audit.c
+@@ -449,3 +449,6 @@ au_close_token(token_t *tok, u_char *buffer, size_t *buflen)
+ 	au_free_token(tok);
+ 	return (0);
+ }
++
++/* Interfaces macOS adds after OpenBSM-21 (Finch: userland/oss/OpenBSM). */
++#include "finch_compat.c"

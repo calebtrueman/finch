@@ -83,10 +83,11 @@ grep -v '^\s*#' "${OVERLAY}" | sed '/^\s*$/d' | while read -r src dst; do
     echo "  ${dst}"
 done
 
-# 3. Every dylib our binaries need must exist in the image.
+# 3. Every dylib our binaries need must exist in the image. Weak links are
+#    allowed to be absent (libobjc's libobjc-env and libswiftCore, as on macOS).
 missing=$( { find "${ROOT}" -type f -print0 2>/dev/null; } | while IFS= read -r -d '' f; do
     is_macho "$f" || continue
-    otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}' | while read -r dep; do
+    otool -L "$f" 2>/dev/null | tail -n +2 | grep -v ', weak)$' | awk '{print $1}' | while read -r dep; do
         [[ "${dep}" == @* ]] && continue
         [[ -e "${mnt}${dep}" ]] || echo "${dep} (needed by ${f#"${ROOT}"})"
     done

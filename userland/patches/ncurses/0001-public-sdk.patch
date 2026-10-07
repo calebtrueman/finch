@@ -1,0 +1,26 @@
+diff --git a/xcodescripts/derived_sources.sh b/xcodescripts/derived_sources.sh
+index 8bbe031..315a358 100644
+--- a/xcodescripts/derived_sources.sh
++++ b/xcodescripts/derived_sources.sh
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ set -e -x
+ 
+-CC=`xcrun -find cc -sdk macosx.internal`
++CC=`xcrun -find cc -sdk macosx`
+ AWK=/usr/bin/awk
+ 
+ CAPS="$PROJECT_DIR"/ncurses/include/Caps
+diff --git a/xcodescripts/native_execs.sh b/xcodescripts/native_execs.sh
+index fd6befe..62b3fdb 100755
+--- a/xcodescripts/native_execs.sh
++++ b/xcodescripts/native_execs.sh
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ set -e -x
+ 
+-SDK="-sdk macosx.internal"
++SDK="-sdk macosx"
+ 
+ export -n SDKROOT
+ export -n ARCHS CURRENT_ARCH RC_ARCHS RC_CFLAGS

@@ -6,6 +6,14 @@ guessed. `finch-images` (`userland/devtools`) prints every image a minimal libSy
 program loads: 45 images, of which 12 were Finch-built when this plan was written
 (2026-10-06), plus dyld itself.
 
+**Status (2026-10-07): reached.** `tools/check-boot-path.py` follows everything the
+VM's boot runs (finch-init, the rc script's `/bin/sh`, bash, `mount_tmpfs`, `chmod`
+and `mkdir`, notifyd, zsh and all its modules, dyld) through every eagerly loaded
+dylib: 94 images, all built by Finch. Weak and delay-init links (libobjc's
+`libobjc-env` and `libswiftCore`) aren't loaded on that path, as on macOS. The base
+image still carries Apple binaries off the boot path (frameworks, `ps`, `plutil`, ...),
+and kexts stay Apple's below the kernel boundary. Those are later phases.
+
 Each closed library's effort is sized by how many of its exports anything in the stock
 image imports. A Finch replacement (`userland/libsystem/<name>`) exports exactly Apple's
 symbol list (`exports.txt`, linked as an exported-symbols list) under Apple's install
@@ -34,6 +42,8 @@ no published source shows were read from the entry points of macOS 26.4's librar
 | libsystem_sandbox | 166 | 55 | Finch's client and file-trust calls; 389 host comparisons and 1,060 request checks. Nine unused manifest/GPU helpers return unsupported errors |
 | libcorecrypto | 1,092 | 1,063 | corecrypto ABI on an open crypto library |
 | libcache | 34 | 16 | Finch's, from `<cache.h>`'s documentation (Apple doesn't publish libcache) |
+| `/bin/sh` | — | — | The shell variant launcher (`userland/sh`): `/private/var/select/sh` picks bash, dash or zsh |
+| `mount_tmpfs` | — | — | `userland/mount_tmpfs`: the same options, sizing and `mount(2)` arguments as macOS 26.4's; 13 argument cases compared |
 
 ## Open source: build it
 
@@ -41,7 +51,9 @@ libSystem.B (Libsystem), libdyld and dyld (dyld), libobjc (objc4), libc++, libc+
 libunwind and libcompiler_rt (LLVM), libcommonCrypto (CommonCrypto), libcopyfile,
 libremovefile, libkeymgr, libcache, libmacho, libsystem_asl (syslog),
 libsystem_configuration (configd), libsystem_dnssd (mDNSResponder),
-libsystem_collections, libsystem_m (Apple's Libm source is stale: CORE-MATH and FreeBSD
+libsystem_collections, libutil (libutil), libbsm (OpenBSM-21, plus Finch's
+`userland/oss/OpenBSM/finch_compat.c` for the 31 exports macOS added since: 180/180,
+31,316 checks against Apple's), libncurses (ncurses-79, 942/942), libsystem_m (Apple's Libm source is stale: CORE-MATH and FreeBSD
 msun, see `userland/libm/README.md`).
 
 Apple builds libc++, libc++abi, libunwind and libcompiler_rt from its own LLVM fork, which it doesn't
@@ -80,3 +92,5 @@ export lists (`userland/llvm/exports`). Finch code fills the gaps upstream leave
 | 2026-10-07 | 43 | Finch's libcorecrypto is in the image. It is built on OpenSSL 3.5.9 with Apple's exact 1,092 exports and nine dependencies, and passes 67 host comparison targets. It boots under finch-init, where `finch-crypto-test` confirms the loaded library is Finch's and passes CommonCrypto known-answer and P-256 checks. OpenSSL's notice installs to `/usr/share/finch/licenses`. Kernel patch 0006 keeps UTF-8 console output intact; finch-init sets the console to 8-bit |
 | 2026-10-07 | 44 | CommonCrypto (`CommonCrypto-600035`, unmodified published source) is in the image on Finch's corecrypto, linked as Apple's: 245/245 exports, identical dependencies and version. 28,842 host comparisons; 14/14 in-VM checks with both libraries confirmed as Finch's builds by UUID. libm now installs CORE-MATH and msun licence notices |
 | 2026-10-07 | 45 | libsystem_trace is Finch's in the image: 197/197 exports and Apple's identity and dependencies. It boots under finch-init with notifyd, zsh and every in-VM suite passing (log 10/10, crypto 14/14, libSystem, objc 23/23, cxx 11/11). Fixed a notifyd deadlock: preference watching now starts only once a process is multithreaded, as in Apple's |
+| 2026-10-07 | 46 | `/bin/sh` and `mount_tmpfs` are Finch's: the shell variant launcher, and tmpfs mounting with macOS's options, sizing and mount arguments. The rc script runs on them and mounts all five tmpfs file systems |
+| 2026-10-07 | 47 | **Phase 1 exit reached.** libutil, libbsm and libncurses are built from Apple's open source. libbsm adds the 31 interfaces macOS gained after OpenBSM-21 (180/180 exports, 31,316 checks against Apple's), which Apple frameworks in the shared cache import. `tools/check-boot-path.py`: 94 boot-path images, all Finch-built. OpenBSM and ncurses notices install with them |

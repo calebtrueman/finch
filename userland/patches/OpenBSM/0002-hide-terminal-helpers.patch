@@ -1,0 +1,17 @@
+diff --git a/openbsm/libbsm/bsm_wrappers.c b/openbsm/libbsm/bsm_wrappers.c
+index e23031b..2abd4f3 100644
+--- a/openbsm/libbsm/bsm_wrappers.c
++++ b/openbsm/libbsm/bsm_wrappers.c
+@@ -50,9 +50,9 @@
+ #include <string.h>
+ #include <errno.h>
+ 
+-/* These are not advertised in libbsm.h */
+-int audit_set_terminal_port(dev_t *p);
+-int audit_set_terminal_host(uint32_t *m);
++/* These are not advertised in libbsm.h, and macOS doesn't export them. */
++__attribute__((visibility("hidden"))) int audit_set_terminal_port(dev_t *p);
++__attribute__((visibility("hidden"))) int audit_set_terminal_host(uint32_t *m);
+ 
+ /*
+  * General purpose audit submission mechanism for userspace.

@@ -155,6 +155,15 @@ while IFS= read -r -d '' f; do
 done < <(find "${stage}" -type f -print0 2>/dev/null)
 [[ -d "${stage}" ]] && rsync -a "${stage}/" "${ROOT}/"
 
+# Licence notices that must travel with the binaries (docs/LICENSING.md):
+# userland/oss/<project>.notices lists files in the source tree to install.
+if [[ -f "${FINCH_ROOT}/userland/oss/${project}.notices" ]]; then
+    notices="${ROOT}/usr/share/finch/licenses/${project}"
+    mkdir -p "${notices}"
+    grep -v '^\s*#' "${FINCH_ROOT}/userland/oss/${project}.notices" | sed '/^\s*$/d' \
+        | while read -r file; do cp "${SRC}/${file}" "${notices}/"; done
+fi
+
 failed=$(grep -E '^\S+: (fatal )?error:' "${LOG}" | sed -E 's|^.*/'"${project}"'/([^/]+)/.*|\1|' | sort -u | tr '\n' ' ')
 echo "${project}: ${installed} Mach-O installed into build/root (build exit ${status})"
 [[ -n "${failed}" ]] && echo "  failed in: ${failed}  (see ${LOG#"${FINCH_ROOT}/"})"

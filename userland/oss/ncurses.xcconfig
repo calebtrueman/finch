@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// libncurses as Apple ships it: no generated version symbols
+// (__ncurses_5_4VersionNumber/String), which Apple's library doesn't export.
+VERSIONING_SYSTEM =
