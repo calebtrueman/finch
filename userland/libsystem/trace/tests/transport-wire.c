@@ -65,6 +65,10 @@ uint32_t os_trace_get_mode(void)
 {
 	return mode;
 }
+uint32_t finch_trace_commpage(void)
+{
+	return 0; /* tracing enabled system-wide */
+}
 uint32_t finch_trace_mode_peek(void)
 {
 	return mode;

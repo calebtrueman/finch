@@ -31,22 +31,36 @@ static uint32_t diagnostic_flags(void)
 static _Atomic uint32_t preference_version;
 static dispatch_once_t watcher_once, bundle_once;
 static xpc_object_t bundle_preferences;
-static void watcher_init(void *unused)
+/*
+ * Watch for logging preference changes. The registration is a request to
+ * notifyd, so it runs on the watcher's own queue: no caller (and especially
+ * not notifyd itself) ever waits on notifyd. Preference changes before it completes are missed,
+ * which is harmless at startup.
+ */
+static void watcher_register(void *queue)
 {
-	(void)unused;
 	int token;
-	dispatch_queue_t q =
-	    dispatch_queue_create("finch.trace.preferences", DISPATCH_QUEUE_SERIAL);
 	notify_register_dispatch(
-	    "com.apple.system.logging.prefschanged", &token, q, ^(int changed) {
+	    "com.apple.system.logging.prefschanged", &token, queue, ^(int changed) {
 	      (void)changed;
 	      atomic_fetch_add_explicit(&preference_version, 1, memory_order_relaxed);
 	    });
-	dispatch_release(q);
 }
+static void watcher_init(void *unused)
+{
+	(void)unused;
+	dispatch_queue_t q =
+	    dispatch_queue_create("finch.trace.preferences", DISPATCH_QUEUE_SERIAL);
+	dispatch_async_f(q, q, watcher_register); /* the queue stays alive for the handler */
+}
+extern bool _dispatch_is_multithreaded(void);
 uint32_t finch_trace_preferences_version(void)
 {
-	dispatch_once_f(&watcher_once, NULL, watcher_init);
+	/* As Apple's: start watching only once the process is multithreaded.
+	 * A daemon logs during single-threaded startup before it serves
+	 * requests; notifyd doing so must not end up waiting on itself. */
+	if (_dispatch_is_multithreaded())
+		dispatch_once_f(&watcher_once, NULL, watcher_init);
 	return atomic_load_explicit(&preference_version, memory_order_relaxed);
 }
 API uint32_t _os_trace_prefs_latest_version_4tests(void)

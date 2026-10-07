@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dispatch/dispatch.h>
@@ -26,6 +27,7 @@ static size_t cache_fixture_size;
 extern uint64_t os_simple_hash(const void *, size_t);
 static bool variant_full, variant_recovery, variant_internal;
 static void (^notification)(int);
+static int registered; /* set once the watcher has registered */
 uint32_t os_trace_get_mode(void)
 {
 	return mode;
@@ -80,6 +82,7 @@ uint32_t test_preferences_notify(
 	assert(!strcmp(name, "com.apple.system.logging.prefschanged") && queue);
 	*token = 7;
 	notification = Block_copy(handler);
+	__atomic_store_n(&registered, 1, __ATOMIC_RELEASE);
 	return 0;
 }
 uint64_t test_preferences_activity(void *current, uint64_t *parent)
@@ -298,7 +301,21 @@ int main(void)
 		if (expected != old)
 			assert(requested_flags == expected);
 	}
-	assert(finch_trace_preferences_version() == 0 && notification);
+	/* No watching while single-threaded (a daemon starting up); once dispatch has
+	 * a worker thread, registration with notifyd happens on the watcher's queue,
+	 * never in the caller. */
+	assert(finch_trace_preferences_version() == 0 &&
+	    !__atomic_load_n(&registered, __ATOMIC_ACQUIRE));
+	dispatch_semaphore_t worker = dispatch_semaphore_create(0);
+	dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+	  dispatch_semaphore_signal(worker);
+	});
+	dispatch_semaphore_wait(worker, DISPATCH_TIME_FOREVER);
+	dispatch_release(worker);
+	assert(finch_trace_preferences_version() == 0);
+	for (int i = 0; i < 2000 && !__atomic_load_n(&registered, __ATOMIC_ACQUIRE); i++)
+		usleep(1000);
+	assert(notification);
 	notification(7);
 	assert(finch_trace_preferences_version() == 1);
 	notification(7);

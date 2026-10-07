@@ -32,6 +32,11 @@ static uint32_t commpage(void)
 {
 	return *(const volatile uint32_t *)(uintptr_t)UINT64_C(0xfffffc104);
 }
+/* The system-wide trace flags the kernel publishes in the commpage. */
+uint32_t finch_trace_commpage(void)
+{
+	return commpage();
+}
 uint32_t finch_trace_mode_peek(void)
 {
 	return atomic_load_explicit(&trace_mode, memory_order_relaxed);

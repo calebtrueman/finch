@@ -82,3 +82,22 @@ $(OUT)/fault-test: tests/fault-test.c fault.c fault.h state.h internal.h
 $(OUT)/fault-callbacks: tests/fault-callbacks.c
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
+
+# The image library: Apple's 197 exports, identity and dependencies (in
+# Apple's order; libobjc, corecrypto and asl upward, as Apple links them).
+ROOT ?= $(FINCH)/build/root
+SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
+BOOT_LIB := $(ROOT)/usr/lib/system/libsystem_trace.dylib
+BOOT_LIBS := -lsystem_kernel -lsystem_platform -lsystem_pthread -lmacho -ldyld -lcompiler_rt \
+ -lsystem_m -lsystem_malloc -lsystem_c -lsystem_blocks -ldispatch -lxpc -lsystem_notify \
+ -lsystem_darwin -lsystem_featureflags -Wl,-upward-lobjc -lunwind -lsystem_symptoms \
+ -Wl,-upward-lcorecrypto -Wl,-upward-lsystem_asl -Wl,-delay-lsystem_asl
+$(BOOT_LIB): $(SOURCES) $(HEADERS) exports.txt Makefile
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -dynamiclib -nostdlib $(SOURCES) \
+	 -L$(SDKROOT)/usr/lib/system -L$(SDKROOT)/usr/lib $(BOOT_LIBS) \
+	 -install_name /usr/lib/system/libsystem_trace.dylib -current_version 1861.100.19 \
+	 -compatibility_version 1 -umbrella System -Wl,-exported_symbols_list,exports.txt -o $@
+	codesign -f -s - $@
+install: $(BOOT_LIB)
+.PHONY: install

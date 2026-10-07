@@ -48,8 +48,14 @@ library does the same, so nothing changes for programs:
 
 ## Status (2026-10-07)
 
-The library under `userland/libsystem/trace` builds and isn't installed yet. Its
-`Makefile` keeps it out of the image until it boots. `make check` passes. It
+Finch's library is in the image: `tools/build-system.sh` runs `make -C
+userland/libsystem/trace install`. It is linked as Apple's is: 197/197 exports
+(`tools/check-exports.sh` agrees), the same version and umbrella, and the same
+20 dependencies in the same order (libobjc and corecrypto upward, asl upward
+and delay-init). It boots under finch-init, and `finch-log-test`
+(`userland/tests`) passes in the VM. That test logs in DT mode and checks what
+arrives: composition, `%{errno}d` and `%{bool}d`, level gates, signposts and
+activities. `make check` passes. It
 compares against the host library across composition, the format SPI, stream
 entries, log objects, levels and modes, activities and signposts, metrics,
 images, blobs, RTLog rings, preferences and diagnostic streams, and it covers the
@@ -64,4 +70,12 @@ marks packets while the process is quarantined, and libdispatch's quarantine
 hook is wired to `finch_trace_quarantine`. `fault-test` covers the logic with
 mocks, and `fault-callbacks` covers the callbacks through the built library.
 
-Next: check exports with `tools/check-exports.sh`, then boot it in the VM.
+Two boot lessons, both matching what Apple's library does:
+
+- Preference changes are watched (a notify registration) only once the
+  process is multithreaded, and the registration runs on the watcher's queue.
+  Registering on first use deadlocked notifyd: it logs during single-threaded
+  startup, so its registration request waited on itself, and every notify
+  client (zsh, through Libinfo) then hung.
+- The `logd` port hook skips the bootstrap lookup while tracing is disabled for
+  the process or, through the commpage word, system-wide.

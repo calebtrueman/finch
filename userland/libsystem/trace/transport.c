@@ -75,7 +75,10 @@ uint64_t finch_trace_send(uint8_t stream, uint64_t id, uint64_t stamp, const str
 mach_port_t finch_trace_logd_port(void)
 {
 	mach_port_t port = MACH_PORT_NULL;
-	if (finch_trace_mode_peek() & 0x100)
+	/* Like Apple's: no logd lookup while tracing is disabled for the process or,
+	 * through the commpage, system-wide. With logging off there is no logd to
+	 * ask, and in PID 1 (the bootstrap server) a lookup can wait on itself. */
+	if ((finch_trace_mode_peek() | finch_trace_commpage()) & 0x100)
 		return port;
 	return bootstrap_look_up2(bootstrap_port, "com.apple.logd", &port, 0, 8) == KERN_SUCCESS
 	    ? port

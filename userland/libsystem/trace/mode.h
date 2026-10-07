@@ -7,6 +7,7 @@ uint32_t os_trace_get_mode(void);
 void os_trace_set_mode(uint32_t);
 /* Safe while dispatch and the logging transport are still starting. */
 uint32_t finch_trace_mode_peek(void);
+uint32_t finch_trace_commpage(void);
 bool finch_trace_lazy_initialized(void);
 void finch_trace_mode_fork_child(void);
 /* Low two bits: enable level. Next three bits: persist level. */
