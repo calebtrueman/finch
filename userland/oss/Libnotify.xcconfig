@@ -4,3 +4,6 @@
 // Finch's (userland/CrashReporterClient) by name instead.
 FINCH_CR_LDFLAGS_notifyd = -lCrashReporterClient
 OTHER_LDFLAGS = $(inherited) $(FINCH_CR_LDFLAGS_$(PRODUCT_NAME))
+
+// libsystem_notify as Apple ships it (version 348.100.7).
+DYLIB_CURRENT_VERSION = 348.100.7

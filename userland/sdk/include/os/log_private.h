@@ -20,6 +20,8 @@
 #define __OS_LOG_PRIVATE_H__
 
 #include <os/log.h>
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <time.h>
@@ -49,6 +51,15 @@ char *_os_log_send_and_compose_impl(uint32_t flags, const char **fmtp,
 
 char *os_log_pack_send_and_compose(os_log_pack_t pack, os_log_t log,
     os_log_type_t type, char *buf, size_t bufsize);
+
+/*
+ * syslog(3)/ASL shims into os_log (libsystem_asl calls them). Shapes from
+ * macOS 26.4's libsystem_trace: os_log_shim_enabled(caller address) says
+ * whether messages from that image go to os_log; os_log_with_args_4syslog
+ * logs a printf-style message with a va_list on the caller's behalf.
+ */
+bool os_log_shim_enabled(void *addr);
+void os_log_with_args_4syslog(os_log_t log, os_log_type_t type, const char *format, va_list args, void *addr);
 
 __END_DECLS
 

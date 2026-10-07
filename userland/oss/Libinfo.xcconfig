@@ -5,7 +5,7 @@
 HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/Libinfo $(SRCROOT)/lookup.subproj $(SRCROOT)/gen.subproj $(SRCROOT)/dns.subproj $(SRCROOT)/membership.subproj $(SRCROOT)/nis.subproj $(SRCROOT)/rpc.subproj $(SRCROOT)/util.subproj
 
 // Apple's build sets the version from RC_ProjectSourceVersion.
-DYLIB_CURRENT_VERSION = 600
+DYLIB_CURRENT_VERSION = 1   // Apple ships libsystem_info as version 1.0.0
 
 // Darwin Directory (libsystem_darwindirectory) is closed source, and on macOS
 // Libinfo only uses it behind a feature flag that defaults off. Finch builds

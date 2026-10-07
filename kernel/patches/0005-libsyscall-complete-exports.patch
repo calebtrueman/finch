@@ -1,0 +1,38 @@
+diff --git a/libsyscall/wrappers/varargs_wrappers.s b/libsyscall/wrappers/varargs_wrappers.s
+index 4a860d6d0..80d82918e 100644
+--- a/libsyscall/wrappers/varargs_wrappers.s
++++ b/libsyscall/wrappers/varargs_wrappers.s
+@@ -140,4 +140,14 @@ MI_ENTRY_POINT(_semsys)
+ 	POP_FRAME
+ 	ARM64_STACK_EPILOG
+ 
++/*
++ * Finch: int register_uexc_handler(...): syscall 519 in macOS 26.4's
++ * libsystem_kernel, which the published syscalls.master doesn't name (the
++ * published kernel answers ENOSYS there). The stub matches Apple's.
++ */
++#ifndef SYS_register_uexc_handler
++#define SYS_register_uexc_handler 519
++#endif
++__SYSCALL2(_register_uexc_handler, register_uexc_handler, 0, cerror_nocancel)
++
+ #endif /* defined(__arm64__) */
+diff --git a/libsyscall/xcodescripts/create-syscalls.pl b/libsyscall/xcodescripts/create-syscalls.pl
+index 5313f7b9d..0802237bb 100755
+--- a/libsyscall/xcodescripts/create-syscalls.pl
++++ b/libsyscall/xcodescripts/create-syscalls.pl
+@@ -391,9 +391,11 @@ sub writeStubForSymbol {
+             printf $f "__SYSCALL2(%s, %s, %d, %s)\n", "__".$$symbol{asm_sym}, $$symbol{syscall}, $$symbol{nargs}, $nc;
+         }
+         printf $f "#endif\n\n";
+-    } else {
+-        # actually this isnt an inconsistency. kernel can expose what it wants but if all our arches
+-        # override it we need to honour that.
++    } elsif (!$$symbol{is_private}) {
++        # Every arch maps the public name to another stub (e.g. stat -> ___stat64).
++        # Apple's libsystem_kernel still exports the original syscall as
++        # ___<name> (___stat = SYS_stat); Finch does the same.
++        printf $f "__SYSCALL2(%s, %s, %d, %s)\n", "__".$$symbol{asm_sym}, $$symbol{syscall}, $$symbol{nargs}, $nc;
+     }
+ 
+     if ($$symbol{allow_missing}) {

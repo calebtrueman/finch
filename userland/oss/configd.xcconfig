@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// libsystem_configuration as Apple ships it (version 1405.100.8).
+DYLIB_CURRENT_VERSION = 1405.100.8
+VERSIONING_SYSTEM =

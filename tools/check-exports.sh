@@ -21,9 +21,20 @@ trap cleanup EXIT
 
 exports() { nm -gU -arch arm64e "$1" 2>/dev/null | awk '{print $NF}' | sort -u; }
 
+# Identity: current version and umbrella must match Apple's too.
+identity() {   # identity <dylib>
+    otool -l -arch arm64e "$1" 2>/dev/null | awk '
+        /cmd LC_ID_DYLIB/ { id = 1 } id && /current version/ { v = $3; id = 0 }
+        /cmd LC_SUB_FRAMEWORK/ { sf = 1 } sf && /umbrella/ { u = $2; sf = 0 }
+        END { printf "version %s umbrella %s", v, (u ? u : "-") }'
+}
+
 hdiutil attach -readonly -nobrowse -mountpoint "${mnt}" "${base}" >/dev/null
 exports "${mnt}${path}" > "${tmp}/apple"
+apple_id=$(identity "${mnt}${path}")
 hdiutil detach "${mnt}" >/dev/null
+ours_id=$(identity "${ours}")
+[[ "${apple_id}" == "${ours_id}" ]] || echo "identity differs: Apple ${apple_id}, ours ${ours_id}"
 exports "${ours}" > "${tmp}/ours"
 comm -23 "${tmp}/apple" "${tmp}/ours" > "${tmp}/missing"
 

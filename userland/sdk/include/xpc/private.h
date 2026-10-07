@@ -14,6 +14,7 @@
 
 #include <bsm/audit.h>
 #include <dispatch/dispatch.h>
+#include <errno.h>          /* pipe routines return errno values (EPIPE); callers rely on this */
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
 #include <stdbool.h>
@@ -26,10 +27,13 @@ __BEGIN_DECLS
 /* Pipes: synchronous request/response over a Mach port. */
 typedef struct xpc_pipe_s *xpc_pipe_t;
 
-/* Pipe creation flags. Finch's libxpc accepts and ignores them (it has one
- * bootstrap domain and no QoS propagation yet); values are Finch's own. */
-#define XPC_PIPE_PRIVILEGED     0x1
-#define XPC_PIPE_PROPAGATE_QOS  0x2
+/* Pipe creation flags. Values as macOS 26.4's callers pass them
+ * (libsystem_info: PRIVILEGED|PROPAGATE_QOS = 0xa; libsystem_asl:
+ * PRIVILEGED|USE_SYNC_IPC_OVERRIDE = 0x6). Finch's libxpc accepts and
+ * ignores them for now (one bootstrap domain, no QoS propagation yet). */
+#define XPC_PIPE_PRIVILEGED             0x2
+#define XPC_PIPE_USE_SYNC_IPC_OVERRIDE  0x4
+#define XPC_PIPE_PROPAGATE_QOS          0x8
 
 xpc_pipe_t xpc_pipe_create(const char *name, uint64_t flags);
 xpc_pipe_t xpc_pipe_create_from_port(mach_port_t port, uint64_t flags);
