@@ -81,7 +81,7 @@ _xpc_connection_alloc(enum xpc_conn_kind kind, const char *name, dispatch_queue_
 	return c;
 }
 
-void
+XPC_INTERNAL void
 _xpc_connection_dispose(xpc_object_t obj)
 {
 	struct xpc_connection_s *c = obj;

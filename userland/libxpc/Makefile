@@ -12,7 +12,7 @@ SDK     := $(ROOT)/build/sdk
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 CC      := xcrun -sdk macosx clang
 
-SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c connection.c bootstrap.c plist.c runtime.c compat.c
+SRCS    := object.m values.c array.c dictionary.c error.c description.c serialize.c ports.c message.c pipe.c connection.c bootstrap.c plist.c runtime.c compat.c events.c
 HDRS    := internal.h
 
 COMMON  := -mmacosx-version-min=26.0 -O2 -g -fblocks -fno-objc-arc \

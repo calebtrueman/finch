@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- notifyd (Libnotify), built from Apple's source. Started on demand by the
+     first client of com.apple.system.notification_center. Same label and
+     service as on macOS, so clients and tools find it by the usual names. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.notifyd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/notifyd</string>
+	</array>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.system.notification_center</key>
+		<true/>
+	</dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>ASL_DISABLE</key>
+		<string>1</string>
+	</dict>
+	<key>PublishesEvents</key>
+	<string>com.apple.notifyd.matching</string>
+	<key>EnableTransactions</key>
+	<true/>
+</dict>
+</plist>

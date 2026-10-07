@@ -18,6 +18,15 @@ Apple's `/System/Library/LaunchDaemons` is deliberately not loaded. Most of thos
 are closed-source and expect launchd features and each other. They'll be enabled one at
 a time as Finch can run them.
 
+Finch's job plists live in `userland/LaunchDaemons` and are installed into
+`/System/Library/Finch/LaunchDaemons`. They keep Apple's labels and service names
+(for example `com.apple.notifyd` serving `com.apple.system.notification_center`), so
+clients find them by the usual names.
+
+| Job | Program | Started |
+|---|---|---|
+| `com.apple.notifyd` | notifyd (Libnotify, built from source) | On demand, by the first notify client |
+
 ## Supported keys
 
 | Key | Behaviour |

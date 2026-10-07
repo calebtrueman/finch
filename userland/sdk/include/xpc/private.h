@@ -13,6 +13,7 @@
 #define __XPC_PRIVATE_H__
 
 #include <bsm/audit.h>
+#include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
 #include <stdbool.h>
@@ -55,6 +56,31 @@ mach_port_t xpc_mach_send_copy_right(xpc_object_t xsend);
 xpc_object_t xpc_mach_recv_create(mach_port_t port);
 mach_port_t xpc_mach_recv_extract_right(xpc_object_t xrecv);
 const char *xpc_strerror(int error);
+
+/* Event publishers (launchd event streams). */
+typedef struct finch_event_publisher_s *xpc_event_publisher_t;
+typedef char event_name_t[128];
+
+typedef enum {
+	XPC_EVENT_PUBLISHER_ACTION_ADD = 0,
+	XPC_EVENT_PUBLISHER_ACTION_REMOVE = 1,
+	XPC_EVENT_PUBLISHER_ACTION_INITIAL_BARRIER = 2,
+} xpc_event_publisher_action_t;
+
+typedef void (^xpc_event_publisher_handler_t)(xpc_event_publisher_action_t action, uint64_t token,
+    xpc_object_t descriptor);
+typedef void (^xpc_event_publisher_error_handler_t)(int error);
+
+xpc_event_publisher_t xpc_event_publisher_create(const char *stream, dispatch_queue_t queue);
+void xpc_event_publisher_set_handler(xpc_event_publisher_t pub, xpc_event_publisher_handler_t handler);
+void xpc_event_publisher_set_error_handler(xpc_event_publisher_t pub,
+    xpc_event_publisher_error_handler_t handler);
+void xpc_event_publisher_set_throttling(xpc_event_publisher_t pub, uint64_t max_inflight);
+void xpc_event_publisher_activate(xpc_event_publisher_t pub);
+int xpc_event_publisher_fire(xpc_event_publisher_t pub, uint64_t token, xpc_object_t details);
+int xpc_event_publisher_fire_noboost(xpc_event_publisher_t pub, uint64_t token, xpc_object_t details);
+au_asid_t xpc_event_publisher_get_subscriber_asid(xpc_event_publisher_t pub, uint64_t token);
+bool xpc_get_service_identifier_for_token(uint64_t token, event_name_t name);
 
 /* Entitlements. */
 xpc_object_t xpc_copy_entitlement_for_self(const char *key);

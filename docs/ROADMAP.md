@@ -62,9 +62,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [ ] libsystem_darwin, libsystem_info: **blocked on XPC** (`xpc/private.h`,
         `os/transaction_private.h`; libdarwin also wants APFS's `apfs_fsctl.h`). Do 1.4's
         libxpc first.
-  - [ ] libsystem_notify, libsystem_m, dyld, …
-  - [ ] Finch CrashReporterClient (`__crash_info` annotations; Libc currently builds
-        with its no-op fallback)
+  - [x] libsystem_notify and notifyd (Libnotify), with notifyd run on demand by finch-init
+  - [ ] libsystem_m, dyld, …
+  - [x] Finch CrashReporterClient (`__crash_info` annotations), linked by Libc and notifyd
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
   - [ ] **libxpc**, the next gating piece: Apple-ABI-compatible XPC objects and

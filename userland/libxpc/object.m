@@ -15,11 +15,13 @@
 #include "internal.h"
 
 extern const struct _xpc_type_s _xpc_type_pipe;
-void _xpc_pipe_dispose(xpc_object_t obj);
-void _xpc_connection_dispose(xpc_object_t obj);
-void _xpc_bundle_dispose(xpc_object_t obj);
-void _xpc_compat_dispose(xpc_object_t obj);
+XPC_INTERNAL void _xpc_pipe_dispose(xpc_object_t obj);
+XPC_INTERNAL void _xpc_connection_dispose(xpc_object_t obj);
+XPC_INTERNAL void _xpc_bundle_dispose(xpc_object_t obj);
+XPC_INTERNAL void _xpc_compat_dispose(xpc_object_t obj);
+XPC_INTERNAL void _xpc_event_publisher_dispose(xpc_object_t obj);
 extern const struct _xpc_type_s _xpc_type_bundle;
+extern const struct _xpc_type_s _xpc_type_event_publisher;
 
 @interface OS_xpc_object : OS_object <OS_xpc_object>
 @end
@@ -60,6 +62,7 @@ XPC_CLASS(endpoint)
 XPC_CLASS(pipe)
 XPC_CLASS(connection)
 XPC_CLASS(bundle)
+XPC_CLASS(event_publisher)
 XPC_CLASS(activity)
 XPC_CLASS(pointer)
 XPC_CLASS(rich_error)
@@ -102,6 +105,7 @@ XPC_TYPE_ALIAS(endpoint)
 XPC_TYPE_ALIAS(pipe)
 XPC_TYPE_ALIAS(connection)
 XPC_TYPE_ALIAS(bundle)
+XPC_TYPE_ALIAS(event_publisher)
 XPC_TYPE_ALIAS(activity)
 XPC_TYPE_ALIAS(pointer)
 XPC_TYPE_ALIAS(rich_error)
@@ -150,6 +154,9 @@ _xpc_object_dispose(xpc_object_t obj)
 		mach_port_deallocate(mach_task_self(), ((struct xpc_endpoint_s *)obj)->port);
 	}
 	_xpc_compat_dispose(obj);
+	if (type == (xpc_type_t)&_xpc_type_event_publisher) {
+		_xpc_event_publisher_dispose(obj);
+	}
 	/* Strings and data keep their bytes inline; scalars own nothing. */
 }
 

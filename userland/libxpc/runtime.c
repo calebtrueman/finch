@@ -176,27 +176,6 @@ _xpc_runtime_process_has_entered_sandbox(void)
 	return false;
 }
 
-/* No service identifiers (Apple derives them from launchd job state). */
-char *xpc_get_service_identifier_for_token(audit_token_t *token);
-
-char *
-xpc_get_service_identifier_for_token(audit_token_t *token)
-{
-	(void)token;
-	return NULL;
-}
-
-/* Event publishers (launchd event streams) aren't implemented yet. */
-typedef void *xpc_event_publisher_t;
-int xpc_event_publisher_fire_noboost(xpc_event_publisher_t publisher, uint64_t token, xpc_object_t details);
-
-int
-xpc_event_publisher_fire_noboost(xpc_event_publisher_t publisher, uint64_t token, xpc_object_t details)
-{
-	(void)publisher; (void)token; (void)details;
-	return ENOTSUP;
-}
-
 /* Walks a serialized message without materialising it; nothing uses the
  * result on Finch yet, so report "not traversed". */
 bool xpc_traverse_serialized_data(const void *data, size_t length, void *context, void *visitor);
@@ -299,7 +278,7 @@ extern const struct _xpc_type_s _xpc_type_bundle;
 #define XPC_TYPE_BUNDLE (&_xpc_type_bundle)
 typedef struct xpc_bundle_s *xpc_bundle_t;
 
-void
+XPC_INTERNAL void
 _xpc_bundle_dispose(xpc_object_t obj)
 {
 	struct xpc_bundle_s *b = obj;

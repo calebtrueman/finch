@@ -83,6 +83,8 @@ rm -f "${INC}/AvailabilityInternalPrivate.h" "${INC}/AvailabilityProhibitedInter
 # Libc: private os/ headers (os/assumes.h, ...), libdarwin's <os/*.h>, and the
 # LOCALHDRS that Libc installs to /usr/local/include (xcodescripts/headers.sh).
 copy_headers "${SRC}/Libc/os" "${INC}/os" -maxdepth 1
+# Libc collections: <os/collections.h> (os_map, os_set; installed as private os/ headers).
+copy_headers "${SRC}/Libc/collections/PublicHeader" "${INC}/os" -maxdepth 1
 copy_headers "${SRC}/Libc/libdarwin/h" "${INC}/os" -maxdepth 1
 for h in darwin/libc_private.h darwin/libc_hooks.h gen/utmpx_thread.h nls/FreeBSD/msgcat.h \
          gen/thread_stack_pcs.h libdarwin/h/dirstat.h darwin/subsystem.h darwin/_libc_init.h; do
@@ -94,6 +96,9 @@ copy_headers "${SRC}/libplatform/private" "${INC}"
 
 # dyld: <mach-o/dyld_priv.h>, dyld_introspection.h, ... (public ones lose to the SDK).
 copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
+
+# Finch's CrashReporterClient (userland/CrashReporterClient): <CrashReporterClient.h>.
+cp "${FINCH_ROOT}/userland/CrashReporterClient/CrashReporterClient.h" "${INC}/CrashReporterClient.h"
 
 # configd: <dnsinfo.h> (the resolver configuration read by Libinfo's mDNS module).
 [[ -f "${SRC}/configd/dnsinfo/dnsinfo.h" ]] || die "missing configd (run tools/fetch-src.sh configd)"

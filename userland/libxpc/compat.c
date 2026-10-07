@@ -68,7 +68,7 @@ _set_error(xpc_rich_error_t *out, const char *description, bool can_retry)
 	}
 }
 
-void
+XPC_INTERNAL void
 _xpc_compat_dispose(xpc_object_t obj)
 {
 	xpc_type_t t = xpc_get_type(obj);

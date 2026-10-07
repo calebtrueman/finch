@@ -46,7 +46,7 @@ _xpc_errno_from_kr(kern_return_t kr)
 	}
 }
 
-void
+XPC_INTERNAL void
 _xpc_pipe_dispose(xpc_object_t obj)
 {
 	struct xpc_pipe_s *pipe = obj;

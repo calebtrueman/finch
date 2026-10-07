@@ -1,0 +1,6 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// notifyd's Frameworks phase names libCrashReporterClient.a by a path inside
+// Apple's internal tvOS SDK, which Xcode drops when it doesn't exist. Link
+// Finch's (userland/CrashReporterClient) by name instead.
+FINCH_CR_LDFLAGS_notifyd = -lCrashReporterClient
+OTHER_LDFLAGS = $(inherited) $(FINCH_CR_LDFLAGS_$(PRODUCT_NAME))

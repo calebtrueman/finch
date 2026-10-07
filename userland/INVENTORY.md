@@ -20,6 +20,12 @@ pieces can be replaced one at a time.
 |---|---|---|---|
 | `/sbin/launchd` | launchd (Swift since macOS 26; last published as launchd-842, 2014) | CLOSED | **Replaced by `finch-init`** (`userland/finch-init`) |
 
+## Daemons (run by finch-init; job plists in `userland/LaunchDaemons`)
+
+| Daemon | Apple project | Status |
+|---|---|---|
+| `notifyd` (com.apple.notifyd) | Libnotify-348.100.7 | **Built by Finch**, started on demand. Without LaunchEvents, its event publisher has no subscribers. |
+
 ## libSystem (`/usr/lib/libSystem.B.dylib` + `/usr/lib/system/*`)
 
 | Dylib | Apple project | Status |
@@ -32,7 +38,7 @@ pieces can be replaced one at a time.
 | libsystem_c | Libc-1752.100.10 | **Built by Finch** (no longer links libcorecrypto) |
 | libsystem_darwin | Libc-1752.100.10 (libdarwin) | **Built by Finch** (APFS dir-stats fast path compiled out; it was already unused) |
 | libsystem_info | Libinfo-600 | **Built by Finch** (without the closed Darwin Directory module, which is feature-flagged off on macOS) |
-| libsystem_notify | Libnotify-348.100.7 | OPEN |
+| libsystem_notify | Libnotify-348.100.7 | **Built by Finch** |
 | libsystem_blocks | libclosure-96 | **Built by Finch** |
 | libdispatch | libdispatch-1542.100.32 | **Built by Finch** (build config reconstructed) |
 | libdyld | dyld-1376.6 | OPEN |
@@ -91,3 +97,9 @@ pieces can be replaced one at a time.
 | pkill | adv_cmds | `sysmon.h` (closed) |
 | gencat | adv_cmds | `msgcat.h` |
 | latency, sc_usage, lskq, gcore, zprint, nvram, … | system_cmds | kernel-private tracing / zone / kqueue interfaces |
+
+## Static libraries Finch provides
+
+| Library | Apple | Finch |
+|---|---|---|
+| libCrashReporterClient.a | Apple-internal | `userland/CrashReporterClient`: per-image `__crash_info` record (version 5), linked by Libc and notifyd |

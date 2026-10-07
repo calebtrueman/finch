@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-// libCrashReporterClient.a (crash-report annotations) is Apple-internal. Libc's
-// sources already fall back to no-op CRSetCrashLogMessage() without its header,
-// so only the link flag needs to go. TODO: a Finch CrashReporterClient that
-// fills the __DATA,__crash_info annotations.
-CR_LDFLAGS =
-
 // Cancelable variants must compile with __DARWIN_NON_CANCELABLE=0 so e.g. creat()
 // gets its plain symbol (the base build produces creat$NOCANCEL). Apple's
 // internal build does this via unpublished LIBC_ALIAS_* handling. The
@@ -18,3 +12,7 @@ VARIANT_DARWINEXTSN_CANCELABLE_MACROS = -DVARIANT_CANCELABLE -DVARIANT_DARWINEXT
 // verification checks the product against that.
 FINCH_VERSION_LDFLAGS_c = -Wl,-current_version,1752.100.10
 OTHER_LDFLAGS = $(inherited) $(FINCH_VERSION_LDFLAGS_$(PRODUCT_NAME))
+
+// Build libsystem_c.dylib and libsystem_darwin.dylib in separate build-oss.sh
+// runs: libdarwin's TAPI verification scans $(DSTROOT)/usr/include as its
+// public headers, and fails on libc's if both are installed in one stage.
