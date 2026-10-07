@@ -12,7 +12,10 @@ Build XNU from source and boot it on real Apple Silicon with Apple's own kexts.
 - [x] Boot stock Darwin in darwin-vm (emulated M4) — see docs/DEV_VM.md
 - [x] Boot our XNU in darwin-vm (2026-10-06)
 - [ ] Create the isolated Finch APFS container on the M4. Permissive Security for that
-      OS only. Boot our kernel collection on bare metal.
+      OS only. Boot our kernel collection on bare metal. **Deferred (2026-10-07):** QEMU
+      covers Phases 0–1 and Virtualization.framework covers Phase 2, so metal waits. When it
+      comes, it uses a boot stub, not a full macOS donor install (see "Standalone install"
+      in Phase 3).
 - [x] A visible Finch fingerprint: `uname -v` reports `finch:finch-0.0.1/xnu-12377.101.15/…`
 
 **Exit:** macOS userland runs on a kernel we compiled.
@@ -89,7 +92,7 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
         trial, secinit, sanitizers, libRosetta: Finch's own (`userland/libsystem`)
   - [ ] The rest of the strict Phase 1 exit: `docs/design/PHASE1-EXIT.md`
-- [ ] **1.5 dyld from source.**
+- [x] **1.5 dyld from source.** dyld-1376.6 boots the VM (`tools/build-system.sh`)
 - [ ] Finch root image on its own APFS volume (bare-metal Tier 3)
 
 **Exit:** the VM boots to a shell with no closed-source Apple binaries above the kernel.
@@ -111,8 +114,19 @@ Replace BORROWED kexts with Finch kexts, M1/M2 first (best Asahi docs).
 - [ ] USB, keyboard/trackpad, audio
 - [ ] Wi-Fi/Bluetooth
 - [ ] AGX kernel driver + Mesa asahi userspace
+- [ ] **Standalone install: no macOS on the Mac.** The end goal for installing Finch.
+  - The Finch container holds only a boot stub plus Finch. The stub is Apple's
+    second-stage iBoot and device firmware, downloaded from Apple's restore image at
+    install time and never redistributed.
+  - The boot policy is created for the Finch container, and no macOS volume is needed.
+  - The Mac keeps what it can't do without: system firmware and the system recoveryOS.
+  - To prove on hardware: the installer runs from the system recoveryOS, so not even
+    installing needs macOS.
+  - Needs Finch drivers for the whole boot path (ANS, SEP, DCP, input, SMC/PMGR), because
+    there are no Apple kexts to borrow.
 
-**Exit:** Finch boots on an M1/M2 Mac with zero Apple kexts.
+**Exit:** Finch installs and boots on an M1/M2 Mac with zero Apple kexts and no macOS
+installed.
 
 ## Phase 4: Open frameworks
 Replace BORROWED frameworks, ordered by app coverage.
@@ -128,7 +142,7 @@ Replace BORROWED frameworks, ordered by app coverage.
 binaries.
 
 ## Phase 5: Finch 1.0
-Installer, updates, Finch desktop polish, security model (code signing, sandbox, SIP-like
+Installer (the standalone install from Phase 3, run from recoveryOS), updates, Finch desktop polish, security model (code signing, sandbox, SIP-like
 protections under Finch's own keys).
 
 ## Phase 6: Windows software

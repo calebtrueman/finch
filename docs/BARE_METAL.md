@@ -14,6 +14,13 @@ There are two parts:
 2. **Each boot test (you, from my instructions).** Install a kernel collection I've
    built onto the Finch volume and reboot into it. About five minutes.
 
+**This setup is temporary.** The end goal is a Mac with no macOS installed: a Finch
+installer, run from recoveryOS, puts a boot stub (Apple's boot firmware, downloaded from
+Apple at install time) and Finch on the disk. That needs Finch's own drivers, so it comes
+in Phase 3 (`docs/ROADMAP.md`). Until then, bare metal is deferred. When it's needed
+before Phase 3, these steps will switch to that boot stub rather than a full macOS
+install.
+
 Nothing here is needed until Finch reaches its bare-metal milestones. The first is
 booting Finch's kernel with the donor macOS userland (Phase 0 on metal). After that
 comes Finch's own userland (Phase 1 on metal). Do the one-time setup whenever it suits
