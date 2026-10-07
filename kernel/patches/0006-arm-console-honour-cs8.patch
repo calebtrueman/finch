@@ -1,0 +1,21 @@
+diff --git a/bsd/dev/arm/km.c b/bsd/dev/arm/km.c
+--- a/bsd/dev/arm/km.c
++++ b/bsd/dev/arm/km.c
+@@ -354,9 +354,14 @@
+ 		cc = min(cc, sizeof(buf));
+ 		/* copy the output queue contents to the buffer */
+ 		(void) q_to_b(&tp->t_outq, buf, cc);
+-		for (cp = buf; cp < &buf[cc]; cp++) {
+-			/* output the buffer one charatcer at a time */
+-			*cp = *cp & 0x7f;
++		/*
++		 * Strip to 7 bits unless the tty asks for 8-bit characters
++		 * (CS8), so UTF-8 reaches the console intact.
++		 */
++		if ((tp->t_cflag & CSIZE) != CS8) {
++			for (cp = buf; cp < &buf[cc]; cp++) {
++				*cp = *cp & 0x7f;
++			}
+ 		}
+ 		if (cc > 1) {
+ 			console_write((char *)buf, cc);

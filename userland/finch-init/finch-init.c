@@ -41,6 +41,7 @@
 #include <sys/sysctl.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "banner_art.h"
@@ -94,6 +95,26 @@ logmsg(const char *fmt, ...)
 	}
 }
 
+/*
+ * XNU opens the console with the historical BSD defaults: 7-bit characters
+ * with parity, which strips the top bit of every byte and mangles UTF-8.
+ * Switch it to 8-bit, no parity, UTF-8 input, as macOS's launchd does.
+ */
+static void
+console_8bit(int fd)
+{
+	struct termios t;
+
+	if (tcgetattr(fd, &t) != 0) {
+		return;
+	}
+	t.c_cflag &= ~(CSIZE | PARENB);
+	t.c_cflag |= CS8;
+	t.c_iflag &= ~ISTRIP;
+	t.c_iflag |= IUTF8;
+	tcsetattr(fd, TCSANOW, &t);
+}
+
 static void
 attach_console(void)
 {
@@ -108,6 +129,7 @@ attach_console(void)
 	if (fd > STDERR_FILENO) {
 		close(fd);
 	}
+	console_8bit(STDIN_FILENO);
 }
 
 static void

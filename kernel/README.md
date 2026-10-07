@@ -11,6 +11,7 @@
 | 0002-newvers-kernel-builder-override | `KERNEL_BUILDER` env sets the banner's builder (reproducible builds; no personal username). |
 | 0003-libsyscall-work-interval-instances | libsystem_kernel: Finch implementation of `work_interval_instance_*` (unpublished by Apple; imported by libdispatch). |
 | 0004-shared-cache-trust-cache-counts-as-sip-protected | A dyld shared cache file whose cdhash is in a static or engineering trust cache counts as SIP-protected, so Finch-built caches load with SIP fully on (`docs/design/DYLD_CACHE.md`). |
+| 0006-arm-console-honour-cs8 | The console tty strips output to 7 bits unless it's set to `CS8` (finch-init sets it), so UTF-8 reaches the serial console intact. Upstream strips every byte unconditionally. Input through the dockchannel UART is still read as 7-bit. |
 
 The same patched tree also builds userland's `libsystem_kernel.dylib`
 (`tools/build-oss.sh libsyscall`, recipe in `userland/oss/libsyscall.build.sh`).
