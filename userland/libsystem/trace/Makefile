@@ -6,8 +6,8 @@ CC := xcrun -sdk macosx clang
 CFLAGS := -arch arm64e -Os -Wall -Wextra -Werror -fblocks -fno-objc-arc \
  -I$(FINCH)/build/sdk/override -I$(FINCH)/build/sdk/availability \
  -idirafter $(FINCH)/build/sdk/include
-SOURCES := mode.c diagnostic_stream.c preferences.c format.c format_spi.c stream_entry.c log.c object.m activity.c util.c backtrace.c blob.c ring.c amfi.c storage.c transport.c state.c control.c rtconnection.c metric.c metric_object.m image.c
-HEADERS := internal.h format.h blob.h ring.h transport.h
+SOURCES := mode.c diagnostic_stream.c preferences.c format.c format_spi.c stream_entry.c log.c fault.c object.m activity.c util.c backtrace.c blob.c ring.c amfi.c storage.c transport.c state.c control.c rtconnection.c metric.c metric_object.m image.c
+HEADERS := internal.h format.h blob.h ring.h transport.h fault.h state.h
 TESTS := preferences-compare stream-entry-compare format-spi-compare format-compare log-compare object-compare activity-compare util-compare backtrace-compare blob-compare ring-compare metric-compare state-compare image-compare args-compare
 LIB := $(OUT)/libsystem_trace.dylib
 all: $(LIB)
@@ -44,7 +44,7 @@ $(OUT)/state-wire.o: state.c state.h
 	$(CC) $(CFLAGS) -Ddebug_control_port_for_pid=test_debug_control_port_for_pid -Dmach_msg=test_state_mach_msg -Dmach_port_deallocate=test_state_port_deallocate -Dvoucher_get_activity_id=test_state_activity_id -D_os_activity_initiate=test_state_activity -c $< -o $@
 $(OUT)/state-wire: tests/state-wire.c $(OUT)/state-wire.o
 	$(CC) $(CFLAGS) $^ -o $@
-check: $(LIB) $(addprefix $(OUT)/,$(TESTS)) $(OUT)/amfi-wire $(OUT)/transport-wire $(OUT)/control-wire $(OUT)/state-wire $(OUT)/rtconnection-wire $(OUT)/storage-wire $(OUT)/preferences-wire $(OUT)/mode-compare $(OUT)/mode-wire $(OUT)/diagnostic-stream-test
+check: $(LIB) $(addprefix $(OUT)/,$(TESTS)) $(OUT)/amfi-wire $(OUT)/transport-wire $(OUT)/control-wire $(OUT)/state-wire $(OUT)/rtconnection-wire $(OUT)/storage-wire $(OUT)/preferences-wire $(OUT)/mode-compare $(OUT)/mode-wire $(OUT)/diagnostic-stream-test $(OUT)/fault-test $(OUT)/fault-callbacks
 	@set -e; for test in $(TESTS); do $(OUT)/$$test $(LIB); done
 	$(OUT)/amfi-wire
 	$(OUT)/transport-wire
@@ -56,6 +56,8 @@ check: $(LIB) $(addprefix $(OUT)/,$(TESTS)) $(OUT)/amfi-wire $(OUT)/transport-wi
 	python3 tests/mode-env-compare.py $(OUT)/mode-compare $(LIB)
 	$(OUT)/mode-wire
 	$(OUT)/diagnostic-stream-test
+	$(OUT)/fault-test
+	$(OUT)/fault-callbacks $(LIB)
 .PHONY: all check
 
 $(OUT)/preferences-wire.o: preferences.c preferences.h
@@ -74,3 +76,9 @@ $(OUT)/mode-wire: tests/mode-wire.c $(OUT)/mode-wire.o
 	$(CC) $(CFLAGS) $^ -o $@
 $(OUT)/diagnostic-stream-test: tests/diagnostic-stream-test.c diagnostic_stream.c stream_entry.c
 	$(CC) $(CFLAGS) $^ -o $@
+$(OUT)/fault-test: tests/fault-test.c fault.c fault.h state.h internal.h
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) tests/fault-test.c fault.c -o $@
+$(OUT)/fault-callbacks: tests/fault-callbacks.c
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) $< -o $@

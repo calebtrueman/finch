@@ -7,21 +7,185 @@
 #include <string.h>
 #include <errno.h>
 #include <os/log.h>
-static unsigned checks,failures;
-#define CHECK(x) do{checks++;if(!(x)){if(failures++<30)fprintf(stderr,"line %d: %s\n",__LINE__,#x);}}while(0)
-typedef void(*composefn)(struct finch_trace_blob*,const char*,uintptr_t,unsigned,unsigned,const uint8_t*,const uint8_t*,uint16_t,const uint8_t*,uint16_t);
-typedef const uint8_t*(*extractfn)(const uint8_t*,uint16_t,const uint8_t**,uint16_t*);
-typedef uint8_t*(*convertfn)(uint8_t*,const uint8_t*,size_t);
-static composefn hc,fc;static extractfn he,fe;
-static void compare(const char*format,const uint8_t*r,const uint8_t*pub,uint16_t pn,const uint8_t*priv,uint16_t sn,unsigned level,uintptr_t mode){for(unsigned cap=0;cap<3;cap++){char ha[2048],fa[2048];memset(ha,0xa5,sizeof(ha));memset(fa,0xa5,sizeof(fa));strcpy(ha,"prefix ");strcpy(fa,"prefix ");unsigned n=cap==0?8:cap==1?20:2048;struct finch_trace_blob a={ha,7,n,n,0,0,0},b={fa,7,n,n,0,0,0};hc(&a,format,mode,level,8,r,pub,pn,priv,sn);fc(&b,format,mode,level,8,r,pub,pn,priv,sn);CHECK(a.length==b.length);CHECK(a.flags==b.flags);CHECK(!memcmp(ha,fa,n));if((a.length!=b.length||memcmp(ha,fa,n))&&failures<30)fprintf(stderr,"[%s] tag%u sz%u level%u mode%zu host=[%s] finch=[%s]\n",format,r[2],r[3],level,(size_t)mode,ha,fa);}}
-#define P(F,...) do{uint8_t native[__builtin_os_log_format_buffer_size(F,##__VA_ARGS__)];__builtin_os_log_format(native,F,##__VA_ARGS__);struct finch_log_wire w={0};CHECK(!flatten(native,sizeof(native),errno,&w));const uint8_t*pub;uint16_t pn;const uint8_t*r=he(w.public_data,(uint16_t)w.public_size,&pub,&pn);for(unsigned level=0;level<4;level++)compare(F,r,pub,pn,NULL,0,level,2);free(w.public_data);}while(0)
-struct plugin{intptr_t once;const char*name;void*handle,*format,*state;};
-int main(int argc,char**argv){void*h=dlopen("/usr/lib/system/libsystem_trace.dylib",RTLD_NOW|RTLD_LOCAL),*f=dlopen(argc>1?argv[1]:"build/userland/trace/format-spi-test.dylib",RTLD_NOW|RTLD_LOCAL);if(!h||!f){fprintf(stderr,"%s\n",dlerror());return 2;}hc=(composefn)dlsym(h,"os_log_fmt_compose");fc=(composefn)dlsym(f,"os_log_fmt_compose");he=(extractfn)dlsym(h,"os_log_fmt_extract_pubdata");fe=(extractfn)dlsym(f,"os_log_fmt_extract_pubdata");convertfn ht=(convertfn)dlsym(h,"os_log_fmt_convert_trace"),ft=(convertfn)dlsym(f,"os_log_fmt_convert_trace");int(*flatten)(const uint8_t*,size_t,int,struct finch_log_wire*)=dlsym(f,"finch_log_flatten");CHECK(hc&&fc&&he&&fe&&ht&&ft&&flatten);if(!(hc&&fc&&he&&fe&&ht&&ft&&flatten))return 2;
-unsigned char storage[8192],ha[8192],fa[8192];unsigned char*data=storage+2048;for(int seed=0;seed<30;seed++){for(size_t j=0;j<sizeof(storage);j++)storage[j]=(unsigned char)(j*17+seed*31);for(size_t n=0;n<300;n++){const uint8_t*hp=(void*)1,*fp=(void*)1;uint16_t hn=123,fn=123;const uint8_t*hr=he(data,n,&hp,&hn),*fr=fe(data,n,&fp,&fn);CHECK((!hr)==(!fr));if(n)CHECK(hr==fr);else CHECK(hr&&fr&&!memcmp(hr,fr,2));CHECK(hp==fp);CHECK(hn==fn);if(n){memset(ha,0xa5,sizeof(ha));memset(fa,0xa5,sizeof(fa));uint8_t*ho=ht(ha,data,n),*fo=ft(fa,data,n);CHECK((ho==NULL)==(fo==NULL));CHECK(!memcmp(ha,fa,sizeof(ha)));}}}
-P("plain");P("number %d %u %llx",-42,42u,0x123456789ull);P("float %8.2f",1.25);P("stars %*.*f",8,3,1.25);P("string %s","hello");P("string %{public}s","hello");P("string %{private}s","hidden");P("number %{private}d",42);P("data %{public}.*P",3,"abc");P("bool %{bool}d",2);P("bytes %{bytes}llu",12345678ull);P("errno %{errno}d",2);P("uuid %{public,uuid_t}.16P","0123456789abcdef");P("percent %% %d %%",7);P("null %s",(char*)0);P("err %m");P("space %d  \n",7);
-for(unsigned level=0;level<4;level++)for(unsigned header=0;header<4;header++)for(unsigned flag=1;flag<=5;flag+=4){unsigned char r[8]={header<<5,1,(uint8_t)flag,4,0,0,4,0};uint32_t v=12345;compare("value %{private}d",r,NULL,0,(void*)&v,4,level,2);r[2]|=0x20;r[6]=6;compare("value %{private}s",r,NULL,0,(void*)"hello",6,level,2);}
-const char*forms[]={"v %{public}d tail","v %d tail","v %p tail","v %f tail","v %lld tail","v %s tail","v %P tail","v %y tail","v % tail","v %n tail","v %m tail","v %2$s tail","v %.3s tail","v %hhd tail","v %ld tail"};for(unsigned mode=0;mode<8;mode++)for(unsigned j=0;j<sizeof(forms)/sizeof(*forms);j++){unsigned char r[16]={0,1,0,4,42};compare(forms[j],r,NULL,0,NULL,0,3,mode);}for(unsigned off=0;off<8;off++)for(unsigned n=0;n<10;n++){unsigned char r[8]={0,1,0x22,4,off,0,n,0};compare("v %s tail",r,(void*)"hello",6,NULL,0,3,2);compare("v %.3s tail",r,(void*)"hello",6,NULL,0,3,2);}
-for(unsigned type=0;type<6;type++)for(unsigned n=0;n<=16;n++){unsigned char r[32]={0,1,(type<<4)|2,n};for(unsigned j=0;j<n;j++)r[j+4]=j+1;for(unsigned j=0;j<sizeof(forms)/sizeof(*forms);j++)compare(forms[j],r,(void*)"hello",6,NULL,0,3,2);}
-for(unsigned n=0;n<8;n++){unsigned char r[16]={0,1,0x22,4,0,0,n,128};compare("v %s tail",r,(void*)"hello",6,NULL,0,3,2);r[1]=2;memmove(r+8,r+2,6);r[8]=0x32;r[2]=0x12;r[3]=4;r[4]=n;r[5]=r[6]=r[7]=0;compare("v %.*P tail",r,(void*)"hello",6,NULL,0,3,2);}
-struct plugin*(*hp)(const char*,size_t)=dlsym(h,"os_log_fmt_get_plugin"),*(*fp)(const char*,size_t)=dlsym(f,"os_log_fmt_get_plugin");CHECK(hp&&fp);const char*names[]={"network","Network","NETWORK","location","sqlite","uuid","bool","darwin","coredata","none-finch","","Swift","Foundation"};for(unsigned j=0;j<sizeof(names)/sizeof(*names);j++)for(size_t n=0;n<=strlen(names[j]);n++){struct plugin*a=hp(names[j],n),*b=fp(names[j],n);CHECK((a!=NULL)==(b!=NULL));if(a&&b){CHECK(a->once!=0&&b->once!=0);CHECK(!strcmp(a->name,b->name));CHECK((a->handle!=NULL)==(b->handle!=NULL));CHECK(a->format==b->format);CHECK(a->state==b->state);}}
-printf("format SPI: %u checks, %u failures\n",checks,failures);return failures?1:0;}
+static unsigned checks, failures;
+#define CHECK(x)                                                                                   \
+	do {                                                                                       \
+		checks++;                                                                          \
+		if (!(x)) {                                                                        \
+			if (failures++ < 30)                                                       \
+				fprintf(stderr, "line %d: %s\n", __LINE__, #x);                    \
+		}                                                                                  \
+	} while (0)
+typedef void (*composefn)(struct finch_trace_blob *, const char *, uintptr_t, unsigned, unsigned,
+    const uint8_t *, const uint8_t *, uint16_t, const uint8_t *, uint16_t);
+typedef const uint8_t *(*extractfn)(const uint8_t *, uint16_t, const uint8_t **, uint16_t *);
+typedef uint8_t *(*convertfn)(uint8_t *, const uint8_t *, size_t);
+static composefn hc, fc;
+static extractfn he, fe;
+static void compare(const char *format, const uint8_t *r, const uint8_t *pub, uint16_t pn,
+    const uint8_t *priv, uint16_t sn, unsigned level, uintptr_t mode)
+{
+	for (unsigned cap = 0; cap < 3; cap++) {
+		char ha[2048], fa[2048];
+		memset(ha, 0xa5, sizeof(ha));
+		memset(fa, 0xa5, sizeof(fa));
+		strcpy(ha, "prefix ");
+		strcpy(fa, "prefix ");
+		unsigned n = cap == 0 ? 8 : cap == 1 ? 20 : 2048;
+		struct finch_trace_blob a = {ha, 7, n, n, 0, 0, 0}, b = {fa, 7, n, n, 0, 0, 0};
+		hc(&a, format, mode, level, 8, r, pub, pn, priv, sn);
+		fc(&b, format, mode, level, 8, r, pub, pn, priv, sn);
+		CHECK(a.length == b.length);
+		CHECK(a.flags == b.flags);
+		CHECK(!memcmp(ha, fa, n));
+		if ((a.length != b.length || memcmp(ha, fa, n)) && failures < 30)
+			fprintf(stderr, "[%s] tag%u sz%u level%u mode%zu host=[%s] finch=[%s]\n",
+			    format, r[2], r[3], level, (size_t)mode, ha, fa);
+	}
+}
+#define P(F, ...)                                                                                  \
+	do {                                                                                       \
+		uint8_t native[__builtin_os_log_format_buffer_size(F, ##__VA_ARGS__)];             \
+		__builtin_os_log_format(native, F, ##__VA_ARGS__);                                 \
+		struct finch_log_wire w = {0};                                                     \
+		CHECK(!flatten(native, sizeof(native), errno, &w));                                \
+		const uint8_t *pub;                                                                \
+		uint16_t pn;                                                                       \
+		const uint8_t *r = he(w.public_data, (uint16_t)w.public_size, &pub, &pn);          \
+		for (unsigned level = 0; level < 4; level++)                                       \
+			compare(F, r, pub, pn, NULL, 0, level, 2);                                 \
+		free(w.public_data);                                                               \
+	} while (0)
+struct plugin {
+	intptr_t once;
+	const char *name;
+	void *handle, *format, *state;
+};
+int main(int argc, char **argv)
+{
+	void *h = dlopen("/usr/lib/system/libsystem_trace.dylib", RTLD_NOW | RTLD_LOCAL),
+	     *f = dlopen(argc > 1 ? argv[1] : "build/userland/trace/format-spi-test.dylib",
+	         RTLD_NOW | RTLD_LOCAL);
+	if (!h || !f) {
+		fprintf(stderr, "%s\n", dlerror());
+		return 2;
+	}
+	hc = (composefn)dlsym(h, "os_log_fmt_compose");
+	fc = (composefn)dlsym(f, "os_log_fmt_compose");
+	he = (extractfn)dlsym(h, "os_log_fmt_extract_pubdata");
+	fe = (extractfn)dlsym(f, "os_log_fmt_extract_pubdata");
+	convertfn ht = (convertfn)dlsym(h, "os_log_fmt_convert_trace"),
+	          ft = (convertfn)dlsym(f, "os_log_fmt_convert_trace");
+	int (*flatten)(const uint8_t *, size_t, int, struct finch_log_wire *) =
+	    dlsym(f, "finch_log_flatten");
+	CHECK(hc && fc && he && fe && ht && ft && flatten);
+	if (!(hc && fc && he && fe && ht && ft && flatten))
+		return 2;
+	unsigned char storage[8192], ha[8192], fa[8192];
+	unsigned char *data = storage + 2048;
+	for (int seed = 0; seed < 30; seed++) {
+		for (size_t j = 0; j < sizeof(storage); j++)
+			storage[j] = (unsigned char)(j * 17 + seed * 31);
+		for (size_t n = 0; n < 300; n++) {
+			const uint8_t *hp = (void *)1, *fp = (void *)1;
+			uint16_t hn = 123, fn = 123;
+			const uint8_t *hr = he(data, n, &hp, &hn), *fr = fe(data, n, &fp, &fn);
+			CHECK((!hr) == (!fr));
+			if (n)
+				CHECK(hr == fr);
+			else
+				CHECK(hr && fr && !memcmp(hr, fr, 2));
+			CHECK(hp == fp);
+			CHECK(hn == fn);
+			if (n) {
+				memset(ha, 0xa5, sizeof(ha));
+				memset(fa, 0xa5, sizeof(fa));
+				uint8_t *ho = ht(ha, data, n), *fo = ft(fa, data, n);
+				CHECK((ho == NULL) == (fo == NULL));
+				CHECK(!memcmp(ha, fa, sizeof(ha)));
+			}
+		}
+	}
+	P("plain");
+	P("number %d %u %llx", -42, 42u, 0x123456789ull);
+	P("float %8.2f", 1.25);
+	P("stars %*.*f", 8, 3, 1.25);
+	P("string %s", "hello");
+	P("string %{public}s", "hello");
+	P("string %{private}s", "hidden");
+	P("number %{private}d", 42);
+	P("data %{public}.*P", 3, "abc");
+	P("bool %{bool}d", 2);
+	P("bytes %{bytes}llu", 12345678ull);
+	P("errno %{errno}d", 2);
+	P("uuid %{public,uuid_t}.16P", "0123456789abcdef");
+	P("percent %% %d %%", 7);
+	P("null %s", (char *)0);
+	P("err %m");
+	P("space %d  \n", 7);
+	for (unsigned level = 0; level < 4; level++)
+		for (unsigned header = 0; header < 4; header++)
+			for (unsigned flag = 1; flag <= 5; flag += 4) {
+				unsigned char r[8] = {header << 5, 1, (uint8_t)flag, 4, 0, 0, 4, 0};
+				uint32_t v = 12345;
+				compare("value %{private}d", r, NULL, 0, (void *)&v, 4, level, 2);
+				r[2] |= 0x20;
+				r[6] = 6;
+				compare(
+				    "value %{private}s", r, NULL, 0, (void *)"hello", 6, level, 2);
+			}
+	const char *forms[] = {"v %{public}d tail", "v %d tail", "v %p tail", "v %f tail",
+	    "v %lld tail", "v %s tail", "v %P tail", "v %y tail", "v % tail", "v %n tail",
+	    "v %m tail", "v %2$s tail", "v %.3s tail", "v %hhd tail", "v %ld tail"};
+	for (unsigned mode = 0; mode < 8; mode++)
+		for (unsigned j = 0; j < sizeof(forms) / sizeof(*forms); j++) {
+			unsigned char r[16] = {0, 1, 0, 4, 42};
+			compare(forms[j], r, NULL, 0, NULL, 0, 3, mode);
+		}
+	for (unsigned off = 0; off < 8; off++)
+		for (unsigned n = 0; n < 10; n++) {
+			unsigned char r[8] = {0, 1, 0x22, 4, off, 0, n, 0};
+			compare("v %s tail", r, (void *)"hello", 6, NULL, 0, 3, 2);
+			compare("v %.3s tail", r, (void *)"hello", 6, NULL, 0, 3, 2);
+		}
+	for (unsigned type = 0; type < 6; type++)
+		for (unsigned n = 0; n <= 16; n++) {
+			unsigned char r[32] = {0, 1, (type << 4) | 2, n};
+			for (unsigned j = 0; j < n; j++)
+				r[j + 4] = j + 1;
+			for (unsigned j = 0; j < sizeof(forms) / sizeof(*forms); j++)
+				compare(forms[j], r, (void *)"hello", 6, NULL, 0, 3, 2);
+		}
+	for (unsigned n = 0; n < 8; n++) {
+		unsigned char r[16] = {0, 1, 0x22, 4, 0, 0, n, 128};
+		compare("v %s tail", r, (void *)"hello", 6, NULL, 0, 3, 2);
+		r[1] = 2;
+		memmove(r + 8, r + 2, 6);
+		r[8] = 0x32;
+		r[2] = 0x12;
+		r[3] = 4;
+		r[4] = n;
+		r[5] = r[6] = r[7] = 0;
+		compare("v %.*P tail", r, (void *)"hello", 6, NULL, 0, 3, 2);
+	}
+	struct plugin *(*hp)(const char *, size_t) = dlsym(h, "os_log_fmt_get_plugin"),
+	                                   *(*fp)(const char *, size_t) =
+	                                       dlsym(f, "os_log_fmt_get_plugin");
+	CHECK(hp && fp);
+	const char *names[] = {"network", "Network", "NETWORK", "location", "sqlite", "uuid",
+	    "bool", "darwin", "coredata", "none-finch", "", "Swift", "Foundation"};
+	for (unsigned j = 0; j < sizeof(names) / sizeof(*names); j++)
+		for (size_t n = 0; n <= strlen(names[j]); n++) {
+			struct plugin *a = hp(names[j], n), *b = fp(names[j], n);
+			CHECK((a != NULL) == (b != NULL));
+			if (a && b) {
+				CHECK(a->once != 0 && b->once != 0);
+				CHECK(!strcmp(a->name, b->name));
+				CHECK((a->handle != NULL) == (b->handle != NULL));
+				CHECK(a->format == b->format);
+				CHECK(a->state == b->state);
+			}
+		}
+	printf("format SPI: %u checks, %u failures\n", checks, failures);
+	return failures ? 1 : 0;
+}

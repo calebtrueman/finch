@@ -55,7 +55,13 @@ entries, log objects, levels and modes, activities and signposts, metrics,
 images, blobs, RTLog rings, preferences and diagnostic streams, and it covers the
 transport, control, storage, AMFI and RT-connection paths with mock peers.
 
-Unfinished: `fault.c` (fault and test-callback delivery, quarantine) compiles,
-but it isn't in `SOURCES` yet. `log.c` doesn't call it, and `tests/fault-test.c`
-isn't wired into `check`. Next: wire it in, check exports with
-`tools/check-exports.sh`, then boot it in the VM.
+Faults: `finch_log_send` opens a fault scope. It sends a crash report when the
+log's `Enable-Fault-Crashlogs` setting asks for one, and asks registered state
+handlers for a dump under their own activity. After the caller's voucher is
+restored, it calls the fault callback, then the test callback. Error and fault
+counters decide "first". TTLs come from the log's preferences. The state sender
+marks packets while the process is quarantined, and libdispatch's quarantine
+hook is wired to `finch_trace_quarantine`. `fault-test` covers the logic with
+mocks, and `fault-callbacks` covers the callbacks through the built library.
+
+Next: check exports with `tools/check-exports.sh`, then boot it in the VM.
