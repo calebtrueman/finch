@@ -1,21 +1,26 @@
 diff --git a/libdarwin/dirstat.c b/libdarwin/dirstat.c
-index 885bcc1..99f8a6b 100644
+index 885bcc1..daea479 100644
 --- a/libdarwin/dirstat.c
 +++ b/libdarwin/dirstat.c
-@@ -42,7 +42,11 @@
+@@ -42,9 +42,16 @@
  #define HAS_APFS
  #endif
  
 -#ifdef HAS_APFS
-+/* The APFS fast path needs APFS's private fsctl header. dirstatat_np()
++/* The APFS fast path needs APFS's private dir-stats fsctl. dirstatat_np()
 + * always forces the fallback path anyway (rdar://32794924 below), so builds
-+ * without the header compile the fast path out with no change in behavior. */
++ * whose <apfs/apfs_fsctl.h> lacks it compile the fast path out with no change
++ * in behavior. */
 +#if defined(HAS_APFS) && __has_include(<apfs/apfs_fsctl.h>)
-+#define HAS_APFS_FSCTL
  #include <apfs/apfs_fsctl.h>
  #endif
++#if defined(HAS_APFS) && defined(APFSIOC_GET_DIR_STATS_EXT)
++#define HAS_APFS_FSCTL
++#endif
  
-@@ -55,7 +59,7 @@
+ #if DEBUG
+ #define DEBUGPRINT(...) fprintf(stderr, __VA_ARGS__)
+@@ -55,7 +62,7 @@
  static int
  fdirstat_fallback(int fd, int flags, struct dirstat *ds);
  
@@ -24,7 +29,7 @@ index 885bcc1..99f8a6b 100644
  static int
  fdirstat(int fd, int flags, struct dirstat *ds)
  {
-@@ -104,7 +108,7 @@ dirstatat_np(int dfd, const char *path, int flags, struct dirstat *ds_out, size_
+@@ -104,7 +111,7 @@ dirstatat_np(int dfd, const char *path, int flags, struct dirstat *ds_out, size_
  	struct dirstat ds = {};
  	int ret = -1;
  

@@ -37,6 +37,8 @@ copy_headers() {
 copy_headers "${XNU_ROOT}/usr/local/include" "${INC}"
 sysfw="${XNU_ROOT}/System/Library/Frameworks/System.framework"
 rsync -a "${sysfw}" "${SDK}/Frameworks/"
+# Kernel.framework private headers (<Kernel/sys/decmpfs.h>, used by copyfile).
+rsync -a "${XNU_ROOT}/System/Library/Frameworks/Kernel.framework" "${SDK}/Frameworks/"
 # xnu installs only Versions/B; add the standard top-level framework symlinks.
 (cd "${SDK}/Frameworks/System.framework" && ln -sfn B Versions/Current \
     && ln -sfn Versions/Current/PrivateHeaders PrivateHeaders)

@@ -34,3 +34,11 @@ dyld            dyld-1376.6
 libclosure      libclosure-96
 Libnotify       Libnotify-348.100.7
 libiconv        libiconv-115.100.1
+
+# libSystem sub-libraries (Phase 1 exit, docs/design/PHASE1-EXIT.md)
+keymgr          keymgr-31
+copyfile        copyfile-240
+removefile      removefile-85.100.6
+syslog          syslog-406
+mDNSResponder   mDNSResponder-2881.100.56.0.1
+objc4           objc4-951.7
