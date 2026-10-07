@@ -2,4 +2,7 @@
 // Apple's build sets the project version from RC_ProjectSourceVersion.
 CURRENT_PROJECT_VERSION = 812.100.31
 // Finch's <corecrypto/ccsha2.h> is header-only: don't link the closed library.
-OTHER_LDFLAGS = $(inherited) -Wl,-dead_strip_dylibs
+OTHER_LDFLAGS = $(inherited) -Wl,-dead_strip_dylibs -lCrashReporterClient   // crash annotations, as Apple links them
+
+// Apple's library has no generated version symbols (__<product>Version*).
+VERSIONING_SYSTEM =

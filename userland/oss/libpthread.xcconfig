@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // pthread.xcconfig derives DYLIB_CURRENT_VERSION from RC_ProjectSourceVersion,
 // which only Apple's build system sets; pass the version to the linker directly.
-OTHER_LDFLAGS = $(inherited) -Wl,-current_version,539.100.4
+OTHER_LDFLAGS = $(inherited) -Wl,-current_version,539.100.4 -lCrashReporterClient   // crash annotations, as Apple links them
+
+// Apple's library has no generated version symbols (__<product>Version*).
+VERSIONING_SYSTEM =

@@ -12,7 +12,6 @@ FINCH_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 path="${1:?usage: check-exports.sh <path of dylib inside the image>}"
 ours="${FINCH_ROOT}/build/root${path}"
 base="${FINCH_ROOT}/third_party/darwin-vm/firmware/ramdisk.dmg"
-image="${FINCH_ROOT}/build/vm/ramdisk.dmg"
 [[ -f "${ours}" ]] || { echo "error: ${ours} not built" >&2; exit 2; }
 
 tmp="$(mktemp -d)"
@@ -32,19 +31,21 @@ install_name=$(otool -D "${ours}" | tail -1)
 leaf=$(basename "${install_name}" .dylib)
 echo "${path}: Apple exports $(wc -l < "${tmp}/apple" | tr -d ' '), ours $(wc -l < "${tmp}/ours" | tr -d ' '), missing $(wc -l < "${tmp}/missing" | tr -d ' ')"
 
-# Who imports what from this library, across the current Finch image
-# (falls back to the base image if the Finch image hasn't been built).
-[[ -f "${image}" ]] || image="${base}"
-hdiutil attach -readonly -nobrowse -mountpoint "${mnt}" -imagekey diskimage-class=CRawDiskImage "${image}" >/dev/null 2>&1 \
-    || hdiutil attach -readonly -nobrowse -mountpoint "${mnt}" "${image}" >/dev/null
-find "${mnt}" -type f \( -perm +111 -o -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null \
-    | while IFS= read -r -d '' f; do
-        file -b "$f" | grep -q Mach-O || continue
-        # Count imports bound to this library directly, or through the
-        # libSystem umbrella (which re-exports every /usr/lib/system dylib).
-        nm -um "$f" 2>/dev/null | awk -v lib="(from ${leaf})" -v F="${f#"${mnt}"}" \
-            'index($0, lib) || index($0, "(from libSystem)") { print $(NF-2), F }'
-    done | sort -u > "${tmp}/imports"
+# Who imports what from this library: every Mach-O in Apple's base image
+# (the built image keeps cached dylibs only inside the shared cache, where
+# they can't be scanned) plus everything Finch builds (build/root).
+scan() {   # scan <root>
+    find "$1" -type f \( -perm +111 -o -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null \
+        | while IFS= read -r -d '' f; do
+            file -b "$f" | grep -q Mach-O || continue
+            # Count imports bound to this library directly, or through the
+            # libSystem umbrella (which re-exports every /usr/lib/system dylib).
+            nm -um "$f" 2>/dev/null | awk -v lib="(from ${leaf})" -v F="${f#"$1"}" \
+                'index($0, lib) || index($0, "(from libSystem)") { print $(NF-2), F }'
+        done
+}
+hdiutil attach -readonly -nobrowse -mountpoint "${mnt}" "${base}" >/dev/null
+{ scan "${mnt}"; scan "${FINCH_ROOT}/build/root"; } | sort -u > "${tmp}/imports"
 
 awk 'NR == FNR { m[$1] = 1; next } ($1 in m)' "${tmp}/missing" "${tmp}/imports" > "${tmp}/needed"
 if [[ -s "${tmp}/needed" ]]; then

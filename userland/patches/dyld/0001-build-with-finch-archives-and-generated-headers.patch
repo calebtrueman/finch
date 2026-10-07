@@ -1,0 +1,157 @@
+diff --git a/build-scripts/build_cctools.sh b/build-scripts/build_cctools.sh
+new file mode 100755
+index 0000000..54f00df
+--- /dev/null
++++ b/build-scripts/build_cctools.sh
+@@ -0,0 +1,4 @@
++#!/bin/sh
++# Finch: Apple's script that builds the cctools tools alongside dyld isn't
++# in the published source. dyld and libdyld don't need it.
++exit 0
+diff --git a/build-scripts/configure-dyld-archives.sh b/build-scripts/configure-dyld-archives.sh
+index 69ca27a..7b0f5a7 100755
+--- a/build-scripts/configure-dyld-archives.sh
++++ b/build-scripts/configure-dyld-archives.sh
+@@ -8,19 +8,23 @@ then
+         cp "${SRCROOT}/dyld/dyld.dirty" "${DERIVED_SOURCES_DIR}/dyld.dirty"
+     fi
+ else
++    # Finch: the archives come from Finch's build (FINCH_DYLD_ARCHIVES_ROOT),
++    # not an internal SDK.
++    ARCHIVES_ROOT="${FINCH_DYLD_ARCHIVES_ROOT:-${SDKROOT}}"
++
+     # link with all .a files in /usr/local/lib/dyld
+-    ls -1 ${SDKROOT}/usr/local/lib/dyld/*.a | grep -v libcompiler_rt | grep -v libunwind | grep -v libc++abi > ${DERIVED_SOURCES_DIR}/archives.txt
++    ls -1 ${ARCHIVES_ROOT}/usr/local/lib/dyld/*.a | grep -v libcompiler_rt | grep -v libunwind | grep -v libc++abi > ${DERIVED_SOURCES_DIR}/archives.txt
+ 
+     # link with crash report archive if it exists
+-    if [ -f ${SDKROOT}/usr/local/lib/libCrashReporterClient.a ]
++    if [ -f ${FINCH_CRASHREPORTER_ARCHIVE:-${SDKROOT}/usr/local/lib/libCrashReporterClient.a} ]
+     then
+-      echo \"${SDKROOT}/usr/local/lib/libCrashReporterClient.a\" >> ${DERIVED_SOURCES_DIR}/archives.txt
++      echo \"${FINCH_CRASHREPORTER_ARCHIVE:-${SDKROOT}/usr/local/lib/libCrashReporterClient.a}\" >> ${DERIVED_SOURCES_DIR}/archives.txt
+     fi
+ 
+     # link with crypto archive if it exists
+-    if [ -f ${SDKROOT}/usr/local/lib/libcorecrypto_static.a ]
++    if [ -f ${ARCHIVES_ROOT}/usr/local/lib/libcorecrypto_static.a ]
+     then
+-      echo \"${SDKROOT}/usr/local/lib/libcorecrypto_static.a\" >> ${DERIVED_SOURCES_DIR}/archives.txt
++      echo \"${ARCHIVES_ROOT}/usr/local/lib/libcorecrypto_static.a\" >> ${DERIVED_SOURCES_DIR}/archives.txt
+     fi
+ 
+     # always use a .dirty file.  If none in SDK, use our own
+diff --git a/build-scripts/generate-cache-config-header.sh b/build-scripts/generate-cache-config-header.sh
+index 183d31d..23ee027 100755
+--- a/build-scripts/generate-cache-config-header.sh
++++ b/build-scripts/generate-cache-config-header.sh
+@@ -1,5 +1,12 @@
+ #!/bin/sh
+ 
++# Finch: use the cache builder's copy (tools/dsc/build-builder.sh), so dyld
++# and the shared caches it loads agree.
++if [ -n "${FINCH_DYLD_GENERATED}" ]; then
++    cp "${FINCH_DYLD_GENERATED}/dyld_cache_config.h" "${DERIVED_FILE_DIR}/dyld_cache_config.h"
++    exit 0
++fi
++
+ /bin/echo "" > ${DERIVED_FILE_DIR}/dyld_cache_config.h
+ 
+ if [ -z "${ARM_SDK}" ]; then
+diff --git a/build-scripts/prebuilt-loader-hash.sh b/build-scripts/prebuilt-loader-hash.sh
+index 98b0119..6fb755b 100755
+--- a/build-scripts/prebuilt-loader-hash.sh
++++ b/build-scripts/prebuilt-loader-hash.sh
+@@ -1,6 +1,13 @@
+ #!/bin/bash
+ set -e
+ 
++# Finch: use the cache builder's copy (tools/dsc/build-builder.sh), so dyld
++# and the shared caches it loads agree.
++if [ -n "${FINCH_DYLD_GENERATED}" ]; then
++    cp "${FINCH_DYLD_GENERATED}/PrebuiltLoader_version.h" "${DERIVED_FILE_DIR}/PrebuiltLoader_version.h"
++    exit 0
++fi
++
+ echo -e "#include \"PrebuiltLoader.h\"\n#include \"PrebuiltObjC.h\"\n#include \"OptimizerObjC.h\"\nint foo() { return sizeof(dyld4::PrebuiltLoader)+sizeof(mach_o::LinkedDylibAttributes)+sizeof(dyld4::PrebuiltLoaderSet)+sizeof(dyld4::ObjCBinaryInfo)+sizeof(dyld4::Loader::DylibPatch)+sizeof(dyld4::Loader::FileValidationInfo)+sizeof(prebuilt_objc::ObjCSelectorMapOnDisk)+sizeof(prebuilt_objc::ObjCObjectMapOnDisk)+sizeof(objc::SelectorHashTable); }\n" > ${DERIVED_FILE_DIR}/test.cpp
+ 
+ # always preprocess headers using macOS SDK
+diff --git a/include/mach-o/dyld.h b/include/mach-o/dyld.h
+index 7bf19c0..ead1b79 100644
+--- a/include/mach-o/dyld.h
++++ b/include/mach-o/dyld.h
+@@ -41,6 +41,11 @@ extern "C" {
+  #define DYLD_DRIVERKIT_UNAVAILABLE
+ #endif
+ 
++/* Finch: as in the published SDK copy of this header (empty on macOS). */
++#ifndef DYLD_EXCLAVEKIT_UNAVAILABLE
++ #define DYLD_EXCLAVEKIT_UNAVAILABLE
++#endif
++
+ 
+ /*
+  * The following functions allow you to iterate through all loaded images.  
+diff --git a/include/mach-o/dyld_introspection.h b/include/mach-o/dyld_introspection.h
+index a6e7d84..d76e622 100644
+--- a/include/mach-o/dyld_introspection.h
++++ b/include/mach-o/dyld_introspection.h
+@@ -285,6 +285,12 @@ extern void dyld_shared_cache_for_each_file(dyld_shared_cache_t cache, void (^bl
+ DYLD_MACOS_12_ALIGNED_SPI
+ extern void dyld_shared_cache_for_each_image(dyld_shared_cache_t cache, void (^block)(dyld_image_t image));
+ 
++// Finch: Rosetta's subcache queries (exported by Apple's libdyld; absent from
++// the published header).
++extern bool dyld_shared_cache_for_each_subcache4Rosetta(dyld_shared_cache_t cache, void (^block)(const void* cacheBuffer, size_t size));
++extern bool dyld_shared_subcache_get_info4Rosetta(const void* cacheHeader, uuid_t* uuid, uint64_t* count, uint64_t* a3,
++                                                  uint64_t* a4, uint64_t* a5, uint64_t* a6, uint64_t* a7, uint64_t* a8);
++
+ #pragma mark -
+ #pragma mark Image Introspection Interfaces
+ 
+diff --git a/libdyld/utils.cpp b/libdyld/utils.cpp
+index 508650e..cff868f 100644
+--- a/libdyld/utils.cpp
++++ b/libdyld/utils.cpp
+@@ -41,7 +41,7 @@
+ // mach_o
+ #include "Architecture.h"
+ #include "Error.h"
+-#include "Fixup.h"
++#include "Fixups.h"
+ #include "GradedArchitectures.h"
+ #include "UnsafeHeader.h"
+ #include "Image.h"
+diff --git a/libdyld_introspection/dyld_introspection.cpp b/libdyld_introspection/dyld_introspection.cpp
+index c997946..07cbf23 100644
+--- a/libdyld_introspection/dyld_introspection.cpp
++++ b/libdyld_introspection/dyld_introspection.cpp
+@@ -287,6 +287,28 @@ void dyld_shared_cache_for_each_file(dyld_shared_cache_t cache_atlas, void (^blo
+     cache->forEachFilePath(block);
+ }
+ 
++// Finch: two exports of Apple's libdyld that the published source lacks.
++// Rosetta uses them to find the x86_64 shared cache's subcaches. Behaviour as
++// in macOS 26.4's libdyld: the first walks the cache's subcaches; the
++// second describes an x86_64 subcache and, for any other cache, reports zero
++// entries and returns false. Finch has no x86_64 cache.
++extern "C" __attribute__((visibility("default")))
++bool dyld_shared_cache_for_each_subcache4Rosetta(dyld_shared_cache_t cache, void (^block)(const void* cacheBuffer, size_t size)) {
++    return ((dyld4::Atlas::SharedCache*)cache)->forEachSubcache4Rosetta(block);
++}
++
++extern "C" __attribute__((visibility("default")))
++bool dyld_shared_subcache_get_info4Rosetta(const void* cacheHeader, uuid_t* uuid, uint64_t* count, uint64_t* a3,
++                                           uint64_t* a4, uint64_t* a5, uint64_t* a6, uint64_t* a7, uint64_t* a8) {
++    (void)uuid; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7; (void)a8;
++    if ( strcmp((const char*)cacheHeader, "dyld_v1  x86_64") != 0 ) {
++        *count = 0;
++        return false;
++    }
++    *count = 0;   // x86_64 caches aren't supported on Finch
++    return false;
++}
++
+ void dyld_shared_cache_for_each_image(dyld_shared_cache_t cache, void (^block)(dyld_image_t image)) {
+ #if BUILDING_LIBDYLD
+     if ( const IntrospectionVtable* vtable = dyldFrameworkIntrospectionVtable() ) {

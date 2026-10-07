@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: MIT OR Apache-2.0
  *
  * <os/thread_self_restrict.h>: per-thread RWX restriction for JIT memory
- * (backs pthread_jit_write_protect_np and friends).
+ * (backs pthread_jit_write_protect_np and friends), and TPRO, the per-thread
+ * read-only toggle dyld uses for its own data.
  *
  * Apple publishes this header with its body removed. This reimplementation
  * follows the behaviour of macOS 26.4's libsystem_pthread:
@@ -12,7 +13,11 @@
  *   commpage +0x110 (u64)  permission value for "RW" (JIT writable)
  *   commpage +0x118 (u64)  permission value for "RX" (JIT executable)
  *
- * The value is written to the per-thread permission register, which is
+ *   commpage +0x0D0 (u64)  permission value for TPRO "RW" (dyld data writable)
+ *   commpage +0x0D8 (u64)  permission value for TPRO "RO"
+ *
+ * TPRO is SPRR-only; macOS 26.4's dyld reads "writable" from bit 36 of the
+ * permission register. The value is written to the per-thread permission register, which is
  * APRR_EL0 (S3_4_C15_C2_7) on APRR parts and SPRR_PERM_EL0 (S3_6_C15_C1_5)
  * on SPRR parts (M1 and later). Register names follow the Asahi Linux
  * documentation. After the write, the register is read back and the thread
@@ -31,6 +36,10 @@
 #define _FINCH_COMMPAGE_RWX_MODE        (_FINCH_COMMPAGE_BASE + 0x10C)
 #define _FINCH_COMMPAGE_RWX_RW_VALUE    (_FINCH_COMMPAGE_BASE + 0x110)
 #define _FINCH_COMMPAGE_RWX_RX_VALUE    (_FINCH_COMMPAGE_BASE + 0x118)
+
+#define _FINCH_COMMPAGE_TPRO_RW_VALUE   (_FINCH_COMMPAGE_BASE + 0x0D0)
+#define _FINCH_COMMPAGE_TPRO_RO_VALUE   (_FINCH_COMMPAGE_BASE + 0x0D8)
+#define _FINCH_TPRO_WRITABLE_BIT        36
 
 #define _FINCH_RWX_MODE_APRR            1
 #define _FINCH_RWX_MODE_SPRR_MIN        2
@@ -86,6 +95,55 @@ static inline void
 os_thread_self_restrict_rwx_to_rx(void)
 {
 	_os_thread_self_restrict_rwx_set(_FINCH_COMMPAGE_RWX_RX_VALUE);
+}
+
+/* TPRO: SPRR parts only. */
+__attribute__((always_inline))
+static inline bool
+os_thread_self_restrict_tpro_is_supported(void)
+{
+	uint8_t mode = _os_thread_self_restrict_rwx_mode();
+	return mode >= _FINCH_RWX_MODE_SPRR_MIN && mode <= _FINCH_RWX_MODE_SPRR_MAX;
+}
+
+__attribute__((always_inline))
+static inline bool
+os_thread_self_restrict_tpro_is_writable(void)
+{
+	uint64_t v;
+	if (!os_thread_self_restrict_tpro_is_supported()) {
+		__builtin_debugtrap();
+		__builtin_unreachable();
+	}
+	__asm__ volatile ("mrs %0, S3_6_C15_C1_5" : "=r"(v));
+	return (v >> _FINCH_TPRO_WRITABLE_BIT) & 1;
+}
+
+__attribute__((always_inline))
+static inline void
+_os_thread_self_restrict_tpro_set(uintptr_t value_addr)
+{
+	if (!os_thread_self_restrict_tpro_is_supported()) {
+		__builtin_debugtrap();
+		__builtin_unreachable();
+	}
+	_os_thread_self_restrict_rwx_set(value_addr);  /* SPRR path: write, isb, verify */
+}
+
+/* TPRO-protected pages become writable for this thread. */
+__attribute__((always_inline))
+static inline void
+os_thread_self_restrict_tpro_to_rw(void)
+{
+	_os_thread_self_restrict_tpro_set(_FINCH_COMMPAGE_TPRO_RW_VALUE);
+}
+
+/* TPRO-protected pages become read-only for this thread. */
+__attribute__((always_inline))
+static inline void
+os_thread_self_restrict_tpro_to_ro(void)
+{
+	_os_thread_self_restrict_tpro_set(_FINCH_COMMPAGE_TPRO_RO_VALUE);
 }
 
 #endif /* __arm64__ */

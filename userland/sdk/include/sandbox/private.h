@@ -24,6 +24,7 @@ enum sandbox_filter_type {
 	SANDBOX_FILTER_NONE = 0,
 	SANDBOX_FILTER_PATH = 1,
 	SANDBOX_FILTER_NOTIFICATION = 9,
+	SANDBOX_FILTER_SYSCALL_NUMBER = 14,     /* macOS 26.4's dyld passes 14 */
 };
 
 /* Flags OR'd into the filter type (exported constants). */

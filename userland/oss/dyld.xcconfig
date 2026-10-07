@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// dyld and libdyld against Finch's archives and headers instead of Apple's
+// internal SDK (see userland/patches/dyld and userland/oss/dyld.pre.sh).
+CLANG_ENABLE_MODULES = NO
+RC_ProjectSourceVersion = 1376.6
+FINCH_DYLD_ARCHIVES_ROOT = $(FINCH_ROOT)/build/root
+FINCH_CRASHREPORTER_ARCHIVE = $(FINCH_ROOT)/build/userland/lib/libCrashReporterClient.a
+FINCH_DYLD_GENERATED = $(FINCH_ROOT)/build/obj/dsc-builder/generated
+ARM_SDK = $(SDKROOT)
+// Finch's corecrypto digests (userland/corecrypto, linked statically) ahead of
+// the SDK overlay's header-only SHA-256 subset that libmalloc uses.
+HEADER_SEARCH_PATHS = $(FINCH_ROOT)/userland/corecrypto/include $(inherited) $(FINCH_ROOT)/build/obj/dyld-generated

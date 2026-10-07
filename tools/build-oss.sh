@@ -119,7 +119,11 @@ finch_xcconfig="${obj}/finch.xcconfig"
     # Finch's own headers (userland/sdk/include, in ${SDK}/override) come first
     # for private-first projects, and after everything else for the rest, so
     # they only fill in what the SDK lacks.
-    echo "OTHER_CFLAGS = \$(inherited) -Wno-error ${cflags_private} -idirafter ${SDK}/include -idirafter ${SDK}/override -F${SDK}/Frameworks"
+    # (Not both: clang drops a -I directory that's also a system directory,
+    # which would silently move the overlay to the end.)
+    overlay_after="-idirafter ${SDK}/override"
+    [[ -n "${cflags_private}" ]] && overlay_after=""
+    echo "OTHER_CFLAGS = \$(inherited) -Wno-error ${cflags_private} -idirafter ${SDK}/include ${overlay_after} -F${SDK}/Frameworks"
     # mig preprocesses .defs files, which import private .defs and headers too.
     echo "OTHER_MIGFLAGS = \$(inherited) -I${SDK}/override -I${SDK}/include"
     # TAPI re-parses the installed headers to build .tbd files; it needs the
