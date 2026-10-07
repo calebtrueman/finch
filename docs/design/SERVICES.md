@@ -79,6 +79,26 @@ example, `getpwnam` for a job's `UserName` goes to Libinfo, which asks opendirec
 through the bootstrap server, whose handler needs the queue that is waiting. With no
 bootstrap port, PID 1's own lookups use Libinfo's files module.
 
+## launchctl
+
+Apple's `launchctl` is closed and speaks launchd's private protocol. Finch ships its own
+(`userland/launchctl`, installed as `/bin/launchctl`), which accepts the commonly used
+macOS syntax:
+
+| Command | Effect |
+|---|---|
+| `launchctl list [label]` | `PID  Status  Label` table, or one job as a dictionary. Status is the last exit code, or −signal. |
+| `launchctl print system`, `print system/<label>` | Job details: state, runs, last exit, settings, and each Mach service (active, or waiting with N queued messages) |
+| `launchctl start` / `stop <label>` | Start if not running / send SIGTERM. A KeepAlive job comes back. |
+| `launchctl kickstart [-k] system/<label>` | Start now, ignoring the throttle. With `-k`, SIGKILL a running instance first. |
+| `launchctl kill <signal> system/<label>` | Send a signal (name or number) |
+| `launchctl load` / `bootstrap system <plist>…` | Load jobs at runtime (RunAtLoad and KeepAlive apply) |
+| `launchctl unload <plist>…`, `bootout system/<label>` | SIGTERM the job, remove it and release its service names |
+
+Only the `system` domain exists. Requests are xpc_pipe routines on the bootstrap port
+carrying an `op` key, with errno results. Anyone may list and print. Changes need an
+effective uid of 0, taken from the request's audit token.
+
 ## Tests
 
 - `userland/libxpc/tests/bootstrap-test.c` (host, ASan/UBSan) covers:
@@ -90,6 +110,10 @@ bootstrap port, PID 1's own lookups use Libinfo's files module.
 - `finch-xpc-service-test ondemand` (VM): a client messages `org.finch.test.ondemand`.
   finch-init launches the daemon, which answers and then exits on request. The same
   client connection then relaunches it with a new pid.
+- `launchctl` (VM): list, print, kill, kickstart (and `-k` on notifyd, after which
+  notifications still flow through the same service port), unload and load (the name
+  disappears and comes back). `org.finch.test.unprivileged` runs launchctl as `nobody`:
+  reads succeed and changes are refused.
 - `org.finch.test.keepalive` (VM): a job running as `nobody` with
   `KeepAlive={SuccessfulExit=false}` fails twice, is restarted, then succeeds and stays
   stopped.
@@ -97,7 +121,6 @@ bootstrap port, PID 1's own lookups use Libinfo's files module.
 ## Not yet
 
 - Per-user agents (`LaunchAgents`) and per-user domains.
-- `launchctl`. There's no way to load, unload, list or kick jobs at runtime yet.
 - These keys: `Sockets`, `WatchPaths`, `QueueDirectories`, `StartInterval`,
   `StartCalendarInterval`, `LaunchEvents`, `KeepAlive` conditions other than
   `SuccessfulExit`, `ExitTimeOut`, `ResetAtClose`, `HideUntilCheckIn`, `Nice`,

@@ -204,7 +204,10 @@ bootstrapd_handle(xpc_object_t request)
 	}
 	xpc_dictionary_get_audit_token(request, &token);
 	pid = (pid_t)token.val[5];
-	if (name == NULL || strnlen(name, sizeof(name_t)) >= sizeof(name_t)) {
+	if (routine == 0 && xpc_dictionary_get_string(request, "op") != NULL) {
+		/* finch-init control request (launchctl); answered by the job manager. */
+		kr = hooks.control != NULL ? hooks.control(request, reply, &token) : BOOTSTRAP_NOT_PRIVILEGED;
+	} else if (name == NULL || strnlen(name, sizeof(name_t)) >= sizeof(name_t)) {
 		kr = BOOTSTRAP_BAD_COUNT;
 	} else if (routine == ROUTINE_CHECK_IN) {
 		kr = check_in(name, pid, reply);
@@ -259,6 +262,48 @@ bootstrapd_rearm(void *owner)
 		if (s->owner == owner) {
 			arm(s);
 		}
+	}
+}
+
+/* Forget `owner`'s services (its job is being unloaded). Clients' send rights
+ * die once the receive right is gone; one that a running job holds comes back
+ * through port-destroyed, finds no service, and is destroyed then. */
+void
+bootstrapd_undeclare(void *owner)
+{
+	struct service **pp = &services, *s;
+
+	while ((s = *pp) != NULL) {
+		if (s->owner != owner) {
+			pp = &s->next;
+			continue;
+		}
+		*pp = s->next;
+		disarm(s);
+		if (s->held) {
+			mach_port_mod_refs(mach_task_self(), s->port, MACH_PORT_RIGHT_RECEIVE, -1);
+		}
+		service_free(s);
+	}
+}
+
+void
+bootstrapd_describe(void *owner, xpc_object_t out)
+{
+	for (struct service *s = services; s != NULL; s = s->next) {
+		if (s->owner != owner) continue;
+		xpc_object_t d = xpc_dictionary_create(NULL, NULL, 0);
+		mach_port_status_t st;
+		mach_msg_type_number_t n = MACH_PORT_RECEIVE_STATUS_COUNT;
+
+		xpc_dictionary_set_string(d, "name", s->name);
+		xpc_dictionary_set_bool(d, "active", !s->held);
+		if (s->held && mach_port_get_attributes(mach_task_self(), s->port, MACH_PORT_RECEIVE_STATUS,
+		        (mach_port_info_t)&st, &n) == KERN_SUCCESS) {
+			xpc_dictionary_set_uint64(d, "queued", st.mps_msgcount);
+		}
+		xpc_array_append_value(out, d);
+		xpc_release(d);
 	}
 }
 

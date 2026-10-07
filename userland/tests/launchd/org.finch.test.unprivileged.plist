@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test job: as nobody, launchctl may read job state but not change it. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.unprivileged</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>launchctl list | grep -c notifyd; launchctl stop com.apple.notifyd; launchctl unload /System/Library/Finch/LaunchDaemons/com.apple.notifyd.plist; launchctl list | grep -c notifyd</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>UserName</key>
+	<string>nobody</string>
+	<key>StandardOutPath</key>
+	<string>/private/tmp/org.finch.test.unprivileged.log</string>
+	<key>StandardErrorPath</key>
+	<string>/private/tmp/org.finch.test.unprivileged.log</string>
+</dict>
+</plist>

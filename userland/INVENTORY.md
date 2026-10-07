@@ -76,6 +76,7 @@ pieces can be replaced one at a time.
 | Item | Source | Status |
 |---|---|---|
 | `/usr/lib/dyld` | dyld-1376.6 | OPEN |
+| `/bin/launchctl` | launchd (closed) | **Replaced by Finch's** (`userland/launchctl`, talks to finch-init) |
 | `bash`, `zsh` + modules | bash-144, zsh-118 | **Built by Finch** (zsh is the console shell) |
 | `bc`, `dc` | bc-35 | **Built by Finch** |
 | `sh` | Prebuilt by darwin-vm | TODO: macOS's `sh` is a small shim that execs bash/zsh/dash |

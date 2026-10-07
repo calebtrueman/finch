@@ -57,6 +57,10 @@ struct job {
 	pid_t pid;
 	time_t started;
 	bool start_pending;         /* a throttled start is scheduled */
+	char *path;                 /* plist it came from */
+	int runs;                   /* times started */
+	int last_exit;              /* exit status, or -signal; INT_MIN if never exited */
+	bool unloading;             /* removed; freed when the process exits */
 	struct job *next;
 };
 
@@ -81,6 +85,7 @@ job_free(struct job *j)
 	if (j->env) xpc_release(j->env);
 	free(j->cwd); free(j->stdin_path); free(j->stdout_path); free(j->stderr_path);
 	free(j->user); free(j->group);
+	free(j->path);
 	free(j);
 }
 
@@ -99,6 +104,8 @@ job_from_plist(xpc_object_t plist, const char *path)
 	}
 	j = calloc(1, sizeof(*j));
 	j->label = dup_string(plist, "Label");
+	j->path = strdup(path);
+	j->last_exit = INT_MIN;
 	j->program = dup_string(plist, "Program");
 	args = xpc_dictionary_get_value(plist, "ProgramArguments");
 	if (args != NULL && xpc_get_type(args) == XPC_TYPE_ARRAY && xpc_array_get_count(args) > 0) {
@@ -273,6 +280,7 @@ job_spawn(struct job *j)
 		return;
 	}
 	j->started = time(NULL);
+	j->runs++;
 }
 
 /* Start now, or after the throttle interval if it last started too recently. */
@@ -282,14 +290,18 @@ job_start(struct job *j)
 	time_t now = time(NULL);
 	time_t ready = j->started + j->throttle;
 
-	if (j->pid > 0 || j->start_pending) {
+	if (j->pid > 0 || j->start_pending || j->unloading) {
 		return;
 	}
 	if (j->started != 0 && now < ready) {
 		j->start_pending = true;
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(ready - now) * NSEC_PER_SEC), queue, ^{
 			j->start_pending = false;
-			job_start(j);
+			if (j->unloading) {
+				job_free(j);   /* unloaded while waiting; not running, so nothing else refers to it */
+			} else {
+				job_start(j);
+			}
 		});
 		return;
 	}
@@ -310,15 +322,18 @@ may_check_in_hook(void *owner, pid_t pid)
 	return pid > 0 && ((struct job *)owner)->pid == pid;
 }
 
+static int control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *token);
+
 const struct bootstrapd_hooks jobs_bootstrap_hooks = {
 	.demand = demand_hook,
 	.may_check_in = may_check_in_hook,
+	.control = control_hook,
 };
 
 #pragma mark - Loading
 
-static void
-job_load_file(const char *path)
+static int
+job_load_file(const char *path, struct job **out)
 {
 	int fd = open(path, O_RDONLY | O_CLOEXEC);
 	struct stat st;
@@ -326,7 +341,8 @@ job_load_file(const char *path)
 	struct job *j;
 	char *buf;
 
-	if (fd < 0) return;
+	if (out) *out = NULL;
+	if (fd < 0) return errno;
 	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0 && st.st_size < (1 << 20) &&
 	    (buf = malloc((size_t)st.st_size)) != NULL) {
 		if (read(fd, buf, (size_t)st.st_size) == st.st_size) {
@@ -337,13 +353,18 @@ job_load_file(const char *path)
 	close(fd);
 	if (plist == NULL) {
 		log_fn("%s: not a property list", path);
-		return;
+		return EINVAL;
 	}
 	j = job_from_plist(plist, path);
-	if (j != NULL && job_find_label(j->label) != NULL) {
+	if (j == NULL) {
+		xpc_release(plist);
+		return EINVAL;
+	}
+	if (job_find_label(j->label) != NULL) {
 		log_fn("%s: job %s is already loaded", path, j->label);
 		job_free(j);
-		j = NULL;
+		xpc_release(plist);
+		return EEXIST;
 	}
 	if (j != NULL) {
 		services = xpc_dictionary_get_value(plist, "MachServices");
@@ -363,6 +384,8 @@ job_load_file(const char *path)
 		jobs = j;
 	}
 	xpc_release(plist);
+	if (out) *out = j;
+	return 0;
 }
 
 static int
@@ -389,7 +412,7 @@ jobs_load_dir(const char *dir)
 	for (int i = 0; i < n; i++) {
 		struct job *before = jobs;
 		snprintf(path, sizeof(path), "%s/%s", dir, names[i]->d_name);
-		job_load_file(path);
+		job_load_file(path, NULL);
 		loaded += jobs != before;
 		free(names[i]);
 	}
@@ -417,6 +440,11 @@ jobs_child_exited(pid_t pid, int status)
 		return false;
 	}
 	j->pid = 0;
+	j->last_exit = WIFSIGNALED(status) ? -WTERMSIG(status) : WEXITSTATUS(status);
+	if (j->unloading) {
+		job_free(j);
+		return true;
+	}
 	success = WIFEXITED(status) && WEXITSTATUS(status) == 0;
 	if (WIFSIGNALED(status) && WTERMSIG(status) != SIGTERM && WTERMSIG(status) != SIGKILL) {
 		log_fn("%s: killed by signal %d", j->label, WTERMSIG(status));
@@ -432,4 +460,151 @@ jobs_child_exited(pid_t pid, int status)
 	/* Its services' receive rights come back via port-destroyed; watch them again. */
 	bootstrapd_rearm(j);
 	return true;
+}
+
+#pragma mark - Control (launchctl)
+
+static void
+job_remove(struct job *j)
+{
+	for (struct job **pp = &jobs; *pp != NULL; pp = &(*pp)->next) {
+		if (*pp == j) {
+			*pp = j->next;
+			break;
+		}
+	}
+	bootstrapd_undeclare(j);
+	j->unloading = true;
+	if (j->pid > 0) {
+		kill(j->pid, SIGTERM);   /* freed when it exits */
+	} else if (!j->start_pending) {
+		job_free(j);             /* else freed when the pending start fires */
+	}
+}
+
+static const char *
+job_state(const struct job *j)
+{
+	return j->pid > 0 ? "running" : j->start_pending ? "waiting to restart" : "not running";
+}
+
+static xpc_object_t
+job_describe(struct job *j)
+{
+	xpc_object_t d = xpc_dictionary_create(NULL, NULL, 0), a, svc;
+
+	xpc_dictionary_set_string(d, "label", j->label);
+	xpc_dictionary_set_string(d, "path", j->path);
+	xpc_dictionary_set_string(d, "program", j->program);
+	a = xpc_array_create(NULL, 0);
+	for (char **p = j->argv; *p; p++) xpc_array_set_string(a, XPC_ARRAY_APPEND, *p);
+	xpc_dictionary_set_value(d, "arguments", a);
+	xpc_release(a);
+	xpc_dictionary_set_string(d, "state", job_state(j));
+	xpc_dictionary_set_int64(d, "pid", j->pid);
+	xpc_dictionary_set_int64(d, "runs", j->runs);
+	if (j->last_exit != INT_MIN) {
+		xpc_dictionary_set_int64(d, "last_exit", j->last_exit);
+	}
+	xpc_dictionary_set_bool(d, "run_at_load", j->run_at_load);
+	xpc_dictionary_set_string(d, "keepalive", (const char *[]){ "no", "always",
+	    "after successful exit", "after failed exit" }[j->keepalive]);
+	xpc_dictionary_set_int64(d, "throttle", j->throttle);
+	if (j->user) xpc_dictionary_set_string(d, "user", j->user);
+	if (j->group) xpc_dictionary_set_string(d, "group", j->group);
+	if (j->cwd) xpc_dictionary_set_string(d, "working_directory", j->cwd);
+	if (j->stdout_path) xpc_dictionary_set_string(d, "stdout", j->stdout_path);
+	if (j->stderr_path) xpc_dictionary_set_string(d, "stderr", j->stderr_path);
+	svc = xpc_array_create(NULL, 0);
+	bootstrapd_describe(j, svc);
+	xpc_dictionary_set_value(d, "services", svc);
+	xpc_release(svc);
+	return d;
+}
+
+/*
+ * Requests: {op, label?, path?, signal?, kill?}. Anyone may list and print;
+ * changes need root. Errors are errno values.
+ */
+static int
+control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *token)
+{
+	const char *op = xpc_dictionary_get_string(request, "op");
+	const char *label = xpc_dictionary_get_string(request, "label");
+	bool root = token->val[1] == 0;   /* euid */
+	struct job *j = label ? job_find_label(label) : NULL;
+
+	if (strcmp(op, "list") == 0) {
+		xpc_object_t a = xpc_array_create(NULL, 0);
+		for (struct job *k = jobs; k != NULL; k = k->next) {
+			xpc_object_t d = xpc_dictionary_create(NULL, NULL, 0);
+			xpc_dictionary_set_string(d, "label", k->label);
+			xpc_dictionary_set_int64(d, "pid", k->pid);
+			if (k->last_exit != INT_MIN) xpc_dictionary_set_int64(d, "last_exit", k->last_exit);
+			xpc_array_append_value(a, d);
+			xpc_release(d);
+		}
+		xpc_dictionary_set_value(reply, "jobs", a);
+		xpc_release(a);
+		return 0;
+	}
+	if (strcmp(op, "print") == 0) {
+		if (j == NULL) return ESRCH;
+		xpc_object_t d = job_describe(j);
+		xpc_dictionary_set_value(reply, "job", d);
+		xpc_release(d);
+		return 0;
+	}
+	if (!root) {
+		return EPERM;
+	}
+	if (strcmp(op, "load") == 0) {
+		const char *path = xpc_dictionary_get_string(request, "path");
+		struct job *loaded;
+		int err;
+		if (path == NULL) return EINVAL;
+		err = job_load_file(path, &loaded);
+		if (err == 0 && (loaded->run_at_load || loaded->keepalive == KEEPALIVE_ALWAYS ||
+		    loaded->keepalive == KEEPALIVE_ON_FAILURE)) {
+			job_start(loaded);
+		}
+		if (err == 0) xpc_dictionary_set_string(reply, "label", loaded->label);
+		return err;
+	}
+	if (j == NULL) {
+		return ESRCH;
+	}
+	if (strcmp(op, "unload") == 0) {
+		job_remove(j);
+		return 0;
+	}
+	if (strcmp(op, "start") == 0) {
+		job_start(j);
+		return 0;
+	}
+	if (strcmp(op, "kickstart") == 0) {
+		if (j->pid > 0) {
+			if (!xpc_dictionary_get_bool(request, "kill")) return EALREADY;
+			/* Restart: kill now, and start again as soon as it's gone. */
+			kill(j->pid, SIGKILL);
+			j->started = 0;   /* no throttle for an explicit restart */
+			pid_t old = j->pid;
+			dispatch_async(queue, ^{
+				int status;
+				if (j->pid == old && waitpid(old, &status, 0) == old) jobs_child_exited(old, status);
+				job_start(j);
+			});
+			return 0;
+		}
+		j->started = 0;
+		job_start(j);
+		return 0;
+	}
+	if (strcmp(op, "stop") == 0 || strcmp(op, "kill") == 0) {
+		int sig = strcmp(op, "stop") == 0 ? SIGTERM : (int)xpc_dictionary_get_int64(request, "signal");
+		if (j->pid <= 0) return ESRCH;
+		if (sig <= 0 || sig >= NSIG) return EINVAL;
+		return kill(j->pid, sig) == 0 ? 0 : errno;
+	}
+	return ENOTSUP;
 }

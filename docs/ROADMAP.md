@@ -80,7 +80,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] libsystem_info and libsystem_darwin built from source on Finch libxpc
   - [x] **Service manager** in finch-init: launchd job plists, MachServices with launch on
         demand, KeepAlive, run as another user (`docs/design/SERVICES.md`)
-    - [ ] `launchctl`, LaunchAgents and per-user domains, Sockets/timers/WatchPaths,
+    - [x] `launchctl` (Finch's own: list, print, start/stop, kickstart, kill, load/unload)
+    - [ ] LaunchAgents and per-user domains, Sockets/timers/WatchPaths,
           shutdown
     - [ ] Run Apple's open-source daemons under it (notifyd, syslogd, configd, ...)
   - [x] libmalloc no longer depends on libcorecrypto
