@@ -67,7 +67,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] libsystem_notify and notifyd (Libnotify), with notifyd run on demand by finch-init
   - [x] dyld shared cache, built by Finch from the image (`docs/design/DYLD_CACHE.md`):
         process launch about 50× faster in the VM (3 s → 61 ms for `/usr/bin/true`)
-  - [ ] libsystem_m, dyld, …
+  - [x] libsystem_m (CORE-MATH and FreeBSD msun), dyld, libcorecrypto and CommonCrypto,
+        libsystem_trace, libutil, libbsm, libncurses (2026-10-07)
   - [x] Finch CrashReporterClient (`__crash_info` annotations), linked by Libc and notifyd
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
@@ -91,11 +92,14 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] libmalloc no longer depends on libcorecrypto
   - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
         trial, secinit, sanitizers, libRosetta: Finch's own (`userland/libsystem`)
-  - [ ] The rest of the strict Phase 1 exit: `docs/design/PHASE1-EXIT.md`
+  - [x] The rest of the strict Phase 1 exit: `docs/design/PHASE1-EXIT.md`
+        (2026-10-07; `tools/check-boot-path.py`: 94/94 boot-path images Finch-built)
 - [x] **1.5 dyld from source.** dyld-1376.6 boots the VM (`tools/build-system.sh`)
 - [ ] Finch root image on its own APFS volume (bare-metal Tier 3)
 
 **Exit:** the VM boots to a shell with no closed-source Apple binaries above the kernel.
+**Reached 2026-10-07** (`docs/design/PHASE1-EXIT.md`). The unchecked items above
+continue alongside Phase 2.
 
 ## Phase 2: First pixels and first app
 - [ ] Framebuffer console via the iBoot-initialized display (simple framebuffer)
