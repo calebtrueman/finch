@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: MIT OR Apache-2.0 */
+#include "../abi/ccmode.h"
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define CHECK(X) do{if(!(X)){fprintf(stderr,"FAIL %d: %s\n",__LINE__,#X);exit(1);}}while(0)
+typedef int(*wrap)(const struct ccmode_ecb*,const void*,size_t,const void*,size_t*,void*,const void*);
+int main(int argc,char**argv){if(argc!=2)return 2;void*h[2]={dlopen("/usr/lib/system/libcorecrypto.dylib",RTLD_NOW),dlopen(argv[1],RTLD_NOW|RTLD_LOCAL)};CHECK(h[0]&&h[1]);unsigned char key[32],in[128],out[2][160],ctx[2][512],iv[8];for(int i=0;i<32;i++)key[i]=i;for(int i=0;i<128;i++)in[i]=i*7;memset(iv,0xa6,8);for(int decrypt=0;decrypt<2;decrypt++){const char*mn=decrypt?"ccaes_ecb_decrypt_mode":"ccaes_ecb_encrypt_mode";wrap w[2];const struct ccmode_ecb*m[2];for(int j=0;j<2;j++){const struct ccmode_ecb*(*get)(void)=dlsym(h[j],mn);m[j]=get();CHECK(!m[j]->init(m[j],ctx[j],32,key));w[j]=dlsym(h[j],decrypt?"ccwrap_auth_decrypt_withiv":"ccwrap_auth_encrypt_withiv");CHECK(w[j]);}for(size_t n=0;n<=80;n++){if(decrypt&&n<8)continue;size_t len[2]={160,160};int r[2];for(int j=0;j<2;j++){memset(out[j],0xa5,160);r[j]=w[j](m[1-j],ctx[1-j],n,in,&len[j],out[j],iv);}CHECK(r[0]==r[1]);CHECK(len[0]==len[1]);CHECK(!memcmp(out[0],out[1],160));}}
+wrap enc=dlsym(h[0],"ccwrap_auth_encrypt_withiv"),dec=dlsym(h[1],"ccwrap_auth_decrypt_withiv");const struct ccmode_ecb*(*get)(void)=dlsym(h[1],"ccaes_ecb_encrypt_mode");const struct ccmode_ecb*e=get();get=dlsym(h[0],"ccaes_ecb_decrypt_mode");const struct ccmode_ecb*d=get();e->init(e,ctx[0],32,key);d->init(d,ctx[1],32,key);for(int custom=0;custom<2;custom++){if(custom)memset(iv,0x43,8);for(size_t n=16;n<=128;n+=8){size_t en=0,dn=0;CHECK(!enc(e,ctx[0],n,in,&en,out[0],iv));CHECK(!dec(d,ctx[1],en,out[0],&dn,out[1],iv));CHECK(dn==n&&!memcmp(in,out[1],n));out[0][9]^=1;CHECK(dec(d,ctx[1],en,out[0],&dn,out[1],iv)==-2);CHECK(dn==0);for(size_t i=0;i<n;i++)CHECK(out[1][i]==0);}}puts("Key wrap: shared descriptors, both IV forms, invalid sizes, damaged input and output clearing passed");}

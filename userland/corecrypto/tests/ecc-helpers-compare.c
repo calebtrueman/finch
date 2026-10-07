@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: MIT OR Apache-2.0 */
+#include "../abi/ccec.h"
+#include "../abi/cch2c.h"
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define L(H,N,T) ((T)dlsym(H,#N))
+static int checks;
+#define C(X) do{if(!(X)){fprintf(stderr,"line %d: %s\n",__LINE__,#X);exit(1);}checks++;}while(0)
+static int random_fill(struct ccrng_state*r,size_t n,void*p){(void)r;arc4random_buf(p,n);return 0;}
+static struct ccrng_state rng={random_fill};
+typedef const struct cczp*(*cpfn)(size_t);typedef int(*genfn)(const struct cczp*,struct ccrng_state*,void*);typedef int(*projectfn)(const struct cczp*,void*,const void*,struct ccrng_state*);typedef int(*affinefn)(const struct cczp*,void*,const void*);typedef void(*addfn)(const struct cczp*,void*,const void*,const void*);typedef int(*multfn)(const struct cczp*,void*,const void*,const void*,struct ccrng_state*);
+int main(int argc,char**argv){C(argc==2);void*h=dlopen("/usr/lib/system/libcorecrypto.dylib",RTLD_NOW|RTLD_LOCAL),*f=dlopen(argv[1],RTLD_NOW|RTLD_LOCAL);if(!f)puts(dlerror());C(h&&f);int bits[]={192,224,256,384,521};for(int j=0;j<5;j++)for(int own=0;own<2;own++){const struct cczp*cp=L(own?f:h,ccec_get_cp,cpfn)(bits[j]);unsigned char k[304]={0},q[304]={0};C(!L(f,ccec_generate_key,genfn)(cp,&rng,k));C(!L(f,ccec_generate_key,genfn)(cp,&rng,q));cc_unit p[27],t[27],a[27],b[27],ax[18],bx[18],d[9]={7};C(!L(f,ccec_projectify,projectfn)(cp,p,k+16,&rng));C(!L(f,ccec_projectify,projectfn)(cp,t,q+16,&rng));const char*names[]={"ccec_full_add","ccec_full_sub"};for(int i=0;i<2;i++){((addfn)dlsym(h,names[i]))(cp,a,p,t);((addfn)dlsym(f,names[i]))(cp,b,p,t);C(!L(f,ccec_affinify,affinefn)(cp,ax,a));C(!L(f,ccec_affinify,affinefn)(cp,bx,b));C(!memcmp(ax,bx,16*cp->n));}C(!L(h,ccec_mult_blinded,multfn)(cp,a,d,p,&rng));C(!L(f,ccec_mult_blinded,multfn)(cp,b,d,p,&rng));C(!L(f,ccec_affinify,affinefn)(cp,ax,a));C(!L(f,ccec_affinify,affinefn)(cp,bx,b));C(!memcmp(ax,bx,16*cp->n));
+typedef const struct cczp*(*lookupfn)(size_t,...);C(L(h,ccec_curve_for_length_lookup,lookupfn)(bits[j],cp,NULL)==L(f,ccec_curve_for_length_lookup,lookupfn)(bits[j],cp,NULL));C(L(f,ccec_curve_for_length_lookup,lookupfn)((bits[j]+7)&~7,cp,NULL)==cp);
+typedef int(*signfn)(const void*,size_t,const void*,size_t*,void*,struct ccrng_state*);typedef int(*extractfn)(const void*,size_t,const void*,void*,void*);unsigned char hash[32]={3},sig[160],rr[66],ss[66],fr[66],fs[66],canary[16];size_t sn=sizeof sig;C(!L(h,ccec_sign,signfn)(k,32,hash,&sn,sig,&rng));C(!L(h,ccec_extract_rs,extractfn)(k,sn,sig,rr,ss));C(!L(f,ccec_extract_rs,extractfn)(k,sn,sig,fr,fs));C(!memcmp(rr,fr,(bits[j]+7)/8)&&!memcmp(ss,fs,(bits[j]+7)/8));typedef int(*verifyfn)(const void*,size_t,const void*,const void*,const void*,void*);C(!L(f,ccec_verify_composite_digest,verifyfn)(k,32,hash,rr,ss,canary));C(!memcmp(canary,dlsym(h,"CCEC_FAULT_CANARY"),16));}
+const char*suites[]={"cch2c_p256_sha256_sswu_ro_info","cch2c_p384_sha512_sswu_ro_info","cch2c_p521_sha512_sswu_ro_info","cch2c_p256_sha256_sae_compat_info","cch2c_p384_sha384_sae_compat_info"};typedef int(*mapfn)(const void*,const void*,void*);for(int i=0;i<5;i++)for(int own=0;own<2;own++){const struct cch2c_info*info=dlsym(own?f:h,suites[i]);cc_unit input[9]={17};unsigned char a[232]={0},b[232]={0};C(!L(h,map_to_curve_sswu,mapfn)(info,input,a));C(!L(f,map_to_curve_sswu,mapfn)(info,input,b));C(!memcmp(a+16,b+16,16*info->cp()->n));}printf("ECC helpers: %d checks passed\n",checks);}
