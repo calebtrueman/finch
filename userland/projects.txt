@@ -17,6 +17,8 @@ libutil         libutil-73
 libmd           libmd-7
 CommonCrypto    CommonCrypto-600035
 configd         configd-1405.100.8
+kext_tools      kext_tools-779
+IOKitUser       IOKitUser-100231.100.18.0.1
 
 # Shells and extras
 bash            bash-144

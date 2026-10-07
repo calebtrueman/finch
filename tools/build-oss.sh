@@ -115,7 +115,12 @@ finch_xcconfig="${obj}/finch.xcconfig"
     [[ -f "${FINCH_ROOT}/userland/oss/${project}.xcconfig" ]] \
         && echo "#include \"${FINCH_ROOT}/userland/oss/${project}.xcconfig\""
     echo "LIBRARY_SEARCH_PATHS = \$(inherited) ${FINCH_ROOT}/build/userland/lib"
-    echo "OTHER_CFLAGS = \$(inherited) -Wno-error ${cflags_private} -idirafter ${SDK}/include -F${SDK}/Frameworks"
+    # Finch's own headers (userland/sdk/include, in ${SDK}/override) come first
+    # for private-first projects, and after everything else for the rest, so
+    # they only fill in what the SDK lacks.
+    echo "OTHER_CFLAGS = \$(inherited) -Wno-error ${cflags_private} -idirafter ${SDK}/include -idirafter ${SDK}/override -F${SDK}/Frameworks"
+    # mig preprocesses .defs files, which import private .defs and headers too.
+    echo "OTHER_MIGFLAGS = \$(inherited) -I${SDK}/override -I${SDK}/include"
     # TAPI re-parses the installed headers to build .tbd files; it needs the
     # same header order as the compiler, or private availability macros fail.
     [[ -n "${cflags_private}" ]] \

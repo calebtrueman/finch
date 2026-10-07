@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/reboot.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -66,6 +67,7 @@ struct job {
 
 static struct job *jobs;
 static dispatch_queue_t queue;
+static bool shutting_down;
 static void (*log_fn)(const char *fmt, ...);
 
 static char *
@@ -290,7 +292,7 @@ job_start(struct job *j)
 	time_t now = time(NULL);
 	time_t ready = j->started + j->throttle;
 
-	if (j->pid > 0 || j->start_pending || j->unloading) {
+	if (j->pid > 0 || j->start_pending || j->unloading || shutting_down) {
 		return;
 	}
 	if (j->started != 0 && now < ready) {
@@ -451,9 +453,9 @@ jobs_child_exited(pid_t pid, int status)
 	} else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
 		log_fn("%s: exited with status %d", j->label, WEXITSTATUS(status));
 	}
-	restart = j->keepalive == KEEPALIVE_ALWAYS ||
+	restart = !shutting_down && (j->keepalive == KEEPALIVE_ALWAYS ||
 	    (j->keepalive == KEEPALIVE_ON_SUCCESS && success) ||
-	    (j->keepalive == KEEPALIVE_ON_FAILURE && !success);
+	    (j->keepalive == KEEPALIVE_ON_FAILURE && !success));
 	if (restart) {
 		job_start(j);
 	}
@@ -558,6 +560,13 @@ control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *toke
 	if (!root) {
 		return EPERM;
 	}
+	if (strcmp(op, "reboot") == 0) {
+		int howto = (int)xpc_dictionary_get_uint64(request, "howto");
+		if (shutting_down) return EALREADY;
+		/* Reply first; the sequence runs on the queue after this request. */
+		dispatch_async(queue, ^{ jobs_shutdown(howto); });
+		return 0;
+	}
 	if (strcmp(op, "load") == 0) {
 		const char *path = xpc_dictionary_get_string(request, "path");
 		struct job *loaded;
@@ -607,4 +616,90 @@ control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *toke
 		return kill(j->pid, sig) == 0 ? 0 : errno;
 	}
 	return ENOTSUP;
+}
+
+#pragma mark - Shutdown
+
+#define JOB_EXIT_TIMEOUT_SEC   20   /* launchd's default ExitTimeOut */
+#define PROCESS_GRACE_SEC       5   /* after SIGTERM to everything else */
+#define POLL_MS               100
+
+bool
+jobs_shutting_down(void)
+{
+	return shutting_down;
+}
+
+static bool
+any_job_running(void)
+{
+	for (struct job *j = jobs; j != NULL; j = j->next) {
+		if (j->pid > 0) return true;
+	}
+	return false;
+}
+
+/* Poll `done()` every POLL_MS; after it holds or `timeout_sec` passes, run `next`. */
+static void
+wait_until(bool (^done)(void), int timeout_sec, dispatch_block_t next)
+{
+	__block int left = timeout_sec * 1000 / POLL_MS;
+	dispatch_source_t t = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
+	dispatch_source_set_timer(t, dispatch_time(DISPATCH_TIME_NOW, POLL_MS * NSEC_PER_MSEC),
+	    POLL_MS * NSEC_PER_MSEC, 10 * NSEC_PER_MSEC);
+	dispatch_source_set_event_handler(t, ^{
+		if (done() || --left <= 0) {
+			dispatch_source_cancel(t);
+			dispatch_release(t);
+			next();
+		}
+	});
+	dispatch_resume(t);
+}
+
+static bool
+no_other_processes(void)
+{
+	/* kill(-1) signals every process we may signal except ourselves (PID 1). */
+	return kill(-1, 0) == -1 && errno == ESRCH;
+}
+
+static void
+finish(int howto)
+{
+	log_fn("all processes stopped; %s", (howto & RB_HALT) ? "halting" : "rebooting");
+	if (!(howto & RB_NOSYNC)) {
+		sync();
+	}
+	reboot(howto);
+	log_fn("reboot(2) failed: %s", strerror(errno));
+}
+
+void
+jobs_shutdown(int howto)
+{
+	if (shutting_down) return;
+	shutting_down = true;
+	log_fn("shutting down (%s)", (howto & RB_HALT) ? "halt" : "reboot");
+
+	/* 1. Jobs first, each with its exit timeout. */
+	for (struct job *j = jobs; j != NULL; j = j->next) {
+		if (j->pid > 0) kill(j->pid, SIGTERM);
+	}
+	wait_until(^bool { return !any_job_running(); }, JOB_EXIT_TIMEOUT_SEC, ^{
+		for (struct job *j = jobs; j != NULL; j = j->next) {
+			if (j->pid > 0) {
+				log_fn("%s: didn't exit in %d s; killing it", j->label, JOB_EXIT_TIMEOUT_SEC);
+				kill(j->pid, SIGKILL);
+			}
+		}
+		/* 2. Everything else: shells, orphans. */
+		kill(-1, SIGTERM);
+		wait_until(^bool { return no_other_processes(); }, PROCESS_GRACE_SEC, ^{
+			kill(-1, SIGKILL);
+			wait_until(^bool { return no_other_processes(); }, 2, ^{
+				finish(howto);
+			});
+		});
+	});
 }

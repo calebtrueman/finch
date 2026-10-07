@@ -24,6 +24,12 @@ int jobs_load_dir(const char *dir);
 /* Start RunAtLoad and KeepAlive jobs. */
 void jobs_start_all(void);
 
+/* Stop every job and process, sync, and reboot(2) with `howto` (RB_*).
+ * Asynchronous: runs on the queue. Requested by reboot3() via launchctl's
+ * control channel. */
+void jobs_shutdown(int howto);
+bool jobs_shutting_down(void);
+
 /* A child exited. Returns false if it wasn't a job. */
 bool jobs_child_exited(pid_t pid, int status);
 

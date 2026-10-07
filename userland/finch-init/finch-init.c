@@ -63,16 +63,34 @@ static const char *const job_dirs[] = {
 static dispatch_queue_t init_queue;   /* registry, jobs and the console shell */
 static pid_t console_shell;
 
+/*
+ * Log to the console. The console is opened afresh for every message: when the
+ * console shell (the session leader, whose controlling terminal it is) exits,
+ * the kernel revokes the terminal, and every descriptor open on it, including
+ * any finch-init held, stops working.
+ */
 static void
 logmsg(const char *fmt, ...)
 {
+	char line[512];
 	va_list ap;
+	int n, fd;
 
-	fputs("finch-init: ", stderr);
+	n = snprintf(line, sizeof(line), "finch-init: ");
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	n += vsnprintf(line + n, sizeof(line) - (size_t)n - 1, fmt, ap);
 	va_end(ap);
-	fputc('\n', stderr);
+	if (n > (int)sizeof(line) - 2) {
+		n = (int)sizeof(line) - 2;
+	}
+	line[n++] = '\n';
+	fd = open(CONSOLE, O_WRONLY | O_NOCTTY | O_CLOEXEC);
+	if (fd >= 0) {
+		(void)write(fd, line, (size_t)n);
+		close(fd);
+	} else {
+		(void)write(STDERR_FILENO, line, (size_t)n);
+	}
 }
 
 static void
@@ -236,8 +254,11 @@ reap_children(void)
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		if (pid == console_shell) {
-			describe_exit("console shell", status);
 			console_shell = 0;
+			if (jobs_shutting_down()) {
+				continue;   /* no new shell while the system goes down */
+			}
+			describe_exit("console shell", status);
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, RESPAWN_DELAY_SEC * NSEC_PER_SEC),
 			    init_queue, ^{ start_console_shell(); });
 		} else {

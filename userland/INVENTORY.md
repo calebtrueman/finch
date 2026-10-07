@@ -92,8 +92,6 @@ the image rebuilds the cache.
 | mtree | file_cmds | APFS private headers (APFS is closed) |
 | install | file_cmds | macOS libmd lacks the incremental SHA-512 API |
 | ipcs | file_cmds | needs xnu kernel-private types |
-| nohup, shutdown | shell_cmds, system_cmds | `vproc_priv.h` (closed launchd SPI) |
-| reboot | system_cmds | kextmanager MIG (kext_tools) |
 | su, login, passwd, chpass | shell_cmds, system_cmds | `rootless.h` and other private SPI; wait for the Finch security model |
 | md5 | text_cmds | sha224.h and the libmd incremental API |
 | pkill | adv_cmds | `sysmon.h` (closed) |

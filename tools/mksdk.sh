@@ -100,6 +100,14 @@ copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
 # Finch's CrashReporterClient (userland/CrashReporterClient): <CrashReporterClient.h>.
 cp "${FINCH_ROOT}/userland/CrashReporterClient/CrashReporterClient.h" "${INC}/CrashReporterClient.h"
 
+# IOKitUser: kextmanager's MIG interface (<IOKit/kext/kextmanager_mig.defs>), used
+# by reboot/shutdown to ask kernelmanagerd for the reboot lock.
+mkdir -p "${INC}/IOKit/kext"
+for f in kextmanager_mig.defs kextmanager_types.h; do
+    [[ -f "${SRC}/IOKitUser/kext.subproj/${f}" ]] || die "missing IOKitUser (run tools/fetch-src.sh IOKitUser)"
+    cp "${SRC}/IOKitUser/kext.subproj/${f}" "${INC}/IOKit/kext/${f}"
+done
+
 # configd: <dnsinfo.h> (the resolver configuration read by Libinfo's mDNS module).
 [[ -f "${SRC}/configd/dnsinfo/dnsinfo.h" ]] || die "missing configd (run tools/fetch-src.sh configd)"
 cp "${SRC}/configd/dnsinfo/dnsinfo.h" "${INC}/dnsinfo.h"

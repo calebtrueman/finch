@@ -1202,10 +1202,37 @@ xpc_object_t xpc_coalition_copy_info(uint64_t coalition_id) { (void)coalition_id
 void os_transaction_needs_more_time(os_transaction_t t) { (void)t; }
 void xpc_transaction_try_exit_clean(void) {}
 
-/* reboot3(): launchd's reboot/shutdown entry point.
- * FINCH-NOT-YET: finch-init has no shutdown sequence yet. */
-int reboot3(uint64_t flags, ...);
-int reboot3(uint64_t flags, ...) { (void)flags; return ENOTSUP; }
+/*
+ * reboot3(): the service manager's reboot/halt entry point (reboot(8),
+ * shutdown(8)). Asks finch-init, over the bootstrap port, to stop every job
+ * and process, sync, and call reboot(2) with `howto` (RB_* flags). Returns 0
+ * once finch-init has accepted (it then takes the system down), else an
+ * errno value (EPERM unless root).
+ */
+int reboot3(uint64_t howto, ...);
+
+int
+reboot3(uint64_t howto, ...)
+{
+	xpc_object_t req = xpc_dictionary_create(NULL, NULL, 0), reply = NULL;
+	int rc;
+
+	xpc_dictionary_set_string(req, "op", "reboot");
+	xpc_dictionary_set_uint64(req, "howto", howto);
+	rc = _xpc_pipe_routine_port(bootstrap_port, XPC_MSGID_PIPE_ROUTINE, req, &reply, NULL);
+	xpc_release(req);
+	if (rc != 0) {
+		return rc;
+	}
+	rc = (int)xpc_dictionary_get_int64(reply, "error");
+	xpc_release(reply);
+	return rc;
+}
+
+/* Finch has one session: there is no per-console launchd to detach from. */
+typedef uint64_t vproc_flags_t;
+void *_vprocmgr_detach_from_console(vproc_flags_t flags);
+void *_vprocmgr_detach_from_console(vproc_flags_t flags) { (void)flags; return NULL; }
 
 #pragma mark - launch_data accessors (unreachable: _launch_msg2 never returns data)
 

@@ -99,6 +99,29 @@ Only the `system` domain exists. Requests are xpc_pipe routines on the bootstrap
 carrying an `op` key, with errno results. Anyone may list and print. Changes need an
 effective uid of 0, taken from the request's audit token.
 
+## Shutdown and reboot
+
+`reboot`, `halt` and `shutdown` (system_cmds, built from source) end in `reboot3(howto)`,
+which on macOS hands the job to launchd. Finch's libxpc sends it to finch-init as a
+root-only control request. finch-init accepts, then on its queue:
+
+1. stops starting jobs (no KeepAlive restarts, no launch on demand) and stops respawning
+   the console shell;
+2. sends every running job SIGTERM, and waits until they exit or 20 s pass (launchd's
+   default `ExitTimeOut`), then SIGKILLs the rest;
+3. sends every other process SIGTERM (`kill(-1)`), waits up to 5 s, then SIGKILL;
+4. calls `sync()` unless `RB_NOSYNC`, then `reboot(howto)`. The kernel then disables
+   kexts, syncs and unmounts everything.
+
+In the VM the whole sequence completes ("CPU halted" / "MACH Reboot"). The emulated
+machine has no SMC, so halt's final power-off times out (a platform panic). After a
+reboot the emulator doesn't start again. Both work on real hardware.
+
+finch-init opens `/dev/console` afresh for every log line. When the console shell (the
+session leader) exits, the kernel revokes the terminal, including descriptors PID 1
+holds. Before this fix, finch-init's messages silently stopped after the first shell
+exit.
+
 ## Tests
 
 - `userland/libxpc/tests/bootstrap-test.c` (host, ASan/UBSan) covers:
@@ -125,6 +148,5 @@ effective uid of 0, taken from the request's audit token.
   `StartCalendarInterval`, `LaunchEvents`, `KeepAlive` conditions other than
   `SuccessfulExit`, `ExitTimeOut`, `ResetAtClose`, `HideUntilCheckIn`, `Nice`,
   `ProcessType`, resource limits.
-- Shutdown: stopping jobs with SIGTERM and then SIGKILL after `ExitTimeOut`.
 - Starting a fresh process takes about 2 s in the emulator, because there's no dyld
   shared cache. On-demand launch latency will fall when Finch builds one.

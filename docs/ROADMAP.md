@@ -32,7 +32,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         bc/dc. zsh is the console shell.
   - [ ] libiconv i18n modules (`/usr/lib/i18n`, needed by zsh prompt expansion)
   - [ ] Deferred tools (see `userland/INVENTORY.md`)
-  - [ ] Finch `reboot` / `halt` / `shutdown` (Apple's need closed launchd SPI)
+  - [x] `reboot` / `halt` / `shutdown` from system_cmds, through finch-init's shutdown
+        sequence (`reboot3`)
   - [x] Ramdisk grown to 600 MiB without sudo (raw APFS resize); writable tmpfs for /tmp
         and /var/{tmp,run,log,root}
   - [ ] Root-owned files in dev images (they arrive as uid 99; the root fs can't be
@@ -59,9 +60,7 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         closed libsystem_trace), header-only `corecrypto/ccrng.h` over getentropy(2)
         (no libcorecrypto), generated dyld version constants, `_atexit_receipt`
         (App Store exit hook recorded, not run).
-  - [ ] libsystem_darwin, libsystem_info: **blocked on XPC** (`xpc/private.h`,
-        `os/transaction_private.h`; libdarwin also wants APFS's `apfs_fsctl.h`). Do 1.4's
-        libxpc first.
+  - [x] libsystem_darwin, libsystem_info (on Finch libxpc)
   - [x] libsystem_notify and notifyd (Libnotify), with notifyd run on demand by finch-init
   - [x] dyld shared cache, built by Finch from the image (`docs/design/DYLD_CACHE.md`):
         process launch about 50× faster in the VM (3 s → 61 ms for `/usr/bin/true`)
