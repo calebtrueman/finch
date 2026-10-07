@@ -106,7 +106,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
 **Exit:** an unmodified Mac app draws a window on Finch.
 
 ## Phase 3: Open drivers
-Replace BORROWED kexts with Finch kexts, M1/M2 first (best Asahi docs).
+Replace BORROWED kexts with Finch kexts on the M4 (Mac16,1, T8132), the only machine
+available. Asahi's M1–M3 work is the reference; M4 differences are found by tracing
+macOS on the M4 itself (m1n1 hypervisor).
 - [ ] AIC, DART
 - [ ] ANS (NVMe storage)
 - [ ] DCP (displays, brightness, external monitors)
@@ -125,7 +127,7 @@ Replace BORROWED kexts with Finch kexts, M1/M2 first (best Asahi docs).
   - Needs Finch drivers for the whole boot path (ANS, SEP, DCP, input, SMC/PMGR), because
     there are no Apple kexts to borrow.
 
-**Exit:** Finch installs and boots on an M1/M2 Mac with zero Apple kexts and no macOS
+**Exit:** Finch installs and boots on the M4 with zero Apple kexts and no macOS
 installed.
 
 ## Phase 4: Open frameworks
