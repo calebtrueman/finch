@@ -637,4 +637,5 @@ $(NOTICES)/LICENSE.txt: $(OPENSSL_ARCHIVE)
 	cp ../../build/src/openssl/LICENSE.txt ../../build/src/openssl/AUTHORS.md $(dir $@)
 
 install: $(BOOT_LIB) $(NOTICES)/LICENSE.txt
+	./build-commoncrypto.sh --install $(abspath $(ROOT))
 .PHONY: install

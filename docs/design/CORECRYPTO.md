@@ -6,10 +6,17 @@ builds it into `build/root` with OpenSSL's licence notice. The test library
 (`abi-crypto.dylib`) is built from the same sources and is what the comparison
 checks load.
 
+The same install builds CommonCrypto (`CommonCrypto-600035`, published source,
+unmodified) into `/usr/lib/system/libcommonCrypto.dylib`. It is linked as Apple's
+is: the same 245 exports, the same 11 dependencies in the same order, and
+version 65535, under the System umbrella.
+
 In the VM it boots under finch-init, and `finch-crypto-test` (`userland/tests`)
-passes there. That test confirms the loaded library is Finch's by its UUID and
+passes there (14 checks). That test reports both loaded libraries' UUIDs, so
+they can be matched against the build, and checks corecrypto's
 `__finch_seal` section. It then runs known-answer tests through CommonCrypto
-(SHA-256, HMAC, AES, PBKDF2), checks random output, and does a P-256 key
+(SHA-256 and SHA-512, HMAC, AES-ECB, AES-CBC, a padded streaming `CCCryptor`
+round trip, PBKDF2), checks random output, and does a P-256 key
 round trip through corecrypto directly. OpenSSL's static initializer (`armcap`)
 runs before libSystem's without trouble. The older SHA helpers used by dyld stay separate because their
 layout differs from the shared library's layout.
@@ -229,8 +236,6 @@ library uses. The image seal locates its own Mach-O header through
 
 ## Still required
 
-- The image still uses Apple's CommonCrypto on top of Finch's corecrypto. Next,
-  install Finch's CommonCrypto build (`build-commoncrypto.sh`) and boot-test it.
 - Broader in-VM coverage: Security framework users, TLS, and keychain once those
   exist in the image.
 

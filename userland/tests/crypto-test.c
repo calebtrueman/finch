@@ -47,16 +47,15 @@ equals_hex(const uint8_t *bytes, size_t len, const char *hex)
 	return strlen(hex) == 2 * len && memcmp(buf, hex, 2 * len) == 0;
 }
 
-static void
-report_library(void)
+/* Print a loaded library's UUID; returns its header, or NULL if not loaded. */
+static const struct mach_header_64 *
+report_library(const char *path)
 {
 	for (uint32_t i = 0; i < _dyld_image_count(); i++) {
-		const char *name = _dyld_get_image_name(i);
 		const struct mach_header_64 *mh;
 		const struct load_command *lc;
-		unsigned long size = 0;
 
-		if (strcmp(name, "/usr/lib/system/libcorecrypto.dylib") != 0) {
+		if (strcmp(_dyld_get_image_name(i), path) != 0) {
 			continue;
 		}
 		mh = (const struct mach_header_64 *)_dyld_get_image_header(i);
@@ -64,7 +63,7 @@ report_library(void)
 		for (uint32_t c = 0; c < mh->ncmds; c++) {
 			if (lc->cmd == LC_UUID) {
 				const uint8_t *u = ((const struct uuid_command *)lc)->uuid;
-				printf("libcorecrypto uuid ");
+				printf("%s ", strrchr(path, '/') + 1);
 				for (int b = 0; b < 16; b++) {
 					printf("%02X%s", u[b], (b == 3 || b == 5 || b == 7 || b == 9) ? "-" : "");
 				}
@@ -72,11 +71,9 @@ report_library(void)
 			}
 			lc = (const struct load_command *)((const char *)lc + lc->cmdsize);
 		}
-		check(getsectiondata(mh, "__TEXT", "__finch_seal", &size) != NULL && size == 32,
-		    "libcorecrypto is Finch's (has __TEXT,__finch_seal)");
-		return;
+		return mh;
 	}
-	check(false, "libcorecrypto is loaded");
+	return NULL;
 }
 
 int
@@ -85,13 +82,25 @@ main(void)
 	uint8_t out[64], out2[64];
 	size_t moved;
 
-	report_library();
+	const struct mach_header_64 *cc = report_library("/usr/lib/system/libcorecrypto.dylib");
+	unsigned long seal = 0;
+	check(cc != NULL && getsectiondata(cc, "__TEXT", "__finch_seal", &seal) != NULL && seal == 32,
+	    "libcorecrypto is Finch's (has __TEXT,__finch_seal)");
+	check(report_library("/usr/lib/system/libcommonCrypto.dylib") != NULL,
+	    "libcommonCrypto is loaded");
 
 	/* FIPS 180-2 B.1 */
 	CC_SHA256("abc", 3, out);
 	check(equals_hex(out, 32,
 	    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
 	    "SHA-256 (FIPS 180-2)");
+
+	/* FIPS 180-2 C.1 */
+	CC_SHA512("abc", 3, out);
+	check(equals_hex(out, 64,
+	    "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a"
+	    "2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"),
+	    "SHA-512 (FIPS 180-2)");
 
 	/* RFC 4231 test case 1 */
 	uint8_t key[20];
@@ -112,6 +121,34 @@ main(void)
 	check(CCCrypt(kCCDecrypt, kCCAlgorithmAES, kCCOptionECBMode, aes_key, 16, NULL,
 	    out, 16, out2, sizeof(out2), &moved) == kCCSuccess && memcmp(out2, plain, 16) == 0,
 	    "AES-128 decrypt");
+
+	/* SP 800-38A F.2.1, first block */
+	const uint8_t cbc_key[16] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+		                      0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+	const uint8_t cbc_plain[16] = { 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
+		                        0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a };
+	check(CCCrypt(kCCEncrypt, kCCAlgorithmAES, 0, cbc_key, 16, aes_key,
+	    cbc_plain, 16, out, sizeof(out), &moved) == kCCSuccess && moved == 16 &&
+	    equals_hex(out, 16, "7649abac8119b246cee98e9b12e9197d"), "AES-128-CBC (SP 800-38A)");
+
+	/* A streaming CCCryptor with PKCS#7 padding round-trips a 23-byte message. */
+	const char *msg = "Darwin's finches adapt.";
+	uint8_t sealed[48], opened[48];
+	size_t n1 = 0, n2 = 0, m1 = 0, m2 = 0;
+	CCCryptorRef enc = NULL, dec = NULL;
+	bool round = CCCryptorCreate(kCCEncrypt, kCCAlgorithmAES, kCCOptionPKCS7Padding, cbc_key, 16,
+	    aes_key, &enc) == kCCSuccess &&
+	    CCCryptorUpdate(enc, msg, 23, sealed, sizeof(sealed), &n1) == kCCSuccess &&
+	    CCCryptorFinal(enc, sealed + n1, sizeof(sealed) - n1, &n2) == kCCSuccess &&
+	    n1 + n2 == 32 &&
+	    CCCryptorCreate(kCCDecrypt, kCCAlgorithmAES, kCCOptionPKCS7Padding, cbc_key, 16,
+	    aes_key, &dec) == kCCSuccess &&
+	    CCCryptorUpdate(dec, sealed, n1 + n2, opened, sizeof(opened), &m1) == kCCSuccess &&
+	    CCCryptorFinal(dec, opened + m1, sizeof(opened) - m1, &m2) == kCCSuccess &&
+	    m1 + m2 == 23 && memcmp(opened, msg, 23) == 0;
+	CCCryptorRelease(enc);
+	CCCryptorRelease(dec);
+	check(round, "AES-CBC PKCS#7 CCCryptor round trip");
 
 	/* RFC 6070 case 2 */
 	check(CCKeyDerivationPBKDF(kCCPBKDF2, "password", 8, (const uint8_t *)"salt", 4,

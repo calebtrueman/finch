@@ -1,8 +1,16 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# Build the published CommonCrypto source against Finch's measured interfaces.
-# This creates a local test library; it does not change the boot image.
+# Build the published CommonCrypto source (unmodified) against Finch's
+# measured interfaces.
+#   build-commoncrypto.sh                  local test library, linked to the
+#                                          test corecrypto (abi-crypto.dylib)
+#   build-commoncrypto.sh --install ROOT   ROOT/usr/lib/system/libcommonCrypto.dylib
+#                                          for the image, linked as Apple's is
 set -euo pipefail
+install_root=""
+if [[ "${1:-}" == --install ]]; then
+    install_root="${2:?usage: build-commoncrypto.sh --install ROOT}"
+fi
 here="$(cd "$(dirname "$0")" && pwd)"
 finch_root="$(cd "${here}/../.." && pwd)"
 src="${finch_root}/build/src/CommonCrypto"
@@ -24,6 +32,22 @@ for source in "${src}/lib/"*.c "${src}/libcn/"*.c; do
     xcrun clang "${flags[@]}" -c "${source}" -o "${object}"
     objects+=("${object}")
 done
+if [[ -n "${install_root}" ]]; then
+    # Apple's dependencies, in Apple's order; no umbrella link (libSystem
+    # links this library, not the other way round).
+    sdk="$(xcrun --sdk macosx --show-sdk-path)"
+    lib="${install_root}/usr/lib/system/libcommonCrypto.dylib"
+    mkdir -p "$(dirname "${lib}")"
+    xcrun clang -arch arm64e -mmacosx-version-min=26.0 -dynamiclib -nostdlib "${objects[@]}" \
+        -L"${sdk}/usr/lib/system" -ldyld -lcompiler_rt -lsystem_kernel -lsystem_platform \
+        -lsystem_malloc -lsystem_c -lsystem_blocks -ldispatch -lsystem_asl -lcorecrypto -lsystem_trace \
+        -Wl,-exported_symbols_list,"${src}/exports.exp-in" -umbrella System \
+        -install_name /usr/lib/system/libcommonCrypto.dylib -current_version 65535 -compatibility_version 1.0 \
+        -o "${lib}"
+    codesign -f -s - "${lib}"
+    echo "Built ${lib}."
+    exit 0
+fi
 xcrun clang -arch arm64e -dynamiclib -Wl,-not_for_dyld_shared_cache "${objects[@]}" "${crypto}" \
     -Wl,-exported_symbols_list,"${src}/exports.exp-in" \
     -install_name /usr/lib/system/libcommonCrypto.dylib -current_version 65535.0.0 -compatibility_version 1.0 \
