@@ -54,3 +54,4 @@ libsystem_collections, libsystem_m (Apple's Libm source is stale: use an open li
 |---|---|---|
 | 2026-10-06 | 12 | (start) |
 | 2026-10-06 | 21 | featureflags (3,303/3,303 features match Apple's), coreservices (2,408/2,408 sysdir cases and per-user directories match; `/var/folders` now works in the VM), darwindirectory, eligibility, symptoms, trial, secinit, sanitizers, libRosetta |
+| 2026-10-06 | 22 | libSystem.B from Libsystem-1356 (same re-exports, exports and version as Apple's) |
