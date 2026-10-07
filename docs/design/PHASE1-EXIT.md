@@ -42,6 +42,15 @@ libremovefile, libkeymgr, libcache, libmacho, libsystem_asl (syslog),
 libsystem_configuration (configd), libsystem_dnssd (mDNSResponder),
 libsystem_collections, libsystem_m (Apple's Libm source is stale: use an open libm).
 
+Apple builds libc++, libc++abi and libunwind from its own LLVM fork, which it doesn't
+publish. Finch builds them from upstream LLVM 22.1.8, the first release with
+Apple's arm64e (pointer authentication) unwinding, which matches Apple's ABI in both
+directions. `tools/build-llvm-runtimes.sh` links them with Apple's install names, versions and
+export lists (`userland/llvm/exports`). Finch code fills the gaps upstream leaves: typed
+`operator new`/`delete` (backed by `malloc_type`), the hardening-failure hook,
+`numpunct_byname::__init`, the `$ld$previous` markers, and a patch that keeps two
+`__time_get_storage` helpers exported.
+
 ## Needs the user at the machine
 
 - Bare-metal boot (Phase 0): `docs/BARE_METAL.md` gives the steps. They touch only a new
@@ -57,3 +66,4 @@ libsystem_collections, libsystem_m (Apple's Libm source is stale: use an open li
 | 2026-10-06 | 22 | libSystem.B from Libsystem-1356 (same re-exports, exports and version as Apple's) |
 | 2026-10-06 | 24 | libkeymgr (keymgr-31, 11/11 exports), libremovefile (removefile-85.100.6, 14/14; APFS purgeable-clear constants read from Apple's library) |
 | 2026-10-07 | 26 | libquarantine (Finch's: 281,800 differential checks against Apple's, covering parsing, serializing, setters, limits, errors and reading real attributes; applying skips the closed kernel policy's restamping), libcopyfile (copyfile-240, 11/11; `cp` keeps quarantine in the VM) |
+| 2026-10-07 | 29 | libc++ (2,354/2,354 exports, same 384 re-exports from libc++abi), libc++abi (388/388), libunwind (43/43): LLVM 22.1.8 plus Finch additions. C++ and Objective-C exceptions, RTTI, iostreams, `std::format` and threads work in the VM (`finch-cxx-test`) and on the host, with either half of the libc++abi/libunwind pair swapped for Apple's |

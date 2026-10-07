@@ -1,0 +1,17 @@
+diff --git a/libcxx/include/__locale_dir/time.h b/libcxx/include/__locale_dir/time.h
+index 78698e965..c179835ee 100644
+--- a/libcxx/include/__locale_dir/time.h
++++ b/libcxx/include/__locale_dir/time.h
+@@ -601,9 +601,10 @@ private:
+     template <>                                                                                                        \
+     _LIBCPP_EXPORTED_FROM_ABI __time_get_storage<_CharT>::__time_get_storage(const string&);                           \
+     template <>                                                                                                        \
+-    void __time_get_storage<_CharT>::init(const ctype<_CharT>&);                                                       \
++    _LIBCPP_EXPORTED_FROM_ABI void __time_get_storage<_CharT>::init(const ctype<_CharT>&);                             \
+     template <>                                                                                                        \
+-    __time_get_storage<_CharT>::string_type __time_get_storage<_CharT>::__analyze(char, const ctype<_CharT>&);         \
++    _LIBCPP_EXPORTED_FROM_ABI __time_get_storage<_CharT>::string_type                                                  \
++    __time_get_storage<_CharT>::__analyze(char, const ctype<_CharT>&);                                                 \
+     extern template _LIBCPP_EXPORTED_FROM_ABI time_base::dateorder __time_get_storage<_CharT>::__do_date_order()       \
+         const;                                                                                                         \
+     extern template _LIBCPP_EXPORTED_FROM_ABI __time_get_storage<_CharT>::__time_get_storage(const char*);             \

@@ -110,11 +110,22 @@ if [[ "${FINCH_DSC:-1}" != 0 ]]; then
     # As on macOS since 11, dylibs in the cache aren't also on disk. dyld in
     # PID 1 scans for "roots" (on-disk dylibs overriding the cache) at boot;
     # finding them, every process would load from disk and patch the cache.
-    # The map lists each cached dylib's install path.
+    # The map lists each cached dylib's install path. An install path that's
+    # a symlink (libstdc++.6.dylib -> libstdc++.6.0.9.dylib) goes along with
+    # its target: if the target stayed, dyld's realpath() of the install path
+    # would name an uncached on-disk file, and dlopen(RTLD_NOLOAD) of it
+    # recurses until the stack overflows.
     removed=0
     while read -r p; do
-        if [[ -f "${mnt}${p}" && ! -L "${mnt}${p}" ]]; then rm -f "${mnt}${p}"; removed=$((removed + 1)); fi
-    done < <(grep '^/' "${mnt}/System/Library/dyld/dyld_shared_cache_arm64e.map")
+        if [[ -L "${mnt}${p}" ]]; then
+            l="$(readlink "${mnt}${p}")"
+            case "${l}" in /*) t="${mnt}${l}" ;; *) t="$(dirname "${mnt}${p}")/${l}" ;; esac
+            [[ "${l}" != *..* && -f "${t}" && ! -L "${t}" ]] && rm -f "${t}"
+            rm -f "${mnt}${p}"; removed=$((removed + 1))
+        elif [[ -f "${mnt}${p}" ]]; then
+            rm -f "${mnt}${p}"; removed=$((removed + 1))
+        fi
+    done < <(grep '^/' "${mnt}/System/Library/dyld/dyld_shared_cache_arm64e.map" | sort -u)
     echo "  dsc: removed ${removed} cached dylibs from disk"
     mv "${mnt}"/System/Library/dyld/*.map "${OUT}/" 2>/dev/null   # host-side debugging aid, kept out of the image
     sed -n 's/.* cdhash: \([0-9a-f]*\)$/\1/p' "${OUT}/dsc-build.log" >> "${OUT}/all_hashes"

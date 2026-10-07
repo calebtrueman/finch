@@ -4,11 +4,13 @@
  *
  * finch-libsystem-test: exercises the libSystem pieces Finch builds from
  * source (malloc, pthread, dispatch, platform string routines, JIT write
- * protection). Prints one line per check and exits non-zero on failure.
+ * protection), and kernel behavior dyld relies on (F_GETPATH). Prints one line per check and exits non-zero on failure.
  */
 
 #include <dispatch/dispatch.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/param.h>
 #include <libkern/OSCacheControl.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -143,6 +145,27 @@ test_jit(void)
 	return r == 42;
 }
 
+/* dyld resolves a missing library's directory with F_GETPATH and retries if
+ * the result differs from the path it asked for, so a directory's F_GETPATH
+ * must be its canonical path. */
+static bool
+test_getpath(void)
+{
+	static const char *dirs[] = { "/", "/usr", "/usr/lib", "/System/Library" };
+	bool ok = true;
+	for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
+		char out[MAXPATHLEN] = "";
+		int fd = open(dirs[i], O_RDONLY | O_DIRECTORY);
+		if (fd < 0 || fcntl(fd, F_GETPATH, out) != 0 || strcmp(out, dirs[i]) != 0) {
+			printf("  F_GETPATH(%s) = \"%s\"\n", dirs[i], out);
+			ok = false;
+		}
+		if (fd >= 0)
+			close(fd);
+	}
+	return ok;
+}
+
 int
 main(void)
 {
@@ -151,6 +174,7 @@ main(void)
 	CHECK("dispatch group/serial/apply", test_dispatch());
 	CHECK("platform string + bit ops", test_strings());
 	CHECK("JIT write protect (MAP_JIT)", test_jit());
+	CHECK("F_GETPATH of directories", test_getpath());
 	printf("%s (%d failure%s)\n", failures ? "FAILED" : "PASSED", failures,
 	    failures == 1 ? "" : "s");
 	return failures ? 1 : 0;
