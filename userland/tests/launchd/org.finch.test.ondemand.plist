@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test job: started by finch-init only when a client messages its service. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.ondemand</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/finch-xpc-service-test</string>
+		<string>daemon</string>
+	</array>
+	<key>MachServices</key>
+	<dict>
+		<key>org.finch.test.ondemand</key>
+		<true/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+	<key>StandardErrorPath</key>
+	<string>/var/log/org.finch.test.ondemand.log</string>
+</dict>
+</plist>

@@ -22,8 +22,89 @@
 #include <xpc/xpc.h>
 
 #define SERVICE "org.finch.test.xpc-service"
+#define ONDEMAND "org.finch.test.ondemand"   /* declared by org.finch.test.ondemand.plist */
 
 extern char **environ;
+
+/* Launched by finch-init on demand: check in, answer, exit when asked. */
+static int
+daemon_main(void)
+{
+	xpc_connection_t l = xpc_connection_create_mach_service(ONDEMAND, NULL,
+	    XPC_CONNECTION_MACH_SERVICE_LISTENER);
+
+	if (l == NULL) {
+		fprintf(stderr, "daemon %d: check-in failed\n", getpid());
+		return 1;
+	}
+	xpc_connection_set_event_handler(l, ^(xpc_object_t peer) {
+		if (xpc_get_type(peer) != XPC_TYPE_CONNECTION) return;
+		xpc_connection_set_event_handler(peer, ^(xpc_object_t msg) {
+			if (xpc_get_type(msg) != XPC_TYPE_DICTIONARY) return;
+			xpc_object_t r = xpc_dictionary_create_reply(msg);
+			xpc_dictionary_set_int64(r, "server_pid", getpid());
+			xpc_connection_send_message(peer, r);
+			xpc_release(r);
+			if (xpc_dictionary_get_bool(msg, "exit")) {
+				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC),
+				    dispatch_get_main_queue(), ^{ exit(0); });
+			}
+		});
+		xpc_connection_resume(peer);
+	});
+	xpc_connection_resume(l);
+	dispatch_main();
+}
+
+static int64_t
+ask_pid(xpc_connection_t c, bool and_exit)
+{
+	xpc_object_t m = xpc_dictionary_create(NULL, NULL, 0), r;
+	int64_t pid = -1;
+
+	xpc_dictionary_set_bool(m, "exit", and_exit);
+	r = xpc_connection_send_message_with_reply_sync(c, m);
+	if (xpc_get_type(r) == XPC_TYPE_DICTIONARY) {
+		pid = xpc_dictionary_get_int64(r, "server_pid");
+	}
+	xpc_release(r);
+	xpc_release(m);
+	return pid;
+}
+
+/* Client side of the on-demand test. */
+static int
+ondemand_main(void)
+{
+	mach_port_t sp = MACH_PORT_NULL;
+	int failures = 0;
+
+	setvbuf(stdout, NULL, _IONBF, 0);
+	kern_return_t kr = bootstrap_look_up(bootstrap_port, ONDEMAND, &sp);
+	printf("declared service visible before launch: %s\n", kr == BOOTSTRAP_SUCCESS ? "yes" : "NO");
+	failures += kr != BOOTSTRAP_SUCCESS;
+
+	xpc_connection_t c = xpc_connection_create_mach_service(ONDEMAND, NULL, 0);
+	xpc_connection_set_event_handler(c, ^(xpc_object_t e) { (void)e; });
+	xpc_connection_resume(c);
+	int64_t first = ask_pid(c, false);
+	int64_t again = ask_pid(c, true);   /* same instance; then it exits */
+	printf("launched on demand: pid %lld, answered again by %lld: %s\n", first, again,
+	    first > 0 && again == first ? "ok" : "WRONG");
+	failures += !(first > 0 && again == first);
+
+	sleep(1);
+	int64_t relaunched = -1;
+	for (int i = 0; i < 3 && relaunched <= 0; i++) {   /* the first send may see the interruption */
+		relaunched = ask_pid(c, false);
+	}
+	printf("after it exited, same connection relaunched it: pid %lld: %s\n", relaunched,
+	    relaunched > 0 && relaunched != first ? "ok" : "WRONG");
+	failures += !(relaunched > 0 && relaunched != first);
+
+	printf("%s\n", failures ? "FAILED" : "PASSED: on-demand launch via finch-init");
+	return failures != 0;
+}
 
 static int
 serve(void)
@@ -61,6 +142,12 @@ main(int argc, char **argv)
 
 	if (argc > 1 && strcmp(argv[1], "serve") == 0) {
 		return serve();
+	}
+	if (argc > 1 && strcmp(argv[1], "daemon") == 0) {
+		return daemon_main();
+	}
+	if (argc > 1 && strcmp(argv[1], "ondemand") == 0) {
+		return ondemand_main();
 	}
 	setvbuf(stdout, NULL, _IONBF, 0);
 	printf("bootstrap look_up before the service exists: %s\n",

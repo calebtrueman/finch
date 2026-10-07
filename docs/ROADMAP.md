@@ -76,7 +76,13 @@ Apple's is closed. Developed in the emulated M4 first. The map is
           fuzzed under ASan)
     - [x] X3 Mach transport: pipes and connections, interoperating with Apple's libxpc in
           both directions (144/462 imported symbols)
-    - [ ] X4 finch-init bootstrap server, X5 swap in
+    - [x] X4 finch-init bootstrap server, X5 swap in (the VM runs on Finch libxpc)
+  - [x] libsystem_info and libsystem_darwin built from source on Finch libxpc
+  - [x] **Service manager** in finch-init: launchd job plists, MachServices with launch on
+        demand, KeepAlive, run as another user (`docs/design/SERVICES.md`)
+    - [ ] `launchctl`, LaunchAgents and per-user domains, Sockets/timers/WatchPaths,
+          shutdown
+    - [ ] Run Apple's open-source daemons under it (notifyd, syslogd, configd, ...)
   - [x] libmalloc no longer depends on libcorecrypto
   - [ ] libsystem_featureflags (ABI known: `_os_feature_enabled_impl`,
         `_os_feature_enabled_simple_impl`)

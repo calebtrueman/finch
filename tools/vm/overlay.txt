@@ -7,3 +7,5 @@ userland/etc/finch/rc       /etc/finch/rc
 build/userland/finch-libsystem-test /usr/local/bin/finch-libsystem-test
 build/userland/libxpc/libxpc.dylib /usr/lib/system/libxpc.dylib
 build/userland/finch-xpc-service-test /usr/local/bin/finch-xpc-service-test
+userland/tests/launchd/org.finch.test.ondemand.plist /System/Library/Finch/LaunchDaemons/org.finch.test.ondemand.plist
+userland/tests/launchd/org.finch.test.keepalive.plist /System/Library/Finch/LaunchDaemons/org.finch.test.keepalive.plist

@@ -13,9 +13,11 @@
  *   3. serve the Mach bootstrap namespace (bootstrapd.c), which every process
  *      inherits as its bootstrap port,
  *   4. run /etc/finch/rc if present (one-shot boot script),
- *   5. keep an interactive login shell (zsh, else bash) alive on the console,
+ *   5. load launchd job plists and run them: at load, kept alive, or on
+ *      demand when a message arrives for their Mach services (jobs.c),
+ *   6. keep an interactive login shell (zsh, else bash) alive on the console,
  *      respawning it on exit,
- *   6. reap every orphaned process re-parented to PID 1.
+ *   7. reap every orphaned process re-parented to PID 1.
  *
  * Service supervision, mounting, and IPC bootstrap (Mach bootstrap port) come
  * later; see docs/ROADMAP.md, Phase 1.
@@ -42,6 +44,7 @@
 #include <unistd.h>
 
 #include "bootstrapd.h"
+#include "jobs.h"
 
 #define FINCH_INIT_VERSION "0.0.1"
 #define CONSOLE            "/dev/console"
@@ -50,6 +53,15 @@
 #define DEFAULT_SHELL      "/bin/zsh"   /* as on macOS */
 #define FALLBACK_SHELL     "/bin/bash"
 #define RESPAWN_DELAY_SEC  1
+
+/* Job plist directories, in load order (launchd's format). */
+static const char *const job_dirs[] = {
+	"/System/Library/Finch/LaunchDaemons",   /* Finch's own services */
+	"/Library/LaunchDaemons",                /* third-party daemons, as on macOS */
+};
+
+static dispatch_queue_t init_queue;   /* registry, jobs and the console shell */
+static pid_t console_shell;
 
 static void
 logmsg(const char *fmt, ...)
@@ -167,14 +179,71 @@ describe_exit(const char *what, int status)
 static void
 start_bootstrap_server(void)
 {
-	mach_port_t port = bootstrapd_start();
+	mach_port_t port;
 
+	init_queue = dispatch_queue_create("org.finch.init", DISPATCH_QUEUE_SERIAL);
+	jobs_init(init_queue, logmsg);
+	port = bootstrapd_start(init_queue, &jobs_bootstrap_hooks);
 	if (port == MACH_PORT_NULL) {
 		logmsg("bootstrap server failed to start; Mach services unavailable");
 		return;
 	}
+	/* Children inherit the task's bootstrap port. finch-init's own
+	 * bootstrap_port global stays MACH_PORT_NULL on purpose: a lookup from
+	 * PID 1 (e.g. getpwnam -> Libinfo -> opendirectoryd) would be served on
+	 * the very queue making it, and deadlock. Without a bootstrap port,
+	 * PID 1's own Libinfo lookups use the files module. */
 	task_set_special_port(mach_task_self(), TASK_BOOTSTRAP_PORT, port);
-	bootstrap_port = port;
+}
+
+static void
+load_jobs(void)
+{
+	dispatch_sync(init_queue, ^{
+		int n = 0;
+		for (size_t i = 0; i < sizeof(job_dirs) / sizeof(job_dirs[0]); i++) {
+			n += jobs_load_dir(job_dirs[i]);
+		}
+		if (n > 0) {
+			logmsg("loaded %d job%s", n, n == 1 ? "" : "s");
+		}
+		jobs_start_all();
+	});
+}
+
+/* Login shell on the console: argv[0] is "-<name>". zsh is re-checked each time. */
+static void
+start_console_shell(void)
+{
+	bool have_zsh = access(DEFAULT_SHELL, X_OK) == 0;
+	const char *path = have_zsh ? DEFAULT_SHELL : FALLBACK_SHELL;
+	char *argv[] = { have_zsh ? "-zsh" : "-bash", "-i", NULL };
+
+	setenv("SHELL", path, 1);
+	console_shell = spawn_on_console(path, argv);
+	if (console_shell <= 0) {
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, RESPAWN_DELAY_SEC * NSEC_PER_SEC),
+		    init_queue, ^{ start_console_shell(); });
+	}
+}
+
+/* Reap every exited child: the console shell, jobs, and orphans. */
+static void
+reap_children(void)
+{
+	pid_t pid;
+	int status;
+
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		if (pid == console_shell) {
+			describe_exit("console shell", status);
+			console_shell = 0;
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, RESPAWN_DELAY_SEC * NSEC_PER_SEC),
+			    init_queue, ^{ start_console_shell(); });
+		} else {
+			jobs_child_exited(pid, status);   /* else an orphan: just reaped */
+		}
+	}
 }
 
 static void
@@ -292,11 +361,7 @@ print_banner(void)
 int
 main(void)
 {
-	char *shell_argv[3] = { NULL, "-i", NULL };
-	const char *shell_path;
-	bool have_zsh;
-	pid_t shell;
-	int status;
+	dispatch_source_t sigchld;
 
 	/* PID 1 must never die from a stray keyboard signal on the console. */
 	signal(SIGINT, SIG_IGN);
@@ -313,19 +378,18 @@ main(void)
 	}
 
 	start_bootstrap_server();
-	run_rc_script();
+	run_rc_script();   /* synchronous: services start after it */
 
-	for (;;) {
-		/* Login shell: argv[0] is "-<name>". Re-checked each respawn. */
-		have_zsh = access(DEFAULT_SHELL, X_OK) == 0;
-		shell_path = have_zsh ? DEFAULT_SHELL : FALLBACK_SHELL;
-		shell_argv[0] = have_zsh ? "-zsh" : "-bash";
-		setenv("SHELL", shell_path, 1);
-		shell = spawn_on_console(shell_path, shell_argv);
-		if (shell > 0) {
-			status = wait_for(shell);
-			describe_exit("console shell", status);
-		}
-		sleep(RESPAWN_DELAY_SEC);
-	}
+	/* From here on everything happens on init_queue. SIGCHLD keeps its
+	 * default disposition (SIG_IGN would auto-reap and lose exit statuses). */
+	sigchld = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGCHLD, 0, init_queue);
+	dispatch_source_set_event_handler(sigchld, ^{ reap_children(); });
+	dispatch_resume(sigchld);
+
+	load_jobs();
+	dispatch_async(init_queue, ^{
+		start_console_shell();
+		reap_children();   /* anything that exited before the source was armed */
+	});
+	dispatch_main();
 }

@@ -1,0 +1,21 @@
+diff --git a/lookup.subproj/file_module.c b/lookup.subproj/file_module.c
+index 8d86abb..83dd2c2 100644
+--- a/lookup.subproj/file_module.c
++++ b/lookup.subproj/file_module.c
+@@ -1078,6 +1078,16 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
+ 
+ 	fclose(f);
+ 
++	/*
++	 * A user who is in no supplementary groups still has a group list: its
++	 * primary group. Without this, getgrouplist_2() fails for such users
++	 * whenever the files module is the one answering (no directory service).
++	 */
++	if (gidcount == 0 && basegid != (gid_t)-1) {
++		gidlist = (gid_t *) reallocf(gidlist, sizeof(gid_t));
++		if (gidlist != NULL) gidlist[gidcount++] = basegid;
++	}
++
+ 	if (gidcount != 0) {
+ 		item = (si_item_t *)LI_ils_create("L4488s4@", (unsigned long)si, CATEGORY_GROUPLIST, 1, va, vb, user, gidcount, 
+ 										  gidcount * sizeof(gid_t), gidlist);

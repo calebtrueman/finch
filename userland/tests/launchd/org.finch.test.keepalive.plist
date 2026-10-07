@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test job: fails twice (restarted each time), then succeeds and stays down. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.keepalive</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>echo "run as $(id -un) from $PWD, XPC_SERVICE_NAME=$XPC_SERVICE_NAME"; n=$(wc -l &lt; /private/tmp/org.finch.test.keepalive.log); [ "$n" -ge 3 ]</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+	<key>UserName</key>
+	<string>nobody</string>
+	<key>WorkingDirectory</key>
+	<string>/private/tmp</string>
+	<key>StandardOutPath</key>
+	<string>/private/tmp/org.finch.test.keepalive.log</string>
+</dict>
+</plist>

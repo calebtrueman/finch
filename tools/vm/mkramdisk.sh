@@ -46,6 +46,17 @@ is_macho() { file -b "$1" | grep -q '^Mach-O'; }
 # 0. Mount points for the tmpfs the boot script lays over the read-only root.
 mkdir -p "${mnt}/private/tmp" "${mnt}"/private/var/{tmp,run,log,root}
 
+# The base ramdisk ships only the root-only /etc/master.passwd. macOS also has
+# the world-readable /etc/passwd (no password or expiry fields) that
+# non-root processes' user lookups read; derive it, as pwd_mkdb would.
+etc="${mnt}/private/etc"
+if [[ -f "${etc}/master.passwd" && ! -f "${etc}/passwd" ]]; then
+    awk -F: 'BEGIN { OFS = ":" } /^#/ { print; next } NF >= 10 { print $1, "*", $3, $4, $8, $9, $10 }' \
+        "${etc}/master.passwd" > "${etc}/passwd"
+    chmod 644 "${etc}/passwd"
+    echo "  /etc/passwd: derived from master.passwd"
+fi
+
 # 1. Apple OSS staging tree.
 if [[ -d "${ROOT}" ]]; then
     rsync -a "${ROOT}/" "${mnt}/"

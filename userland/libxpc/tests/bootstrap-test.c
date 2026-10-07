@@ -9,6 +9,7 @@
  */
 
 #include <dispatch/dispatch.h>
+#include <errno.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
 #include <stdio.h>
@@ -26,6 +27,29 @@ kern_return_t bootstrap_look_up2(mach_port_t bp, const name_t name, mach_port_t 
 static int failures, checks;
 #define CHECK(cond) do { checks++; if (!(cond)) { failures++; \
 	printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); fflush(stdout); } } while (0)
+
+/* Fake job manager: one job, "run" by this process when allowed. */
+static int fake_job, demands;
+static dispatch_semaphore_t demanded;
+static bool allow_check_in;
+
+static void
+fake_demand(void *owner)
+{
+	if (owner == &fake_job) {
+		demands++;
+		dispatch_semaphore_signal(demanded);
+	}
+}
+
+static bool
+fake_may_check_in(void *owner, pid_t pid)
+{
+	return owner == &fake_job && allow_check_in && pid == getpid();
+}
+
+static const struct bootstrapd_hooks fake_hooks = { fake_demand, fake_may_check_in };
+static dispatch_queue_t server_queue;
 
 static bool
 has_right(mach_port_t name, mach_port_type_t right)
@@ -82,6 +106,69 @@ test_registry(mach_port_t bp)
 	mach_port_mod_refs(mach_task_self(), dead, MACH_PORT_RIGHT_RECEIVE, -1);
 	CHECK(bootstrap_look_up(dead, "org.finch.test.a", &send) != BOOTSTRAP_SUCCESS);
 	mach_port_deallocate(mach_task_self(), dead);
+}
+
+static void
+ping(mach_port_t send, mach_msg_id_t id)
+{
+	mach_msg_header_t h = { .msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0),
+	    .msgh_size = sizeof(h), .msgh_remote_port = send, .msgh_id = id };
+	CHECK(mach_msg(&h, MACH_SEND_MSG | MACH_SEND_TIMEOUT, sizeof(h), 0, 0, 1000, 0) == KERN_SUCCESS);
+}
+
+static mach_msg_id_t
+pong(mach_port_t recv)
+{
+	struct { mach_msg_header_t h; mach_msg_trailer_t t; } in;
+	kern_return_t kr = mach_msg(&in.h, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(in), recv, 2000, 0);
+	return kr == KERN_SUCCESS ? in.h.msgh_id : -1;
+}
+
+/* Declared services: on-demand launch, job-only check-in, survival across job exits. */
+static void
+test_declared(mach_port_t bp)
+{
+	mach_port_t send = MACH_PORT_NULL, send2 = MACH_PORT_NULL, recv = MACH_PORT_NULL;
+	__block int err = -1;
+
+	demanded = dispatch_semaphore_create(0);
+	dispatch_sync(server_queue, ^{ err = bootstrapd_declare("org.finch.test.declared", &fake_job); });
+	CHECK(err == 0);
+	dispatch_sync(server_queue, ^{ err = bootstrapd_declare("org.finch.test.declared", &fake_job); });
+	CHECK(err == EEXIST);
+
+	/* Visible before the job runs; no demand until a message arrives. */
+	CHECK(bootstrap_look_up(bp, "org.finch.test.declared", &send) == BOOTSTRAP_SUCCESS);
+	CHECK(demands == 0);
+	ping(send, 0x100);
+	CHECK(dispatch_semaphore_wait(demanded, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) == 0);
+	CHECK(demands == 1);
+
+	/* Only the job may check in. */
+	CHECK(bootstrap_check_in(bp, "org.finch.test.declared", &recv) == BOOTSTRAP_NOT_PRIVILEGED);
+	allow_check_in = true;
+	CHECK(bootstrap_check_in(bp, "org.finch.test.declared", &recv) == BOOTSTRAP_SUCCESS);
+	CHECK(has_right(recv, MACH_PORT_TYPE_RECEIVE));
+	CHECK(pong(recv) == 0x100);   /* the message that caused the launch is still there */
+	CHECK(bootstrap_check_in(bp, "org.finch.test.declared", &send2) == BOOTSTRAP_SERVICE_ACTIVE);
+
+	/* The job "exits" with a message unread: the right returns with it queued. */
+	ping(send, 0x101);
+	mach_port_mod_refs(mach_task_self(), recv, MACH_PORT_RIGHT_RECEIVE, -1);
+	dispatch_sync(server_queue, ^{ bootstrapd_rearm(&fake_job); });
+	CHECK(dispatch_semaphore_wait(demanded, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) == 0);
+	CHECK(demands == 2);
+
+	/* The client's old send right still reaches the relaunched job. */
+	ping(send, 0x102);
+	CHECK(bootstrap_check_in(bp, "org.finch.test.declared", &recv) == BOOTSTRAP_SUCCESS);
+	CHECK(pong(recv) == 0x101);
+	CHECK(pong(recv) == 0x102);
+	CHECK(bootstrap_look_up(bp, "org.finch.test.declared", &send2) == BOOTSTRAP_SUCCESS);
+	CHECK(send2 == send);   /* same port all along */
+	mach_port_deallocate(mach_task_self(), send2);
+	mach_port_deallocate(mach_task_self(), send);
+	allow_check_in = false;
 }
 
 /* Unknown routines are refused, and replies identify the requester. */
@@ -154,12 +241,14 @@ test_xpc_services(void)
 int
 main(void)
 {
-	mach_port_t bp = bootstrapd_start();
+	server_queue = dispatch_queue_create("bootstrapd", DISPATCH_QUEUE_SERIAL);
+	mach_port_t bp = bootstrapd_start(server_queue, &fake_hooks);
 
 	setvbuf(stdout, NULL, _IONBF, 0);
 	CHECK(bp != MACH_PORT_NULL);
 	test_registry(bp);
 	test_reply_fields(bp);
+	test_declared(bp);
 
 	bootstrap_port = bp;   /* XPC Mach-service connections use the global */
 	test_xpc_services();

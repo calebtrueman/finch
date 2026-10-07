@@ -13,9 +13,11 @@ all: $(OUT)/finch-init
 # libxpc stubs: resolved at load time from /usr/lib/system/libxpc.dylib.
 SPI     := -Wl,-U,_finch_xpc_pipe_request_routine
 
-$(OUT)/finch-init: finch-init.c bootstrapd.c bootstrapd.h
+SRCS    := finch-init.c bootstrapd.c jobs.c
+
+$(OUT)/finch-init: $(SRCS) bootstrapd.h jobs.h
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) $(SPI) -o $@ finch-init.c bootstrapd.c
+	$(CC) $(CFLAGS) $(SPI) -o $@ $(SRCS)
 	codesign -f -s - -i org.finch.init $@
 
 clean:
