@@ -9,3 +9,4 @@
 *.kext/
 *.kdk
 .DS_Store
+tools/vz/finch-vz

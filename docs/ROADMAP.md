@@ -102,6 +102,10 @@ Apple's is closed. Developed in the emulated M4 first. The map is
 continue alongside Phase 2.
 
 ## Phase 2: First pixels and first app
+Runs in Tier 2 (`docs/design/TIER2-VZ.md`): `tools/vz/finch-vz` installs and runs a
+macOS 26.6.2 guest, and Finch's kernel builds for the VM platform
+(`MACHINE_CONFIG=VMAPPLE`). Booting it there waits on the user: Setup Assistant in
+the guest, and a decision on patched VM boot stages.
 - [ ] Framebuffer console via the iBoot-initialized display (simple framebuffer)
 - [ ] Minimal Finch window server and compositor (software rendering)
 - [ ] BORROWED AppKit/CoreGraphics running against Finch's window server via a shim
