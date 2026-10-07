@@ -18,7 +18,8 @@ const struct ccmode_gcm *ccaes_gcm_encrypt_mode(void);
 const struct ccmode_stream *ccaes_ofb_crypt_mode(void);
 const struct ccmode_xts *ccaes_xts_decrypt_mode(void);
 const struct ccmode_xts *ccaes_xts_encrypt_mode(void);
-int ccansikdf_x963(const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
+int ccansikdf_x963(
+    const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
 const struct ccmode_cbc *ccblowfish_cbc_decrypt_mode(void);
 const struct ccmode_cbc *ccblowfish_cbc_encrypt_mode(void);
 const struct ccmode_stream *ccblowfish_cfb8_decrypt_mode(void);
@@ -40,26 +41,34 @@ const struct ccmode_ecb *cccast_ecb_decrypt_mode(void);
 const struct ccmode_ecb *cccast_ecb_encrypt_mode(void);
 const struct ccmode_stream *cccast_ofb_crypt_mode(void);
 int ccccm_cbcmac(const struct ccmode_ccm *, const void *, void *, size_t, const void *);
-int ccccm_set_iv(const struct ccmode_ccm *, const void *, void *, size_t, const void *, size_t, size_t, size_t);
+int ccccm_set_iv(
+    const struct ccmode_ccm *, const void *, void *, size_t, const void *, size_t, size_t, size_t);
 int ccchacha20(const void *, const void *, uint32_t, size_t, const void *, void *);
-int ccchacha20poly1305_decrypt_oneshot(const struct ccchacha20poly1305_info *, const void *, const void *, size_t, const void *, size_t, const void *, void *, const void *);
-int ccchacha20poly1305_encrypt_oneshot(const struct ccchacha20poly1305_info *, const void *, const void *, size_t, const void *, size_t, const void *, void *, void *);
+int ccchacha20poly1305_decrypt_oneshot(const struct ccchacha20poly1305_info *, const void *,
+    const void *, size_t, const void *, size_t, const void *, void *, const void *);
+int ccchacha20poly1305_encrypt_oneshot(const struct ccchacha20poly1305_info *, const void *,
+    const void *, size_t, const void *, size_t, const void *, void *, void *);
 const struct ccchacha20poly1305_info *ccchacha20poly1305_info(void);
 int ccckg2_contributor_commit(struct ccckg_ctx *, size_t, void *, struct ccrng_state *);
-int ccckg2_contributor_finish(struct ccckg_ctx *, size_t, const void *, size_t, void *, struct ccec_ctx *, size_t, void *, struct ccrng_state *);
+int ccckg2_contributor_finish(struct ccckg_ctx *, size_t, const void *, size_t, void *,
+    struct ccec_ctx *, size_t, void *, struct ccrng_state *);
 ccec_const_cp_t ccckg2_ctx_cp(const struct ccckg_ctx *);
 int ccckg2_init(struct ccckg_ctx *, const struct ccckg2_params *);
-int ccckg2_owner_finish(struct ccckg_ctx *, size_t, const void *, struct ccec_ctx *, size_t, void *, struct ccrng_state *);
-int ccckg2_owner_generate_share(struct ccckg_ctx *, size_t, const void *, size_t, void *, struct ccrng_state *);
+int ccckg2_owner_finish(struct ccckg_ctx *, size_t, const void *, struct ccec_ctx *, size_t, void *,
+    struct ccrng_state *);
+int ccckg2_owner_generate_share(
+    struct ccckg_ctx *, size_t, const void *, size_t, void *, struct ccrng_state *);
 const struct ccckg2_params *ccckg2_params_p224_sha256_v2(void);
 size_t ccckg2_sizeof_commitment(const struct ccckg2_params *);
 size_t ccckg2_sizeof_ctx(const struct ccckg2_params *);
 size_t ccckg2_sizeof_opening(const struct ccckg2_params *);
 size_t ccckg2_sizeof_share(const struct ccckg2_params *);
 int ccckg_contributor_commit(struct ccckg_ctx *, size_t, void *);
-int ccckg_contributor_finish(struct ccckg_ctx *, size_t, const void *, size_t, void *, struct ccec_ctx *, size_t, void *);
+int ccckg_contributor_finish(
+    struct ccckg_ctx *, size_t, const void *, size_t, void *, struct ccec_ctx *, size_t, void *);
 ccec_const_cp_t ccckg_ctx_cp(const struct ccckg_ctx *);
-int ccckg_init(struct ccckg_ctx *, ccec_const_cp_t, const struct ccdigest_info *, struct ccrng_state *);
+int ccckg_init(
+    struct ccckg_ctx *, ccec_const_cp_t, const struct ccdigest_info *, struct ccrng_state *);
 int ccckg_owner_finish(struct ccckg_ctx *, size_t, const void *, struct ccec_ctx *, size_t, void *);
 int ccckg_owner_generate_share(struct ccckg_ctx *, size_t, const void *, size_t, void *);
 size_t ccckg_sizeof_commitment(ccec_const_cp_t, const struct ccdigest_info *);
@@ -68,7 +77,8 @@ size_t ccckg_sizeof_opening(ccec_const_cp_t, const struct ccdigest_info *);
 size_t ccckg_sizeof_share(ccec_const_cp_t, const struct ccdigest_info *);
 int cccmac_final_generate(void *, size_t, void *);
 int cccmac_init(const struct ccmode_cbc *, void *, size_t, const void *);
-int cccmac_one_shot_generate(const struct ccmode_cbc *, size_t, const void *, size_t, const void *, size_t, void *);
+int cccmac_one_shot_generate(
+    const struct ccmode_cbc *, size_t, const void *, size_t, const void *, size_t, void *);
 int cccmac_update(void *, size_t, const void *);
 const struct ccmode_cbc *ccdes3_cbc_decrypt_mode(void);
 const struct ccmode_cbc *ccdes3_cbc_encrypt_mode(void);
@@ -94,7 +104,8 @@ int ccdes_key_is_weak(const void *, size_t);
 void ccdes_key_set_odd_parity(void *, size_t);
 const struct ccmode_stream *ccdes_ofb_crypt_mode(void);
 size_t ccdh_ccn_size(const struct cczp *);
-int ccdh_compute_shared_secret(const struct ccdh_ctx *, const struct ccdh_ctx *, size_t *, void *, struct ccrng_state *);
+int ccdh_compute_shared_secret(
+    const struct ccdh_ctx *, const struct ccdh_ctx *, size_t *, void *, struct ccrng_state *);
 void ccdh_ctx_init(const struct cczp *, struct ccdh_ctx *);
 struct ccdh_ctx *ccdh_ctx_public(struct ccdh_ctx *);
 void ccdh_export_pub(const struct ccdh_ctx *, void *);
@@ -105,7 +116,8 @@ int ccdh_import_pub(const struct cczp *, size_t, const void *, struct ccdh_ctx *
 void ccdigest(const struct ccdigest_info *, size_t, const void *, void *);
 void ccdigest_init(const struct ccdigest_info *, void *);
 void ccdigest_update(const struct ccdigest_info *, void *, size_t, const void *);
-int ccec_blind(struct ccrng_state *, const struct ccec_ctx *, const struct ccec_ctx *, struct ccec_ctx *);
+int ccec_blind(
+    struct ccrng_state *, const struct ccec_ctx *, const struct ccec_ctx *, struct ccec_ctx *);
 int ccec_compact_export_pub(void *, const struct ccec_ctx *);
 int ccec_compact_import_pub(ccec_const_cp_t, size_t, const void *, struct ccec_ctx *);
 size_t ccec_compact_import_pub_size(size_t);
@@ -113,35 +125,47 @@ const struct cczp *ccec_cp_256(void);
 const struct cczp *ccec_cp_384(void);
 const struct cczp *ccec_cp_521(void);
 size_t ccec_diversify_min_entropy_len(ccec_const_cp_t);
-int ccec_diversify_priv_twin(ccec_const_cp_t, const cc_unit *, size_t, const void *, struct ccrng_state *, struct ccec_ctx *);
-int ccec_diversify_pub_twin(ccec_const_cp_t, const struct ccec_ctx *, size_t, const void *, struct ccrng_state *, struct ccec_ctx *);
-int ccec_generate_blinding_keys(ccec_const_cp_t, struct ccrng_state *, struct ccec_ctx *, struct ccec_ctx *);
+int ccec_diversify_priv_twin(ccec_const_cp_t, const cc_unit *, size_t, const void *,
+    struct ccrng_state *, struct ccec_ctx *);
+int ccec_diversify_pub_twin(ccec_const_cp_t, const struct ccec_ctx *, size_t, const void *,
+    struct ccrng_state *, struct ccec_ctx *);
+int ccec_generate_blinding_keys(
+    ccec_const_cp_t, struct ccrng_state *, struct ccec_ctx *, struct ccec_ctx *);
 int ccec_generate_key(ccec_const_cp_t, struct ccrng_state *, struct ccec_ctx *);
 const struct cczp *ccec_get_cp(size_t);
-int ccec_get_fullkey_components(const struct ccec_ctx *, size_t *, void *, size_t *, void *, size_t *, void *, size_t *);
-int ccec_get_pubkey_components(const struct ccec_ctx *, size_t *, void *, size_t *, void *, size_t *);
+int ccec_get_fullkey_components(
+    const struct ccec_ctx *, size_t *, void *, size_t *, void *, size_t *, void *, size_t *);
+int ccec_get_pubkey_components(
+    const struct ccec_ctx *, size_t *, void *, size_t *, void *, size_t *);
 bool ccec_keysize_is_supported(size_t);
 int ccec_make_pub(size_t, size_t, const void *, size_t, const void *, struct ccec_ctx *);
-int ccec_sign(const struct ccec_ctx *, size_t, const void *, size_t *, void *, struct ccrng_state *);
-int ccec_unblind(struct ccrng_state *, const struct ccec_ctx *, const struct ccec_ctx *, struct ccec_ctx *);
+int ccec_sign(
+    const struct ccec_ctx *, size_t, const void *, size_t *, void *, struct ccrng_state *);
+int ccec_unblind(
+    struct ccrng_state *, const struct ccec_ctx *, const struct ccec_ctx *, struct ccec_ctx *);
 int ccec_verify(const struct ccec_ctx *, size_t, const void *, size_t, const void *, bool *);
 int ccec_x963_export(bool, void *, const struct ccec_ctx *);
 int ccec_x963_import_priv(ccec_const_cp_t, size_t, const void *, struct ccec_ctx *);
 size_t ccec_x963_import_priv_size(size_t);
 int ccec_x963_import_pub(ccec_const_cp_t, size_t, const void *, struct ccec_ctx *);
 size_t ccec_x963_import_pub_size(size_t);
-int ccecdh_compute_shared_secret(const struct ccec_ctx *, const struct ccec_ctx *, size_t *, void *, struct ccrng_state *);
+int ccecdh_compute_shared_secret(
+    const struct ccec_ctx *, const struct ccec_ctx *, size_t *, void *, struct ccrng_state *);
 int ccgcm_aad(const struct ccmode_gcm *, void *, size_t, const void *);
 int ccgcm_finalize(const struct ccmode_gcm *, void *, size_t, void *);
-int ccgcm_one_shot(const struct ccmode_gcm *, size_t, const void *, size_t, const void *, size_t, const void *, size_t, const void *, void *, size_t, void *);
+int ccgcm_one_shot(const struct ccmode_gcm *, size_t, const void *, size_t, const void *, size_t,
+    const void *, size_t, const void *, void *, size_t, void *);
 int ccgcm_reset(const struct ccmode_gcm *, void *);
 int ccgcm_set_iv(const struct ccmode_gcm *, void *, size_t, const void *);
 int ccgcm_set_iv_legacy(const struct ccmode_gcm *, void *, size_t, const void *);
 int ccgcm_update(const struct ccmode_gcm *, void *, size_t, const void *, void *);
 int cch2c(const struct cch2c_info *, size_t, const void *, size_t, const void *, struct ccec_ctx *);
-int cchkdf(const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, const void *, size_t, void *);
-int cchkdf_expand(const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
-int cchkdf_extract(const struct ccdigest_info *, size_t, const void *, size_t, const void *, void *);
+int cchkdf(const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t,
+    const void *, size_t, void *);
+int cchkdf_expand(
+    const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
+int cchkdf_extract(
+    const struct ccdigest_info *, size_t, const void *, size_t, const void *, void *);
 void cchmac(const struct ccdigest_info *, size_t, const void *, size_t, const void *, void *);
 void cchmac_final(const struct ccdigest_info *, void *, void *);
 void cchmac_init(const struct ccdigest_info *, void *, size_t, const void *);
@@ -155,17 +179,28 @@ size_t ccn_write_int_size(size_t, const cc_unit *);
 void ccn_write_uint(size_t, const cc_unit *, size_t, void *);
 size_t ccn_write_uint_padded(size_t, const cc_unit *, size_t, void *);
 size_t ccn_write_uint_size(size_t, const cc_unit *);
-int ccnistkdf_ctr_hmac(const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, const void *, size_t, void *);
-int ccnistkdf_ctr_hmac_fixed(const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
-size_t ccpad_cts3_decrypt(const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
-size_t ccpad_cts3_encrypt(const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
-size_t ccpad_pkcs7_decrypt(const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
-size_t ccpad_pkcs7_ecb_decrypt(const struct ccmode_ecb *, const void *, size_t, const void *, void *);
-size_t ccpad_pkcs7_ecb_encrypt(const struct ccmode_ecb *, const void *, size_t, const void *, void *);
-size_t ccpad_pkcs7_encrypt(const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
-size_t ccpad_xts_decrypt(const struct ccmode_xts *, const void *, void *, size_t, const void *, void *);
-void ccpad_xts_encrypt(const struct ccmode_xts *, const void *, void *, size_t, const void *, void *);
-int ccpbkdf2_hmac(const struct ccdigest_info *, size_t, const void *, size_t, const void *, uint64_t, size_t, void *);
+int ccnistkdf_ctr_hmac(const struct ccdigest_info *, size_t, const void *, size_t, const void *,
+    size_t, const void *, size_t, void *);
+int ccnistkdf_ctr_hmac_fixed(
+    const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
+size_t ccpad_cts3_decrypt(
+    const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
+size_t ccpad_cts3_encrypt(
+    const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
+size_t ccpad_pkcs7_decrypt(
+    const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
+size_t ccpad_pkcs7_ecb_decrypt(
+    const struct ccmode_ecb *, const void *, size_t, const void *, void *);
+size_t ccpad_pkcs7_ecb_encrypt(
+    const struct ccmode_ecb *, const void *, size_t, const void *, void *);
+size_t ccpad_pkcs7_encrypt(
+    const struct ccmode_cbc *, const void *, void *, size_t, const void *, void *);
+size_t ccpad_xts_decrypt(
+    const struct ccmode_xts *, const void *, void *, size_t, const void *, void *);
+void ccpad_xts_encrypt(
+    const struct ccmode_xts *, const void *, void *, size_t, const void *, void *);
+int ccpbkdf2_hmac(const struct ccdigest_info *, size_t, const void *, size_t, const void *,
+    uint64_t, size_t, void *);
 const struct ccmode_cbc *ccrc2_cbc_decrypt_mode(void);
 const struct ccmode_cbc *ccrc2_cbc_encrypt_mode(void);
 const struct ccmode_stream *ccrc2_cfb8_decrypt_mode(void);
@@ -182,16 +217,21 @@ int ccrng_uniform(struct ccrng_state *, uint64_t, uint64_t *);
 struct cczp *ccrsa_ctx_private_zp(const ccrsa_ctx *);
 void *ccrsa_ctx_public(void *);
 int ccrsa_decrypt_eme_pkcs1v15(const ccrsa_ctx *, size_t *, void *, size_t, const void *);
-int ccrsa_decrypt_oaep(const ccrsa_ctx *, const struct ccdigest_info *, size_t *, void *, size_t, const void *, size_t, const void *);
-int ccrsa_encrypt_eme_pkcs1v15(const ccrsa_ctx *, struct ccrng_state *, size_t *, void *, size_t, const void *);
-int ccrsa_encrypt_oaep(const ccrsa_ctx *, const struct ccdigest_info *, struct ccrng_state *, size_t *, void *, size_t, const void *, size_t, const void *);
+int ccrsa_decrypt_oaep(const ccrsa_ctx *, const struct ccdigest_info *, size_t *, void *, size_t,
+    const void *, size_t, const void *);
+int ccrsa_encrypt_eme_pkcs1v15(
+    const ccrsa_ctx *, struct ccrng_state *, size_t *, void *, size_t, const void *);
+int ccrsa_encrypt_oaep(const ccrsa_ctx *, const struct ccdigest_info *, struct ccrng_state *,
+    size_t *, void *, size_t, const void *, size_t, const void *);
 int ccrsa_export_priv(const ccrsa_ctx *, size_t, unsigned char *);
 size_t ccrsa_export_priv_size(const ccrsa_ctx *);
 int ccrsa_export_pub(const ccrsa_ctx *, size_t, unsigned char *);
 size_t ccrsa_export_pub_size(const ccrsa_ctx *);
-int ccrsa_generate_fips186_key(size_t, ccrsa_ctx *, size_t, const void *, struct ccrng_state *, struct ccrng_state *);
+int ccrsa_generate_fips186_key(
+    size_t, ccrsa_ctx *, size_t, const void *, struct ccrng_state *, struct ccrng_state *);
 int ccrsa_generate_key(size_t, ccrsa_ctx *, size_t, const void *, struct ccrng_state *);
-int ccrsa_get_fullkey_components(const ccrsa_ctx *, void *, size_t *, void *, size_t *, void *, size_t *, void *, size_t *);
+int ccrsa_get_fullkey_components(
+    const ccrsa_ctx *, void *, size_t *, void *, size_t *, void *, size_t *, void *, size_t *);
 int ccrsa_get_pubkey_components(const ccrsa_ctx *, void *, size_t *, void *, size_t *);
 int ccrsa_import_priv(ccrsa_ctx *, size_t, const unsigned char *);
 size_t ccrsa_import_priv_n(size_t, const unsigned char *);
@@ -202,11 +242,16 @@ int ccrsa_make_priv(ccrsa_ctx *, size_t, const void *, size_t, const void *, siz
 int ccrsa_make_pub(ccrsa_ctx *, size_t, const void *, size_t, const void *);
 int ccrsa_priv_crypt(const ccrsa_ctx *, cc_unit *, const cc_unit *);
 int ccrsa_pub_crypt(const ccrsa_ctx *, cc_unit *, const cc_unit *);
-int ccrsa_recover_priv(ccrsa_ctx *, size_t, const void *, size_t, const void *, size_t, const void *, struct ccrng_state *);
-int ccrsa_sign_pkcs1v15(const ccrsa_ctx *, const unsigned char *, size_t, const void *, size_t *, unsigned char *);
-int ccrsa_sign_pss(const ccrsa_ctx *, const struct ccdigest_info *, const struct ccdigest_info *, size_t, struct ccrng_state *, size_t, const void *, size_t *, unsigned char *);
-int ccrsa_verify_pkcs1v15_digest(const ccrsa_ctx *, const unsigned char *, size_t, const void *, size_t, const void *, void *);
-int ccrsa_verify_pss_digest(const ccrsa_ctx *, const struct ccdigest_info *, const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
+int ccrsa_recover_priv(ccrsa_ctx *, size_t, const void *, size_t, const void *, size_t,
+    const void *, struct ccrng_state *);
+int ccrsa_sign_pkcs1v15(
+    const ccrsa_ctx *, const unsigned char *, size_t, const void *, size_t *, unsigned char *);
+int ccrsa_sign_pss(const ccrsa_ctx *, const struct ccdigest_info *, const struct ccdigest_info *,
+    size_t, struct ccrng_state *, size_t, const void *, size_t *, unsigned char *);
+int ccrsa_verify_pkcs1v15_digest(
+    const ccrsa_ctx *, const unsigned char *, size_t, const void *, size_t, const void *, void *);
+int ccrsa_verify_pss_digest(const ccrsa_ctx *, const struct ccdigest_info *,
+    const struct ccdigest_info *, size_t, const void *, size_t, const void *, size_t, void *);
 const struct ccdigest_info *ccsha1_di(void);
 const struct ccdigest_info *ccsha224_di(void);
 const struct ccdigest_info *ccsha256_di(void);
@@ -216,8 +261,10 @@ const struct ccdigest_info *ccsha3_256_di(void);
 const struct ccdigest_info *ccsha3_384_di(void);
 const struct ccdigest_info *ccsha3_512_di(void);
 const struct ccdigest_info *ccsha512_di(void);
-int ccwrap_auth_decrypt_withiv(const struct ccmode_ecb *, const void *, size_t, const void *, size_t *, void *, const void *);
-int ccwrap_auth_encrypt_withiv(const struct ccmode_ecb *, const void *, size_t, const void *, size_t *, void *, const void *);
+int ccwrap_auth_decrypt_withiv(
+    const struct ccmode_ecb *, const void *, size_t, const void *, size_t *, void *, const void *);
+int ccwrap_auth_encrypt_withiv(
+    const struct ccmode_ecb *, const void *, size_t, const void *, size_t *, void *, const void *);
 size_t ccwrap_unwrapped_size(size_t);
 size_t ccwrap_wrapped_size(size_t);
 size_t ccxts_context_size(const struct ccmode_xts *);

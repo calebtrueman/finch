@@ -4,15 +4,134 @@
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
 #include <string.h>
-static int pub(void*out,const void*priv){EVP_PKEY*k=EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519,NULL,priv,32);size_t n=32;int ok=k&&EVP_PKEY_get_raw_public_key(k,out,&n);EVP_PKEY_free(k);return ok?0:-1;}
-__attribute__((visibility("default"))) int cced25519_make_pub(const struct ccdigest_info*di,void*out,const void*priv){if(!di||di->output_size!=64)return -7;return pub(out,priv);}
-static int rngcheck(struct ccrng_state*r){unsigned char b[32];if(!r||!r->generate)return -7;int rc=r->generate(r,sizeof(b),b);OPENSSL_cleanse(b,sizeof(b));return rc;}
-__attribute__((visibility("default"))) int cced25519_make_pub_with_rng(const struct ccdigest_info*di,struct ccrng_state*r,void*out,const void*priv){if(!di||di->output_size!=64)return -7;int rc=rngcheck(r);return rc?rc:pub(out,priv);}
-__attribute__((visibility("default"))) int cced25519_make_key_pair(const struct ccdigest_info*di,struct ccrng_state*r,void*out,void*priv){if(!r||!r->generate)return -7;int rc=r->generate(r,32,priv);return rc?rc:cced25519_make_pub_with_rng(di,r,out,priv);}
-__attribute__((visibility("default"))) int cced25519_sign(const struct ccdigest_info*di,void*sig,size_t n,const void*m,const void*public_key,const void*priv){if(!di||di->output_size!=64)return -7;unsigned char expected[32];if(pub(expected,priv)||CRYPTO_memcmp(expected,public_key,32))return -7;EVP_PKEY*k=EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519,NULL,priv,32);EVP_MD_CTX*c=EVP_MD_CTX_new();size_t sn=64;int ok=k&&c&&EVP_DigestSignInit(c,NULL,NULL,NULL,k)>0&&EVP_DigestSign(c,sig,&sn,m,n)>0;EVP_MD_CTX_free(c);EVP_PKEY_free(k);return ok?0:-1;}
-__attribute__((visibility("default"))) int cced25519_sign_with_rng(const struct ccdigest_info*di,struct ccrng_state*r,void*sig,size_t n,const void*m,const void*public_key,const void*priv){int rc=rngcheck(r);return rc?rc:cced25519_sign(di,sig,n,m,public_key,priv);}
-__attribute__((visibility("default"))) int cced25519_verify(const struct ccdigest_info*di,size_t n,const void*m,const void*sig,const void*public_key){if(!di||di->output_size!=64)return -7;EVP_PKEY*k=EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519,NULL,public_key,32);EVP_MD_CTX*c=EVP_MD_CTX_new();int ok=k&&c&&EVP_DigestVerifyInit(c,NULL,NULL,NULL,k)>0&&EVP_DigestVerify(c,sig,64,m,n)==1;EVP_MD_CTX_free(c);EVP_PKEY_free(k);return ok?0:-146;}
-__attribute__((visibility("default"))) int cced448_make_pub(struct ccrng_state*r,void*out,const void*priv){int rc=rngcheck(r);if(rc)return rc;EVP_PKEY*k=EVP_PKEY_new_raw_private_key(EVP_PKEY_ED448,NULL,priv,57);size_t n=57;int ok=k&&EVP_PKEY_get_raw_public_key(k,out,&n);EVP_PKEY_free(k);return ok?0:-1;}
-__attribute__((visibility("default"))) int cced448_make_key_pair(struct ccrng_state*r,void*out,void*priv){if(!r||!r->generate)return -7;int rc=r->generate(r,57,priv);return rc?rc:cced448_make_pub(r,out,priv);}
-__attribute__((visibility("default"))) int cced448_sign(struct ccrng_state*r,void*sig,size_t n,const void*m,const void*public_key,const void*priv){int rc=rngcheck(r);if(rc)return rc;EVP_PKEY*k=EVP_PKEY_new_raw_private_key(EVP_PKEY_ED448,NULL,priv,57);EVP_MD_CTX*c=EVP_MD_CTX_new();unsigned char expected[57];size_t pn=57,sn=114;int ok=k&&c&&EVP_PKEY_get_raw_public_key(k,expected,&pn);if(ok&&CRYPTO_memcmp(expected,public_key,57)){memset(sig,0,114);rc=-7;}else{ok=ok&&EVP_DigestSignInit(c,NULL,NULL,NULL,k)>0&&EVP_DigestSign(c,sig,&sn,m,n)>0;rc=ok?0:-1;}EVP_MD_CTX_free(c);EVP_PKEY_free(k);return rc;}
-__attribute__((visibility("default"))) int cced448_verify(size_t n,const void*m,const void*sig,const void*public_key){EVP_PKEY*k=EVP_PKEY_new_raw_public_key(EVP_PKEY_ED448,NULL,public_key,57);EVP_MD_CTX*c=EVP_MD_CTX_new();int ok=k&&c&&EVP_DigestVerifyInit(c,NULL,NULL,NULL,k)>0&&EVP_DigestVerify(c,sig,114,m,n)==1;EVP_MD_CTX_free(c);EVP_PKEY_free(k);return ok?0:-146;}
+static int pub(void *out, const void *priv)
+{
+	EVP_PKEY *k = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, priv, 32);
+	size_t n = 32;
+	int ok = k && EVP_PKEY_get_raw_public_key(k, out, &n);
+	EVP_PKEY_free(k);
+	return ok ? 0 : -1;
+}
+__attribute__((visibility("default"))) int cced25519_make_pub(
+    const struct ccdigest_info *di, void *out, const void *priv)
+{
+	if (!di || di->output_size != 64)
+		return -7;
+	return pub(out, priv);
+}
+static int rngcheck(struct ccrng_state *r)
+{
+	unsigned char b[32];
+	if (!r || !r->generate)
+		return -7;
+	int rc = r->generate(r, sizeof(b), b);
+	OPENSSL_cleanse(b, sizeof(b));
+	return rc;
+}
+__attribute__((visibility("default"))) int cced25519_make_pub_with_rng(
+    const struct ccdigest_info *di, struct ccrng_state *r, void *out, const void *priv)
+{
+	if (!di || di->output_size != 64)
+		return -7;
+	int rc = rngcheck(r);
+	return rc ? rc : pub(out, priv);
+}
+__attribute__((visibility("default"))) int cced25519_make_key_pair(
+    const struct ccdigest_info *di, struct ccrng_state *r, void *out, void *priv)
+{
+	if (!r || !r->generate)
+		return -7;
+	int rc = r->generate(r, 32, priv);
+	return rc ? rc : cced25519_make_pub_with_rng(di, r, out, priv);
+}
+__attribute__((visibility("default"))) int cced25519_sign(const struct ccdigest_info *di, void *sig,
+    size_t n, const void *m, const void *public_key, const void *priv)
+{
+	if (!di || di->output_size != 64)
+		return -7;
+	unsigned char expected[32];
+	if (pub(expected, priv) || CRYPTO_memcmp(expected, public_key, 32))
+		return -7;
+	EVP_PKEY *k = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, priv, 32);
+	EVP_MD_CTX *c = EVP_MD_CTX_new();
+	size_t sn = 64;
+	int ok = k && c && EVP_DigestSignInit(c, NULL, NULL, NULL, k) > 0 &&
+	    EVP_DigestSign(c, sig, &sn, m, n) > 0;
+	EVP_MD_CTX_free(c);
+	EVP_PKEY_free(k);
+	return ok ? 0 : -1;
+}
+__attribute__((visibility("default"))) int cced25519_sign_with_rng(const struct ccdigest_info *di,
+    struct ccrng_state *r, void *sig, size_t n, const void *m, const void *public_key,
+    const void *priv)
+{
+	int rc = rngcheck(r);
+	return rc ? rc : cced25519_sign(di, sig, n, m, public_key, priv);
+}
+__attribute__((visibility("default"))) int cced25519_verify(const struct ccdigest_info *di,
+    size_t n, const void *m, const void *sig, const void *public_key)
+{
+	if (!di || di->output_size != 64)
+		return -7;
+	EVP_PKEY *k = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, public_key, 32);
+	EVP_MD_CTX *c = EVP_MD_CTX_new();
+	int ok = k && c && EVP_DigestVerifyInit(c, NULL, NULL, NULL, k) > 0 &&
+	    EVP_DigestVerify(c, sig, 64, m, n) == 1;
+	EVP_MD_CTX_free(c);
+	EVP_PKEY_free(k);
+	return ok ? 0 : -146;
+}
+__attribute__((visibility("default"))) int cced448_make_pub(
+    struct ccrng_state *r, void *out, const void *priv)
+{
+	int rc = rngcheck(r);
+	if (rc)
+		return rc;
+	EVP_PKEY *k = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED448, NULL, priv, 57);
+	size_t n = 57;
+	int ok = k && EVP_PKEY_get_raw_public_key(k, out, &n);
+	EVP_PKEY_free(k);
+	return ok ? 0 : -1;
+}
+__attribute__((visibility("default"))) int cced448_make_key_pair(
+    struct ccrng_state *r, void *out, void *priv)
+{
+	if (!r || !r->generate)
+		return -7;
+	int rc = r->generate(r, 57, priv);
+	return rc ? rc : cced448_make_pub(r, out, priv);
+}
+__attribute__((visibility("default"))) int cced448_sign(struct ccrng_state *r, void *sig, size_t n,
+    const void *m, const void *public_key, const void *priv)
+{
+	int rc = rngcheck(r);
+	if (rc)
+		return rc;
+	EVP_PKEY *k = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED448, NULL, priv, 57);
+	EVP_MD_CTX *c = EVP_MD_CTX_new();
+	unsigned char expected[57];
+	size_t pn = 57, sn = 114;
+	int ok = k && c && EVP_PKEY_get_raw_public_key(k, expected, &pn);
+	if (ok && CRYPTO_memcmp(expected, public_key, 57)) {
+		memset(sig, 0, 114);
+		rc = -7;
+	} else {
+		ok = ok && EVP_DigestSignInit(c, NULL, NULL, NULL, k) > 0 &&
+		    EVP_DigestSign(c, sig, &sn, m, n) > 0;
+		rc = ok ? 0 : -1;
+	}
+	EVP_MD_CTX_free(c);
+	EVP_PKEY_free(k);
+	return rc;
+}
+__attribute__((visibility("default"))) int cced448_verify(
+    size_t n, const void *m, const void *sig, const void *public_key)
+{
+	EVP_PKEY *k = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED448, NULL, public_key, 57);
+	EVP_MD_CTX *c = EVP_MD_CTX_new();
+	int ok = k && c && EVP_DigestVerifyInit(c, NULL, NULL, NULL, k) > 0 &&
+	    EVP_DigestVerify(c, sig, 114, m, n) == 1;
+	EVP_MD_CTX_free(c);
+	EVP_PKEY_free(k);
+	return ok ? 0 : -146;
+}

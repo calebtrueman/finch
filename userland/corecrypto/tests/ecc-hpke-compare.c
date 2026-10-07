@@ -4,12 +4,133 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-struct api{void*(*params[3])(void);int(*gen)(void*,void*,size_t,void*,size_t,void*);int(*setupi)(void*,void*,void*,size_t,const void*,size_t,const void*,size_t,void*);int(*setupr)(void*,void*,size_t,const void*,size_t,const void*,size_t,const void*);int(*enc)(void*,size_t,const void*,size_t,const void*,void*,size_t,void*);int(*dec)(void*,size_t,const void*,size_t,const void*,size_t,const void*,void*);int(*export)(void*,size_t,const void*,size_t,void*);int(*seal)(void*,void*,size_t,const void*,size_t,const void*,size_t,const void*,size_t,const void*,void*,size_t,void*,size_t,void*);int(*open)(void*,size_t,const void*,size_t,const void*,size_t,const void*,size_t,const void*,size_t,const void*,size_t,const void*,void*);};
+struct api {
+	void *(*params[3])(void);
+	int (*gen)(void *, void *, size_t, void *, size_t, void *);
+	int (*setupi)(
+	    void *, void *, void *, size_t, const void *, size_t, const void *, size_t, void *);
+	int (*setupr)(
+	    void *, void *, size_t, const void *, size_t, const void *, size_t, const void *);
+	int (*enc)(void *, size_t, const void *, size_t, const void *, void *, size_t, void *);
+	int (*dec)(
+	    void *, size_t, const void *, size_t, const void *, size_t, const void *, void *);
+	int (*export)(void *, size_t, const void *, size_t, void *);
+	int (*seal)(void *, void *, size_t, const void *, size_t, const void *, size_t,
+	    const void *, size_t, const void *, void *, size_t, void *, size_t, void *);
+	int (*open)(void *, size_t, const void *, size_t, const void *, size_t, const void *,
+	    size_t, const void *, size_t, const void *, size_t, const void *, void *);
+};
 static int tests;
-#define CHECK(x) do{tests++;if(!(x)){fprintf(stderr,"line %d: %s\n",__LINE__,#x);exit(1);}}while(0)
-static void load(void*h,struct api*a){a->params[0]=dlsym(h,"cchpke_params_x25519_AESGCM128_HKDF_SHA256");a->params[1]=dlsym(h,"cchpke_params_x25519_AESGCM256_HKDF_SHA256");a->params[2]=dlsym(h,"cchpke_params_xwing_AESGCM128_HKDF_SHA256");a->gen=dlsym(h,"cchpke_kem_generate_key_pair");a->setupi=dlsym(h,"cchpke_initiator_setup");a->setupr=dlsym(h,"cchpke_responder_setup");a->enc=dlsym(h,"cchpke_initiator_encrypt");a->dec=dlsym(h,"cchpke_responder_decrypt");a->export=dlsym(h,"cchpke_initiator_export");a->seal=dlsym(h,"cchpke_initiator_seal");a->open=dlsym(h,"cchpke_responder_open");}
-struct rng{int(*generate)(void*,size_t,void*);unsigned counter;};
-static int random_bytes(void*r,size_t n,void*out){struct rng*s=r;for(size_t i=0;i<n;i++)((unsigned char*)out)[i]=(s->counter++*83+17)&255;return 0;}
-int main(int argc,char**argv){void*h=dlopen("/usr/lib/system/libcorecrypto.dylib",RTLD_NOW|RTLD_LOCAL),*f=dlopen(argc>1?argv[1]:"/tmp/ecc-hpke-test.dylib",RTLD_NOW|RTLD_LOCAL);CHECK(h&&f);struct api a[2];load(h,&a[0]);load(f,&a[1]);void*(*rng)(int*)=dlsym(h,"ccrng");for(int suite=0;suite<3;suite++){size_t pn=suite==2?1216:32,en=suite==2?1120:32;unsigned char pk[1216],sk[32];for(int source=0;source<2;source++){CHECK(a[source].gen(a[source].params[suite](),rng(NULL),32,sk,pn,pk)==0);for(int ip=0;ip<2;ip++)for(int rp=0;rp<2;rp++)for(int libi=0;libi<2;libi++)for(int libr=0;libr<2;libr++){_Alignas(16) unsigned char ci[96],cr[96],encap[1120];CHECK(a[libi].setupi(ci,a[ip].params[suite](),rng(NULL),pn,pk,4,"info",en,encap)==0);int rc=a[libr].setupr(cr,a[rp].params[suite](),32,sk,4,"info",en,encap);if(rc){fprintf(stderr,"setup suite%d src%d ip%d rp%d li%d lr%d rc%d\n",suite,source,ip,rp,libi,libr,rc);return 1;}CHECK(rc==0);if(memcmp(ci+8,cr+8,88)){fprintf(stderr,"context mismatch suite%d src%d ip%d rp%d li%d lr%d\n",suite,source,ip,rp,libi,libr);return 1;}CHECK(!memcmp(ci+8,cr+8,88));for(int iter=0;iter<3;iter++){unsigned char cipher[64],tag[16],plain[64],msg[37];memset(msg,42,sizeof msg);CHECK(a[libi].enc(ci,3,"aad",sizeof msg,msg,cipher,16,tag)==0);CHECK(a[libr].dec(cr,3,"aad",sizeof msg,cipher,16,tag,plain)==0);CHECK(!memcmp(msg,plain,sizeof msg));}unsigned char e0[80],e1[80];CHECK(a[libi].export(ci,5,"extra",80,e0)==0);CHECK(a[libr].export(cr,5,"extra",80,e1)==0);CHECK(!memcmp(e0,e1,80));}}
- struct rng r0={random_bytes,0},r1={random_bytes,0};unsigned char k0[32],k1[32],p0[1216],p1[1216];CHECK(a[0].gen(a[0].params[suite](),&r0,32,k0,pn,p0)==0);CHECK(a[1].gen(a[1].params[suite](),&r1,32,k1,pn,p1)==0);CHECK(!memcmp(k0,k1,32)&&!memcmp(p0,p1,pn));unsigned char ct[50],tag[16],encap[1120],plain[50];CHECK(a[0].seal(a[0].params[suite](),rng(NULL),pn,p0,4,"info",3,"aad",5,"hello",ct,16,tag,en,encap)==0);CHECK(a[1].open(a[1].params[suite](),32,k0,4,"info",3,"aad",5,ct,16,tag,en,encap,plain)==0);CHECK(!memcmp(plain,"hello",5));}
- printf("HPKE: %d checks passed\n",tests);return 0;}
+#define CHECK(x)                                                                                   \
+	do {                                                                                       \
+		tests++;                                                                           \
+		if (!(x)) {                                                                        \
+			fprintf(stderr, "line %d: %s\n", __LINE__, #x);                            \
+			exit(1);                                                                   \
+		}                                                                                  \
+	} while (0)
+static void load(void *h, struct api *a)
+{
+	a->params[0] = dlsym(h, "cchpke_params_x25519_AESGCM128_HKDF_SHA256");
+	a->params[1] = dlsym(h, "cchpke_params_x25519_AESGCM256_HKDF_SHA256");
+	a->params[2] = dlsym(h, "cchpke_params_xwing_AESGCM128_HKDF_SHA256");
+	a->gen = dlsym(h, "cchpke_kem_generate_key_pair");
+	a->setupi = dlsym(h, "cchpke_initiator_setup");
+	a->setupr = dlsym(h, "cchpke_responder_setup");
+	a->enc = dlsym(h, "cchpke_initiator_encrypt");
+	a->dec = dlsym(h, "cchpke_responder_decrypt");
+	a->export = dlsym(h, "cchpke_initiator_export");
+	a->seal = dlsym(h, "cchpke_initiator_seal");
+	a->open = dlsym(h, "cchpke_responder_open");
+}
+struct rng {
+	int (*generate)(void *, size_t, void *);
+	unsigned counter;
+};
+static int random_bytes(void *r, size_t n, void *out)
+{
+	struct rng *s = r;
+	for (size_t i = 0; i < n; i++)
+		((unsigned char *)out)[i] = (s->counter++ * 83 + 17) & 255;
+	return 0;
+}
+int main(int argc, char **argv)
+{
+	void *h = dlopen("/usr/lib/system/libcorecrypto.dylib", RTLD_NOW | RTLD_LOCAL),
+	     *f = dlopen(argc > 1 ? argv[1] : "/tmp/ecc-hpke-test.dylib", RTLD_NOW | RTLD_LOCAL);
+	CHECK(h && f);
+	struct api a[2];
+	load(h, &a[0]);
+	load(f, &a[1]);
+	void *(*rng)(int *) = dlsym(h, "ccrng");
+	for (int suite = 0; suite < 3; suite++) {
+		size_t pn = suite == 2 ? 1216 : 32, en = suite == 2 ? 1120 : 32;
+		unsigned char pk[1216], sk[32];
+		for (int source = 0; source < 2; source++) {
+			CHECK(a[source].gen(a[source].params[suite](), rng(NULL), 32, sk, pn, pk) ==
+			    0);
+			for (int ip = 0; ip < 2; ip++)
+				for (int rp = 0; rp < 2; rp++)
+					for (int libi = 0; libi < 2; libi++)
+						for (int libr = 0; libr < 2; libr++) {
+							_Alignas(16) unsigned char ci[96], cr[96],
+							    encap[1120];
+							CHECK(
+							    a[libi].setupi(ci,
+							        a[ip].params[suite](), rng(NULL),
+							        pn, pk, 4, "info", en, encap) == 0);
+							int rc = a[libr].setupr(cr,
+							    a[rp].params[suite](), 32, sk, 4,
+							    "info", en, encap);
+							if (rc) {
+								fprintf(stderr,
+								    "setup suite%d src%d ip%d rp%d li%d lr%d rc%d\n",
+								    suite, source, ip, rp, libi,
+								    libr, rc);
+								return 1;
+							}
+							CHECK(rc == 0);
+							if (memcmp(ci + 8, cr + 8, 88)) {
+								fprintf(stderr,
+								    "context mismatch suite%d src%d ip%d rp%d li%d lr%d\n",
+								    suite, source, ip, rp, libi,
+								    libr);
+								return 1;
+							}
+							CHECK(!memcmp(ci + 8, cr + 8, 88));
+							for (int iter = 0; iter < 3; iter++) {
+								unsigned char cipher[64], tag[16],
+								    plain[64], msg[37];
+								memset(msg, 42, sizeof msg);
+								CHECK(a[libi].enc(ci, 3, "aad",
+								          sizeof msg, msg, cipher,
+								          16, tag) == 0);
+								CHECK(a[libr].dec(cr, 3, "aad",
+								          sizeof msg, cipher, 16,
+								          tag, plain) == 0);
+								CHECK(!memcmp(
+								    msg, plain, sizeof msg));
+							}
+							unsigned char e0[80], e1[80];
+							CHECK(a[libi].export(
+							          ci, 5, "extra", 80, e0) == 0);
+							CHECK(a[libr].export(
+							          cr, 5, "extra", 80, e1) == 0);
+							CHECK(!memcmp(e0, e1, 80));
+						}
+		}
+		struct rng r0 = {random_bytes, 0}, r1 = {random_bytes, 0};
+		unsigned char k0[32], k1[32], p0[1216], p1[1216];
+		CHECK(a[0].gen(a[0].params[suite](), &r0, 32, k0, pn, p0) == 0);
+		CHECK(a[1].gen(a[1].params[suite](), &r1, 32, k1, pn, p1) == 0);
+		CHECK(!memcmp(k0, k1, 32) && !memcmp(p0, p1, pn));
+		unsigned char ct[50], tag[16], encap[1120], plain[50];
+		CHECK(a[0].seal(a[0].params[suite](), rng(NULL), pn, p0, 4, "info", 3, "aad", 5,
+		          "hello", ct, 16, tag, en, encap) == 0);
+		CHECK(a[1].open(a[1].params[suite](), 32, k0, 4, "info", 3, "aad", 5, ct, 16, tag,
+		          en, encap, plain) == 0);
+		CHECK(!memcmp(plain, "hello", 5));
+	}
+	printf("HPKE: %d checks passed\n", tests);
+	return 0;
+}

@@ -10,48 +10,490 @@
 #include <stdlib.h>
 #include <string.h>
 #define API __attribute__((visibility("default")))
-extern struct ccrng_state *ccrng(int*);
-static cc_unit *part(const struct ccsrp_ctx*s,unsigned i){return (cc_unit*)s->data+i*s->gp->n;}
-static unsigned char *key(const struct ccsrp_ctx*s){return (void*)part(s,4);}
-static unsigned char *proof(const struct ccsrp_ctx*s,unsigned i){return key(s)+(2+i)*s->di->output_size;}
-static BIGNUM *number(const struct ccsrp_ctx*s,const cc_unit*p){return BN_lebin2bn((void*)p,(int)s->gp->n*8,NULL);}
-static void store(const struct ccsrp_ctx*s,const BIGNUM*b,cc_unit*p){BN_bn2lebinpad(b,(void*)p,(int)s->gp->n*8);}
-API size_t ccsrp_sizeof_verifier(const struct cczp*g){return g->n*8;}
-API size_t ccsrp_sizeof_public_key(const struct cczp*g){return g->n*8;}
-API size_t ccsrp_sizeof_M_HAMK(const struct ccdigest_info*d){return d->output_size;}
-API size_t ccsrp_exchange_size(const struct ccsrp_ctx*s){return s->gp->n*8;}
-API size_t ccsrp_session_size(const struct ccsrp_ctx*s){return s->di->output_size;}
-API size_t ccsrp_sizeof_session_key(const struct ccdigest_info*d,unsigned o){o&=7;return o==0?d->output_size:o<=2?d->output_size*2:0;}
-API size_t ccsrp_get_session_key_length(const struct ccsrp_ctx*s){return ccsrp_sizeof_session_key(s->di,s->flags>>3);}
-API const void *ccsrp_get_session_key(const struct ccsrp_ctx*s,size_t*n){*n=ccsrp_get_session_key_length(s);return s->flags&4?key(s):NULL;}
-API const cc_unit *ccsrp_get_premaster_secret(const struct ccsrp_ctx*s){return s->flags&4?part(s,3):NULL;}
-API bool ccsrp_is_authenticated(const struct ccsrp_ctx*s){return s->flags&1;}
-API int ccsrp_client_set_noUsernameInX(struct ccsrp_ctx*s,int b){s->flags=(s->flags&~2u)|(b?2:0);return b;}
-API int ccsrp_ctx_init_with_size_option(struct ccsrp_ctx*s,size_t n,const struct ccdigest_info*d,const struct cczp*g,unsigned o,struct ccrng_state*r){memset(s,0,n);s->di=d;s->gp=g;s->rng=r;s->flags=(o&65535)<<3;return 0;}
-API int ccsrp_ctx_init_option(struct ccsrp_ctx*s,const struct ccdigest_info*d,const struct cczp*g,unsigned o,struct ccrng_state*r){return ccsrp_ctx_init_with_size_option(s,48+4*(g->n*8+d->output_size),d,g,o,r);}
-API void ccsrp_ctx_init(struct ccsrp_ctx*s,const struct ccdigest_info*d,const struct cczp*g){ccsrp_ctx_init_option(s,d,g,0,ccrng(NULL));}
-static void *hash_start(const struct ccsrp_ctx*s){void*c=calloc(1,s->di->state_size+s->di->block_size+32);if(c)ccdigest_init(s->di,c);return c;}
-static void hash_add(const struct ccsrp_ctx*s,void*c,size_t n,const void*p){ccdigest_update(s->di,c,n,p);}
-static void hash_end(const struct ccsrp_ctx*s,void*c,void*out){s->di->final(s->di,c,out);OPENSSL_clear_free(c,s->di->state_size+s->di->block_size+32);}
-static int hash_number(const struct ccsrp_ctx*s,void*c,const BIGNUM*b,int trim){size_t n=s->gp->n*8;unsigned char*p=malloc(n);if(!p)return -13;BN_bn2binpad(b,p,(int)n);size_t skip=trim?n-(size_t)BN_num_bytes(b):0;hash_add(s,c,n-skip,p+skip);OPENSSL_clear_free(p,n);return 0;}
-static BIGNUM *hash_pair(const struct ccsrp_ctx*s,const BIGNUM*a,const BIGNUM*b,int narrow){unsigned char d[64];void*c=hash_start(s);if(!c)return NULL;if(a)hash_number(s,c,a,s->flags&512);hash_number(s,c,b,s->flags&512);hash_end(s,c,d);BIGNUM*v=BN_bin2bn(d,narrow?4:(int)s->di->output_size,NULL);OPENSSL_cleanse(d,sizeof d);return v;}
-static BIGNUM *password_x(const struct ccsrp_ctx*s,const char*u,size_t pn,const void*p,size_t sn,const void*salt){unsigned char d[64];void*c=hash_start(s);if(!c)return NULL;if(!(s->flags&2))hash_add(s,c,strlen(u),u);hash_add(s,c,1,":");hash_add(s,c,pn,p);hash_end(s,c,d);c=hash_start(s);if(!c)return NULL;hash_add(s,c,sn,salt);hash_add(s,c,s->di->output_size,d);hash_end(s,c,d);BIGNUM*x=BN_bin2bn(d,(int)s->di->output_size,NULL);OPENSSL_cleanse(d,sizeof d);return x;}
-static int power(const struct ccsrp_ctx*s,BIGNUM*out,const BIGNUM*a,const BIGNUM*x,const BIGNUM*p,BN_CTX*c){unsigned char blind[32];struct ccrng_state*r=s->rng?s->rng:ccrng(NULL);int ret=r->generate(r,sizeof blind,blind);if(ret)return ret;BIGNUM*e=BN_dup(p),*b=BN_bin2bn(blind,sizeof blind,NULL);OPENSSL_cleanse(blind,sizeof blind);if(!e||!b){BN_free(e);BN_free(b);return -13;}int ok=BN_sub_word(e,1)&&BN_mul(e,e,b,c)&&BN_add(e,e,x)&&BN_mod_exp_mont_consttime(out,a,e,p,c,NULL);BN_clear_free(e);BN_clear_free(b);return ok?0:-7;}
-API int ccsrp_generate_verifier(struct ccsrp_ctx*s,const char*u,size_t pn,const void*pass,size_t sn,const void*salt,void*out){BN_CTX*c=BN_CTX_new();BIGNUM*p=number(s,s->gp->data),*g=number(s,ccdh_gp_g(s->gp)),*x=password_x(s,u,pn,pass,sn,salt),*v=BN_new();int ret=-13;memset(part(s,2),0,s->gp->n*8);if(c&&p&&g&&x&&v){ret=power(s,v,g,x,p,c);if(!ret){store(s,v,part(s,2));BN_bn2binpad(v,out,(int)s->gp->n*8);}}BN_CTX_free(c);BN_free(p);BN_free(g);BN_clear_free(x);BN_clear_free(v);return ret;}
-API int ccsrp_generate_salt_and_verification(struct ccsrp_ctx*s,struct ccrng_state*r,const char*u,size_t pn,const void*p,size_t sn,void*salt,void*v){int ret=r->generate(r,sn,salt);return ret?ret:ccsrp_generate_verifier(s,u,pn,p,sn,salt,v);}
-static int start(struct ccsrp_ctx*s,struct ccrng_state*r){size_t n=16+s->gp->n*16;struct ccdh_ctx*k=calloc(1,n);if(!k)return -13;int ret=ccdh_generate_key(s->gp,r,k);if(!ret){memcpy(part(s,0),k->data,s->gp->n*16);}OPENSSL_clear_free(k,n);return ret;}
-API int ccsrp_client_start_authentication(struct ccsrp_ctx*s,struct ccrng_state*r,void*out){int ret=start(s,r);if(!ret)ccn_write_uint_padded_ct(s->gp->n,part(s,0),s->gp->n*8,out);return ret;}
-API int ccsrp_server_generate_public_key(struct ccsrp_ctx*s,struct ccrng_state*r,const void*verifier,void*out){s->flags&=~1u;int ret=start(s,r);if(ret)return ret;BN_CTX*c=BN_CTX_new();BIGNUM*p=number(s,s->gp->data),*g=number(s,ccdh_gp_g(s->gp)),*v=BN_bin2bn(verifier,(int)s->gp->n*8,NULL),*b=number(s,part(s,0)),*k=NULL;ret=-13;if(!c||!p||!g||!v||!b)goto done;store(s,v,part(s,2));if(!(s->flags&448)){k=hash_pair(s,p,g,0);if(!k)goto done;if(!BN_mod_mul(v,v,k,p,c)){ret=-7;goto done;}}if(!BN_mod_add(b,b,v,p,c)){ret=-7;goto done;}store(s,b,part(s,0));BN_bn2binpad(b,out,(int)s->gp->n*8);ret=0;done:BN_CTX_free(c);BN_free(p);BN_free(g);BN_clear_free(v);BN_clear_free(b);BN_clear_free(k);return ret;}
-static int finish(struct ccsrp_ctx*s,const char*u,size_t sn,const void*salt,const BIGNUM*a,const BIGNUM*b,const BIGNUM*secret){size_t h=s->di->output_size,n=s->gp->n*8;unsigned method=(s->flags>>3)&7;unsigned char d[64],d2[64];void*c=NULL;unsigned char*buf=malloc(n+4);if(!buf)return -13;store(s,secret,part(s,3));BN_bn2binpad(secret,buf,(int)n);size_t skip=n-(size_t)BN_num_bytes(secret);if(method==0){ccdigest(s->di,(s->flags&512)?n-skip:n,buf+((s->flags&512)?skip:0),key(s));}else if(method==1){memmove(buf,buf+skip,n-skip);for(unsigned i=0;i<2;i++){size_t z=n-skip;buf[z]=buf[z+1]=buf[z+2]=0;buf[z+3]=i;ccdigest(s->di,z+4,buf,key(s)+i*h);}}else if(method==2){size_t z=(n-skip)/2;unsigned char*half=malloc(z?z:1);if(!half){free(buf);return -13;}size_t off=skip+((n-skip)&1);for(size_t i=0;i<z;i++)half[z-1-i]=buf[off+2*i+1];ccdigest(s->di,z,half,d);for(size_t i=0;i<z;i++)half[z-1-i]=buf[off+2*i];ccdigest(s->di,z,half,d2);for(size_t i=0;i<h;i++){key(s)[2*i]=d[i];key(s)[2*i+1]=d2[i];}OPENSSL_clear_free(half,z);}else{OPENSSL_clear_free(buf,n+4);return -57;}s->flags|=4;OPENSSL_clear_free(buf,n+4);
- BIGNUM*p=number(s,s->gp->data),*g=number(s,ccdh_gp_g(s->gp));if(!p||!g){BN_free(p);BN_free(g);return -13;}int trim=s->flags&1024;c=hash_start(s);hash_number(s,c,p,trim);hash_end(s,c,d);c=hash_start(s);hash_number(s,c,g,trim);hash_end(s,c,d2);for(size_t i=0;i<h;i++)d[i]^=d2[i];ccdigest(s->di,strlen(u),u,d2);c=hash_start(s);hash_add(s,c,h,d);hash_add(s,c,h,d2);hash_add(s,c,sn,salt);hash_number(s,c,a,trim);hash_number(s,c,b,trim);hash_add(s,c,ccsrp_get_session_key_length(s),key(s));hash_end(s,c,proof(s,0));c=hash_start(s);hash_number(s,c,a,trim);hash_add(s,c,h,proof(s,0));hash_add(s,c,ccsrp_get_session_key_length(s),key(s));hash_end(s,c,proof(s,1));BN_free(p);BN_free(g);OPENSSL_cleanse(d,sizeof d);OPENSSL_cleanse(d2,sizeof d2);return 0;}
-API int ccsrp_client_process_challenge(struct ccsrp_ctx*s,const char*user,size_t pn,const void*pass,size_t sn,const void*salt,const void*server,void*m){if(s->gp->bitlen<s->di->output_size*8)return -57;BN_CTX*c=BN_CTX_new();BIGNUM*p=number(s,s->gp->data),*g=number(s,ccdh_gp_g(s->gp)),*a=number(s,part(s,0)),*priv=number(s,part(s,1)),*b=BN_bin2bn(server,(int)s->gp->n*8,NULL),*u=NULL,*x=NULL,*k=NULL,*v=BN_new(),*e=BN_new(),*sec=BN_new();int ret=-13;if(!c||!p||!g||!a||!priv||!b||!v||!e||!sec)goto done;BN_nnmod(v,b,p,c);if(BN_is_zero(v)){ret=-58;goto done;}u=hash_pair(s,s->flags&448?NULL:a,b,s->flags&448);x=password_x(s,user,pn,pass,sn,salt);k=hash_pair(s,p,g,0);if(!u||!x||!k)goto done;if(BN_is_zero(u)){ret=-58;goto done;}ret=power(s,v,g,x,p,c);if(ret)goto done;if(!(s->flags&448))BN_mod_mul(v,v,k,p,c);BN_mod_sub(v,b,v,p,c);BN_mul(e,u,x,c);BN_add(e,e,priv);ret=power(s,sec,v,e,p,c);if(!ret)ret=finish(s,user,sn,salt,a,b,sec);if(!ret)memcpy(m,proof(s,0),s->di->output_size);done:BN_CTX_free(c);BN_free(p);BN_free(g);BN_free(a);BN_clear_free(priv);BN_free(b);BN_free(u);BN_clear_free(x);BN_free(k);BN_clear_free(v);BN_clear_free(e);BN_clear_free(sec);return ret;}
-API int ccsrp_server_compute_session(struct ccsrp_ctx*s,const char*user,size_t sn,const void*salt,const void*client){if(!ccn_bitlen(s->gp->n,part(s,0)))return -59;BN_CTX*c=BN_CTX_new();BIGNUM*p=number(s,s->gp->data),*a=BN_bin2bn(client,(int)s->gp->n*8,NULL),*b=number(s,part(s,0)),*priv=number(s,part(s,1)),*v=number(s,part(s,2)),*u=NULL,*t=BN_new(),*sec=BN_new();int ret=-13;if(!c||!p||!a||!b||!priv||!v||!t||!sec)goto done;BN_nnmod(t,a,p,c);if(BN_is_zero(t)){ret=-58;goto done;}u=hash_pair(s,s->flags&448?NULL:a,b,s->flags&448);if(!u)goto done;ret=power(s,t,v,u,p,c);if(ret)goto done;BN_mod_mul(t,t,a,p,c);ret=power(s,sec,t,priv,p,c);if(!ret)ret=finish(s,user,sn,salt,a,b,sec);done:BN_CTX_free(c);BN_free(p);BN_free(a);BN_free(b);BN_clear_free(priv);BN_clear_free(v);BN_free(u);BN_clear_free(t);BN_clear_free(sec);return ret;}
-API int ccsrp_server_start_authentication(struct ccsrp_ctx*s,struct ccrng_state*r,const char*u,size_t sn,const void*salt,const void*v,const void*a,void*b){s->rng=r;int ret=ccsrp_server_generate_public_key(s,r,v,b);return ret?ret:ccsrp_server_compute_session(s,u,sn,salt,a);}
-API bool ccsrp_client_verify_session(struct ccsrp_ctx*s,const void*m){bool ok=(s->flags&4)&&!CRYPTO_memcmp(m,proof(s,1),s->di->output_size);s->flags=(s->flags&~1u)|ok;return ok;}
-API bool ccsrp_server_verify_session(struct ccsrp_ctx*s,const void*m,void*hamk){bool ok=(s->flags&4)&&!CRYPTO_memcmp(m,proof(s,0),s->di->output_size);s->flags=(s->flags&~1u)|ok;if(ok)memcpy(hamk,proof(s,1),s->di->output_size);return ok;}
+extern struct ccrng_state *ccrng(int *);
+static cc_unit *part(const struct ccsrp_ctx *s, unsigned i)
+{
+	return (cc_unit *)s->data + i * s->gp->n;
+}
+static unsigned char *key(const struct ccsrp_ctx *s)
+{
+	return (void *)part(s, 4);
+}
+static unsigned char *proof(const struct ccsrp_ctx *s, unsigned i)
+{
+	return key(s) + (2 + i) * s->di->output_size;
+}
+static BIGNUM *number(const struct ccsrp_ctx *s, const cc_unit *p)
+{
+	return BN_lebin2bn((void *)p, (int)s->gp->n * 8, NULL);
+}
+static void store(const struct ccsrp_ctx *s, const BIGNUM *b, cc_unit *p)
+{
+	BN_bn2lebinpad(b, (void *)p, (int)s->gp->n * 8);
+}
+API size_t ccsrp_sizeof_verifier(const struct cczp *g)
+{
+	return g->n * 8;
+}
+API size_t ccsrp_sizeof_public_key(const struct cczp *g)
+{
+	return g->n * 8;
+}
+API size_t ccsrp_sizeof_M_HAMK(const struct ccdigest_info *d)
+{
+	return d->output_size;
+}
+API size_t ccsrp_exchange_size(const struct ccsrp_ctx *s)
+{
+	return s->gp->n * 8;
+}
+API size_t ccsrp_session_size(const struct ccsrp_ctx *s)
+{
+	return s->di->output_size;
+}
+API size_t ccsrp_sizeof_session_key(const struct ccdigest_info *d, unsigned o)
+{
+	o &= 7;
+	return o == 0 ? d->output_size : o <= 2 ? d->output_size * 2 : 0;
+}
+API size_t ccsrp_get_session_key_length(const struct ccsrp_ctx *s)
+{
+	return ccsrp_sizeof_session_key(s->di, s->flags >> 3);
+}
+API const void *ccsrp_get_session_key(const struct ccsrp_ctx *s, size_t *n)
+{
+	*n = ccsrp_get_session_key_length(s);
+	return s->flags & 4 ? key(s) : NULL;
+}
+API const cc_unit *ccsrp_get_premaster_secret(const struct ccsrp_ctx *s)
+{
+	return s->flags & 4 ? part(s, 3) : NULL;
+}
+API bool ccsrp_is_authenticated(const struct ccsrp_ctx *s)
+{
+	return s->flags & 1;
+}
+API int ccsrp_client_set_noUsernameInX(struct ccsrp_ctx *s, int b)
+{
+	s->flags = (s->flags & ~2u) | (b ? 2 : 0);
+	return b;
+}
+API int ccsrp_ctx_init_with_size_option(struct ccsrp_ctx *s, size_t n,
+    const struct ccdigest_info *d, const struct cczp *g, unsigned o, struct ccrng_state *r)
+{
+	memset(s, 0, n);
+	s->di = d;
+	s->gp = g;
+	s->rng = r;
+	s->flags = (o & 65535) << 3;
+	return 0;
+}
+API int ccsrp_ctx_init_option(struct ccsrp_ctx *s, const struct ccdigest_info *d,
+    const struct cczp *g, unsigned o, struct ccrng_state *r)
+{
+	return ccsrp_ctx_init_with_size_option(s, 48 + 4 * (g->n * 8 + d->output_size), d, g, o, r);
+}
+API void ccsrp_ctx_init(struct ccsrp_ctx *s, const struct ccdigest_info *d, const struct cczp *g)
+{
+	ccsrp_ctx_init_option(s, d, g, 0, ccrng(NULL));
+}
+static void *hash_start(const struct ccsrp_ctx *s)
+{
+	void *c = calloc(1, s->di->state_size + s->di->block_size + 32);
+	if (c)
+		ccdigest_init(s->di, c);
+	return c;
+}
+static void hash_add(const struct ccsrp_ctx *s, void *c, size_t n, const void *p)
+{
+	ccdigest_update(s->di, c, n, p);
+}
+static void hash_end(const struct ccsrp_ctx *s, void *c, void *out)
+{
+	s->di->final(s->di, c, out);
+	OPENSSL_clear_free(c, s->di->state_size + s->di->block_size + 32);
+}
+static int hash_number(const struct ccsrp_ctx *s, void *c, const BIGNUM *b, int trim)
+{
+	size_t n = s->gp->n * 8;
+	unsigned char *p = malloc(n);
+	if (!p)
+		return -13;
+	BN_bn2binpad(b, p, (int)n);
+	size_t skip = trim ? n - (size_t)BN_num_bytes(b) : 0;
+	hash_add(s, c, n - skip, p + skip);
+	OPENSSL_clear_free(p, n);
+	return 0;
+}
+static BIGNUM *hash_pair(const struct ccsrp_ctx *s, const BIGNUM *a, const BIGNUM *b, int narrow)
+{
+	unsigned char d[64];
+	void *c = hash_start(s);
+	if (!c)
+		return NULL;
+	if (a)
+		hash_number(s, c, a, s->flags & 512);
+	hash_number(s, c, b, s->flags & 512);
+	hash_end(s, c, d);
+	BIGNUM *v = BN_bin2bn(d, narrow ? 4 : (int)s->di->output_size, NULL);
+	OPENSSL_cleanse(d, sizeof d);
+	return v;
+}
+static BIGNUM *password_x(
+    const struct ccsrp_ctx *s, const char *u, size_t pn, const void *p, size_t sn, const void *salt)
+{
+	unsigned char d[64];
+	void *c = hash_start(s);
+	if (!c)
+		return NULL;
+	if (!(s->flags & 2))
+		hash_add(s, c, strlen(u), u);
+	hash_add(s, c, 1, ":");
+	hash_add(s, c, pn, p);
+	hash_end(s, c, d);
+	c = hash_start(s);
+	if (!c)
+		return NULL;
+	hash_add(s, c, sn, salt);
+	hash_add(s, c, s->di->output_size, d);
+	hash_end(s, c, d);
+	BIGNUM *x = BN_bin2bn(d, (int)s->di->output_size, NULL);
+	OPENSSL_cleanse(d, sizeof d);
+	return x;
+}
+static int power(const struct ccsrp_ctx *s, BIGNUM *out, const BIGNUM *a, const BIGNUM *x,
+    const BIGNUM *p, BN_CTX *c)
+{
+	unsigned char blind[32];
+	struct ccrng_state *r = s->rng ? s->rng : ccrng(NULL);
+	int ret = r->generate(r, sizeof blind, blind);
+	if (ret)
+		return ret;
+	BIGNUM *e = BN_dup(p), *b = BN_bin2bn(blind, sizeof blind, NULL);
+	OPENSSL_cleanse(blind, sizeof blind);
+	if (!e || !b) {
+		BN_free(e);
+		BN_free(b);
+		return -13;
+	}
+	int ok = BN_sub_word(e, 1) && BN_mul(e, e, b, c) && BN_add(e, e, x) &&
+	    BN_mod_exp_mont_consttime(out, a, e, p, c, NULL);
+	BN_clear_free(e);
+	BN_clear_free(b);
+	return ok ? 0 : -7;
+}
+API int ccsrp_generate_verifier(struct ccsrp_ctx *s, const char *u, size_t pn, const void *pass,
+    size_t sn, const void *salt, void *out)
+{
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *p = number(s, s->gp->data), *g = number(s, ccdh_gp_g(s->gp)),
+	       *x = password_x(s, u, pn, pass, sn, salt), *v = BN_new();
+	int ret = -13;
+	memset(part(s, 2), 0, s->gp->n * 8);
+	if (c && p && g && x && v) {
+		ret = power(s, v, g, x, p, c);
+		if (!ret) {
+			store(s, v, part(s, 2));
+			BN_bn2binpad(v, out, (int)s->gp->n * 8);
+		}
+	}
+	BN_CTX_free(c);
+	BN_free(p);
+	BN_free(g);
+	BN_clear_free(x);
+	BN_clear_free(v);
+	return ret;
+}
+API int ccsrp_generate_salt_and_verification(struct ccsrp_ctx *s, struct ccrng_state *r,
+    const char *u, size_t pn, const void *p, size_t sn, void *salt, void *v)
+{
+	int ret = r->generate(r, sn, salt);
+	return ret ? ret : ccsrp_generate_verifier(s, u, pn, p, sn, salt, v);
+}
+static int start(struct ccsrp_ctx *s, struct ccrng_state *r)
+{
+	size_t n = 16 + s->gp->n * 16;
+	struct ccdh_ctx *k = calloc(1, n);
+	if (!k)
+		return -13;
+	int ret = ccdh_generate_key(s->gp, r, k);
+	if (!ret) {
+		memcpy(part(s, 0), k->data, s->gp->n * 16);
+	}
+	OPENSSL_clear_free(k, n);
+	return ret;
+}
+API int ccsrp_client_start_authentication(struct ccsrp_ctx *s, struct ccrng_state *r, void *out)
+{
+	int ret = start(s, r);
+	if (!ret)
+		ccn_write_uint_padded_ct(s->gp->n, part(s, 0), s->gp->n * 8, out);
+	return ret;
+}
+API int ccsrp_server_generate_public_key(
+    struct ccsrp_ctx *s, struct ccrng_state *r, const void *verifier, void *out)
+{
+	s->flags &= ~1u;
+	int ret = start(s, r);
+	if (ret)
+		return ret;
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *p = number(s, s->gp->data), *g = number(s, ccdh_gp_g(s->gp)),
+	       *v = BN_bin2bn(verifier, (int)s->gp->n * 8, NULL), *b = number(s, part(s, 0)),
+	       *k = NULL;
+	ret = -13;
+	if (!c || !p || !g || !v || !b)
+		goto done;
+	store(s, v, part(s, 2));
+	if (!(s->flags & 448)) {
+		k = hash_pair(s, p, g, 0);
+		if (!k)
+			goto done;
+		if (!BN_mod_mul(v, v, k, p, c)) {
+			ret = -7;
+			goto done;
+		}
+	}
+	if (!BN_mod_add(b, b, v, p, c)) {
+		ret = -7;
+		goto done;
+	}
+	store(s, b, part(s, 0));
+	BN_bn2binpad(b, out, (int)s->gp->n * 8);
+	ret = 0;
+done:
+	BN_CTX_free(c);
+	BN_free(p);
+	BN_free(g);
+	BN_clear_free(v);
+	BN_clear_free(b);
+	BN_clear_free(k);
+	return ret;
+}
+static int finish(struct ccsrp_ctx *s, const char *u, size_t sn, const void *salt, const BIGNUM *a,
+    const BIGNUM *b, const BIGNUM *secret)
+{
+	size_t h = s->di->output_size, n = s->gp->n * 8;
+	unsigned method = (s->flags >> 3) & 7;
+	unsigned char d[64], d2[64];
+	void *c = NULL;
+	unsigned char *buf = malloc(n + 4);
+	if (!buf)
+		return -13;
+	store(s, secret, part(s, 3));
+	BN_bn2binpad(secret, buf, (int)n);
+	size_t skip = n - (size_t)BN_num_bytes(secret);
+	if (method == 0) {
+		ccdigest(s->di, (s->flags & 512) ? n - skip : n,
+		    buf + ((s->flags & 512) ? skip : 0), key(s));
+	} else if (method == 1) {
+		memmove(buf, buf + skip, n - skip);
+		for (unsigned i = 0; i < 2; i++) {
+			size_t z = n - skip;
+			buf[z] = buf[z + 1] = buf[z + 2] = 0;
+			buf[z + 3] = i;
+			ccdigest(s->di, z + 4, buf, key(s) + i * h);
+		}
+	} else if (method == 2) {
+		size_t z = (n - skip) / 2;
+		unsigned char *half = malloc(z ? z : 1);
+		if (!half) {
+			free(buf);
+			return -13;
+		}
+		size_t off = skip + ((n - skip) & 1);
+		for (size_t i = 0; i < z; i++)
+			half[z - 1 - i] = buf[off + 2 * i + 1];
+		ccdigest(s->di, z, half, d);
+		for (size_t i = 0; i < z; i++)
+			half[z - 1 - i] = buf[off + 2 * i];
+		ccdigest(s->di, z, half, d2);
+		for (size_t i = 0; i < h; i++) {
+			key(s)[2 * i] = d[i];
+			key(s)[2 * i + 1] = d2[i];
+		}
+		OPENSSL_clear_free(half, z);
+	} else {
+		OPENSSL_clear_free(buf, n + 4);
+		return -57;
+	}
+	s->flags |= 4;
+	OPENSSL_clear_free(buf, n + 4);
+	BIGNUM *p = number(s, s->gp->data), *g = number(s, ccdh_gp_g(s->gp));
+	if (!p || !g) {
+		BN_free(p);
+		BN_free(g);
+		return -13;
+	}
+	int trim = s->flags & 1024;
+	c = hash_start(s);
+	hash_number(s, c, p, trim);
+	hash_end(s, c, d);
+	c = hash_start(s);
+	hash_number(s, c, g, trim);
+	hash_end(s, c, d2);
+	for (size_t i = 0; i < h; i++)
+		d[i] ^= d2[i];
+	ccdigest(s->di, strlen(u), u, d2);
+	c = hash_start(s);
+	hash_add(s, c, h, d);
+	hash_add(s, c, h, d2);
+	hash_add(s, c, sn, salt);
+	hash_number(s, c, a, trim);
+	hash_number(s, c, b, trim);
+	hash_add(s, c, ccsrp_get_session_key_length(s), key(s));
+	hash_end(s, c, proof(s, 0));
+	c = hash_start(s);
+	hash_number(s, c, a, trim);
+	hash_add(s, c, h, proof(s, 0));
+	hash_add(s, c, ccsrp_get_session_key_length(s), key(s));
+	hash_end(s, c, proof(s, 1));
+	BN_free(p);
+	BN_free(g);
+	OPENSSL_cleanse(d, sizeof d);
+	OPENSSL_cleanse(d2, sizeof d2);
+	return 0;
+}
+API int ccsrp_client_process_challenge(struct ccsrp_ctx *s, const char *user, size_t pn,
+    const void *pass, size_t sn, const void *salt, const void *server, void *m)
+{
+	if (s->gp->bitlen < s->di->output_size * 8)
+		return -57;
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *p = number(s, s->gp->data), *g = number(s, ccdh_gp_g(s->gp)),
+	       *a = number(s, part(s, 0)), *priv = number(s, part(s, 1)),
+	       *b = BN_bin2bn(server, (int)s->gp->n * 8, NULL), *u = NULL, *x = NULL, *k = NULL,
+	       *v = BN_new(), *e = BN_new(), *sec = BN_new();
+	int ret = -13;
+	if (!c || !p || !g || !a || !priv || !b || !v || !e || !sec)
+		goto done;
+	BN_nnmod(v, b, p, c);
+	if (BN_is_zero(v)) {
+		ret = -58;
+		goto done;
+	}
+	u = hash_pair(s, s->flags & 448 ? NULL : a, b, s->flags & 448);
+	x = password_x(s, user, pn, pass, sn, salt);
+	k = hash_pair(s, p, g, 0);
+	if (!u || !x || !k)
+		goto done;
+	if (BN_is_zero(u)) {
+		ret = -58;
+		goto done;
+	}
+	ret = power(s, v, g, x, p, c);
+	if (ret)
+		goto done;
+	if (!(s->flags & 448))
+		BN_mod_mul(v, v, k, p, c);
+	BN_mod_sub(v, b, v, p, c);
+	BN_mul(e, u, x, c);
+	BN_add(e, e, priv);
+	ret = power(s, sec, v, e, p, c);
+	if (!ret)
+		ret = finish(s, user, sn, salt, a, b, sec);
+	if (!ret)
+		memcpy(m, proof(s, 0), s->di->output_size);
+done:
+	BN_CTX_free(c);
+	BN_free(p);
+	BN_free(g);
+	BN_free(a);
+	BN_clear_free(priv);
+	BN_free(b);
+	BN_free(u);
+	BN_clear_free(x);
+	BN_free(k);
+	BN_clear_free(v);
+	BN_clear_free(e);
+	BN_clear_free(sec);
+	return ret;
+}
+API int ccsrp_server_compute_session(
+    struct ccsrp_ctx *s, const char *user, size_t sn, const void *salt, const void *client)
+{
+	if (!ccn_bitlen(s->gp->n, part(s, 0)))
+		return -59;
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *p = number(s, s->gp->data), *a = BN_bin2bn(client, (int)s->gp->n * 8, NULL),
+	       *b = number(s, part(s, 0)), *priv = number(s, part(s, 1)),
+	       *v = number(s, part(s, 2)), *u = NULL, *t = BN_new(), *sec = BN_new();
+	int ret = -13;
+	if (!c || !p || !a || !b || !priv || !v || !t || !sec)
+		goto done;
+	BN_nnmod(t, a, p, c);
+	if (BN_is_zero(t)) {
+		ret = -58;
+		goto done;
+	}
+	u = hash_pair(s, s->flags & 448 ? NULL : a, b, s->flags & 448);
+	if (!u)
+		goto done;
+	ret = power(s, t, v, u, p, c);
+	if (ret)
+		goto done;
+	BN_mod_mul(t, t, a, p, c);
+	ret = power(s, sec, t, priv, p, c);
+	if (!ret)
+		ret = finish(s, user, sn, salt, a, b, sec);
+done:
+	BN_CTX_free(c);
+	BN_free(p);
+	BN_free(a);
+	BN_free(b);
+	BN_clear_free(priv);
+	BN_clear_free(v);
+	BN_free(u);
+	BN_clear_free(t);
+	BN_clear_free(sec);
+	return ret;
+}
+API int ccsrp_server_start_authentication(struct ccsrp_ctx *s, struct ccrng_state *r, const char *u,
+    size_t sn, const void *salt, const void *v, const void *a, void *b)
+{
+	s->rng = r;
+	int ret = ccsrp_server_generate_public_key(s, r, v, b);
+	return ret ? ret : ccsrp_server_compute_session(s, u, sn, salt, a);
+}
+API bool ccsrp_client_verify_session(struct ccsrp_ctx *s, const void *m)
+{
+	bool ok = (s->flags & 4) && !CRYPTO_memcmp(m, proof(s, 1), s->di->output_size);
+	s->flags = (s->flags & ~1u) | ok;
+	return ok;
+}
+API bool ccsrp_server_verify_session(struct ccsrp_ctx *s, const void *m, void *hamk)
+{
+	bool ok = (s->flags & 4) && !CRYPTO_memcmp(m, proof(s, 0), s->di->output_size);
+	s->flags = (s->flags & ~1u) | ok;
+	if (ok)
+		memcpy(hamk, proof(s, 1), s->di->output_size);
+	return ok;
+}
 
 /* OpenSSL supplies the public RFC 5054 primes and generators. */
-static cc_unit groups[5][517];static pthread_once_t groups_once=PTHREAD_ONCE_INIT;
-static void init_groups(void){const char*names[]={"1024","2048","3072","4096","8192"};const size_t lengths[]={160,256,256,384,384};for(unsigned i=0;i<5;i++){SRP_gN*v=SRP_get_default_gN(names[i]);if(!v)abort();struct cczp*z=(void*)groups[i];z->n=((size_t)BN_num_bits(v->N)+63)/64;BN_bn2lebinpad(v->N,(void*)z->data,(int)z->n*8);if(finch_cczp_init(z,0))abort();BN_bn2lebinpad(v->g,(void*)ccdh_gp_g(z),(int)z->n*8);*(size_t*)((char*)z+32+32*z->n)=lengths[i];}}
-#define GROUP(B,I) API const struct cczp*ccsrp_gp_rfc5054_##B(void){pthread_once(&groups_once,init_groups);return (void*)groups[I];}
-GROUP(1024,0) GROUP(2048,1) GROUP(3072,2) GROUP(4096,3) GROUP(8192,4)
+static cc_unit groups[5][517];
+static pthread_once_t groups_once = PTHREAD_ONCE_INIT;
+static void init_groups(void)
+{
+	const char *names[] = {"1024", "2048", "3072", "4096", "8192"};
+	const size_t lengths[] = {160, 256, 256, 384, 384};
+	for (unsigned i = 0; i < 5; i++) {
+		SRP_gN *v = SRP_get_default_gN(names[i]);
+		if (!v)
+			abort();
+		struct cczp *z = (void *)groups[i];
+		z->n = ((size_t)BN_num_bits(v->N) + 63) / 64;
+		BN_bn2lebinpad(v->N, (void *)z->data, (int)z->n * 8);
+		if (finch_cczp_init(z, 0))
+			abort();
+		BN_bn2lebinpad(v->g, (void *)ccdh_gp_g(z), (int)z->n * 8);
+		*(size_t *)((char *)z + 32 + 32 * z->n) = lengths[i];
+	}
+}
+#define GROUP(B, I)                                                                                \
+	API const struct cczp *ccsrp_gp_rfc5054_##B(void)                                          \
+	{                                                                                          \
+		pthread_once(&groups_once, init_groups);                                           \
+		return (void *)groups[I];                                                          \
+	}
+GROUP(1024, 0) GROUP(2048, 1) GROUP(3072, 2) GROUP(4096, 3) GROUP(8192, 4)

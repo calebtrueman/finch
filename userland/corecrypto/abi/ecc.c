@@ -14,166 +14,1752 @@
 #include <string.h>
 #include <limits.h>
 #include <stdlib.h>
-static const int bits[]={192,224,256,384,521};
-static const int nids[]={NID_X9_62_prime192v1,NID_secp224r1,NID_X9_62_prime256v1,NID_secp384r1,NID_secp521r1};
+static const int bits[] = {192, 224, 256, 384, 521};
+static const int nids[] = {
+    NID_X9_62_prime192v1, NID_secp224r1, NID_X9_62_prime256v1, NID_secp384r1, NID_secp521r1};
 static uint64_t curves[5][80];
-struct curve_funcs { struct cczp_funcs field; int (*project)(void*,ccec_const_cp_t,cc_unit*,const cc_unit*,struct ccrng_state*); int (*affine)(void*,ccec_const_cp_t,cc_unit*,const cc_unit*); void (*add)(void*,ccec_const_cp_t,cc_unit*,const cc_unit*,const cc_unit*); int (*mult)(void*,ccec_const_cp_t,cc_unit*,const cc_unit*,size_t,const cc_unit*); };
+struct curve_funcs {
+	struct cczp_funcs field;
+	int (*project)(void *, ccec_const_cp_t, cc_unit *, const cc_unit *, struct ccrng_state *);
+	int (*affine)(void *, ccec_const_cp_t, cc_unit *, const cc_unit *);
+	void (*add)(void *, ccec_const_cp_t, cc_unit *, const cc_unit *, const cc_unit *);
+	int (*mult)(void *, ccec_const_cp_t, cc_unit *, const cc_unit *, size_t, const cc_unit *);
+};
 static struct curve_funcs curve_table;
-static int project_cb(void*,ccec_const_cp_t,cc_unit*,const cc_unit*,struct ccrng_state*);
-static int affine_cb(void*,ccec_const_cp_t,cc_unit*,const cc_unit*);
-static void add_cb(void*,ccec_const_cp_t,cc_unit*,const cc_unit*,const cc_unit*);
-static int mult_cb(void*,ccec_const_cp_t,cc_unit*,const cc_unit*,size_t,const cc_unit*);
-static pthread_once_t once=PTHREAD_ONCE_INIT;
-static BIGNUM *readle(const cc_unit*p,size_t n){return BN_lebin2bn((const unsigned char*)p,(int)(8*n),NULL);}
-static int writele(const BIGNUM*b,cc_unit*p,size_t n){return BN_bn2lebinpad(b,(unsigned char*)p,(int)(8*n))>=0;}
-static void init_curves(void){
- for(int i=0;i<5;i++){
-  struct cczp *cp=(void*)curves[i];cp->n=(bits[i]+63)/64;
-  EC_GROUP*g=EC_GROUP_new_by_curve_name(nids[i]);BN_CTX*c=BN_CTX_new();
-  BIGNUM*p=BN_new(),*a=BN_new(),*b=BN_new(),*x=BN_new(),*y=BN_new(),*q=BN_new();
-  if(g&&c&&p&&a&&b&&x&&y&&q&&EC_GROUP_get_curve(g,p,a,b,c)&&EC_POINT_get_affine_coordinates(g,EC_GROUP_get0_generator(g),x,y,c)&&EC_GROUP_get_order(g,q,c)){
-   writele(p,cp->data,cp->n);finch_cczp_init(cp,0);
-   if(i==0){curve_table.field=*cp->funcs;curve_table.project=project_cb;curve_table.affine=affine_cb;curve_table.add=add_cb;curve_table.mult=mult_cb;}cp->funcs=&curve_table.field;
-   writele(b,cp->data+2*cp->n+1,cp->n);writele(x,cp->data+3*cp->n+1,cp->n);writele(y,cp->data+4*cp->n+1,cp->n);
-   struct cczp *order=(void*)((unsigned char*)cp+32+40*cp->n);order->n=cp->n;writele(q,order->data,cp->n);finch_cczp_init(order,0);
-  }
-  BN_free(p);BN_free(a);BN_free(b);BN_free(x);BN_free(y);BN_free(q);BN_CTX_free(c);EC_GROUP_free(g);
- }
+static int project_cb(void *, ccec_const_cp_t, cc_unit *, const cc_unit *, struct ccrng_state *);
+static int affine_cb(void *, ccec_const_cp_t, cc_unit *, const cc_unit *);
+static void add_cb(void *, ccec_const_cp_t, cc_unit *, const cc_unit *, const cc_unit *);
+static int mult_cb(void *, ccec_const_cp_t, cc_unit *, const cc_unit *, size_t, const cc_unit *);
+static pthread_once_t once = PTHREAD_ONCE_INIT;
+static BIGNUM *readle(const cc_unit *p, size_t n)
+{
+	return BN_lebin2bn((const unsigned char *)p, (int)(8 * n), NULL);
 }
-__attribute__((visibility("default"))) const struct cczp*ccec_get_cp(size_t b){pthread_once(&once,init_curves);for(int i=0;i<5;i++)if(b==(size_t)bits[i]&&curves[i][1])return(void*)curves[i];return NULL;}
-#define CP(B) __attribute__((visibility("default"))) const struct cczp*ccec_cp_##B(void){return ccec_get_cp(B);}
-CP(192) CP(224) CP(256) CP(384) CP(521)
-__attribute__((visibility("default"))) bool ccec_keysize_is_supported(size_t b){for(int i=0;i<5;i++)if(b==(size_t)bits[i])return true;return false;}
-static EC_GROUP*group(ccec_const_cp_t cp){if(!cp)return NULL;for(int i=0;i<5;i++)if(cp->bitlen==(size_t)bits[i]&&cp->n==(size_t)(bits[i]+63)/64)return EC_GROUP_new_by_curve_name(nids[i]);return NULL;}
-static size_t width(ccec_const_cp_t cp){return(cp->bitlen+7)/8;}
-static EC_POINT*point(const EC_GROUP*g,const struct ccec_ctx*k,BN_CTX*c){EC_POINT*p=EC_POINT_new(g);BIGNUM*x=readle(k->data,k->cp->n),*y=readle(k->data+k->cp->n,k->cp->n);if(!p||!x||!y||!EC_POINT_set_affine_coordinates(g,p,x,y,c)){EC_POINT_free(p);p=NULL;}BN_free(x);BN_free(y);return p;}
-static int savepoint(ccec_const_cp_t cp,struct ccec_ctx*k,const EC_GROUP*g,const EC_POINT*p,BN_CTX*c){BIGNUM*x=BN_new(),*y=BN_new();int ok=x&&y&&EC_POINT_get_affine_coordinates(g,p,x,y,c);if(ok){k->cp=cp;writele(x,k->data,cp->n);writele(y,k->data+cp->n,cp->n);memset(k->data+2*cp->n,0,8*cp->n);k->data[2*cp->n]=1;}BN_free(x);BN_free(y);return ok?0:-1;}
-static int check_rng(struct ccrng_state*r,size_t n){unsigned char b[72];if(!r)return 0;if(!r->generate||n>sizeof(b))return -7;int rc=r->generate(r,n,b);OPENSSL_cleanse(b,sizeof(b));return rc;}
-static int scalar(const EC_GROUP*g,struct ccrng_state*r,BIGNUM*d,BN_CTX*c){if(!r||!r->generate)return -7;BIGNUM*q=BN_new();unsigned char buf[72];int rc=-1;if(!q||!EC_GROUP_get_order(g,q,c))goto out;BN_sub_word(q,1);size_t bits=(size_t)BN_num_bits(q),n=((bits+63)/64)*8;for(int i=0;i<100;i++){rc=r->generate(r,n,buf);if(rc)break;BN_lebin2bn(buf,(int)n,d);BN_mask_bits(d,(int)bits);if(BN_cmp(d,q)<0){BN_add_word(d,1);rc=0;break;}rc=-15;}out:OPENSSL_cleanse(buf,sizeof(buf));BN_free(q);return rc;}
-static int scalar_legacy(const EC_GROUP*g,struct ccrng_state*r,BIGNUM*d,BN_CTX*c){if(!r||!r->generate)return -7;BIGNUM*q=BN_new();unsigned char buf[72];int rc=-1;if(q&&EC_GROUP_get_order(g,q,c)){size_t bits=(size_t)BN_num_bits(q),n=((bits+63)/64)*8;rc=r->generate(r,n,buf);if(!rc){BN_lebin2bn(buf,(int)n,d);BN_mask_bits(d,(int)bits);if(BN_cmp(d,q)>=0)BN_sub(d,d,q);}}OPENSSL_cleanse(buf,sizeof(buf));BN_free(q);return rc;}
-static int generate_key(ccec_const_cp_t cp,struct ccrng_state*r,struct ccec_ctx*k,int legacy){EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();BIGNUM*d=BN_new();EC_POINT*p=g?EC_POINT_new(g):NULL;int rc=-1;if(g&&c&&d&&p){rc=legacy?scalar_legacy(g,r,d,c):scalar(g,r,d,c);if(!rc){BN_set_flags(d,BN_FLG_CONSTTIME);rc=EC_POINT_mul(g,p,d,NULL,NULL,c)?savepoint(cp,k,g,p,c):-1;if(!rc)writele(d,k->data+3*cp->n,cp->n);}}BN_clear_free(d);EC_POINT_free(p);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-__attribute__((visibility("default"))) int ccec_generate_key(ccec_const_cp_t cp,struct ccrng_state*r,struct ccec_ctx*k){return generate_key(cp,r,k,0);}
-__attribute__((visibility("default"))) int ccec_generate_key_fips(ccec_const_cp_t cp,struct ccrng_state*r,struct ccec_ctx*k){return ccec_generate_key(cp,r,k);}
-__attribute__((visibility("default"))) int ccec_generate_key_legacy(ccec_const_cp_t cp,struct ccrng_state*r,struct ccec_ctx*k){return generate_key(cp,r,k,1);}
-__attribute__((visibility("default"))) int ccecdh_generate_key(ccec_const_cp_t cp,struct ccrng_state*r,struct ccec_ctx*k){return ccec_generate_key(cp,r,k);}
-__attribute__((visibility("default"))) int ccec_make_pub(size_t b,size_t xn,const void*x,size_t yn,const void*y,struct ccec_ctx*k){ccec_const_cp_t cp=ccec_get_cp(b);if(!yn)return -7;if(!cp)return -1;k->cp=cp;if(ccn_read_uint(cp->n,k->data,xn,x)||ccn_read_uint(cp->n,k->data+cp->n,yn,y))return -1;memset(k->data+2*cp->n,0,8*cp->n);k->data[2*cp->n]=1;return 0;}
-__attribute__((visibility("default"))) int ccec_make_priv(size_t b,size_t xn,const void*x,size_t yn,const void*y,size_t dn,const void*d,struct ccec_ctx*k){int rc=ccec_make_pub(b,xn,x,yn,y,k);return rc?rc:ccn_read_uint(k->cp->n,k->data+3*k->cp->n,dn,d);}
-static size_t importbits(size_t len,int count,int prefix){for(int i=0;i<5;i++)if(len==(size_t)count*((bits[i]+7)/8)+prefix)return bits[i];return 0;}
-__attribute__((visibility("default"))) size_t ccec_x963_import_pub_size(size_t n){return importbits(n,2,1);}
-__attribute__((visibility("default"))) size_t ccec_x963_import_priv_size(size_t n){return importbits(n,3,1);}
-__attribute__((visibility("default"))) size_t ccec_compact_import_pub_size(size_t n){return importbits(n,1,0);}
-__attribute__((visibility("default"))) size_t ccec_compact_import_priv_size(size_t n){return importbits(n,2,0);}
-__attribute__((visibility("default"))) int ccec_raw_import_pub(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){if(n!=2*width(cp))return -1;k->cp=cp;size_t w=width(cp);if(ccn_read_uint(cp->n,k->data,w,in)||ccn_read_uint(cp->n,k->data+cp->n,w,(const char*)in+w))return -1;memset(k->data+2*cp->n,0,8*cp->n);k->data[2*cp->n]=1;return 0;}
-__attribute__((visibility("default"))) int ccec_x963_import_pub(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){if(!n||((const unsigned char*)in)[0]!=4||n!=2*width(cp)+1)return -1;return ccec_raw_import_pub(cp,n-1,(const char*)in+1,k);}
-__attribute__((visibility("default"))) int ccec_import_pub(ccec_const_cp_t cp,size_t n,const void*p,struct ccec_ctx*k){return ccec_x963_import_pub(cp,n,p,k);}
-__attribute__((visibility("default"))) int ccec_x963_import_priv(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){size_t w=width(cp);if(n!=3*w+1)return -1;int rc=ccec_x963_import_pub(cp,2*w+1,in,k);return rc?rc:ccn_read_uint(cp->n,k->data+3*cp->n,w,(const char*)in+2*w+1);}
-__attribute__((visibility("default"))) int ccec_raw_import_priv_only(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){if(n!=width(cp))return -1;k->cp=cp;memset(k->data,255,16*cp->n);return ccn_read_uint(cp->n,k->data+3*cp->n,n,in);}
-__attribute__((visibility("default"))) int ccec_export_pub(const struct ccec_ctx*k,void*out){size_t w=width(k->cp);unsigned char*p=out;p[0]=4;int a=ccn_write_uint_padded_ct(k->cp->n,k->data,w,p+1),b=ccn_write_uint_padded_ct(k->cp->n,k->data+k->cp->n,w,p+1+w);return a<0?a:b<0?b:0;}
-__attribute__((visibility("default"))) int ccec_x963_export(bool full,void*out,const struct ccec_ctx*k){int rc=ccec_export_pub(k,out);if(!rc&&full){int r=ccn_write_uint_padded_ct(k->cp->n,k->data+3*k->cp->n,width(k->cp),(char*)out+2*width(k->cp)+1);if(r<0)rc=r;}return rc;}
-__attribute__((visibility("default"))) int ccec_validate_pub(const struct ccec_ctx*k){EC_GROUP*g=group(k->cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?point(g,k,c):NULL;int ok=p&&EC_POINT_is_on_curve(g,p,c)&&!EC_POINT_is_at_infinity(g,p);EC_POINT_free(p);EC_GROUP_free(g);BN_CTX_free(c);return ok;}
-static int component(const struct ccec_ctx*k,int index,void*out,size_t*n){size_t need=ccn_write_uint_size(k->cp->n,k->data+index*k->cp->n);if(*n<need)return -1;*n=need;ccn_write_uint(k->cp->n,k->data+index*k->cp->n,need,out);return 0;}
-__attribute__((visibility("default"))) int ccec_get_pubkey_components(const struct ccec_ctx*k,size_t*b,void*x,size_t*xn,void*y,size_t*yn){int rc=component(k,0,x,xn);if(!rc)rc=component(k,1,y,yn);if(!rc)*b=k->cp->bitlen;return rc;}
-__attribute__((visibility("default"))) int ccec_get_fullkey_components(const struct ccec_ctx*k,size_t*b,void*x,size_t*xn,void*y,size_t*yn,void*d,size_t*dn){int rc=ccec_get_pubkey_components(k,b,x,xn,y,yn);return rc?rc:component(k,3,d,dn);}
-__attribute__((visibility("default"))) int ccecdh_compute_shared_secret(const struct ccec_ctx*k,const struct ccec_ctx*peer,size_t*n,void*out,struct ccrng_state*r){int random_status=check_rng(r,width(k->cp));if(random_status)return -1;if(k->cp->bitlen!=peer->cp->bitlen||*n<width(k->cp))return -1;EC_GROUP*g=group(k->cp);BN_CTX*c=BN_CTX_new();BIGNUM*d=readle(k->data+3*k->cp->n,k->cp->n),*x=BN_new();EC_POINT*p=g&&c?point(g,peer,c):NULL;int rc=-1;if(d)BN_set_flags(d,BN_FLG_CONSTTIME);if(p&&d&&x&&!BN_is_zero(d)&&EC_POINT_mul(g,p,NULL,p,d,c)&&EC_POINT_get_affine_coordinates(g,p,x,NULL,c)){*n=width(k->cp);rc=BN_bn2binpad(x,out,(int)*n)<0?-1:0;}BN_clear_free(d);BN_free(x);EC_POINT_free(p);EC_GROUP_free(g);BN_CTX_free(c);return rc;}
-static EC_KEY *key(const struct ccec_ctx*k,int priv){EC_GROUP*g=group(k->cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?point(g,k,c):NULL;EC_KEY*e=EC_KEY_new();BIGNUM*d=priv?readle(k->data+3*k->cp->n,k->cp->n):NULL;if(!e||!p||!EC_KEY_set_group(e,g)||!EC_KEY_set_public_key(e,p)||(priv&&(!d||!EC_KEY_set_private_key(e,d)))){EC_KEY_free(e);e=NULL;}BN_clear_free(d);EC_POINT_free(p);EC_GROUP_free(g);BN_CTX_free(c);return e;}
+static int writele(const BIGNUM *b, cc_unit *p, size_t n)
+{
+	return BN_bn2lebinpad(b, (unsigned char *)p, (int)(8 * n)) >= 0;
+}
+static void init_curves(void)
+{
+	for (int i = 0; i < 5; i++) {
+		struct cczp *cp = (void *)curves[i];
+		cp->n = (bits[i] + 63) / 64;
+		EC_GROUP *g = EC_GROUP_new_by_curve_name(nids[i]);
+		BN_CTX *c = BN_CTX_new();
+		BIGNUM *p = BN_new(), *a = BN_new(), *b = BN_new(), *x = BN_new(), *y = BN_new(),
+		       *q = BN_new();
+		if (g && c && p && a && b && x && y && q && EC_GROUP_get_curve(g, p, a, b, c) &&
+		    EC_POINT_get_affine_coordinates(g, EC_GROUP_get0_generator(g), x, y, c) &&
+		    EC_GROUP_get_order(g, q, c)) {
+			writele(p, cp->data, cp->n);
+			finch_cczp_init(cp, 0);
+			if (i == 0) {
+				curve_table.field = *cp->funcs;
+				curve_table.project = project_cb;
+				curve_table.affine = affine_cb;
+				curve_table.add = add_cb;
+				curve_table.mult = mult_cb;
+			}
+			cp->funcs = &curve_table.field;
+			writele(b, cp->data + 2 * cp->n + 1, cp->n);
+			writele(x, cp->data + 3 * cp->n + 1, cp->n);
+			writele(y, cp->data + 4 * cp->n + 1, cp->n);
+			struct cczp *order = (void *)((unsigned char *)cp + 32 + 40 * cp->n);
+			order->n = cp->n;
+			writele(q, order->data, cp->n);
+			finch_cczp_init(order, 0);
+		}
+		BN_free(p);
+		BN_free(a);
+		BN_free(b);
+		BN_free(x);
+		BN_free(y);
+		BN_free(q);
+		BN_CTX_free(c);
+		EC_GROUP_free(g);
+	}
+}
+__attribute__((visibility("default"))) const struct cczp *ccec_get_cp(size_t b)
+{
+	pthread_once(&once, init_curves);
+	for (int i = 0; i < 5; i++)
+		if (b == (size_t)bits[i] && curves[i][1])
+			return (void *)curves[i];
+	return NULL;
+}
+#define CP(B)                                                                                      \
+	__attribute__((visibility("default"))) const struct cczp *ccec_cp_##B(void)                \
+	{                                                                                          \
+		return ccec_get_cp(B);                                                             \
+	}
+CP(192)
+CP(224) CP(256) CP(384) CP(521)
+    __attribute__((visibility("default"))) bool ccec_keysize_is_supported(size_t b)
+{
+	for (int i = 0; i < 5; i++)
+		if (b == (size_t)bits[i])
+			return true;
+	return false;
+}
+static EC_GROUP *group(ccec_const_cp_t cp)
+{
+	if (!cp)
+		return NULL;
+	for (int i = 0; i < 5; i++)
+		if (cp->bitlen == (size_t)bits[i] && cp->n == (size_t)(bits[i] + 63) / 64)
+			return EC_GROUP_new_by_curve_name(nids[i]);
+	return NULL;
+}
+static size_t width(ccec_const_cp_t cp)
+{
+	return (cp->bitlen + 7) / 8;
+}
+static EC_POINT *point(const EC_GROUP *g, const struct ccec_ctx *k, BN_CTX *c)
+{
+	EC_POINT *p = EC_POINT_new(g);
+	BIGNUM *x = readle(k->data, k->cp->n), *y = readle(k->data + k->cp->n, k->cp->n);
+	if (!p || !x || !y || !EC_POINT_set_affine_coordinates(g, p, x, y, c)) {
+		EC_POINT_free(p);
+		p = NULL;
+	}
+	BN_free(x);
+	BN_free(y);
+	return p;
+}
+static int savepoint(
+    ccec_const_cp_t cp, struct ccec_ctx *k, const EC_GROUP *g, const EC_POINT *p, BN_CTX *c)
+{
+	BIGNUM *x = BN_new(), *y = BN_new();
+	int ok = x && y && EC_POINT_get_affine_coordinates(g, p, x, y, c);
+	if (ok) {
+		k->cp = cp;
+		writele(x, k->data, cp->n);
+		writele(y, k->data + cp->n, cp->n);
+		memset(k->data + 2 * cp->n, 0, 8 * cp->n);
+		k->data[2 * cp->n] = 1;
+	}
+	BN_free(x);
+	BN_free(y);
+	return ok ? 0 : -1;
+}
+static int check_rng(struct ccrng_state *r, size_t n)
+{
+	unsigned char b[72];
+	if (!r)
+		return 0;
+	if (!r->generate || n > sizeof(b))
+		return -7;
+	int rc = r->generate(r, n, b);
+	OPENSSL_cleanse(b, sizeof(b));
+	return rc;
+}
+static int scalar(const EC_GROUP *g, struct ccrng_state *r, BIGNUM *d, BN_CTX *c)
+{
+	if (!r || !r->generate)
+		return -7;
+	BIGNUM *q = BN_new();
+	unsigned char buf[72];
+	int rc = -1;
+	if (!q || !EC_GROUP_get_order(g, q, c))
+		goto out;
+	BN_sub_word(q, 1);
+	size_t bits = (size_t)BN_num_bits(q), n = ((bits + 63) / 64) * 8;
+	for (int i = 0; i < 100; i++) {
+		rc = r->generate(r, n, buf);
+		if (rc)
+			break;
+		BN_lebin2bn(buf, (int)n, d);
+		BN_mask_bits(d, (int)bits);
+		if (BN_cmp(d, q) < 0) {
+			BN_add_word(d, 1);
+			rc = 0;
+			break;
+		}
+		rc = -15;
+	}
+out:
+	OPENSSL_cleanse(buf, sizeof(buf));
+	BN_free(q);
+	return rc;
+}
+static int scalar_legacy(const EC_GROUP *g, struct ccrng_state *r, BIGNUM *d, BN_CTX *c)
+{
+	if (!r || !r->generate)
+		return -7;
+	BIGNUM *q = BN_new();
+	unsigned char buf[72];
+	int rc = -1;
+	if (q && EC_GROUP_get_order(g, q, c)) {
+		size_t bits = (size_t)BN_num_bits(q), n = ((bits + 63) / 64) * 8;
+		rc = r->generate(r, n, buf);
+		if (!rc) {
+			BN_lebin2bn(buf, (int)n, d);
+			BN_mask_bits(d, (int)bits);
+			if (BN_cmp(d, q) >= 0)
+				BN_sub(d, d, q);
+		}
+	}
+	OPENSSL_cleanse(buf, sizeof(buf));
+	BN_free(q);
+	return rc;
+}
+static int generate_key(ccec_const_cp_t cp, struct ccrng_state *r, struct ccec_ctx *k, int legacy)
+{
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *d = BN_new();
+	EC_POINT *p = g ? EC_POINT_new(g) : NULL;
+	int rc = -1;
+	if (g && c && d && p) {
+		rc = legacy ? scalar_legacy(g, r, d, c) : scalar(g, r, d, c);
+		if (!rc) {
+			BN_set_flags(d, BN_FLG_CONSTTIME);
+			rc = EC_POINT_mul(g, p, d, NULL, NULL, c) ? savepoint(cp, k, g, p, c) : -1;
+			if (!rc)
+				writele(d, k->data + 3 * cp->n, cp->n);
+		}
+	}
+	BN_clear_free(d);
+	EC_POINT_free(p);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_generate_key(
+    ccec_const_cp_t cp, struct ccrng_state *r, struct ccec_ctx *k)
+{
+	return generate_key(cp, r, k, 0);
+}
+__attribute__((visibility("default"))) int ccec_generate_key_fips(
+    ccec_const_cp_t cp, struct ccrng_state *r, struct ccec_ctx *k)
+{
+	return ccec_generate_key(cp, r, k);
+}
+__attribute__((visibility("default"))) int ccec_generate_key_legacy(
+    ccec_const_cp_t cp, struct ccrng_state *r, struct ccec_ctx *k)
+{
+	return generate_key(cp, r, k, 1);
+}
+__attribute__((visibility("default"))) int ccecdh_generate_key(
+    ccec_const_cp_t cp, struct ccrng_state *r, struct ccec_ctx *k)
+{
+	return ccec_generate_key(cp, r, k);
+}
+__attribute__((visibility("default"))) int ccec_make_pub(
+    size_t b, size_t xn, const void *x, size_t yn, const void *y, struct ccec_ctx *k)
+{
+	ccec_const_cp_t cp = ccec_get_cp(b);
+	if (!yn)
+		return -7;
+	if (!cp)
+		return -1;
+	k->cp = cp;
+	if (ccn_read_uint(cp->n, k->data, xn, x) || ccn_read_uint(cp->n, k->data + cp->n, yn, y))
+		return -1;
+	memset(k->data + 2 * cp->n, 0, 8 * cp->n);
+	k->data[2 * cp->n] = 1;
+	return 0;
+}
+__attribute__((visibility("default"))) int ccec_make_priv(size_t b, size_t xn, const void *x,
+    size_t yn, const void *y, size_t dn, const void *d, struct ccec_ctx *k)
+{
+	int rc = ccec_make_pub(b, xn, x, yn, y, k);
+	return rc ? rc : ccn_read_uint(k->cp->n, k->data + 3 * k->cp->n, dn, d);
+}
+static size_t importbits(size_t len, int count, int prefix)
+{
+	for (int i = 0; i < 5; i++)
+		if (len == (size_t)count * ((bits[i] + 7) / 8) + prefix)
+			return bits[i];
+	return 0;
+}
+__attribute__((visibility("default"))) size_t ccec_x963_import_pub_size(size_t n)
+{
+	return importbits(n, 2, 1);
+}
+__attribute__((visibility("default"))) size_t ccec_x963_import_priv_size(size_t n)
+{
+	return importbits(n, 3, 1);
+}
+__attribute__((visibility("default"))) size_t ccec_compact_import_pub_size(size_t n)
+{
+	return importbits(n, 1, 0);
+}
+__attribute__((visibility("default"))) size_t ccec_compact_import_priv_size(size_t n)
+{
+	return importbits(n, 2, 0);
+}
+__attribute__((visibility("default"))) int ccec_raw_import_pub(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	if (n != 2 * width(cp))
+		return -1;
+	k->cp = cp;
+	size_t w = width(cp);
+	if (ccn_read_uint(cp->n, k->data, w, in) ||
+	    ccn_read_uint(cp->n, k->data + cp->n, w, (const char *)in + w))
+		return -1;
+	memset(k->data + 2 * cp->n, 0, 8 * cp->n);
+	k->data[2 * cp->n] = 1;
+	return 0;
+}
+__attribute__((visibility("default"))) int ccec_x963_import_pub(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	if (!n || ((const unsigned char *)in)[0] != 4 || n != 2 * width(cp) + 1)
+		return -1;
+	return ccec_raw_import_pub(cp, n - 1, (const char *)in + 1, k);
+}
+__attribute__((visibility("default"))) int ccec_import_pub(
+    ccec_const_cp_t cp, size_t n, const void *p, struct ccec_ctx *k)
+{
+	return ccec_x963_import_pub(cp, n, p, k);
+}
+__attribute__((visibility("default"))) int ccec_x963_import_priv(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	size_t w = width(cp);
+	if (n != 3 * w + 1)
+		return -1;
+	int rc = ccec_x963_import_pub(cp, 2 * w + 1, in, k);
+	return rc ? rc : ccn_read_uint(cp->n, k->data + 3 * cp->n, w, (const char *)in + 2 * w + 1);
+}
+__attribute__((visibility("default"))) int ccec_raw_import_priv_only(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	if (n != width(cp))
+		return -1;
+	k->cp = cp;
+	memset(k->data, 255, 16 * cp->n);
+	return ccn_read_uint(cp->n, k->data + 3 * cp->n, n, in);
+}
+__attribute__((visibility("default"))) int ccec_export_pub(const struct ccec_ctx *k, void *out)
+{
+	size_t w = width(k->cp);
+	unsigned char *p = out;
+	p[0] = 4;
+	int a = ccn_write_uint_padded_ct(k->cp->n, k->data, w, p + 1),
+	    b = ccn_write_uint_padded_ct(k->cp->n, k->data + k->cp->n, w, p + 1 + w);
+	return a < 0 ? a : b < 0 ? b : 0;
+}
+__attribute__((visibility("default"))) int ccec_x963_export(
+    bool full, void *out, const struct ccec_ctx *k)
+{
+	int rc = ccec_export_pub(k, out);
+	if (!rc && full) {
+		int r = ccn_write_uint_padded_ct(k->cp->n, k->data + 3 * k->cp->n, width(k->cp),
+		    (char *)out + 2 * width(k->cp) + 1);
+		if (r < 0)
+			rc = r;
+	}
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_validate_pub(const struct ccec_ctx *k)
+{
+	EC_GROUP *g = group(k->cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g && c ? point(g, k, c) : NULL;
+	int ok = p && EC_POINT_is_on_curve(g, p, c) && !EC_POINT_is_at_infinity(g, p);
+	EC_POINT_free(p);
+	EC_GROUP_free(g);
+	BN_CTX_free(c);
+	return ok;
+}
+static int component(const struct ccec_ctx *k, int index, void *out, size_t *n)
+{
+	size_t need = ccn_write_uint_size(k->cp->n, k->data + index * k->cp->n);
+	if (*n < need)
+		return -1;
+	*n = need;
+	ccn_write_uint(k->cp->n, k->data + index * k->cp->n, need, out);
+	return 0;
+}
+__attribute__((visibility("default"))) int ccec_get_pubkey_components(
+    const struct ccec_ctx *k, size_t *b, void *x, size_t *xn, void *y, size_t *yn)
+{
+	int rc = component(k, 0, x, xn);
+	if (!rc)
+		rc = component(k, 1, y, yn);
+	if (!rc)
+		*b = k->cp->bitlen;
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_get_fullkey_components(const struct ccec_ctx *k,
+    size_t *b, void *x, size_t *xn, void *y, size_t *yn, void *d, size_t *dn)
+{
+	int rc = ccec_get_pubkey_components(k, b, x, xn, y, yn);
+	return rc ? rc : component(k, 3, d, dn);
+}
+__attribute__((visibility("default"))) int ccecdh_compute_shared_secret(const struct ccec_ctx *k,
+    const struct ccec_ctx *peer, size_t *n, void *out, struct ccrng_state *r)
+{
+	int random_status = check_rng(r, width(k->cp));
+	if (random_status)
+		return -1;
+	if (k->cp->bitlen != peer->cp->bitlen || *n < width(k->cp))
+		return -1;
+	EC_GROUP *g = group(k->cp);
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *d = readle(k->data + 3 * k->cp->n, k->cp->n), *x = BN_new();
+	EC_POINT *p = g && c ? point(g, peer, c) : NULL;
+	int rc = -1;
+	if (d)
+		BN_set_flags(d, BN_FLG_CONSTTIME);
+	if (p && d && x && !BN_is_zero(d) && EC_POINT_mul(g, p, NULL, p, d, c) &&
+	    EC_POINT_get_affine_coordinates(g, p, x, NULL, c)) {
+		*n = width(k->cp);
+		rc = BN_bn2binpad(x, out, (int)*n) < 0 ? -1 : 0;
+	}
+	BN_clear_free(d);
+	BN_free(x);
+	EC_POINT_free(p);
+	EC_GROUP_free(g);
+	BN_CTX_free(c);
+	return rc;
+}
+static EC_KEY *key(const struct ccec_ctx *k, int priv)
+{
+	EC_GROUP *g = group(k->cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g && c ? point(g, k, c) : NULL;
+	EC_KEY *e = EC_KEY_new();
+	BIGNUM *d = priv ? readle(k->data + 3 * k->cp->n, k->cp->n) : NULL;
+	if (!e || !p || !EC_KEY_set_group(e, g) || !EC_KEY_set_public_key(e, p) ||
+	    (priv && (!d || !EC_KEY_set_private_key(e, d)))) {
+		EC_KEY_free(e);
+		e = NULL;
+	}
+	BN_clear_free(d);
+	EC_POINT_free(p);
+	EC_GROUP_free(g);
+	BN_CTX_free(c);
+	return e;
+}
 /* Supply the caller's random source for each ECDSA nonce. */
-static ECDSA_SIG*signraw(const struct ccec_ctx*k,size_t n,const void*hash,struct ccrng_state*r,int*rc){EC_KEY*e=key(k,1);BN_CTX*c=BN_CTX_new();const EC_GROUP*g=e?EC_KEY_get0_group(e):NULL;BIGNUM*d=BN_new(),*x=BN_new(),*q=BN_new(),*rp=BN_new(),*inv=NULL;EC_POINT*p=g?EC_POINT_new(g):NULL;ECDSA_SIG*s=NULL;*rc=-1;if(e&&c&&d&&x&&q&&rp&&p&&n<=INT_MAX&&EC_GROUP_get_order(g,q,c)){*rc=scalar(g,r,d,c);if(!*rc){BN_set_flags(d,BN_FLG_CONSTTIME);if(EC_POINT_mul(g,p,d,NULL,NULL,c)&&EC_POINT_get_affine_coordinates(g,p,x,NULL,c)&&BN_mod(rp,x,q,c)){inv=BN_mod_inverse(NULL,d,q,c);if(inv)s=ECDSA_do_sign_ex(hash,(int)n,inv,rp,e);}if(!s)*rc=-1;}}BN_clear_free(d);BN_free(x);BN_free(q);BN_free(rp);BN_clear_free(inv);EC_POINT_free(p);BN_CTX_free(c);EC_KEY_free(e);return s;}
-__attribute__((visibility("default"))) int ccec_sign(const struct ccec_ctx*k,size_t n,const void*h,size_t*sn,void*out,struct ccrng_state*r){int rc;ECDSA_SIG*s=signraw(k,n,h,r,&rc);if(!s)return rc;size_t need=(size_t)i2d_ECDSA_SIG(s,NULL);if(*sn<need)rc=-1;else{unsigned char*p=out;i2d_ECDSA_SIG(s,&p);*sn=need;}ECDSA_SIG_free(s);return rc;}
-__attribute__((visibility("default"))) int ccec_sign_composite(const struct ccec_ctx*k,size_t n,const void*h,void*rr,void*ss,struct ccrng_state*r){int rc;ECDSA_SIG*s=signraw(k,n,h,r,&rc);if(s){const BIGNUM*a,*b;ECDSA_SIG_get0(s,&a,&b);BN_bn2binpad(a,rr,(int)width(k->cp));BN_bn2binpad(b,ss,(int)width(k->cp));ECDSA_SIG_free(s);}return rc;}
-__attribute__((visibility("default"))) size_t ccec_signature_r_s_size(const struct ccec_ctx*k){return width(k->cp);}
-__attribute__((visibility("default"))) int ccec_verify(const struct ccec_ctx*k,size_t n,const void*h,size_t sn,const void*sig,bool*valid){*valid=false;if(n>INT_MAX||sn>LONG_MAX)return -1;const unsigned char*p=sig;ECDSA_SIG*s=d2i_ECDSA_SIG(NULL,&p,(long)sn);if(!s||p!=(const unsigned char*)sig+sn){ECDSA_SIG_free(s);return -7;}EC_KEY*e=key(k,0);int rc=e?ECDSA_do_verify(h,(int)n,s,e):-1;*valid=rc==1;EC_KEY_free(e);ECDSA_SIG_free(s);return rc<0?-1:0;}
-__attribute__((visibility("default"))) int ccec_verify_composite(const struct ccec_ctx*k,size_t n,const void*h,const void*rr,const void*ss,bool*valid){ECDSA_SIG*s=ECDSA_SIG_new();BIGNUM*a=BN_bin2bn(rr,(int)width(k->cp),NULL),*b=BN_bin2bn(ss,(int)width(k->cp),NULL);*valid=false;if(!s||!a||!b){BN_free(a);BN_free(b);ECDSA_SIG_free(s);return -1;}ECDSA_SIG_set0(s,a,b);EC_KEY*e=key(k,0);int rc=e?ECDSA_do_verify(h,(int)n,s,e):-1;*valid=rc==1;EC_KEY_free(e);ECDSA_SIG_free(s);return rc<0?-1:0;}
-__attribute__((visibility("default"))) int ccec_verify_digest(const struct ccec_ctx*k,size_t n,const void*h,size_t sn,const void*s,void*canary){bool v;int rc=ccec_verify(k,n,h,sn,s,&v);static const unsigned char token[16]={0xce,0x3c,0xed,0x46,0x6b,0x11,0xbf,0x08,0x13,0xa0,0xd4,0xbf,0x89,0x60,0xeb,0x56};if(canary){memset(canary,0,16);if(!rc&&v)memcpy(canary,token,16);}return rc?rc:v?0:-146;}
-__attribute__((visibility("default"))) int ccec_sign_msg(const struct ccec_ctx*k,const struct ccdigest_info*di,size_t n,const void*m,size_t*sn,void*s,struct ccrng_state*r){unsigned char h[64];if(di->output_size>sizeof(h))return -7;ccdigest(di,n,m,h);return ccec_sign(k,di->output_size,h,sn,s,r);}
-__attribute__((visibility("default"))) int ccec_verify_msg(const struct ccec_ctx*k,const struct ccdigest_info*di,size_t n,const void*m,size_t sn,const void*s,void*canary){unsigned char h[64];if(di->output_size>sizeof(h))return -7;ccdigest(di,n,m,h);return ccec_verify_digest(k,di->output_size,h,sn,s,canary);}
+static ECDSA_SIG *signraw(
+    const struct ccec_ctx *k, size_t n, const void *hash, struct ccrng_state *r, int *rc)
+{
+	EC_KEY *e = key(k, 1);
+	BN_CTX *c = BN_CTX_new();
+	const EC_GROUP *g = e ? EC_KEY_get0_group(e) : NULL;
+	BIGNUM *d = BN_new(), *x = BN_new(), *q = BN_new(), *rp = BN_new(), *inv = NULL;
+	EC_POINT *p = g ? EC_POINT_new(g) : NULL;
+	ECDSA_SIG *s = NULL;
+	*rc = -1;
+	if (e && c && d && x && q && rp && p && n <= INT_MAX && EC_GROUP_get_order(g, q, c)) {
+		*rc = scalar(g, r, d, c);
+		if (!*rc) {
+			BN_set_flags(d, BN_FLG_CONSTTIME);
+			if (EC_POINT_mul(g, p, d, NULL, NULL, c) &&
+			    EC_POINT_get_affine_coordinates(g, p, x, NULL, c) &&
+			    BN_mod(rp, x, q, c)) {
+				inv = BN_mod_inverse(NULL, d, q, c);
+				if (inv)
+					s = ECDSA_do_sign_ex(hash, (int)n, inv, rp, e);
+			}
+			if (!s)
+				*rc = -1;
+		}
+	}
+	BN_clear_free(d);
+	BN_free(x);
+	BN_free(q);
+	BN_free(rp);
+	BN_clear_free(inv);
+	EC_POINT_free(p);
+	BN_CTX_free(c);
+	EC_KEY_free(e);
+	return s;
+}
+__attribute__((visibility("default"))) int ccec_sign(
+    const struct ccec_ctx *k, size_t n, const void *h, size_t *sn, void *out, struct ccrng_state *r)
+{
+	int rc;
+	ECDSA_SIG *s = signraw(k, n, h, r, &rc);
+	if (!s)
+		return rc;
+	size_t need = (size_t)i2d_ECDSA_SIG(s, NULL);
+	if (*sn < need)
+		rc = -1;
+	else {
+		unsigned char *p = out;
+		i2d_ECDSA_SIG(s, &p);
+		*sn = need;
+	}
+	ECDSA_SIG_free(s);
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_sign_composite(
+    const struct ccec_ctx *k, size_t n, const void *h, void *rr, void *ss, struct ccrng_state *r)
+{
+	int rc;
+	ECDSA_SIG *s = signraw(k, n, h, r, &rc);
+	if (s) {
+		const BIGNUM *a, *b;
+		ECDSA_SIG_get0(s, &a, &b);
+		BN_bn2binpad(a, rr, (int)width(k->cp));
+		BN_bn2binpad(b, ss, (int)width(k->cp));
+		ECDSA_SIG_free(s);
+	}
+	return rc;
+}
+__attribute__((visibility("default"))) size_t ccec_signature_r_s_size(const struct ccec_ctx *k)
+{
+	return width(k->cp);
+}
+__attribute__((visibility("default"))) int ccec_verify(
+    const struct ccec_ctx *k, size_t n, const void *h, size_t sn, const void *sig, bool *valid)
+{
+	*valid = false;
+	if (n > INT_MAX || sn > LONG_MAX)
+		return -1;
+	const unsigned char *p = sig;
+	ECDSA_SIG *s = d2i_ECDSA_SIG(NULL, &p, (long)sn);
+	if (!s || p != (const unsigned char *)sig + sn) {
+		ECDSA_SIG_free(s);
+		return -7;
+	}
+	EC_KEY *e = key(k, 0);
+	int rc = e ? ECDSA_do_verify(h, (int)n, s, e) : -1;
+	*valid = rc == 1;
+	EC_KEY_free(e);
+	ECDSA_SIG_free(s);
+	return rc < 0 ? -1 : 0;
+}
+__attribute__((visibility("default"))) int ccec_verify_composite(
+    const struct ccec_ctx *k, size_t n, const void *h, const void *rr, const void *ss, bool *valid)
+{
+	ECDSA_SIG *s = ECDSA_SIG_new();
+	BIGNUM *a = BN_bin2bn(rr, (int)width(k->cp), NULL),
+	       *b = BN_bin2bn(ss, (int)width(k->cp), NULL);
+	*valid = false;
+	if (!s || !a || !b) {
+		BN_free(a);
+		BN_free(b);
+		ECDSA_SIG_free(s);
+		return -1;
+	}
+	ECDSA_SIG_set0(s, a, b);
+	EC_KEY *e = key(k, 0);
+	int rc = e ? ECDSA_do_verify(h, (int)n, s, e) : -1;
+	*valid = rc == 1;
+	EC_KEY_free(e);
+	ECDSA_SIG_free(s);
+	return rc < 0 ? -1 : 0;
+}
+__attribute__((visibility("default"))) int ccec_verify_digest(
+    const struct ccec_ctx *k, size_t n, const void *h, size_t sn, const void *s, void *canary)
+{
+	bool v;
+	int rc = ccec_verify(k, n, h, sn, s, &v);
+	static const unsigned char token[16] = {0xce, 0x3c, 0xed, 0x46, 0x6b, 0x11, 0xbf, 0x08,
+	    0x13, 0xa0, 0xd4, 0xbf, 0x89, 0x60, 0xeb, 0x56};
+	if (canary) {
+		memset(canary, 0, 16);
+		if (!rc && v)
+			memcpy(canary, token, 16);
+	}
+	return rc ? rc : v ? 0 : -146;
+}
+__attribute__((visibility("default"))) int ccec_sign_msg(const struct ccec_ctx *k,
+    const struct ccdigest_info *di, size_t n, const void *m, size_t *sn, void *s,
+    struct ccrng_state *r)
+{
+	unsigned char h[64];
+	if (di->output_size > sizeof(h))
+		return -7;
+	ccdigest(di, n, m, h);
+	return ccec_sign(k, di->output_size, h, sn, s, r);
+}
+__attribute__((visibility("default"))) int ccec_verify_msg(const struct ccec_ctx *k,
+    const struct ccdigest_info *di, size_t n, const void *m, size_t sn, const void *s, void *canary)
+{
+	unsigned char h[64];
+	if (di->output_size > sizeof(h))
+		return -7;
+	ccdigest(di, n, m, h);
+	return ccec_verify_digest(k, di->output_size, h, sn, s, canary);
+}
 /* The curve table extends the field table with Jacobian point operations. */
-static EC_POINT*read_projective(ccec_const_cp_t cp,const EC_GROUP*g,const cc_unit*in,BN_CTX*c){BIGNUM*x=readle(in,cp->n),*y=readle(in+cp->n,cp->n),*z=readle(in+2*cp->n,cp->n),*p=readle(cp->data,cp->n),*t=BN_new();EC_POINT*r=EC_POINT_new(g);int ok=x&&y&&z&&p&&t&&r;if(ok&&BN_is_zero(z))ok=EC_POINT_set_to_infinity(g,r);else if(ok){ok=BN_mod_inverse(t,z,p,c)!=NULL&&BN_mod_mul(y,y,t,p,c)&&BN_mod_sqr(t,t,p,c)&&BN_mod_mul(x,x,t,p,c)&&BN_mod_mul(y,y,t,p,c)&&EC_POINT_set_affine_coordinates(g,r,x,y,c);}if(!ok){EC_POINT_free(r);r=NULL;}BN_free(x);BN_free(y);BN_free(z);BN_free(p);BN_free(t);return r;}
-static int write_projective(ccec_const_cp_t cp,const EC_GROUP*g,const EC_POINT*p,cc_unit*out,BN_CTX*c){if(EC_POINT_is_at_infinity(g,p)){memset(out,0,24*cp->n);return 0;}BIGNUM*x=BN_new(),*y=BN_new();int ok=x&&y&&EC_POINT_get_affine_coordinates(g,p,x,y,c);if(ok){writele(x,out,cp->n);writele(y,out+cp->n,cp->n);memset(out+2*cp->n,0,8*cp->n);out[2*cp->n]=1;}BN_free(x);BN_free(y);return ok?0:-1;}
-static int project_cb(void*w,ccec_const_cp_t cp,cc_unit*out,const cc_unit*in,struct ccrng_state*r){(void)w;if(r){unsigned char b[72];int rc=r->generate(r,width(cp),b);OPENSSL_cleanse(b,sizeof(b));if(rc)return rc;}memmove(out,in,16*cp->n);memset(out+2*cp->n,0,8*cp->n);out[2*cp->n]=1;return 0;}
-static int affine_cb(void*w,ccec_const_cp_t cp,cc_unit*out,const cc_unit*in){(void)w;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?read_projective(cp,g,in,c):NULL;cc_unit tmp[27];int rc=p&&!EC_POINT_is_at_infinity(g,p)?write_projective(cp,g,p,tmp,c):-7;if(!rc)memcpy(out,tmp,16*cp->n);EC_POINT_free(p);EC_GROUP_free(g);BN_CTX_free(c);return rc;}
-static void add_cb(void*w,ccec_const_cp_t cp,cc_unit*out,const cc_unit*a,const cc_unit*b){(void)w;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?read_projective(cp,g,a,c):NULL,*q=g&&c?read_projective(cp,g,b,c):NULL;if(p&&q&&EC_POINT_add(g,p,p,q,c))write_projective(cp,g,p,out,c);else memset(out,0,24*cp->n);EC_POINT_free(p);EC_POINT_free(q);EC_GROUP_free(g);BN_CTX_free(c);}
-static int mult_cb(void*w,ccec_const_cp_t cp,cc_unit*out,const cc_unit*d,size_t dbits,const cc_unit*in){(void)w;if(dbits>cp->n*64)return -7;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?read_projective(cp,g,in,c):NULL;BIGNUM*k=readle(d,(dbits+63)/64);if(k){BN_mask_bits(k,(int)dbits);BN_set_flags(k,BN_FLG_CONSTTIME);}int rc=p&&k&&EC_POINT_mul(g,p,NULL,p,k,c)?write_projective(cp,g,p,out,c):-1;BN_clear_free(k);EC_POINT_free(p);EC_GROUP_free(g);BN_CTX_free(c);return rc;}
-struct ecc_workspace { cc_unit *mem; size_t count,used; cc_unit *(*alloc)(struct ecc_workspace*,size_t); void (*free)(struct ecc_workspace*); };
-static cc_unit*scratch_alloc(struct ecc_workspace*w,size_t n){if(n>w->count-w->used)abort();cc_unit*p=w->mem+w->used;w->used+=n;return p;}
-static void scratch_free(struct ecc_workspace*w){(void)w;}
-__attribute__((visibility("default"))) int ccec_projectify(ccec_const_cp_t cp,cc_unit*out,const cc_unit*in,struct ccrng_state*r){cc_unit mem[2048];struct ecc_workspace w={mem,2048,0,scratch_alloc,scratch_free};int rc=((const struct curve_funcs*)cp->funcs)->project(&w,cp,out,in,r);OPENSSL_cleanse(mem,sizeof(mem));return rc;}
-__attribute__((visibility("default"))) int ccec_affinify(ccec_const_cp_t cp,cc_unit*out,const cc_unit*in){cc_unit mem[2048];struct ecc_workspace w={mem,2048,0,scratch_alloc,scratch_free};int rc=((const struct curve_funcs*)cp->funcs)->affine(&w,cp,out,in);OPENSSL_cleanse(mem,sizeof(mem));return rc;}
-__attribute__((visibility("default"))) int ccec_compact_export_pub(void*out,const struct ccec_ctx*k){int rc=ccn_write_uint_padded_ct(k->cp->n,k->data,width(k->cp),out);return rc<0?rc:0;}
-__attribute__((visibility("default"))) int ccec_compact_export(bool full,void*out,const struct ccec_ctx*k){int rc=ccec_compact_export_pub(out,k);if(!rc&&full){int r=ccn_write_uint_padded_ct(k->cp->n,k->data+3*k->cp->n,width(k->cp),(char*)out+width(k->cp));if(r<0)rc=r;}return rc;}
-__attribute__((visibility("default"))) size_t ccec_compressed_x962_export_pub_size(ccec_const_cp_t cp){return width(cp)+1;}
-__attribute__((visibility("default"))) int ccec_compressed_x962_export_pub(const struct ccec_ctx*k,void*out){((unsigned char*)out)[0]=2|(k->data[k->cp->n]&1);return ccec_compact_export_pub((char*)out+1,k);}
-__attribute__((visibility("default"))) int ccec_compressed_x962_import_pub(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){if(n!=width(cp)+1||(((const unsigned char*)in)[0]!=2&&((const unsigned char*)in)[0]!=3))return -1;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g?EC_POINT_new(g):NULL;int rc=p&&c&&EC_POINT_oct2point(g,p,in,n,c)?savepoint(cp,k,g,p,c):-1;EC_POINT_free(p);EC_GROUP_free(g);BN_CTX_free(c);return rc;}
-__attribute__((visibility("default"))) int ccec_compact_import_pub(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){if(n!=width(cp))return -1;unsigned char buf[67];buf[0]=2;memcpy(buf+1,in,n);int rc=ccec_compressed_x962_import_pub(cp,n+1,buf,k);if(!rc){BIGNUM*y=readle(k->data+cp->n,cp->n),*p=readle(cp->data,cp->n),*neg=BN_new();if(!y||!p||!neg||!BN_sub(neg,p,y))rc=-1;else if(BN_cmp(y,neg)>0)writele(neg,k->data+cp->n,cp->n);BN_free(y);BN_free(p);BN_free(neg);}return rc;}
-__attribute__((visibility("default"))) int ccec_compact_import_priv(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){size_t w=width(cp);if(n!=2*w)return -1;int rc=ccec_compact_import_pub(cp,w,in,k);return rc?rc:ccn_read_uint(cp->n,k->data+3*cp->n,w,(const char*)in+w);}
-__attribute__((visibility("default"))) bool ccec_is_compactable_pub(const struct ccec_ctx*k){BIGNUM*y=readle(k->data+k->cp->n,k->cp->n),*p=readle(k->cp->data,k->cp->n),*neg=BN_new();int ok=y&&p&&neg&&BN_sub(neg,p,y)&&BN_cmp(y,neg)<=0;BN_free(y);BN_free(p);BN_free(neg);return ok;}
-__attribute__((visibility("default"))) int ccec_compact_transform_key(struct ccec_ctx*k){if(ccec_is_compactable_pub(k))return 0;size_t n=k->cp->n;BIGNUM*y=readle(k->data+n,n),*p=readle(k->cp->data,n),*d=readle(k->data+3*n,n);const struct cczp*z=(const void*)((const char*)k->cp+32+40*n);BIGNUM*q=readle(z->data,n);int ok=y&&p&&d&&q&&BN_sub(y,p,y)&&BN_sub(d,q,d);if(ok){writele(y,k->data+n,n);writele(d,k->data+3*n,n);}BN_free(y);BN_free(p);BN_clear_free(d);BN_free(q);return ok?0:-1;}
-__attribute__((visibility("default"))) int ccec_compact_generate_key(ccec_const_cp_t cp,struct ccrng_state*r,struct ccec_ctx*k){int rc=ccec_generate_key(cp,r,k);return rc?rc:ccec_compact_transform_key(k);}
-__attribute__((visibility("default"))) int ccec_pairwise_consistency_check(const struct ccec_ctx*k,struct ccrng_state*r){unsigned char h[32]={0},s[160];size_t sn=sizeof(s);bool v=false;return !ccec_sign(k,sizeof(h),h,&sn,s,r)&&!ccec_verify(k,sizeof(h),h,sn,s,&v)&&v;}
-__attribute__((visibility("default"))) int ccec_generate_blinding_keys(ccec_const_cp_t cp,struct ccrng_state*r,struct ccec_ctx*blind,struct ccec_ctx*unblind){int rc=ccec_generate_key(cp,r,blind);if(rc)return rc;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();BIGNUM*d=readle(blind->data+3*cp->n,cp->n),*q=BN_new(),*inv=NULL;EC_POINT*p=g?EC_POINT_new(g):NULL;rc=-1;if(g&&c&&d&&q&&p&&EC_GROUP_get_order(g,q,c)){BN_set_flags(d,BN_FLG_CONSTTIME);inv=BN_mod_inverse(NULL,d,q,c);if(inv&&EC_POINT_mul(g,p,inv,NULL,NULL,c)){rc=savepoint(cp,unblind,g,p,c);if(!rc)writele(inv,unblind->data+3*cp->n,cp->n);}}BN_clear_free(d);BN_clear_free(inv);BN_free(q);EC_POINT_free(p);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-__attribute__((visibility("default"))) int ccec_blind(struct ccrng_state*r,const struct ccec_ctx*factor,const struct ccec_ctx*k,struct ccec_ctx*out){int random_status=check_rng(r,width(k->cp));if(random_status)return random_status;if(factor->cp->bitlen!=k->cp->bitlen)return -7;EC_GROUP*g=group(k->cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?point(g,k,c):NULL;BIGNUM*d=readle(factor->data+3*factor->cp->n,factor->cp->n);if(d)BN_set_flags(d,BN_FLG_CONSTTIME);int rc=p&&d&&EC_POINT_mul(g,p,NULL,p,d,c)?savepoint(k->cp,out,g,p,c):-1;BN_clear_free(d);EC_POINT_free(p);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-__attribute__((visibility("default"))) int ccec_unblind(struct ccrng_state*r,const struct ccec_ctx*factor,const struct ccec_ctx*k,struct ccec_ctx*out){return ccec_blind(r,factor,k,out);}
-__attribute__((visibility("default"))) size_t ccec_der_export_priv_size(const struct ccec_ctx*k,const unsigned char*oid,bool pub){return ccder_encode_eckey_size(width(k->cp),oid,pub?2*width(k->cp)+1:0);}
-__attribute__((visibility("default"))) int ccec_der_export_priv(const struct ccec_ctx*k,const unsigned char*oid,bool pub,size_t n,void*out){unsigned char d[66],p[133];size_t w=width(k->cp),pn=pub?2*w+1:0;if(n!=ccec_der_export_priv_size(k,oid,pub))return -1;if(ccn_write_uint_padded_ct(k->cp->n,k->data+3*k->cp->n,w,d)<0)return -1;if(pub&&ccec_export_pub(k,p))return -1;unsigned char*result=ccder_encode_eckey(w,d,oid,pn,p,out,(unsigned char*)out+n);OPENSSL_cleanse(d,sizeof(d));return result==out?0:-1;}
-__attribute__((visibility("default"))) int ccec_der_import_priv(ccec_const_cp_t cp,size_t n,const void*in,struct ccec_ctx*k){uint64_t version;size_t dn=0,pbits=0;const unsigned char*d=NULL,*oid=NULL,*p=NULL;const unsigned char*end=ccder_decode_eckey(&version,&dn,&d,&oid,&pbits,&p,in,(const unsigned char*)in+n);(void)oid;if(!end||version!=1||dn!=width(cp))return -1;k->cp=cp;if(ccn_read_uint(cp->n,k->data+3*cp->n,dn,d))return -1;if(p)return ccec_x963_import_pub(cp,(pbits+7)/8,p,k);EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();BIGNUM*priv=readle(k->data+3*cp->n,cp->n);EC_POINT*point=g?EC_POINT_new(g):NULL;int rc=-1;if(priv)BN_set_flags(priv,BN_FLG_CONSTTIME);if(point&&c&&priv&&!BN_is_zero(priv)&&EC_POINT_mul(g,point,priv,NULL,NULL,c))rc=savepoint(cp,k,g,point,c);BN_clear_free(priv);EC_POINT_free(point);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-__attribute__((visibility("default"))) size_t ccec_diversify_min_entropy_len(ccec_const_cp_t cp){const struct cczp*q=(const void*)((const char*)cp+32+40*cp->n);return(q->bitlen+71)/8;}
-static int twin_scalars(ccec_const_cp_t cp,size_t n,const void*entropy,BIGNUM*a,BIGNUM*b,BN_CTX*c){if((n&1)||n/2<ccec_diversify_min_entropy_len(cp)||n/2>128)return -7;const struct cczp*order=(const void*)((const char*)cp+32+40*cp->n);BIGNUM*q=readle(order->data,cp->n);int ok=q&&BN_sub_word(q,1)&&BN_bin2bn(entropy,(int)(n/2),a)&&BN_bin2bn((const unsigned char*)entropy+n/2,(int)(n/2),b)&&BN_nnmod(a,a,q,c)&&BN_nnmod(b,b,q,c)&&BN_add_word(a,1)&&BN_add_word(b,1);BN_free(q);return ok?0:-1;}
-__attribute__((visibility("default"))) int ccec_diversify_pub_twin(ccec_const_cp_t cp,const struct ccec_ctx*k,size_t n,const void*entropy,struct ccrng_state*r,struct ccec_ctx*out){int random_status=check_rng(r,width(cp));if(random_status)return random_status;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?point(g,k,c):NULL;BIGNUM*a=BN_new(),*b=BN_new();int rc=-1;if(p&&a&&b){rc=twin_scalars(cp,n,entropy,a,b,c);if(!rc)rc=EC_POINT_mul(g,p,b,p,a,c)?savepoint(cp,out,g,p,c):-1;}BN_clear_free(a);BN_clear_free(b);EC_POINT_free(p);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-__attribute__((visibility("default"))) int ccec_diversify_priv_twin(ccec_const_cp_t cp,const cc_unit*priv,size_t n,const void*entropy,struct ccrng_state*r,struct ccec_ctx*out){int random_status=check_rng(r,width(cp));if(random_status)return random_status;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g?EC_POINT_new(g):NULL;BIGNUM*a=BN_new(),*b=BN_new(),*d=readle(priv,cp->n),*q=BN_new();int rc=-1;if(p&&c&&a&&b&&d&&q){rc=twin_scalars(cp,n,entropy,a,b,c);if(!rc){BN_set_flags(d,BN_FLG_CONSTTIME);int ok=EC_GROUP_get_order(g,q,c)&&BN_mod_mul(d,d,a,q,c)&&BN_mod_add(d,d,b,q,c)&&EC_POINT_mul(g,p,d,NULL,NULL,c);rc=ok?savepoint(cp,out,g,p,c):-1;if(!rc)writele(d,out->data+3*cp->n,cp->n);}}BN_clear_free(a);BN_clear_free(b);BN_clear_free(d);BN_free(q);EC_POINT_free(p);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
+static EC_POINT *read_projective(
+    ccec_const_cp_t cp, const EC_GROUP *g, const cc_unit *in, BN_CTX *c)
+{
+	BIGNUM *x = readle(in, cp->n), *y = readle(in + cp->n, cp->n),
+	       *z = readle(in + 2 * cp->n, cp->n), *p = readle(cp->data, cp->n), *t = BN_new();
+	EC_POINT *r = EC_POINT_new(g);
+	int ok = x && y && z && p && t && r;
+	if (ok && BN_is_zero(z))
+		ok = EC_POINT_set_to_infinity(g, r);
+	else if (ok) {
+		ok = BN_mod_inverse(t, z, p, c) != NULL && BN_mod_mul(y, y, t, p, c) &&
+		    BN_mod_sqr(t, t, p, c) && BN_mod_mul(x, x, t, p, c) &&
+		    BN_mod_mul(y, y, t, p, c) && EC_POINT_set_affine_coordinates(g, r, x, y, c);
+	}
+	if (!ok) {
+		EC_POINT_free(r);
+		r = NULL;
+	}
+	BN_free(x);
+	BN_free(y);
+	BN_free(z);
+	BN_free(p);
+	BN_free(t);
+	return r;
+}
+static int write_projective(
+    ccec_const_cp_t cp, const EC_GROUP *g, const EC_POINT *p, cc_unit *out, BN_CTX *c)
+{
+	if (EC_POINT_is_at_infinity(g, p)) {
+		memset(out, 0, 24 * cp->n);
+		return 0;
+	}
+	BIGNUM *x = BN_new(), *y = BN_new();
+	int ok = x && y && EC_POINT_get_affine_coordinates(g, p, x, y, c);
+	if (ok) {
+		writele(x, out, cp->n);
+		writele(y, out + cp->n, cp->n);
+		memset(out + 2 * cp->n, 0, 8 * cp->n);
+		out[2 * cp->n] = 1;
+	}
+	BN_free(x);
+	BN_free(y);
+	return ok ? 0 : -1;
+}
+static int project_cb(
+    void *w, ccec_const_cp_t cp, cc_unit *out, const cc_unit *in, struct ccrng_state *r)
+{
+	(void)w;
+	if (r) {
+		unsigned char b[72];
+		int rc = r->generate(r, width(cp), b);
+		OPENSSL_cleanse(b, sizeof(b));
+		if (rc)
+			return rc;
+	}
+	memmove(out, in, 16 * cp->n);
+	memset(out + 2 * cp->n, 0, 8 * cp->n);
+	out[2 * cp->n] = 1;
+	return 0;
+}
+static int affine_cb(void *w, ccec_const_cp_t cp, cc_unit *out, const cc_unit *in)
+{
+	(void)w;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g && c ? read_projective(cp, g, in, c) : NULL;
+	cc_unit tmp[27];
+	int rc = p && !EC_POINT_is_at_infinity(g, p) ? write_projective(cp, g, p, tmp, c) : -7;
+	if (!rc)
+		memcpy(out, tmp, 16 * cp->n);
+	EC_POINT_free(p);
+	EC_GROUP_free(g);
+	BN_CTX_free(c);
+	return rc;
+}
+static void add_cb(void *w, ccec_const_cp_t cp, cc_unit *out, const cc_unit *a, const cc_unit *b)
+{
+	(void)w;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g && c ? read_projective(cp, g, a, c) : NULL,
+	         *q = g && c ? read_projective(cp, g, b, c) : NULL;
+	if (p && q && EC_POINT_add(g, p, p, q, c))
+		write_projective(cp, g, p, out, c);
+	else
+		memset(out, 0, 24 * cp->n);
+	EC_POINT_free(p);
+	EC_POINT_free(q);
+	EC_GROUP_free(g);
+	BN_CTX_free(c);
+}
+static int mult_cb(
+    void *w, ccec_const_cp_t cp, cc_unit *out, const cc_unit *d, size_t dbits, const cc_unit *in)
+{
+	(void)w;
+	if (dbits > cp->n * 64)
+		return -7;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g && c ? read_projective(cp, g, in, c) : NULL;
+	BIGNUM *k = readle(d, (dbits + 63) / 64);
+	if (k) {
+		BN_mask_bits(k, (int)dbits);
+		BN_set_flags(k, BN_FLG_CONSTTIME);
+	}
+	int rc =
+	    p && k && EC_POINT_mul(g, p, NULL, p, k, c) ? write_projective(cp, g, p, out, c) : -1;
+	BN_clear_free(k);
+	EC_POINT_free(p);
+	EC_GROUP_free(g);
+	BN_CTX_free(c);
+	return rc;
+}
+struct ecc_workspace {
+	cc_unit *mem;
+	size_t count, used;
+	cc_unit *(*alloc)(struct ecc_workspace *, size_t);
+	void (*free)(struct ecc_workspace *);
+};
+static cc_unit *scratch_alloc(struct ecc_workspace *w, size_t n)
+{
+	if (n > w->count - w->used)
+		abort();
+	cc_unit *p = w->mem + w->used;
+	w->used += n;
+	return p;
+}
+static void scratch_free(struct ecc_workspace *w)
+{
+	(void)w;
+}
+__attribute__((visibility("default"))) int ccec_projectify(
+    ccec_const_cp_t cp, cc_unit *out, const cc_unit *in, struct ccrng_state *r)
+{
+	cc_unit mem[2048];
+	struct ecc_workspace w = {mem, 2048, 0, scratch_alloc, scratch_free};
+	int rc = ((const struct curve_funcs *)cp->funcs)->project(&w, cp, out, in, r);
+	OPENSSL_cleanse(mem, sizeof(mem));
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_affinify(
+    ccec_const_cp_t cp, cc_unit *out, const cc_unit *in)
+{
+	cc_unit mem[2048];
+	struct ecc_workspace w = {mem, 2048, 0, scratch_alloc, scratch_free};
+	int rc = ((const struct curve_funcs *)cp->funcs)->affine(&w, cp, out, in);
+	OPENSSL_cleanse(mem, sizeof(mem));
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_compact_export_pub(
+    void *out, const struct ccec_ctx *k)
+{
+	int rc = ccn_write_uint_padded_ct(k->cp->n, k->data, width(k->cp), out);
+	return rc < 0 ? rc : 0;
+}
+__attribute__((visibility("default"))) int ccec_compact_export(
+    bool full, void *out, const struct ccec_ctx *k)
+{
+	int rc = ccec_compact_export_pub(out, k);
+	if (!rc && full) {
+		int r = ccn_write_uint_padded_ct(
+		    k->cp->n, k->data + 3 * k->cp->n, width(k->cp), (char *)out + width(k->cp));
+		if (r < 0)
+			rc = r;
+	}
+	return rc;
+}
+__attribute__((visibility("default"))) size_t ccec_compressed_x962_export_pub_size(
+    ccec_const_cp_t cp)
+{
+	return width(cp) + 1;
+}
+__attribute__((visibility("default"))) int ccec_compressed_x962_export_pub(
+    const struct ccec_ctx *k, void *out)
+{
+	((unsigned char *)out)[0] = 2 | (k->data[k->cp->n] & 1);
+	return ccec_compact_export_pub((char *)out + 1, k);
+}
+__attribute__((visibility("default"))) int ccec_compressed_x962_import_pub(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	if (n != width(cp) + 1 ||
+	    (((const unsigned char *)in)[0] != 2 && ((const unsigned char *)in)[0] != 3))
+		return -1;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g ? EC_POINT_new(g) : NULL;
+	int rc = p && c && EC_POINT_oct2point(g, p, in, n, c) ? savepoint(cp, k, g, p, c) : -1;
+	EC_POINT_free(p);
+	EC_GROUP_free(g);
+	BN_CTX_free(c);
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_compact_import_pub(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	if (n != width(cp))
+		return -1;
+	unsigned char buf[67];
+	buf[0] = 2;
+	memcpy(buf + 1, in, n);
+	int rc = ccec_compressed_x962_import_pub(cp, n + 1, buf, k);
+	if (!rc) {
+		BIGNUM *y = readle(k->data + cp->n, cp->n), *p = readle(cp->data, cp->n),
+		       *neg = BN_new();
+		if (!y || !p || !neg || !BN_sub(neg, p, y))
+			rc = -1;
+		else if (BN_cmp(y, neg) > 0)
+			writele(neg, k->data + cp->n, cp->n);
+		BN_free(y);
+		BN_free(p);
+		BN_free(neg);
+	}
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_compact_import_priv(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	size_t w = width(cp);
+	if (n != 2 * w)
+		return -1;
+	int rc = ccec_compact_import_pub(cp, w, in, k);
+	return rc ? rc : ccn_read_uint(cp->n, k->data + 3 * cp->n, w, (const char *)in + w);
+}
+__attribute__((visibility("default"))) bool ccec_is_compactable_pub(const struct ccec_ctx *k)
+{
+	BIGNUM *y = readle(k->data + k->cp->n, k->cp->n), *p = readle(k->cp->data, k->cp->n),
+	       *neg = BN_new();
+	int ok = y && p && neg && BN_sub(neg, p, y) && BN_cmp(y, neg) <= 0;
+	BN_free(y);
+	BN_free(p);
+	BN_free(neg);
+	return ok;
+}
+__attribute__((visibility("default"))) int ccec_compact_transform_key(struct ccec_ctx *k)
+{
+	if (ccec_is_compactable_pub(k))
+		return 0;
+	size_t n = k->cp->n;
+	BIGNUM *y = readle(k->data + n, n), *p = readle(k->cp->data, n),
+	       *d = readle(k->data + 3 * n, n);
+	const struct cczp *z = (const void *)((const char *)k->cp + 32 + 40 * n);
+	BIGNUM *q = readle(z->data, n);
+	int ok = y && p && d && q && BN_sub(y, p, y) && BN_sub(d, q, d);
+	if (ok) {
+		writele(y, k->data + n, n);
+		writele(d, k->data + 3 * n, n);
+	}
+	BN_free(y);
+	BN_free(p);
+	BN_clear_free(d);
+	BN_free(q);
+	return ok ? 0 : -1;
+}
+__attribute__((visibility("default"))) int ccec_compact_generate_key(
+    ccec_const_cp_t cp, struct ccrng_state *r, struct ccec_ctx *k)
+{
+	int rc = ccec_generate_key(cp, r, k);
+	return rc ? rc : ccec_compact_transform_key(k);
+}
+__attribute__((visibility("default"))) int ccec_pairwise_consistency_check(
+    const struct ccec_ctx *k, struct ccrng_state *r)
+{
+	unsigned char h[32] = {0}, s[160];
+	size_t sn = sizeof(s);
+	bool v = false;
+	return !ccec_sign(k, sizeof(h), h, &sn, s, r) && !ccec_verify(k, sizeof(h), h, sn, s, &v) &&
+	    v;
+}
+__attribute__((visibility("default"))) int ccec_generate_blinding_keys(
+    ccec_const_cp_t cp, struct ccrng_state *r, struct ccec_ctx *blind, struct ccec_ctx *unblind)
+{
+	int rc = ccec_generate_key(cp, r, blind);
+	if (rc)
+		return rc;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *d = readle(blind->data + 3 * cp->n, cp->n), *q = BN_new(), *inv = NULL;
+	EC_POINT *p = g ? EC_POINT_new(g) : NULL;
+	rc = -1;
+	if (g && c && d && q && p && EC_GROUP_get_order(g, q, c)) {
+		BN_set_flags(d, BN_FLG_CONSTTIME);
+		inv = BN_mod_inverse(NULL, d, q, c);
+		if (inv && EC_POINT_mul(g, p, inv, NULL, NULL, c)) {
+			rc = savepoint(cp, unblind, g, p, c);
+			if (!rc)
+				writele(inv, unblind->data + 3 * cp->n, cp->n);
+		}
+	}
+	BN_clear_free(d);
+	BN_clear_free(inv);
+	BN_free(q);
+	EC_POINT_free(p);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_blind(struct ccrng_state *r,
+    const struct ccec_ctx *factor, const struct ccec_ctx *k, struct ccec_ctx *out)
+{
+	int random_status = check_rng(r, width(k->cp));
+	if (random_status)
+		return random_status;
+	if (factor->cp->bitlen != k->cp->bitlen)
+		return -7;
+	EC_GROUP *g = group(k->cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g && c ? point(g, k, c) : NULL;
+	BIGNUM *d = readle(factor->data + 3 * factor->cp->n, factor->cp->n);
+	if (d)
+		BN_set_flags(d, BN_FLG_CONSTTIME);
+	int rc = p && d && EC_POINT_mul(g, p, NULL, p, d, c) ? savepoint(k->cp, out, g, p, c) : -1;
+	BN_clear_free(d);
+	EC_POINT_free(p);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_unblind(struct ccrng_state *r,
+    const struct ccec_ctx *factor, const struct ccec_ctx *k, struct ccec_ctx *out)
+{
+	return ccec_blind(r, factor, k, out);
+}
+__attribute__((visibility("default"))) size_t ccec_der_export_priv_size(
+    const struct ccec_ctx *k, const unsigned char *oid, bool pub)
+{
+	return ccder_encode_eckey_size(width(k->cp), oid, pub ? 2 * width(k->cp) + 1 : 0);
+}
+__attribute__((visibility("default"))) int ccec_der_export_priv(
+    const struct ccec_ctx *k, const unsigned char *oid, bool pub, size_t n, void *out)
+{
+	unsigned char d[66], p[133];
+	size_t w = width(k->cp), pn = pub ? 2 * w + 1 : 0;
+	if (n != ccec_der_export_priv_size(k, oid, pub))
+		return -1;
+	if (ccn_write_uint_padded_ct(k->cp->n, k->data + 3 * k->cp->n, w, d) < 0)
+		return -1;
+	if (pub && ccec_export_pub(k, p))
+		return -1;
+	unsigned char *result = ccder_encode_eckey(w, d, oid, pn, p, out, (unsigned char *)out + n);
+	OPENSSL_cleanse(d, sizeof(d));
+	return result == out ? 0 : -1;
+}
+__attribute__((visibility("default"))) int ccec_der_import_priv(
+    ccec_const_cp_t cp, size_t n, const void *in, struct ccec_ctx *k)
+{
+	uint64_t version;
+	size_t dn = 0, pbits = 0;
+	const unsigned char *d = NULL, *oid = NULL, *p = NULL;
+	const unsigned char *end = ccder_decode_eckey(
+	    &version, &dn, &d, &oid, &pbits, &p, in, (const unsigned char *)in + n);
+	(void)oid;
+	if (!end || version != 1 || dn != width(cp))
+		return -1;
+	k->cp = cp;
+	if (ccn_read_uint(cp->n, k->data + 3 * cp->n, dn, d))
+		return -1;
+	if (p)
+		return ccec_x963_import_pub(cp, (pbits + 7) / 8, p, k);
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *priv = readle(k->data + 3 * cp->n, cp->n);
+	EC_POINT *point = g ? EC_POINT_new(g) : NULL;
+	int rc = -1;
+	if (priv)
+		BN_set_flags(priv, BN_FLG_CONSTTIME);
+	if (point && c && priv && !BN_is_zero(priv) && EC_POINT_mul(g, point, priv, NULL, NULL, c))
+		rc = savepoint(cp, k, g, point, c);
+	BN_clear_free(priv);
+	EC_POINT_free(point);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+__attribute__((visibility("default"))) size_t ccec_diversify_min_entropy_len(ccec_const_cp_t cp)
+{
+	const struct cczp *q = (const void *)((const char *)cp + 32 + 40 * cp->n);
+	return (q->bitlen + 71) / 8;
+}
+static int twin_scalars(
+    ccec_const_cp_t cp, size_t n, const void *entropy, BIGNUM *a, BIGNUM *b, BN_CTX *c)
+{
+	if ((n & 1) || n / 2 < ccec_diversify_min_entropy_len(cp) || n / 2 > 128)
+		return -7;
+	const struct cczp *order = (const void *)((const char *)cp + 32 + 40 * cp->n);
+	BIGNUM *q = readle(order->data, cp->n);
+	int ok = q && BN_sub_word(q, 1) && BN_bin2bn(entropy, (int)(n / 2), a) &&
+	    BN_bin2bn((const unsigned char *)entropy + n / 2, (int)(n / 2), b) &&
+	    BN_nnmod(a, a, q, c) && BN_nnmod(b, b, q, c) && BN_add_word(a, 1) && BN_add_word(b, 1);
+	BN_free(q);
+	return ok ? 0 : -1;
+}
+__attribute__((visibility("default"))) int ccec_diversify_pub_twin(ccec_const_cp_t cp,
+    const struct ccec_ctx *k, size_t n, const void *entropy, struct ccrng_state *r,
+    struct ccec_ctx *out)
+{
+	int random_status = check_rng(r, width(cp));
+	if (random_status)
+		return random_status;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g && c ? point(g, k, c) : NULL;
+	BIGNUM *a = BN_new(), *b = BN_new();
+	int rc = -1;
+	if (p && a && b) {
+		rc = twin_scalars(cp, n, entropy, a, b, c);
+		if (!rc)
+			rc = EC_POINT_mul(g, p, b, p, a, c) ? savepoint(cp, out, g, p, c) : -1;
+	}
+	BN_clear_free(a);
+	BN_clear_free(b);
+	EC_POINT_free(p);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+__attribute__((visibility("default"))) int ccec_diversify_priv_twin(ccec_const_cp_t cp,
+    const cc_unit *priv, size_t n, const void *entropy, struct ccrng_state *r, struct ccec_ctx *out)
+{
+	int random_status = check_rng(r, width(cp));
+	if (random_status)
+		return random_status;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	EC_POINT *p = g ? EC_POINT_new(g) : NULL;
+	BIGNUM *a = BN_new(), *b = BN_new(), *d = readle(priv, cp->n), *q = BN_new();
+	int rc = -1;
+	if (p && c && a && b && d && q) {
+		rc = twin_scalars(cp, n, entropy, a, b, c);
+		if (!rc) {
+			BN_set_flags(d, BN_FLG_CONSTTIME);
+			int ok = EC_GROUP_get_order(g, q, c) && BN_mod_mul(d, d, a, q, c) &&
+			    BN_mod_add(d, d, b, q, c) && EC_POINT_mul(g, p, d, NULL, NULL, c);
+			rc = ok ? savepoint(cp, out, g, p, c) : -1;
+			if (!rc)
+				writele(d, out->data + 3 * cp->n, cp->n);
+		}
+	}
+	BN_clear_free(a);
+	BN_clear_free(b);
+	BN_clear_free(d);
+	BN_free(q);
+	EC_POINT_free(p);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
 
 #include <stdarg.h>
 #include <stdio.h>
 #define ECC_API __attribute__((visibility("default")))
-ECC_API const unsigned char CCEC_FAULT_CANARY[16]={0xce,0x3c,0xed,0x46,0x6b,0x11,0xbf,0x08,0x13,0xa0,0xd4,0xbf,0x89,0x60,0xeb,0x56};
-extern struct ccrng_state*ccrng(int*);
-ECC_API int ccec_compute_key(const struct ccec_ctx*k,const struct ccec_ctx*peer,size_t*n,void*out){return ccecdh_compute_shared_secret(k,peer,n,out,ccrng(NULL));}
-ECC_API ccec_const_cp_t ccec_curve_for_length_lookup(size_t bits,...){va_list ap;va_start(ap,bits);ccec_const_cp_t cp;while((cp=va_arg(ap,ccec_const_cp_t)))if(cp->bitlen==bits||8*width(cp)==bits)break;va_end(ap);return cp;}
-ECC_API int ccec_generate_scalar_fips_retry(ccec_const_cp_t cp,struct ccrng_state*r,cc_unit*out){EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();BIGNUM*d=BN_new();int rc=-1;if(g&&c&&d){rc=scalar(g,r,d,c);if(!rc&&!writele(d,out,cp->n))rc=-1;}BN_clear_free(d);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-ECC_API int ccec_sign_composite_msg(const struct ccec_ctx*k,const struct ccdigest_info*di,size_t n,const void*m,void*rr,void*ss,struct ccrng_state*r){unsigned char h[64];if(di->output_size>sizeof h)return -7;ccdigest(di,n,m,h);int rc=ccec_sign_composite(k,di->output_size,h,rr,ss,r);OPENSSL_cleanse(h,sizeof h);return rc;}
-ECC_API int ccec_verify_composite_digest(const struct ccec_ctx*k,size_t n,const void*h,const void*rr,const void*ss,void*canary){bool valid=false;int rc=ccec_verify_composite(k,n,h,rr,ss,&valid);if(canary){memset(canary,0,16);if(!rc&&valid)memcpy(canary,CCEC_FAULT_CANARY,16);}return rc?rc:valid?0:-146;}
-ECC_API int ccec_verify_composite_msg(const struct ccec_ctx*k,const struct ccdigest_info*di,size_t n,const void*m,const void*rr,const void*ss,void*canary){unsigned char h[64];if(di->output_size>sizeof h)return -7;ccdigest(di,n,m,h);return ccec_verify_composite_digest(k,di->output_size,h,rr,ss,canary);}
-ECC_API int ccec_extract_rs(const struct ccec_ctx*k,size_t n,const void*in,void*rr,void*ss){if(n>LONG_MAX)return -7;const unsigned char*p=in;ECDSA_SIG*s=d2i_ECDSA_SIG(NULL,&p,(long)n);if(!s||p!=(const unsigned char*)in+n){ECDSA_SIG_free(s);return -7;}const BIGNUM*a,*b;ECDSA_SIG_get0(s,&a,&b);int ok=(!rr||BN_bn2binpad(a,rr,(int)width(k->cp))>=0)&&(!ss||BN_bn2binpad(b,ss,(int)width(k->cp))>=0);ECDSA_SIG_free(s);return ok?0:-7;}
-ECC_API int ccec_der_import_priv_keytype(size_t n,const void*in,const unsigned char**oid,size_t*private_n){uint64_t version;size_t dn=0,pbits=0;const unsigned char*d=NULL,*o=NULL,*p=NULL;const unsigned char*end=ccder_decode_eckey(&version,&dn,&d,&o,&pbits,&p,in,(const unsigned char*)in+n);if(!end)return -1;*oid=o;*private_n=dn;return 0;}
-ECC_API size_t ccec_export_affine_point_size(ccec_const_cp_t cp,unsigned format){return format==1||format==2?2*width(cp)+1:format==3?width(cp)+1:format==4?width(cp):0;}
-ECC_API int ccec_export_affine_point(ccec_const_cp_t cp,unsigned format,const cc_unit*xy,size_t*n,void*out){size_t need=ccec_export_affine_point_size(cp,format);if(!need)return -7;if(*n<need)return -163;*n=need;unsigned char*b=out;size_t w=width(cp);if(format!=4)*b++=format==1?4:format==2?6:2;if(ccn_write_uint_padded_ct(cp->n,xy,w,b)<0)return -1;if((format==1||format==2)&&ccn_write_uint_padded_ct(cp->n,xy+cp->n,w,b+w)<0)return -1;if(format==2||format==3)((unsigned char*)out)[0]|=xy[cp->n]&1;return 0;}
-ECC_API int ccec_import_affine_point(ccec_const_cp_t cp,unsigned format,size_t n,const void*in,cc_unit*xy){if(!n||format<1||format>4)return -7;const unsigned char*b=in;if(n==1&&!b[0])return -160;size_t need=ccec_export_affine_point_size(cp,format);if(n!=need)return format==1?-170:format==2?-171:format==3?-161:-172;if(format==1&&b[0]!=4)return -170;if(format==2&&b[0]!=6&&b[0]!=7)return -171;if(format==3&&b[0]!=2&&b[0]!=3)return -161;unsigned char storage[232]={0};struct ccec_ctx*k=(void*)storage;k->cp=cp;int rc;if(format==4)rc=ccec_compact_import_pub(cp,n,in,k);else if(format==3)rc=ccec_compressed_x962_import_pub(cp,n,in,k);else{rc=ccec_raw_import_pub(cp,n-1,b+1,k);if(!rc&&format==2&&(k->data[cp->n]&1)!=(b[0]&1))rc=-171;}if(!rc){BIGNUM*x=readle(k->data,cp->n),*p=readle(cp->data,cp->n);if(!x||!p||BN_cmp(x,p)>=0)rc=-7;BN_free(x);BN_free(p);}if(!rc)memcpy(xy,k->data,16*cp->n);return rc;}
-ECC_API void ccec_full_add(ccec_const_cp_t cp,cc_unit*out,const cc_unit*a,const cc_unit*b){cc_unit mem[2048];struct ecc_workspace w={mem,2048,0,scratch_alloc,scratch_free};((const struct curve_funcs*)cp->funcs)->add(&w,cp,out,a,b);OPENSSL_cleanse(mem,sizeof mem);}
-ECC_API void ccec_full_sub(ccec_const_cp_t cp,cc_unit*out,const cc_unit*a,const cc_unit*b){cc_unit neg[27];memcpy(neg,b,24*cp->n);BIGNUM*y=readle(b+cp->n,cp->n),*p=readle(cp->data,cp->n);if(y&&p&&BN_sub(y,p,y)){writele(y,neg+cp->n,cp->n);ccec_full_add(cp,out,a,neg);}else memset(out,0,24*cp->n);BN_free(y);BN_free(p);OPENSSL_cleanse(neg,sizeof neg);}
-ECC_API int ccec_mult_blinded(ccec_const_cp_t cp,cc_unit*out,const cc_unit*d,const cc_unit*p,struct ccrng_state*r){int rc=check_rng(r,width(cp));if(rc)return rc;cc_unit mem[2048];struct ecc_workspace w={mem,2048,0,scratch_alloc,scratch_free};rc=((const struct curve_funcs*)cp->funcs)->mult(&w,cp,out,d,cp->bitlen,p);OPENSSL_cleanse(mem,sizeof mem);return rc;}
+ECC_API const unsigned char CCEC_FAULT_CANARY[16] = {
+    0xce, 0x3c, 0xed, 0x46, 0x6b, 0x11, 0xbf, 0x08, 0x13, 0xa0, 0xd4, 0xbf, 0x89, 0x60, 0xeb, 0x56};
+extern struct ccrng_state *ccrng(int *);
+ECC_API int ccec_compute_key(
+    const struct ccec_ctx *k, const struct ccec_ctx *peer, size_t *n, void *out)
+{
+	return ccecdh_compute_shared_secret(k, peer, n, out, ccrng(NULL));
+}
+ECC_API ccec_const_cp_t ccec_curve_for_length_lookup(size_t bits, ...)
+{
+	va_list ap;
+	va_start(ap, bits);
+	ccec_const_cp_t cp;
+	while ((cp = va_arg(ap, ccec_const_cp_t)))
+		if (cp->bitlen == bits || 8 * width(cp) == bits)
+			break;
+	va_end(ap);
+	return cp;
+}
+ECC_API int ccec_generate_scalar_fips_retry(ccec_const_cp_t cp, struct ccrng_state *r, cc_unit *out)
+{
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *d = BN_new();
+	int rc = -1;
+	if (g && c && d) {
+		rc = scalar(g, r, d, c);
+		if (!rc && !writele(d, out, cp->n))
+			rc = -1;
+	}
+	BN_clear_free(d);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+ECC_API int ccec_sign_composite_msg(const struct ccec_ctx *k, const struct ccdigest_info *di,
+    size_t n, const void *m, void *rr, void *ss, struct ccrng_state *r)
+{
+	unsigned char h[64];
+	if (di->output_size > sizeof h)
+		return -7;
+	ccdigest(di, n, m, h);
+	int rc = ccec_sign_composite(k, di->output_size, h, rr, ss, r);
+	OPENSSL_cleanse(h, sizeof h);
+	return rc;
+}
+ECC_API int ccec_verify_composite_digest(
+    const struct ccec_ctx *k, size_t n, const void *h, const void *rr, const void *ss, void *canary)
+{
+	bool valid = false;
+	int rc = ccec_verify_composite(k, n, h, rr, ss, &valid);
+	if (canary) {
+		memset(canary, 0, 16);
+		if (!rc && valid)
+			memcpy(canary, CCEC_FAULT_CANARY, 16);
+	}
+	return rc ? rc : valid ? 0 : -146;
+}
+ECC_API int ccec_verify_composite_msg(const struct ccec_ctx *k, const struct ccdigest_info *di,
+    size_t n, const void *m, const void *rr, const void *ss, void *canary)
+{
+	unsigned char h[64];
+	if (di->output_size > sizeof h)
+		return -7;
+	ccdigest(di, n, m, h);
+	return ccec_verify_composite_digest(k, di->output_size, h, rr, ss, canary);
+}
+ECC_API int ccec_extract_rs(const struct ccec_ctx *k, size_t n, const void *in, void *rr, void *ss)
+{
+	if (n > LONG_MAX)
+		return -7;
+	const unsigned char *p = in;
+	ECDSA_SIG *s = d2i_ECDSA_SIG(NULL, &p, (long)n);
+	if (!s || p != (const unsigned char *)in + n) {
+		ECDSA_SIG_free(s);
+		return -7;
+	}
+	const BIGNUM *a, *b;
+	ECDSA_SIG_get0(s, &a, &b);
+	int ok = (!rr || BN_bn2binpad(a, rr, (int)width(k->cp)) >= 0) &&
+	    (!ss || BN_bn2binpad(b, ss, (int)width(k->cp)) >= 0);
+	ECDSA_SIG_free(s);
+	return ok ? 0 : -7;
+}
+ECC_API int ccec_der_import_priv_keytype(
+    size_t n, const void *in, const unsigned char **oid, size_t *private_n)
+{
+	uint64_t version;
+	size_t dn = 0, pbits = 0;
+	const unsigned char *d = NULL, *o = NULL, *p = NULL;
+	const unsigned char *end = ccder_decode_eckey(
+	    &version, &dn, &d, &o, &pbits, &p, in, (const unsigned char *)in + n);
+	if (!end)
+		return -1;
+	*oid = o;
+	*private_n = dn;
+	return 0;
+}
+ECC_API size_t ccec_export_affine_point_size(ccec_const_cp_t cp, unsigned format)
+{
+	return format == 1 || format == 2 ? 2 * width(cp) + 1
+	    : format == 3                 ? width(cp) + 1
+	    : format == 4                 ? width(cp)
+	                                  : 0;
+}
+ECC_API int ccec_export_affine_point(
+    ccec_const_cp_t cp, unsigned format, const cc_unit *xy, size_t *n, void *out)
+{
+	size_t need = ccec_export_affine_point_size(cp, format);
+	if (!need)
+		return -7;
+	if (*n < need)
+		return -163;
+	*n = need;
+	unsigned char *b = out;
+	size_t w = width(cp);
+	if (format != 4)
+		*b++ = format == 1 ? 4 : format == 2 ? 6 : 2;
+	if (ccn_write_uint_padded_ct(cp->n, xy, w, b) < 0)
+		return -1;
+	if ((format == 1 || format == 2) &&
+	    ccn_write_uint_padded_ct(cp->n, xy + cp->n, w, b + w) < 0)
+		return -1;
+	if (format == 2 || format == 3)
+		((unsigned char *)out)[0] |= xy[cp->n] & 1;
+	return 0;
+}
+ECC_API int ccec_import_affine_point(
+    ccec_const_cp_t cp, unsigned format, size_t n, const void *in, cc_unit *xy)
+{
+	if (!n || format < 1 || format > 4)
+		return -7;
+	const unsigned char *b = in;
+	if (n == 1 && !b[0])
+		return -160;
+	size_t need = ccec_export_affine_point_size(cp, format);
+	if (n != need)
+		return format == 1 ? -170 : format == 2 ? -171 : format == 3 ? -161 : -172;
+	if (format == 1 && b[0] != 4)
+		return -170;
+	if (format == 2 && b[0] != 6 && b[0] != 7)
+		return -171;
+	if (format == 3 && b[0] != 2 && b[0] != 3)
+		return -161;
+	unsigned char storage[232] = {0};
+	struct ccec_ctx *k = (void *)storage;
+	k->cp = cp;
+	int rc;
+	if (format == 4)
+		rc = ccec_compact_import_pub(cp, n, in, k);
+	else if (format == 3)
+		rc = ccec_compressed_x962_import_pub(cp, n, in, k);
+	else {
+		rc = ccec_raw_import_pub(cp, n - 1, b + 1, k);
+		if (!rc && format == 2 && (k->data[cp->n] & 1) != (b[0] & 1))
+			rc = -171;
+	}
+	if (!rc) {
+		BIGNUM *x = readle(k->data, cp->n), *p = readle(cp->data, cp->n);
+		if (!x || !p || BN_cmp(x, p) >= 0)
+			rc = -7;
+		BN_free(x);
+		BN_free(p);
+	}
+	if (!rc)
+		memcpy(xy, k->data, 16 * cp->n);
+	return rc;
+}
+ECC_API void ccec_full_add(ccec_const_cp_t cp, cc_unit *out, const cc_unit *a, const cc_unit *b)
+{
+	cc_unit mem[2048];
+	struct ecc_workspace w = {mem, 2048, 0, scratch_alloc, scratch_free};
+	((const struct curve_funcs *)cp->funcs)->add(&w, cp, out, a, b);
+	OPENSSL_cleanse(mem, sizeof mem);
+}
+ECC_API void ccec_full_sub(ccec_const_cp_t cp, cc_unit *out, const cc_unit *a, const cc_unit *b)
+{
+	cc_unit neg[27];
+	memcpy(neg, b, 24 * cp->n);
+	BIGNUM *y = readle(b + cp->n, cp->n), *p = readle(cp->data, cp->n);
+	if (y && p && BN_sub(y, p, y)) {
+		writele(y, neg + cp->n, cp->n);
+		ccec_full_add(cp, out, a, neg);
+	} else
+		memset(out, 0, 24 * cp->n);
+	BN_free(y);
+	BN_free(p);
+	OPENSSL_cleanse(neg, sizeof neg);
+}
+ECC_API int ccec_mult_blinded(
+    ccec_const_cp_t cp, cc_unit *out, const cc_unit *d, const cc_unit *p, struct ccrng_state *r)
+{
+	int rc = check_rng(r, width(cp));
+	if (rc)
+		return rc;
+	cc_unit mem[2048];
+	struct ecc_workspace w = {mem, 2048, 0, scratch_alloc, scratch_free};
+	rc = ((const struct curve_funcs *)cp->funcs)->mult(&w, cp, out, d, cp->bitlen, p);
+	OPENSSL_cleanse(mem, sizeof mem);
+	return rc;
+}
 
 /* The staged key builder keeps its entire state in caller-owned memory. */
-ECC_API int ccec_compact_generate_key_init(ccec_const_cp_t cp,struct ccrng_state*r,void*state){*(size_t*)state=cp->n;((unsigned char*)state)[8]=0;struct ccec_ctx*k=(void*)((unsigned char*)state+16+16*cp->n);int rc=ccec_generate_key_fips(cp,r,k);if(!rc)((unsigned char*)state)[8]=1;return rc;}
-ECC_API int ccec_compact_generate_key_step(struct ccrng_state*r,void*state,struct ccec_ctx**out){size_t n=*(size_t*)state;unsigned char*s=(unsigned char*)state+8;cc_unit*rs=(void*)((unsigned char*)state+16);struct ccec_ctx*k=(void*)(rs+2*n);unsigned char h[32],rr[66],ss[66];memset(h,10,sizeof h);*out=NULL;int rc=-7;if(*s==1){rc=ccec_compact_transform_key(k);if(!rc)*s=2;}else if(*s==2){rc=ccec_sign_composite(k,sizeof h,h,rr,ss,r);if(!rc){ccn_read_uint(n,rs,width(k->cp),rr);ccn_read_uint(n,rs+n,width(k->cp),ss);*s=3;}}else if(*s==3){ccn_write_uint_padded_ct(n,rs,width(k->cp),rr);ccn_write_uint_padded_ct(n,rs+n,width(k->cp),ss);rc=ccec_verify_composite_digest(k,sizeof h,h,rr,ss,NULL);if(!rc){*s=4;*out=k;}}return rc;}
-static int extra_scalar(ccec_const_cp_t cp,size_t n,const void*entropy,BIGNUM*d,BN_CTX*c){if(n<ccec_diversify_min_entropy_len(cp))return -20;if(n>128)return -7;const struct cczp*order=(const void*)((const char*)cp+32+40*cp->n);BIGNUM*q=readle(order->data,cp->n);int ok=q&&BN_sub_word(q,1)&&BN_bin2bn(entropy,(int)n,d)&&BN_nnmod(d,d,q,c)&&BN_add_word(d,1);BN_free(q);return ok?0:-1;}
-struct entropy_rng{struct ccrng_state r;size_t n;const unsigned char*p;};
-static int entropy_read(struct ccrng_state*r,size_t n,void*out){struct entropy_rng*e=(void*)r;if(n>e->n)return -12;memcpy(out,e->p,n);e->p+=n;e->n-=n;return 0;}
-ECC_API int ccec_generate_key_deterministic(ccec_const_cp_t cp,size_t n,const void*entropy,struct ccrng_state*r,unsigned flags,struct ccec_ctx*k){k->cp=cp;EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();BIGNUM*d=BN_new(),*q=BN_new();EC_POINT*p=g?EC_POINT_new(g):NULL;int rc=-1;if(!g||!c||!d||!q||!p)goto done;if((flags&25)==25){size_t skip=((cp->bitlen+62)>>3)&~(size_t)7;if(n<skip||n-skip<80*cp->n){rc=-10;goto done;}struct entropy_rng e={{entropy_read},n-skip,(const unsigned char*)entropy+skip};rc=scalar(g,&e.r,d,c);}else if(flags&1)rc=extra_scalar(cp,n,entropy,d,c);else if(flags&4){if(n<8*cp->n){rc=-20;goto done;}BN_lebin2bn(entropy,(int)(8*cp->n),d);EC_GROUP_get_order(g,q,c);BN_mask_bits(d,BN_num_bits(q));if(BN_cmp(d,q)>=0)BN_sub(d,d,q);rc=0;}else rc=-21;if(rc)goto done;rc=check_rng(r,width(cp));if(rc)goto done;BN_set_flags(d,BN_FLG_CONSTTIME);rc=EC_POINT_mul(g,p,d,NULL,NULL,c)?savepoint(cp,k,g,p,c):-1;if(rc)goto done;writele(d,k->data+3*cp->n,cp->n);if((flags&9)==9)rc=ccec_compact_transform_key(k);if(!rc&&!ccec_pairwise_consistency_check(k,r))rc=-18;done:BN_clear_free(d);BN_free(q);EC_POINT_free(p);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-ECC_API int ccec_diversify_pub(ccec_const_cp_t cp,const struct ccec_ctx*k,size_t n,const void*entropy,struct ccrng_state*r,struct ccec_ctx*generator,struct ccec_ctx*out){EC_GROUP*g=group(cp);BN_CTX*c=BN_CTX_new();BIGNUM*d=BN_new();EC_POINT*p=g&&c?point(g,k,c):NULL,*base=g?EC_POINT_new(g):NULL;int rc=-1;if(!g||!c||!d||!p||!base)goto done;rc=extra_scalar(cp,n,entropy,d,c);if(rc)goto done;rc=check_rng(r,width(cp));if(rc)goto done;BN_set_flags(d,BN_FLG_CONSTTIME);rc=EC_POINT_mul(g,base,d,NULL,NULL,c)?savepoint(cp,generator,g,base,c):-1;if(!rc)rc=EC_POINT_mul(g,p,NULL,p,d,c)?savepoint(cp,out,g,p,c):-1;done:BN_clear_free(d);EC_POINT_free(p);EC_POINT_free(base);BN_CTX_free(c);EC_GROUP_free(g);return rc;}
-ECC_API size_t ccec_der_export_diversified_pub_size(const struct ccec_ctx*a,const struct ccec_ctx*b,unsigned flags){size_t an=(flags&4)?width(a->cp):2*width(a->cp)+1,bn=(flags&4)?width(b->cp):2*width(b->cp)+1;return ccder_sizeof(CCDER_SEQUENCE,ccder_sizeof(4,an)+ccder_sizeof(4,bn));}
-ECC_API unsigned char*ccec_der_export_diversified_pub(const struct ccec_ctx*a,const struct ccec_ctx*b,unsigned flags,size_t n,void*out){unsigned char aa[133],bb[133];size_t an=(flags&4)?width(a->cp):2*width(a->cp)+1,bn=(flags&4)?width(b->cp):2*width(b->cp)+1;int rc=(flags&4)?ccec_compact_export_pub(aa,a):ccec_export_pub(a,aa);if(rc)return NULL;rc=(flags&4)?ccec_compact_export_pub(bb,b):ccec_export_pub(b,bb);if(rc)return NULL;unsigned char*end=(unsigned char*)out+n,*p=ccder_encode_raw_octet_string(bn,bb,out,end);p=ccder_encode_raw_octet_string(an,aa,out,p);return ccder_encode_constructed_tl(CCDER_SEQUENCE,end,out,p);}
-ECC_API int ccec_der_import_diversified_pub(ccec_const_cp_t cp,size_t n,const void*in,unsigned*flags,struct ccec_ctx*a,struct ccec_ctx*b){const unsigned char*end=(const unsigned char*)in+n,*seqend=NULL,*p=ccder_decode_sequence_tl(&seqend,in,end);size_t an=0,bn=0;const unsigned char*aa=ccder_decode_tl(4,&an,p,seqend);if(!aa)return -1;const unsigned char*bb=ccder_decode_tl(4,&bn,aa+an,seqend);if(!bb||bb+bn!=end)return -1;int compact=an==width(cp);int rc=compact?ccec_compact_import_pub(cp,an,aa,a):ccec_import_pub(cp,an,aa,a);if(!rc)rc=compact?ccec_compact_import_pub(cp,bn,bb,b):ccec_import_pub(cp,bn,bb,b);if(!rc&&flags)*flags=compact?4:0;return rc;}
-static void print_component(size_t n,const cc_unit*v){for(size_t i=n;i;i--)fprintf(stderr,"%016llx",(unsigned long long)v[i-1]);}
-ECC_API void ccec_print_public_key(const char*label,const struct ccec_ctx*k){fprintf(stderr,"public key %s {\nx: ",label?label:"");print_component(k->cp->n,k->data);fputs("\ny: ",stderr);print_component(k->cp->n,k->data+k->cp->n);fputs("\n}\n",stderr);}
-ECC_API void ccec_print_full_key(const char*label,const struct ccec_ctx*k){fprintf(stderr,"full key %s {\n",label?label:"");ccec_print_public_key("pubkey:",k);fputs("priv: {",stderr);print_component(k->cp->n,k->data+3*k->cp->n);fputs("}\n",stderr);}
+ECC_API int ccec_compact_generate_key_init(ccec_const_cp_t cp, struct ccrng_state *r, void *state)
+{
+	*(size_t *)state = cp->n;
+	((unsigned char *)state)[8] = 0;
+	struct ccec_ctx *k = (void *)((unsigned char *)state + 16 + 16 * cp->n);
+	int rc = ccec_generate_key_fips(cp, r, k);
+	if (!rc)
+		((unsigned char *)state)[8] = 1;
+	return rc;
+}
+ECC_API int ccec_compact_generate_key_step(
+    struct ccrng_state *r, void *state, struct ccec_ctx **out)
+{
+	size_t n = *(size_t *)state;
+	unsigned char *s = (unsigned char *)state + 8;
+	cc_unit *rs = (void *)((unsigned char *)state + 16);
+	struct ccec_ctx *k = (void *)(rs + 2 * n);
+	unsigned char h[32], rr[66], ss[66];
+	memset(h, 10, sizeof h);
+	*out = NULL;
+	int rc = -7;
+	if (*s == 1) {
+		rc = ccec_compact_transform_key(k);
+		if (!rc)
+			*s = 2;
+	} else if (*s == 2) {
+		rc = ccec_sign_composite(k, sizeof h, h, rr, ss, r);
+		if (!rc) {
+			ccn_read_uint(n, rs, width(k->cp), rr);
+			ccn_read_uint(n, rs + n, width(k->cp), ss);
+			*s = 3;
+		}
+	} else if (*s == 3) {
+		ccn_write_uint_padded_ct(n, rs, width(k->cp), rr);
+		ccn_write_uint_padded_ct(n, rs + n, width(k->cp), ss);
+		rc = ccec_verify_composite_digest(k, sizeof h, h, rr, ss, NULL);
+		if (!rc) {
+			*s = 4;
+			*out = k;
+		}
+	}
+	return rc;
+}
+static int extra_scalar(ccec_const_cp_t cp, size_t n, const void *entropy, BIGNUM *d, BN_CTX *c)
+{
+	if (n < ccec_diversify_min_entropy_len(cp))
+		return -20;
+	if (n > 128)
+		return -7;
+	const struct cczp *order = (const void *)((const char *)cp + 32 + 40 * cp->n);
+	BIGNUM *q = readle(order->data, cp->n);
+	int ok = q && BN_sub_word(q, 1) && BN_bin2bn(entropy, (int)n, d) && BN_nnmod(d, d, q, c) &&
+	    BN_add_word(d, 1);
+	BN_free(q);
+	return ok ? 0 : -1;
+}
+struct entropy_rng {
+	struct ccrng_state r;
+	size_t n;
+	const unsigned char *p;
+};
+static int entropy_read(struct ccrng_state *r, size_t n, void *out)
+{
+	struct entropy_rng *e = (void *)r;
+	if (n > e->n)
+		return -12;
+	memcpy(out, e->p, n);
+	e->p += n;
+	e->n -= n;
+	return 0;
+}
+ECC_API int ccec_generate_key_deterministic(ccec_const_cp_t cp, size_t n, const void *entropy,
+    struct ccrng_state *r, unsigned flags, struct ccec_ctx *k)
+{
+	k->cp = cp;
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *d = BN_new(), *q = BN_new();
+	EC_POINT *p = g ? EC_POINT_new(g) : NULL;
+	int rc = -1;
+	if (!g || !c || !d || !q || !p)
+		goto done;
+	if ((flags & 25) == 25) {
+		size_t skip = ((cp->bitlen + 62) >> 3) & ~(size_t)7;
+		if (n < skip || n - skip < 80 * cp->n) {
+			rc = -10;
+			goto done;
+		}
+		struct entropy_rng e = {
+		    {entropy_read}, n - skip, (const unsigned char *)entropy + skip};
+		rc = scalar(g, &e.r, d, c);
+	} else if (flags & 1)
+		rc = extra_scalar(cp, n, entropy, d, c);
+	else if (flags & 4) {
+		if (n < 8 * cp->n) {
+			rc = -20;
+			goto done;
+		}
+		BN_lebin2bn(entropy, (int)(8 * cp->n), d);
+		EC_GROUP_get_order(g, q, c);
+		BN_mask_bits(d, BN_num_bits(q));
+		if (BN_cmp(d, q) >= 0)
+			BN_sub(d, d, q);
+		rc = 0;
+	} else
+		rc = -21;
+	if (rc)
+		goto done;
+	rc = check_rng(r, width(cp));
+	if (rc)
+		goto done;
+	BN_set_flags(d, BN_FLG_CONSTTIME);
+	rc = EC_POINT_mul(g, p, d, NULL, NULL, c) ? savepoint(cp, k, g, p, c) : -1;
+	if (rc)
+		goto done;
+	writele(d, k->data + 3 * cp->n, cp->n);
+	if ((flags & 9) == 9)
+		rc = ccec_compact_transform_key(k);
+	if (!rc && !ccec_pairwise_consistency_check(k, r))
+		rc = -18;
+done:
+	BN_clear_free(d);
+	BN_free(q);
+	EC_POINT_free(p);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+ECC_API int ccec_diversify_pub(ccec_const_cp_t cp, const struct ccec_ctx *k, size_t n,
+    const void *entropy, struct ccrng_state *r, struct ccec_ctx *generator, struct ccec_ctx *out)
+{
+	EC_GROUP *g = group(cp);
+	BN_CTX *c = BN_CTX_new();
+	BIGNUM *d = BN_new();
+	EC_POINT *p = g && c ? point(g, k, c) : NULL, *base = g ? EC_POINT_new(g) : NULL;
+	int rc = -1;
+	if (!g || !c || !d || !p || !base)
+		goto done;
+	rc = extra_scalar(cp, n, entropy, d, c);
+	if (rc)
+		goto done;
+	rc = check_rng(r, width(cp));
+	if (rc)
+		goto done;
+	BN_set_flags(d, BN_FLG_CONSTTIME);
+	rc = EC_POINT_mul(g, base, d, NULL, NULL, c) ? savepoint(cp, generator, g, base, c) : -1;
+	if (!rc)
+		rc = EC_POINT_mul(g, p, NULL, p, d, c) ? savepoint(cp, out, g, p, c) : -1;
+done:
+	BN_clear_free(d);
+	EC_POINT_free(p);
+	EC_POINT_free(base);
+	BN_CTX_free(c);
+	EC_GROUP_free(g);
+	return rc;
+}
+ECC_API size_t ccec_der_export_diversified_pub_size(
+    const struct ccec_ctx *a, const struct ccec_ctx *b, unsigned flags)
+{
+	size_t an = (flags & 4) ? width(a->cp) : 2 * width(a->cp) + 1,
+	       bn = (flags & 4) ? width(b->cp) : 2 * width(b->cp) + 1;
+	return ccder_sizeof(CCDER_SEQUENCE, ccder_sizeof(4, an) + ccder_sizeof(4, bn));
+}
+ECC_API unsigned char *ccec_der_export_diversified_pub(
+    const struct ccec_ctx *a, const struct ccec_ctx *b, unsigned flags, size_t n, void *out)
+{
+	unsigned char aa[133], bb[133];
+	size_t an = (flags & 4) ? width(a->cp) : 2 * width(a->cp) + 1,
+	       bn = (flags & 4) ? width(b->cp) : 2 * width(b->cp) + 1;
+	int rc = (flags & 4) ? ccec_compact_export_pub(aa, a) : ccec_export_pub(a, aa);
+	if (rc)
+		return NULL;
+	rc = (flags & 4) ? ccec_compact_export_pub(bb, b) : ccec_export_pub(b, bb);
+	if (rc)
+		return NULL;
+	unsigned char *end = (unsigned char *)out + n,
+	              *p = ccder_encode_raw_octet_string(bn, bb, out, end);
+	p = ccder_encode_raw_octet_string(an, aa, out, p);
+	return ccder_encode_constructed_tl(CCDER_SEQUENCE, end, out, p);
+}
+ECC_API int ccec_der_import_diversified_pub(ccec_const_cp_t cp, size_t n, const void *in,
+    unsigned *flags, struct ccec_ctx *a, struct ccec_ctx *b)
+{
+	const unsigned char *end = (const unsigned char *)in + n, *seqend = NULL,
+	                    *p = ccder_decode_sequence_tl(&seqend, in, end);
+	size_t an = 0, bn = 0;
+	const unsigned char *aa = ccder_decode_tl(4, &an, p, seqend);
+	if (!aa)
+		return -1;
+	const unsigned char *bb = ccder_decode_tl(4, &bn, aa + an, seqend);
+	if (!bb || bb + bn != end)
+		return -1;
+	int compact = an == width(cp);
+	int rc = compact ? ccec_compact_import_pub(cp, an, aa, a) : ccec_import_pub(cp, an, aa, a);
+	if (!rc)
+		rc = compact ? ccec_compact_import_pub(cp, bn, bb, b)
+		             : ccec_import_pub(cp, bn, bb, b);
+	if (!rc && flags)
+		*flags = compact ? 4 : 0;
+	return rc;
+}
+static void print_component(size_t n, const cc_unit *v)
+{
+	for (size_t i = n; i; i--)
+		fprintf(stderr, "%016llx", (unsigned long long)v[i - 1]);
+}
+ECC_API void ccec_print_public_key(const char *label, const struct ccec_ctx *k)
+{
+	fprintf(stderr, "public key %s {\nx: ", label ? label : "");
+	print_component(k->cp->n, k->data);
+	fputs("\ny: ", stderr);
+	print_component(k->cp->n, k->data + k->cp->n);
+	fputs("\n}\n", stderr);
+}
+ECC_API void ccec_print_full_key(const char *label, const struct ccec_ctx *k)
+{
+	fprintf(stderr, "full key %s {\n", label ? label : "");
+	ccec_print_public_key("pubkey:", k);
+	fputs("priv: {", stderr);
+	print_component(k->cp->n, k->data + 3 * k->cp->n);
+	fputs("}\n", stderr);
+}
 
 #include "cchmac.h"
-struct hedge_rng{struct ccrng_state r;unsigned char key[32],v[32];};
-static void hedge_update(struct hedge_rng*r,size_t n,const void*seed){unsigned char*buf=malloc(n+33);if(!buf)abort();for(int b=0;b<(n?2:1);b++){memcpy(buf,r->v,32);buf[32]=(unsigned char)b;if(n)memcpy(buf+33,seed,n);cchmac(ccsha256_di(),32,r->key,n+33,buf,r->key);cchmac(ccsha256_di(),32,r->key,32,r->v,r->v);}OPENSSL_cleanse(buf,n+33);free(buf);}
-static int hedge_read(struct ccrng_state*base,size_t n,void*out){struct hedge_rng*r=(void*)base;unsigned char*p=out;while(n){cchmac(ccsha256_di(),32,r->key,32,r->v,r->v);size_t take=n<32?n:32;memcpy(p,r->v,take);p+=take;n-=take;}hedge_update(r,0,NULL);return 0;}
-ECC_API int ccec_sign_composite_hedged(const struct ccec_ctx*k,size_t n,const void*h,void*rr,void*ss,struct ccrng_state*r){if(!r||!r->generate||n>SIZE_MAX-80)return -7;unsigned char mixed[72],nonce[32],*seed=malloc(n+80);if(!seed)return -13;struct hedge_rng hr={{hedge_read},{0},{0}};memset(hr.v,1,32);int rc=r->generate(r,8*k->cp->n,mixed);if(rc)goto done;for(size_t i=0;i<8*k->cp->n;i++)mixed[i]^=((const unsigned char*)(k->data+3*k->cp->n))[i];ccdigest(ccsha256_di(),8*k->cp->n,mixed,nonce);rc=r->generate(r,48,seed);if(rc)goto done;memcpy(seed+48,nonce,32);memcpy(seed+80,h,n);hedge_update(&hr,n+80,seed);rc=ccec_sign_composite(k,n,h,rr,ss,&hr.r);done:OPENSSL_cleanse(&hr,sizeof hr);OPENSSL_cleanse(mixed,sizeof mixed);OPENSSL_cleanse(nonce,sizeof nonce);OPENSSL_cleanse(seed,n+80);free(seed);return rc;}
+struct hedge_rng {
+	struct ccrng_state r;
+	unsigned char key[32], v[32];
+};
+static void hedge_update(struct hedge_rng *r, size_t n, const void *seed)
+{
+	unsigned char *buf = malloc(n + 33);
+	if (!buf)
+		abort();
+	for (int b = 0; b < (n ? 2 : 1); b++) {
+		memcpy(buf, r->v, 32);
+		buf[32] = (unsigned char)b;
+		if (n)
+			memcpy(buf + 33, seed, n);
+		cchmac(ccsha256_di(), 32, r->key, n + 33, buf, r->key);
+		cchmac(ccsha256_di(), 32, r->key, 32, r->v, r->v);
+	}
+	OPENSSL_cleanse(buf, n + 33);
+	free(buf);
+}
+static int hedge_read(struct ccrng_state *base, size_t n, void *out)
+{
+	struct hedge_rng *r = (void *)base;
+	unsigned char *p = out;
+	while (n) {
+		cchmac(ccsha256_di(), 32, r->key, 32, r->v, r->v);
+		size_t take = n < 32 ? n : 32;
+		memcpy(p, r->v, take);
+		p += take;
+		n -= take;
+	}
+	hedge_update(r, 0, NULL);
+	return 0;
+}
+ECC_API int ccec_sign_composite_hedged(
+    const struct ccec_ctx *k, size_t n, const void *h, void *rr, void *ss, struct ccrng_state *r)
+{
+	if (!r || !r->generate || n > SIZE_MAX - 80)
+		return -7;
+	unsigned char mixed[72], nonce[32], *seed = malloc(n + 80);
+	if (!seed)
+		return -13;
+	struct hedge_rng hr = {{hedge_read}, {0}, {0}};
+	memset(hr.v, 1, 32);
+	int rc = r->generate(r, 8 * k->cp->n, mixed);
+	if (rc)
+		goto done;
+	for (size_t i = 0; i < 8 * k->cp->n; i++)
+		mixed[i] ^= ((const unsigned char *)(k->data + 3 * k->cp->n))[i];
+	ccdigest(ccsha256_di(), 8 * k->cp->n, mixed, nonce);
+	rc = r->generate(r, 48, seed);
+	if (rc)
+		goto done;
+	memcpy(seed + 48, nonce, 32);
+	memcpy(seed + 80, h, n);
+	hedge_update(&hr, n + 80, seed);
+	rc = ccec_sign_composite(k, n, h, rr, ss, &hr.r);
+done:
+	OPENSSL_cleanse(&hr, sizeof hr);
+	OPENSSL_cleanse(mixed, sizeof mixed);
+	OPENSSL_cleanse(nonce, sizeof nonce);
+	OPENSSL_cleanse(seed, n + 80);
+	free(seed);
+	return rc;
+}
 
 #include "ccmode.h"
 #include <openssl/evp.h>
-struct rfc6637_curve{const unsigned char*oid;size_t algorithm;};
-struct rfc6637_algorithm{const char*name;size_t hash_id;const struct ccdigest_info*(*di)(void);size_t cipher_id,key_size;};
-struct rfc6637_wrap{const struct rfc6637_algorithm*algorithm;const struct ccmode_ecb*(*ecb)(void);};
-static const unsigned char rfc_p256_oid[]={8,0x2a,0x86,0x48,0xce,0x3d,3,1,7},rfc_p521_oid[]={5,0x2b,0x81,4,0,0x23};
-ECC_API const struct rfc6637_curve ccec_rfc6637_dh_curve_p256={rfc_p256_oid,18},ccec_rfc6637_dh_curve_p521={rfc_p521_oid,18};
-static const struct rfc6637_algorithm rfc256={"SHA-256 / AES-128",8,ccsha256_di,7,16},rfc512={"SHA-512 / AES-256",10,ccsha512_di,9,32};
-ECC_API const struct rfc6637_wrap ccec_rfc6637_wrap_sha256_kek_aes128={&rfc256,ccaes_ecb_encrypt_mode},ccec_rfc6637_wrap_sha512_kek_aes256={&rfc512,ccaes_ecb_encrypt_mode},ccec_rfc6637_unwrap_sha256_kek_aes128={&rfc256,ccaes_ecb_decrypt_mode},ccec_rfc6637_unwrap_sha512_kek_aes256={&rfc512,ccaes_ecb_decrypt_mode};
-ECC_API size_t ccec_rfc6637_wrap_key_size(const struct ccec_ctx*k,unsigned flags,size_t n){size_t w=width(k->cp),pn=flags&1?w:2*w+1;return pn+51+((flags&2)?n+w+2:0);}
-static int rfc_kdf(const struct rfc6637_curve*curve,const struct rfc6637_wrap*wrap,size_t zn,const void*z,const unsigned char*fpr,unsigned char*out){if(!curve||!curve->oid||!wrap||!wrap->algorithm||curve->oid[0]>32)return -7;const struct rfc6637_algorithm*a=wrap->algorithm;const struct ccdigest_info*di=a->di();if(!di||di->output_size<a->key_size||di->output_size>64)return -7;unsigned char input[160]={0,0,0,1};size_t n=4;memcpy(input+n,z,zn);n+=zn;size_t on=curve->oid[0]+1;memcpy(input+n,curve->oid,on);n+=on;input[n++]=(unsigned char)curve->algorithm;input[n++]=3;input[n++]=1;input[n++]=(unsigned char)a->hash_id;input[n++]=(unsigned char)a->cipher_id;memcpy(input+n,"Anonymous Sender    ",20);n+=20;memcpy(input+n,fpr,20);n+=20;ccdigest(di,n,input,out);OPENSSL_cleanse(input,sizeof input);return 0;}
-static int rfc_aes_wrap(int encrypt,const struct rfc6637_wrap*wrap,const unsigned char*k,size_t n,const void*in,void*out){const EVP_CIPHER*cipher=wrap->algorithm->key_size==16?EVP_aes_128_wrap():wrap->algorithm->key_size==32?EVP_aes_256_wrap():NULL;if(!cipher||n>INT_MAX)return -7;EVP_CIPHER_CTX*c=EVP_CIPHER_CTX_new();int a=0,b=0,ok=0;if(c){EVP_CIPHER_CTX_set_flags(c,EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);ok=EVP_CipherInit_ex(c,cipher,NULL,k,NULL,encrypt)&&EVP_CipherUpdate(c,out,&a,in,(int)n)&&EVP_CipherFinal_ex(c,(unsigned char*)out+a,&b);}EVP_CIPHER_CTX_free(c);return ok?0:-2;}
-static int rfc_wrap_core(const struct ccec_ctx*k,const struct ccec_ctx*ephemeral,void*out,unsigned flags,unsigned algorithm,size_t n,const void*keybytes,const struct rfc6637_curve*curve,const struct rfc6637_wrap*wrap,const unsigned char*fpr,struct ccrng_state*r){if(n>36)return -7;unsigned char z[66],kek[64],plain[40];size_t zn=sizeof z;int rc=ccecdh_compute_shared_secret(ephemeral,k,&zn,z,r);if(rc)return rc;rc=rfc_kdf(curve,wrap,zn,z,fpr,kek);if(rc)goto done;plain[0]=(unsigned char)algorithm;memcpy(plain+1,keybytes,n);unsigned sum=0;for(size_t i=0;i<n;i++)sum+=((const unsigned char*)keybytes)[i];plain[n+1]=(unsigned char)(sum>>8);plain[n+2]=(unsigned char)sum;memset(plain+n+3,(int)(37-n),37-n);size_t pn=(flags&1)?width(k->cp):2*width(k->cp)+1;unsigned char*b=out;b[0]=(unsigned char)((pn*8)>>8);b[1]=(unsigned char)(pn*8);rc=(flags&1)?ccec_compact_export_pub(b+2,ephemeral):ccec_export_pub(ephemeral,b+2);if(rc)goto done;b[2+pn]=48;rc=rfc_aes_wrap(1,wrap,kek,40,plain,b+3+pn);if(!rc&&(flags&2)){unsigned char*debug=b+51+pn;debug[0]=(unsigned char)n;debug[1]=(unsigned char)zn;memcpy(debug+2,keybytes,n);memset(debug+2+n,0,zn);}done:OPENSSL_cleanse(z,sizeof z);OPENSSL_cleanse(kek,sizeof kek);OPENSSL_cleanse(plain,sizeof plain);return rc;}
-ECC_API int ccec_rfc6637_wrap_key(const struct ccec_ctx*k,void*out,unsigned flags,unsigned algorithm,size_t n,const void*keybytes,const struct rfc6637_curve*curve,const struct rfc6637_wrap*wrap,const unsigned char*fpr,struct ccrng_state*r){unsigned char storage[304]={0};struct ccec_ctx*e=(void*)storage;int rc=ccecdh_generate_key(k->cp,r,e);if(!rc)rc=rfc_wrap_core(k,e,out,flags,algorithm,n,keybytes,curve,wrap,fpr,r);OPENSSL_cleanse(storage,sizeof storage);return rc;}
-ECC_API int ccec_rfc6637_wrap_key_diversified(const struct ccec_ctx*generator,const struct ccec_ctx*k,void*out,unsigned flags,unsigned algorithm,size_t n,const void*keybytes,const struct rfc6637_curve*curve,const struct rfc6637_wrap*wrap,const unsigned char*fpr,struct ccrng_state*r){unsigned char storage[304]={0};struct ccec_ctx*e=(void*)storage;int rc=ccecdh_generate_key(k->cp,r,e);if(!rc){EC_GROUP*g=group(k->cp);BN_CTX*c=BN_CTX_new();EC_POINT*p=g&&c?point(g,generator,c):NULL;BIGNUM*d=readle(e->data+3*k->cp->n,k->cp->n);if(d)BN_set_flags(d,BN_FLG_CONSTTIME);rc=p&&d&&EC_POINT_mul(g,p,NULL,p,d,c)?savepoint(k->cp,e,g,p,c):-1;BN_clear_free(d);EC_POINT_free(p);BN_CTX_free(c);EC_GROUP_free(g);}if(!rc)rc=rfc_wrap_core(k,e,out,flags,algorithm,n,keybytes,curve,wrap,fpr,r);OPENSSL_cleanse(storage,sizeof storage);return rc;}
-ECC_API int ccec_rfc6637_unwrap_key(const struct ccec_ctx*k,size_t*n,void*out,unsigned flags,unsigned char*algorithm,const struct rfc6637_curve*curve,const struct rfc6637_wrap*wrap,const unsigned char*fpr,size_t in_n,const void*in){if(in_n<5)return -7;const unsigned char*b=in;size_t pn=(((size_t)b[0]<<8|b[1])+7)/8;if(pn>in_n-3)return -7;size_t wn=b[pn+2],total=pn+3+wn;if(total>in_n||(!(flags&2)&&total!=in_n)||wn<16||wn%8)return -7;unsigned char storage[232]={0},z[66],kek[64],plain[256];struct ccec_ctx*e=(void*)storage;int rc;if(pn==2*width(k->cp)+1)rc=ccec_import_pub(k->cp,pn,b+2,e);else if((flags&1)&&pn<=width(k->cp))rc=ccec_compact_import_pub(k->cp,pn,b+2,e);else return -7;if(rc)return rc;size_t zn=sizeof z;rc=ccecdh_compute_shared_secret(k,e,&zn,z,NULL);if(rc)goto done;rc=rfc_kdf(curve,wrap,zn,z,fpr,kek);if(rc)goto done;rc=rfc_aes_wrap(0,wrap,kek,wn,b+pn+3,plain);if(rc)goto done;size_t plain_n=wn-8;if(plain_n<3){rc=-2;goto done;}*algorithm=plain[0];unsigned pad=plain[plain_n-1];if(pad>plain_n-3){rc=-2;goto done;}for(size_t i=plain_n-pad;i<plain_n;i++)if(plain[i]!=pad){rc=-2;goto done;}size_t kn=plain_n-pad-3;if(*n<kn){rc=-163;goto done;}*n=kn;unsigned sum=0;for(size_t i=0;i<kn;i++)sum+=plain[i+1];if(plain[kn+1]!=(unsigned char)(sum>>8)||plain[kn+2]!=(unsigned char)sum){rc=-2;goto done;}memcpy(out,plain+1,kn);done:OPENSSL_cleanse(z,sizeof z);OPENSSL_cleanse(kek,sizeof kek);OPENSSL_cleanse(plain,sizeof plain);return rc;}
+struct rfc6637_curve {
+	const unsigned char *oid;
+	size_t algorithm;
+};
+struct rfc6637_algorithm {
+	const char *name;
+	size_t hash_id;
+	const struct ccdigest_info *(*di)(void);
+	size_t cipher_id, key_size;
+};
+struct rfc6637_wrap {
+	const struct rfc6637_algorithm *algorithm;
+	const struct ccmode_ecb *(*ecb)(void);
+};
+static const unsigned char rfc_p256_oid[] = {8, 0x2a, 0x86, 0x48, 0xce, 0x3d, 3, 1, 7},
+                           rfc_p521_oid[] = {5, 0x2b, 0x81, 4, 0, 0x23};
+ECC_API const struct rfc6637_curve ccec_rfc6637_dh_curve_p256 = {rfc_p256_oid, 18},
+                                   ccec_rfc6637_dh_curve_p521 = {rfc_p521_oid, 18};
+static const struct rfc6637_algorithm rfc256 = {"SHA-256 / AES-128", 8, ccsha256_di, 7, 16},
+                                      rfc512 = {"SHA-512 / AES-256", 10, ccsha512_di, 9, 32};
+ECC_API const struct rfc6637_wrap ccec_rfc6637_wrap_sha256_kek_aes128 = {&rfc256,
+                                      ccaes_ecb_encrypt_mode},
+                                  ccec_rfc6637_wrap_sha512_kek_aes256 = {&rfc512,
+                                      ccaes_ecb_encrypt_mode},
+                                  ccec_rfc6637_unwrap_sha256_kek_aes128 = {&rfc256,
+                                      ccaes_ecb_decrypt_mode},
+                                  ccec_rfc6637_unwrap_sha512_kek_aes256 = {
+                                      &rfc512, ccaes_ecb_decrypt_mode};
+ECC_API size_t ccec_rfc6637_wrap_key_size(const struct ccec_ctx *k, unsigned flags, size_t n)
+{
+	size_t w = width(k->cp), pn = flags & 1 ? w : 2 * w + 1;
+	return pn + 51 + ((flags & 2) ? n + w + 2 : 0);
+}
+static int rfc_kdf(const struct rfc6637_curve *curve, const struct rfc6637_wrap *wrap, size_t zn,
+    const void *z, const unsigned char *fpr, unsigned char *out)
+{
+	if (!curve || !curve->oid || !wrap || !wrap->algorithm || curve->oid[0] > 32)
+		return -7;
+	const struct rfc6637_algorithm *a = wrap->algorithm;
+	const struct ccdigest_info *di = a->di();
+	if (!di || di->output_size < a->key_size || di->output_size > 64)
+		return -7;
+	unsigned char input[160] = {0, 0, 0, 1};
+	size_t n = 4;
+	memcpy(input + n, z, zn);
+	n += zn;
+	size_t on = curve->oid[0] + 1;
+	memcpy(input + n, curve->oid, on);
+	n += on;
+	input[n++] = (unsigned char)curve->algorithm;
+	input[n++] = 3;
+	input[n++] = 1;
+	input[n++] = (unsigned char)a->hash_id;
+	input[n++] = (unsigned char)a->cipher_id;
+	memcpy(input + n, "Anonymous Sender    ", 20);
+	n += 20;
+	memcpy(input + n, fpr, 20);
+	n += 20;
+	ccdigest(di, n, input, out);
+	OPENSSL_cleanse(input, sizeof input);
+	return 0;
+}
+static int rfc_aes_wrap(int encrypt, const struct rfc6637_wrap *wrap, const unsigned char *k,
+    size_t n, const void *in, void *out)
+{
+	const EVP_CIPHER *cipher = wrap->algorithm->key_size == 16 ? EVP_aes_128_wrap()
+	    : wrap->algorithm->key_size == 32                      ? EVP_aes_256_wrap()
+	                                                           : NULL;
+	if (!cipher || n > INT_MAX)
+		return -7;
+	EVP_CIPHER_CTX *c = EVP_CIPHER_CTX_new();
+	int a = 0, b = 0, ok = 0;
+	if (c) {
+		EVP_CIPHER_CTX_set_flags(c, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+		ok = EVP_CipherInit_ex(c, cipher, NULL, k, NULL, encrypt) &&
+		    EVP_CipherUpdate(c, out, &a, in, (int)n) &&
+		    EVP_CipherFinal_ex(c, (unsigned char *)out + a, &b);
+	}
+	EVP_CIPHER_CTX_free(c);
+	return ok ? 0 : -2;
+}
+static int rfc_wrap_core(const struct ccec_ctx *k, const struct ccec_ctx *ephemeral, void *out,
+    unsigned flags, unsigned algorithm, size_t n, const void *keybytes,
+    const struct rfc6637_curve *curve, const struct rfc6637_wrap *wrap, const unsigned char *fpr,
+    struct ccrng_state *r)
+{
+	if (n > 36)
+		return -7;
+	unsigned char z[66], kek[64], plain[40];
+	size_t zn = sizeof z;
+	int rc = ccecdh_compute_shared_secret(ephemeral, k, &zn, z, r);
+	if (rc)
+		return rc;
+	rc = rfc_kdf(curve, wrap, zn, z, fpr, kek);
+	if (rc)
+		goto done;
+	plain[0] = (unsigned char)algorithm;
+	memcpy(plain + 1, keybytes, n);
+	unsigned sum = 0;
+	for (size_t i = 0; i < n; i++)
+		sum += ((const unsigned char *)keybytes)[i];
+	plain[n + 1] = (unsigned char)(sum >> 8);
+	plain[n + 2] = (unsigned char)sum;
+	memset(plain + n + 3, (int)(37 - n), 37 - n);
+	size_t pn = (flags & 1) ? width(k->cp) : 2 * width(k->cp) + 1;
+	unsigned char *b = out;
+	b[0] = (unsigned char)((pn * 8) >> 8);
+	b[1] = (unsigned char)(pn * 8);
+	rc = (flags & 1) ? ccec_compact_export_pub(b + 2, ephemeral)
+	                 : ccec_export_pub(ephemeral, b + 2);
+	if (rc)
+		goto done;
+	b[2 + pn] = 48;
+	rc = rfc_aes_wrap(1, wrap, kek, 40, plain, b + 3 + pn);
+	if (!rc && (flags & 2)) {
+		unsigned char *debug = b + 51 + pn;
+		debug[0] = (unsigned char)n;
+		debug[1] = (unsigned char)zn;
+		memcpy(debug + 2, keybytes, n);
+		memset(debug + 2 + n, 0, zn);
+	}
+done:
+	OPENSSL_cleanse(z, sizeof z);
+	OPENSSL_cleanse(kek, sizeof kek);
+	OPENSSL_cleanse(plain, sizeof plain);
+	return rc;
+}
+ECC_API int ccec_rfc6637_wrap_key(const struct ccec_ctx *k, void *out, unsigned flags,
+    unsigned algorithm, size_t n, const void *keybytes, const struct rfc6637_curve *curve,
+    const struct rfc6637_wrap *wrap, const unsigned char *fpr, struct ccrng_state *r)
+{
+	unsigned char storage[304] = {0};
+	struct ccec_ctx *e = (void *)storage;
+	int rc = ccecdh_generate_key(k->cp, r, e);
+	if (!rc)
+		rc = rfc_wrap_core(k, e, out, flags, algorithm, n, keybytes, curve, wrap, fpr, r);
+	OPENSSL_cleanse(storage, sizeof storage);
+	return rc;
+}
+ECC_API int ccec_rfc6637_wrap_key_diversified(const struct ccec_ctx *generator,
+    const struct ccec_ctx *k, void *out, unsigned flags, unsigned algorithm, size_t n,
+    const void *keybytes, const struct rfc6637_curve *curve, const struct rfc6637_wrap *wrap,
+    const unsigned char *fpr, struct ccrng_state *r)
+{
+	unsigned char storage[304] = {0};
+	struct ccec_ctx *e = (void *)storage;
+	int rc = ccecdh_generate_key(k->cp, r, e);
+	if (!rc) {
+		EC_GROUP *g = group(k->cp);
+		BN_CTX *c = BN_CTX_new();
+		EC_POINT *p = g && c ? point(g, generator, c) : NULL;
+		BIGNUM *d = readle(e->data + 3 * k->cp->n, k->cp->n);
+		if (d)
+			BN_set_flags(d, BN_FLG_CONSTTIME);
+		rc =
+		    p && d && EC_POINT_mul(g, p, NULL, p, d, c) ? savepoint(k->cp, e, g, p, c) : -1;
+		BN_clear_free(d);
+		EC_POINT_free(p);
+		BN_CTX_free(c);
+		EC_GROUP_free(g);
+	}
+	if (!rc)
+		rc = rfc_wrap_core(k, e, out, flags, algorithm, n, keybytes, curve, wrap, fpr, r);
+	OPENSSL_cleanse(storage, sizeof storage);
+	return rc;
+}
+ECC_API int ccec_rfc6637_unwrap_key(const struct ccec_ctx *k, size_t *n, void *out, unsigned flags,
+    unsigned char *algorithm, const struct rfc6637_curve *curve, const struct rfc6637_wrap *wrap,
+    const unsigned char *fpr, size_t in_n, const void *in)
+{
+	if (in_n < 5)
+		return -7;
+	const unsigned char *b = in;
+	size_t pn = (((size_t)b[0] << 8 | b[1]) + 7) / 8;
+	if (pn > in_n - 3)
+		return -7;
+	size_t wn = b[pn + 2], total = pn + 3 + wn;
+	if (total > in_n || (!(flags & 2) && total != in_n) || wn < 16 || wn % 8)
+		return -7;
+	unsigned char storage[232] = {0}, z[66], kek[64], plain[256];
+	struct ccec_ctx *e = (void *)storage;
+	int rc;
+	if (pn == 2 * width(k->cp) + 1)
+		rc = ccec_import_pub(k->cp, pn, b + 2, e);
+	else if ((flags & 1) && pn <= width(k->cp))
+		rc = ccec_compact_import_pub(k->cp, pn, b + 2, e);
+	else
+		return -7;
+	if (rc)
+		return rc;
+	size_t zn = sizeof z;
+	rc = ccecdh_compute_shared_secret(k, e, &zn, z, NULL);
+	if (rc)
+		goto done;
+	rc = rfc_kdf(curve, wrap, zn, z, fpr, kek);
+	if (rc)
+		goto done;
+	rc = rfc_aes_wrap(0, wrap, kek, wn, b + pn + 3, plain);
+	if (rc)
+		goto done;
+	size_t plain_n = wn - 8;
+	if (plain_n < 3) {
+		rc = -2;
+		goto done;
+	}
+	*algorithm = plain[0];
+	unsigned pad = plain[plain_n - 1];
+	if (pad > plain_n - 3) {
+		rc = -2;
+		goto done;
+	}
+	for (size_t i = plain_n - pad; i < plain_n; i++)
+		if (plain[i] != pad) {
+			rc = -2;
+			goto done;
+		}
+	size_t kn = plain_n - pad - 3;
+	if (*n < kn) {
+		rc = -163;
+		goto done;
+	}
+	*n = kn;
+	unsigned sum = 0;
+	for (size_t i = 0; i < kn; i++)
+		sum += plain[i + 1];
+	if (plain[kn + 1] != (unsigned char)(sum >> 8) || plain[kn + 2] != (unsigned char)sum) {
+		rc = -2;
+		goto done;
+	}
+	memcpy(out, plain + 1, kn);
+done:
+	OPENSSL_cleanse(z, sizeof z);
+	OPENSSL_cleanse(kek, sizeof kek);
+	OPENSSL_cleanse(plain, sizeof plain);
+	return rc;
+}

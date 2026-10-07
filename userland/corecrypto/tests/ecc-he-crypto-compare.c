@@ -7,12 +7,160 @@
 #include "../abi/ccrng.h"
 #include "he-symbol-owner.h"
 static unsigned tests;
-#define CHECK(x) do{tests++;if(!(x)){fprintf(stderr,"line%d %s\n",__LINE__,#x);exit(1);}}while(0)
-struct rng{struct ccrng_state r;uint64_t x;};static int gen(struct ccrng_state*r,size_t n,void*out){struct rng*s=(void*)r;for(size_t i=0;i<n;i++){s->x^=s->x<<13;s->x^=s->x>>7;s->x^=s->x<<17;((unsigned char*)out)[i]=s->x;}return 0;}
-int main(int argc,char**argv){void*h[2]={dlopen("/usr/lib/system/libcorecrypto.dylib",2),dlopen(argc>1?argv[1]:"/tmp/ecc-he-test.dylib",2)};CHECK(h[0]&&h[1]);finch_test_set_local(h[1],argc>1?argv[1]:"/tmp/ecc-he-test.dylib");size_t(*sz)(unsigned)=dlsym(h[0],"cche_param_ctx_sizeof");int(*init)(void*,unsigned,unsigned)=dlsym(h[0],"cche_param_ctx_init");int(*key)(void*,void*,void*)=dlsym(h[0],"cche_secret_key_generate_from_seed");int(*enc[2])(void*,void*,void*,void*,unsigned,void*,void*),(*dec[2])(void*,void*,void*,void*);for(int i=0;i<2;i++){enc[i]=dlsym(h[i],"cche_encrypt_symmetric");dec[i]=dlsym(h[i],"cche_decrypt");}unsigned char seed[32]={0};for(unsigned provider=0;provider<2;provider++){for(unsigned id=0;id<17;id++){for(unsigned scheme=1;scheme<=2;scheme++){init=dlsym(h[provider],"cche_param_ctx_init");struct he_params*p=calloc(1,sz(id));CHECK(init(p,scheme,id)==0);unsigned l=p->l>1?p->l-1:1;size_t sn=8+8*(size_t)p->n*p->l,pn=8+8*(size_t)p->n,cn=24+2*(8+8*(size_t)p->n*l);void*sk=calloc(1,sn);CHECK(key(sk,p,seed)==0);struct he_poly*pt=calloc(1,pn),*result=calloc(1,pn);int(*encode)(void*,void*,unsigned,void*)=dlsym(h[0],"cche_encode_poly_uint64");uint64_t*v=malloc(p->n*8);for(unsigned j=0;j<p->n;j++)v[j]=(j*17)%p->t;CHECK(encode(pt,p,p->n,v)==0);void*c[2]={calloc(1,cn),calloc(1,cn)};for(int seeded=0;seeded<2;seeded++){unsigned char sout[2][32];for(int i=0;i<2;i++){struct rng r={{gen},1245};int rc=enc[i](c[i],pt,p,sk,l,seeded?sout[i]:NULL,&r);CHECK(rc==0);}if(memcmp(c[0],c[1],cn)){fprintf(stderr,"enc mismatch id%u scheme%u seeded%d\n",id,scheme,seeded);for(size_t j=0;j<cn;j++)if(((unsigned char*)c[0])[j]!=((unsigned char*)c[1])[j]){fprintf(stderr,"offset%zu values %llx/%llx t%llu q%llu n%u l%u\n",j,(unsigned long long)((uint64_t*)c[0])[j/8],(unsigned long long)((uint64_t*)c[1])[j/8],(unsigned long long)p->t,(unsigned long long)p->q[0],p->n,l);break;}return 1;}for(int i=0;i<2;i++)for(int j=0;j<2;j++){CHECK(dec[i](result,p,c[j],sk)==0);if(memcmp(result,pt,pn)){fprintf(stderr,"dec mismatch id%u scheme%u lib%d cipher%d\n",id,scheme,i,j);return 1;}}}
-void*mc[2]={malloc(cn),malloc(cn)},*dc[2]={calloc(1,8+8*(size_t)p->n*l),calloc(1,8+8*(size_t)p->n*l)};
-for(int i=0;i<2;i++){int(*de)(void*,void*,void*,unsigned)=dlsym(h[i],"cche_dcrt_plaintext_encode");CHECK(de(dc[i],pt,p,l)==0);memcpy(mc[i],c[0],cn);int(*mul)(void*,void*,void*)=dlsym(h[i],"cche_ciphertext_coeff_plaintext_mul");CHECK(mul(mc[i],c[0],pt)==0);}
-CHECK(!memcmp(dc[0],dc[1],8+8*(size_t)p->n*l));CHECK(!memcmp(mc[0],mc[1],cn));free(mc[0]);free(mc[1]);free(dc[0]);free(dc[1]);
-unsigned(*parts[2])(void*,void*)={dlsym(h[0],"cche_ciphertext_coeff_decompose_nptexts"),dlsym(h[1],"cche_ciphertext_coeff_decompose_nptexts")};unsigned np=parts[0](c[0],NULL);CHECK(np==parts[1](c[0],NULL));void**pv[2]={calloc(np,sizeof(void*)),calloc(np,sizeof(void*))};
-for(int i=0;i<2;i++){for(unsigned j=0;j<np;j++)pv[i][j]=calloc(1,pn);int(*split)(unsigned,void*,void*,void*)=dlsym(h[i],"cche_ciphertext_coeff_decompose");CHECK(split(np,pv[i],c[0],NULL)==0);void*composed=calloc(1,cn);int(*join)(void*,unsigned,void*,void*,unsigned,uint64_t,void*)=dlsym(h[i],"cche_ciphertext_coeff_compose");CHECK(join(composed,np,pv[i],p,l,1,NULL)==0);CHECK(!memcmp(c[0],composed,cn));free(composed);}for(unsigned j=0;j<np;j++){CHECK(!memcmp(pv[0][j],pv[1][j],pn));free(pv[0][j]);free(pv[1][j]);}free(pv[0]);free(pv[1]);
-free(c[0]);free(c[1]);free(v);free(result);free(pt);free(sk);free(p);}}}printf("HE encryption and arithmetic: %u checks passed\n",tests);return 0;}
+#define CHECK(x)                                                                                   \
+	do {                                                                                       \
+		tests++;                                                                           \
+		if (!(x)) {                                                                        \
+			fprintf(stderr, "line%d %s\n", __LINE__, #x);                              \
+			exit(1);                                                                   \
+		}                                                                                  \
+	} while (0)
+struct rng {
+	struct ccrng_state r;
+	uint64_t x;
+};
+static int gen(struct ccrng_state *r, size_t n, void *out)
+{
+	struct rng *s = (void *)r;
+	for (size_t i = 0; i < n; i++) {
+		s->x ^= s->x << 13;
+		s->x ^= s->x >> 7;
+		s->x ^= s->x << 17;
+		((unsigned char *)out)[i] = s->x;
+	}
+	return 0;
+}
+int main(int argc, char **argv)
+{
+	void *h[2] = {dlopen("/usr/lib/system/libcorecrypto.dylib", 2),
+	    dlopen(argc > 1 ? argv[1] : "/tmp/ecc-he-test.dylib", 2)};
+	CHECK(h[0] && h[1]);
+	finch_test_set_local(h[1], argc > 1 ? argv[1] : "/tmp/ecc-he-test.dylib");
+	size_t (*sz)(unsigned) = dlsym(h[0], "cche_param_ctx_sizeof");
+	int (*init)(void *, unsigned, unsigned) = dlsym(h[0], "cche_param_ctx_init");
+	int (*key)(void *, void *, void *) = dlsym(h[0], "cche_secret_key_generate_from_seed");
+	int (*enc[2])(void *, void *, void *, void *, unsigned, void *, void *),
+	    (*dec[2])(void *, void *, void *, void *);
+	for (int i = 0; i < 2; i++) {
+		enc[i] = dlsym(h[i], "cche_encrypt_symmetric");
+		dec[i] = dlsym(h[i], "cche_decrypt");
+	}
+	unsigned char seed[32] = {0};
+	for (unsigned provider = 0; provider < 2; provider++) {
+		for (unsigned id = 0; id < 17; id++) {
+			for (unsigned scheme = 1; scheme <= 2; scheme++) {
+				init = dlsym(h[provider], "cche_param_ctx_init");
+				struct he_params *p = calloc(1, sz(id));
+				CHECK(init(p, scheme, id) == 0);
+				unsigned l = p->l > 1 ? p->l - 1 : 1;
+				size_t sn = 8 + 8 * (size_t)p->n * p->l, pn = 8 + 8 * (size_t)p->n,
+				       cn = 24 + 2 * (8 + 8 * (size_t)p->n * l);
+				void *sk = calloc(1, sn);
+				CHECK(key(sk, p, seed) == 0);
+				struct he_poly *pt = calloc(1, pn), *result = calloc(1, pn);
+				int (*encode)(void *, void *, unsigned, void *) =
+				    dlsym(h[0], "cche_encode_poly_uint64");
+				uint64_t *v = malloc(p->n * 8);
+				for (unsigned j = 0; j < p->n; j++)
+					v[j] = (j * 17) % p->t;
+				CHECK(encode(pt, p, p->n, v) == 0);
+				void *c[2] = {calloc(1, cn), calloc(1, cn)};
+				for (int seeded = 0; seeded < 2; seeded++) {
+					unsigned char sout[2][32];
+					for (int i = 0; i < 2; i++) {
+						struct rng r = {{gen}, 1245};
+						int rc = enc[i](c[i], pt, p, sk, l,
+						    seeded ? sout[i] : NULL, &r);
+						CHECK(rc == 0);
+					}
+					if (memcmp(c[0], c[1], cn)) {
+						fprintf(stderr,
+						    "enc mismatch id%u scheme%u seeded%d\n", id,
+						    scheme, seeded);
+						for (size_t j = 0; j < cn; j++)
+							if (((unsigned char *)c[0])[j] !=
+							    ((unsigned char *)c[1])[j]) {
+								fprintf(stderr,
+								    "offset%zu values %llx/%llx t%llu q%llu n%u l%u\n",
+								    j,
+								    (unsigned long long)((
+								        uint64_t *)c[0])[j / 8],
+								    (unsigned long long)((
+								        uint64_t *)c[1])[j / 8],
+								    (unsigned long long)p->t,
+								    (unsigned long long)p->q[0],
+								    p->n, l);
+								break;
+							}
+						return 1;
+					}
+					for (int i = 0; i < 2; i++)
+						for (int j = 0; j < 2; j++) {
+							CHECK(dec[i](result, p, c[j], sk) == 0);
+							if (memcmp(result, pt, pn)) {
+								fprintf(stderr,
+								    "dec mismatch id%u scheme%u lib%d cipher%d\n",
+								    id, scheme, i, j);
+								return 1;
+							}
+						}
+				}
+				void *mc[2] = {malloc(cn), malloc(cn)},
+				     *dc[2] = {calloc(1, 8 + 8 * (size_t)p->n * l),
+				         calloc(1, 8 + 8 * (size_t)p->n * l)};
+				for (int i = 0; i < 2; i++) {
+					int (*de)(void *, void *, void *, unsigned) =
+					    dlsym(h[i], "cche_dcrt_plaintext_encode");
+					CHECK(de(dc[i], pt, p, l) == 0);
+					memcpy(mc[i], c[0], cn);
+					int (*mul)(void *, void *, void *) =
+					    dlsym(h[i], "cche_ciphertext_coeff_plaintext_mul");
+					CHECK(mul(mc[i], c[0], pt) == 0);
+				}
+				CHECK(!memcmp(dc[0], dc[1], 8 + 8 * (size_t)p->n * l));
+				CHECK(!memcmp(mc[0], mc[1], cn));
+				free(mc[0]);
+				free(mc[1]);
+				free(dc[0]);
+				free(dc[1]);
+				unsigned (*parts[2])(void *, void *) = {
+				    dlsym(h[0], "cche_ciphertext_coeff_decompose_nptexts"),
+				    dlsym(h[1], "cche_ciphertext_coeff_decompose_nptexts")};
+				unsigned np = parts[0](c[0], NULL);
+				CHECK(np == parts[1](c[0], NULL));
+				void **pv[2] = {
+				    calloc(np, sizeof(void *)), calloc(np, sizeof(void *))};
+				for (int i = 0; i < 2; i++) {
+					for (unsigned j = 0; j < np; j++)
+						pv[i][j] = calloc(1, pn);
+					int (*split)(unsigned, void *, void *, void *) =
+					    dlsym(h[i], "cche_ciphertext_coeff_decompose");
+					CHECK(split(np, pv[i], c[0], NULL) == 0);
+					void *composed = calloc(1, cn);
+					int (*join)(void *, unsigned, void *, void *, unsigned,
+					    uint64_t, void *) =
+					    dlsym(h[i], "cche_ciphertext_coeff_compose");
+					CHECK(join(composed, np, pv[i], p, l, 1, NULL) == 0);
+					CHECK(!memcmp(c[0], composed, cn));
+					free(composed);
+				}
+				for (unsigned j = 0; j < np; j++) {
+					CHECK(!memcmp(pv[0][j], pv[1][j], pn));
+					free(pv[0][j]);
+					free(pv[1][j]);
+				}
+				free(pv[0]);
+				free(pv[1]);
+				free(c[0]);
+				free(c[1]);
+				free(v);
+				free(result);
+				free(pt);
+				free(sk);
+				free(p);
+			}
+		}
+	}
+	printf("HE encryption and arithmetic: %u checks passed\n", tests);
+	return 0;
+}
