@@ -37,6 +37,8 @@ kernel collections need patched guest iBoot stages (see Steven Michaud's
 - **Use for:** Phase 2 (window server, first app) before touching real display hardware.
 
 ### Tier 3: Bare metal M4, isolated boot volume
+Setup and boot-test steps: [`docs/BARE_METAL.md`](BARE_METAL.md).
+
 Asahi uses the same arrangement. Finch lives in its **own APFS container** with its own
 macOS-installed boot policy. Permissive Security is set on **that** OS only. The main
 macOS keeps Full Security and SIP. Choose the OS by holding the power button →
