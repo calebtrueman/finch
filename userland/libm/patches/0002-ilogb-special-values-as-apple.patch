@@ -1,0 +1,16 @@
+diff --git a/lib/msun/src/math.h b/lib/msun/src/math.h
+index 7e82c46..73b3d2b 100644
+--- a/lib/msun/src/math.h
++++ b/lib/msun/src/math.h
+@@ -48,8 +48,9 @@ extern const union __nan_un {
+ #endif
+ 
+ #if __ISO_C_VISIBLE >= 1999
+-#define	FP_ILOGB0	(-__INT_MAX)
+-#define	FP_ILOGBNAN	__INT_MAX
++/* Finch: Apple's values (ilogb(0) and ilogb(NaN) are INT_MIN on macOS). */
++#define	FP_ILOGB0	(-__INT_MAX - 1)
++#define	FP_ILOGBNAN	(-__INT_MAX - 1)
+ 
+ #ifdef __MATH_BUILTIN_CONSTANTS
+ #define	HUGE_VALF	__builtin_huge_valf()

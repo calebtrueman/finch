@@ -49,6 +49,7 @@ steps=(
     "libmacho|oss cctools"
     "libiconv|oss libiconv charset libiconv iconv mkesdb mkcsmapper iconv_modules"
     "libsystem-finch|make -s -C userland/libsystem"
+    "libm|make -s -C userland/libm"
     "Libsystem|oss Libsystem Libsystem"
     "llvm-runtimes|tools/build-llvm-runtimes.sh"
     "objc4|oss objc4 objc-env objc"

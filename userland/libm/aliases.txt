@@ -1,0 +1,9 @@
+# Finch aliases for libsystem_m beyond msun's __weak_reference ones:
+# "<target> <alias>" (Mach-O symbol names).
+_ctan _ctanl
+_ctanh _ctanhl
+_fmin _fminl
+_fmax _fmaxl
+_lgamma _lgammal
+_lgamma_r _lgammal_r
+_nan _nanl
