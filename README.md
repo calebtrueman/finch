@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="branding/logo-dark.png">
-    <img src="branding/logo.png" alt="finch: an open OS for Apple Silicon" width="360">
+    <source media="(prefers-color-scheme: dark)" srcset="branding/svg/logo-dark.svg">
+    <img src="branding/svg/logo.svg" alt="finch: an open OS for Apple Silicon" width="440">
   </picture>
 </p>
 

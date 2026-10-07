@@ -43,6 +43,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "banner_art.h"
 #include "bootstrapd.h"
 #include "jobs.h"
 
@@ -364,17 +365,30 @@ publish_os_version(void)
 static void
 print_banner(void)
 {
-	/* Brand colours (branding/BRAND.md): Finch Green and Slate, 24-bit ANSI. */
-	static const char green[] = "\033[1;38;2;72;107;82m";
-	static const char slate[] = "\033[38;2;154;160;166m";
+	/* Brand colours (branding/BRAND.md): Paper and Mist, 24-bit ANSI. */
+	static const char paper[] = "\033[1;38;2;246;243;236m";
+	static const char mist[] = "\033[38;2;164;167;172m";
 	static const char reset[] = "\033[0m";
+	const size_t rows = sizeof(finch_banner_art) / sizeof(finch_banner_art[0]);
+	const size_t text = rows / 2 - 1;
 	struct utsname u;
+	size_t i;
 
-	printf("\n  %sfinch%s\n  %sAn open OS for Apple Silicon%s\n\n",
-	    green, reset, slate, reset);
+	/* The mark, with the wordmark and tagline beside it. */
+	printf("\n");
+	for (i = 0; i < rows; i++) {
+		printf("  %s", finch_banner_art[i]);
+		if (i == text) {
+			printf("   %sfinch%s", paper, reset);
+		} else if (i == text + 1) {
+			printf("   %sAn open OS for Apple Silicon%s", mist, reset);
+		}
+		printf("\n");
+	}
+	printf("\n");
 	printf("Finch init %s (pid %d)\n", FINCH_INIT_VERSION, getpid());
 	if (uname(&u) == 0) {
-		printf("%s%s%s\n\n", slate, u.version, reset);
+		printf("%s%s%s\n\n", mist, u.version, reset);
 	}
 	fflush(stdout);
 }

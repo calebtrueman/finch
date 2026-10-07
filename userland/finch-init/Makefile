@@ -15,7 +15,7 @@ SPI     := -Wl,-U,_finch_xpc_pipe_request_routine
 
 SRCS    := finch-init.c bootstrapd.c jobs.c
 
-$(OUT)/finch-init: $(SRCS) bootstrapd.h jobs.h
+$(OUT)/finch-init: $(SRCS) banner_art.h bootstrapd.h jobs.h
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) $(SPI) -o $@ $(SRCS)
 	codesign -f -s - -i org.finch.init $@
