@@ -3,8 +3,9 @@
 This is what the VM's userland is made of today, and where each piece comes from.
 "Published" is checked against Apple's
 [macOS 26.4 source release](https://github.com/apple-oss-distributions/distribution-macOS/blob/macos-264/release.json).
-The ramdisk has **no dyld shared cache**: each library is a standalone dylib, so
-pieces can be replaced one at a time.
+The image has a **dyld shared cache built by Finch** (`docs/design/DYLD_CACHE.md`) from
+its own dylibs, Apple's and Finch's. Pieces are still replaced one at a time: rebuilding
+the image rebuilds the cache.
 
 | Status | Meaning |
 |---|---|

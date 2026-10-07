@@ -1,0 +1,19 @@
+diff --git a/mach_o/LinkerOptimizationHints.cpp b/mach_o/LinkerOptimizationHints.cpp
+index f18535f..10a1535 100644
+--- a/mach_o/LinkerOptimizationHints.cpp
++++ b/mach_o/LinkerOptimizationHints.cpp
+@@ -121,8 +121,12 @@ static Error validFPAC(const char* name, std::span<const uint64_t> addrs,
+ 
+ Error LinkerOptimizationHints::valid(std::span<const MappedSegment> segments, uint64_t loadAddress) const
+ {
+-
+-    return std::move(lohErr);
++    // The published source omits this function's body (it refers to an
++    // undeclared 'lohErr'). It validates linker optimization hints in input
++    // dylibs, which their linker already produced and checked; accept them.
++    (void)segments;
++    (void)loadAddress;
++    return Error::none();
+ }
+ 
+ } // namespace mach_o

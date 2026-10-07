@@ -23,7 +23,7 @@ cp "${FW}/ramdisk.dmg" "${OUT}/ramdisk.dmg"
 # Grow the image. It's raw APFS with no partition map, which `hdiutil resize`
 # rejects, so extend the file and let APFS grow its container into the new
 # space (no sudo needed for a user-attached image).
-truncate -s "${RAMDISK_SIZE:-600m}" "${OUT}/ramdisk.dmg"
+truncate -s "${RAMDISK_SIZE:-1g}" "${OUT}/ramdisk.dmg"
 dev=$(hdiutil attach -nomount -imagekey diskimage-class=CRawDiskImage "${OUT}/ramdisk.dmg" | awk 'NR==1{print $1}')
 diskutil apfs resizeContainer "${dev}" 0 >/dev/null || die "APFS resize failed"
 hdiutil detach "${dev}" >/dev/null
@@ -87,6 +87,31 @@ done | sort -u -t' ' -k1,1)
 if [[ -n "${missing}" ]]; then
     echo "  warning: missing dylibs in image:"
     printf '    %s\n' ${missing// /_}
+fi
+
+# 4. dyld shared cache, built by Finch from the image's own dylibs
+#    (tools/dsc/build-builder.sh; docs/design/DYLD_CACHE.md). Each cache file
+#    is code-signed; its cdhash goes in the trust cache like any binary's.
+#    FINCH_DSC=0 skips it (dyld then loads every dylib from disk).
+if [[ "${FINCH_DSC:-1}" != 0 ]]; then
+    builder="${FINCH_ROOT}/build/tools/dyld_shared_cache_builder"
+    [[ -x "${builder}" ]] || "${FINCH_ROOT}/tools/dsc/build-builder.sh" >/dev/null || die "cache builder build failed"
+    rm -rf "${mnt}/System/Library/dyld"
+    python3 "${FINCH_ROOT}/tools/dsc/mkmanifest.py" "${mnt}" "${OUT}/dsc-manifest.json" | sed 's/^/  dsc: /'
+    "${builder}" -dylib_cache "${mnt}" -dst_root "${mnt}" -json_manifest "${OUT}/dsc-manifest.json" \
+        -print_cdhashes > "${OUT}/dsc-build.log" 2>&1 || die "shared cache build failed (see ${OUT}/dsc-build.log)"
+    # As on macOS since 11, dylibs in the cache aren't also on disk. dyld in
+    # PID 1 scans for "roots" (on-disk dylibs overriding the cache) at boot;
+    # finding them, every process would load from disk and patch the cache.
+    # The map lists each cached dylib's install path.
+    removed=0
+    while read -r p; do
+        if [[ -f "${mnt}${p}" && ! -L "${mnt}${p}" ]]; then rm -f "${mnt}${p}"; removed=$((removed + 1)); fi
+    done < <(grep '^/' "${mnt}/System/Library/dyld/dyld_shared_cache_arm64e.map")
+    echo "  dsc: removed ${removed} cached dylibs from disk"
+    mv "${mnt}"/System/Library/dyld/*.map "${OUT}/" 2>/dev/null   # host-side debugging aid, kept out of the image
+    sed -n 's/.* cdhash: \([0-9a-f]*\)$/\1/p' "${OUT}/dsc-build.log" >> "${OUT}/all_hashes"
+    echo "  dsc: $(ls "${mnt}/System/Library/dyld" | wc -l | tr -d ' ') cache files, $(du -sh "${mnt}/System/Library/dyld" | cut -f1)"
 fi
 
 sort -u -o "${OUT}/all_hashes" "${OUT}/all_hashes"

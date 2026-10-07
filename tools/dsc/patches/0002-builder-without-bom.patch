@@ -1,0 +1,50 @@
+diff --git a/cache_builder/dyld_shared_cache_builder.mm b/cache_builder/dyld_shared_cache_builder.mm
+index 0107ff7..28f2c27 100644
+--- a/cache_builder/dyld_shared_cache_builder.mm
++++ b/cache_builder/dyld_shared_cache_builder.mm
+@@ -60,7 +60,10 @@
+ 
+ #include <spawn.h>
+ 
++#if __has_include(<Bom/Bom.h>)
+ #include <Bom/Bom.h>
++#define HAVE_BOM 1
++#endif
+ #include <Foundation/NSData.h>
+ #include <Foundation/NSDictionary.h>
+ #include <Foundation/NSPropertyList.h>
+@@ -207,6 +210,7 @@ static void writeRootList(const std::string& dstRoot, const std::list<std::strin
+     std::set<std::string>*  dylibsFoundInRoots  = nullptr;
+ };
+ 
++#if HAVE_BOM
+ static BOMCopierCopyOperation filteredCopyIncludingPaths(BOMCopier copier, const char* path, BOMFSObjType type, off_t size)
+ {
+     std::string absolutePath = &path[1];
+@@ -230,6 +234,7 @@ static BOMCopierCopyOperation filteredCopyIncludingPaths(BOMCopier copier, const
+     }
+     return BOMCopierSkipFile;
+ }
++#endif
+ 
+ static Disposition stringToDisposition(Diagnostics& diags, const std::string& str) {
+     if (diags.hasError())
+@@ -974,6 +979,10 @@ static void buildCacheFromJSONManifest(Diagnostics& diags, const SharedCacheBuil
+             // Work out the set of dylibs in the old caches but not the new ones
+             std::set<std::string> dylibsMissingFromNewCaches = baselineCaches.dylibsMissingFromNewCaches();
+             if ( !dylibsMissingFromNewCaches.empty() ) {
++#if !HAVE_BOM
++                fprintf(stderr, "-baseline_copy_roots needs Bom.framework headers, which aren't published\n");
++                exit(EX_UNAVAILABLE);
++#else
+                 BOMCopier copier = BOMCopierNewWithSys(BomSys_default());
+                 FilteredCopyOptions userData = { &diags, &dylibsMissingFromNewCaches, &dylibsFoundInRoots };
+                 BOMCopierSetUserData(copier, (void*)&userData);
+@@ -989,6 +998,7 @@ static void buildCacheFromJSONManifest(Diagnostics& diags, const SharedCacheBuil
+                 for (const std::string& dylibMissingFromNewCache : dylibsMissingFromNewCaches) {
+                     diags.verbose("Dylib missing from new cache: '%s'\n", dylibMissingFromNewCache.c_str());
+                 }
++#endif
+             }
+         }
+ 

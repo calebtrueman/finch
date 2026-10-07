@@ -54,6 +54,7 @@ foundation for an open replacement for iOS on iPhone/iPad hardware.
 - [Brand](branding/BRAND.md): logo, colours and usage
 - [XPC design](docs/design/XPC.md): Finch's ABI-compatible libxpc
 - [Services](docs/design/SERVICES.md): finch-init as launchd-compatible service manager
+- [dyld shared cache](docs/design/DYLD_CACHE.md): Finch-built cache, process launch about 50× faster
 
 ## Layout
 

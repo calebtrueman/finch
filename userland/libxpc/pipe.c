@@ -13,11 +13,6 @@
 
 #include "internal.h"
 
-struct xpc_pipe_s {
-	XPC_OBJECT_HEADER;
-	mach_port_t port;           /* owned send right to the server */
-};
-
 extern const struct _xpc_type_s _xpc_type_pipe;
 #define XPC_TYPE_PIPE (&_xpc_type_pipe)
 

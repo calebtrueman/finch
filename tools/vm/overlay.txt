@@ -12,3 +12,5 @@ userland/tests/launchd/org.finch.test.keepalive.plist /System/Library/Finch/Laun
 userland/LaunchDaemons/com.apple.notifyd.plist /System/Library/Finch/LaunchDaemons/com.apple.notifyd.plist
 build/userland/launchctl /bin/launchctl
 userland/tests/launchd/org.finch.test.unprivileged.plist /System/Library/Finch/LaunchDaemons/org.finch.test.unprivileged.plist
+build/userland/finch-launch-bench /usr/local/bin/finch-launch-bench
+build/userland/finch-trace /usr/local/bin/finch-trace

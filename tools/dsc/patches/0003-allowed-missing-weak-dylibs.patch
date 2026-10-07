@@ -1,0 +1,17 @@
+diff --git a/cache_builder/NewSharedCacheBuilder.cpp b/cache_builder/NewSharedCacheBuilder.cpp
+index 6ddc1c4..df461c4 100644
+--- a/cache_builder/NewSharedCacheBuilder.cpp
++++ b/cache_builder/NewSharedCacheBuilder.cpp
+@@ -884,6 +884,12 @@ void SharedCacheBuilder::categorizeInputs()
+     }
+ }
+ 
++
++// The published source references an allow-list of weak dylibs that may be
++// missing, but doesn't define it. Weak dependencies on dylibs that aren't
++// present are already skipped just above where it's used, so it's empty here.
++static const std::set<std::string_view> allowedMissingWeakDylibs;
++
+ void SharedCacheBuilder::verifySelfContained()
+ {
+     Timer::Scope timedScope(this->config, "verifySelfContained time");

@@ -1,0 +1,38 @@
+diff --git a/bsd/vm/vm_unix.c b/bsd/vm/vm_unix.c
+index 286f7ec..798871f 100644
+--- a/bsd/vm/vm_unix.c
++++ b/bsd/vm/vm_unix.c
+@@ -1581,6 +1581,16 @@ shared_region_map_and_slide_setup(
+ 		}
+ #endif /* MAC */
+ 
++		/*
++		 * Finch: a shared cache file whose cdhash is in a static or
++		 * engineering trust cache is pinned to known contents (pages are
++		 * validated against that signature as they're mapped), which is a
++		 * stronger guarantee than SF_RESTRICTED. Treat it as SIP-protected
++		 * below, so a cache built for the OS image can be used without
++		 * weakening SIP.
++		 */
++		bool finch_trusted_cache_file __unused = false;
++
+ #if XNU_TARGET_OS_OSX && defined(__arm64__)
+ 		/*
+ 		 * Check if the shared cache is in the trust cache;
+@@ -1628,6 +1638,7 @@ shared_region_map_and_slide_setup(
+ 			    tc_type == kTCTypeStatic ||
+ 			    tc_type == kTCTypeEngineering));
+ 		}
++		finch_trusted_cache_file = in_trust_cache;
+ 		if (!in_trust_cache) {
+ 			SHARED_REGION_TRACE_ERROR(
+ 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
+@@ -1675,7 +1686,7 @@ after_root_check:
+ #endif /* XNU_TARGET_OS_OSX && defined(__arm64__) */
+ 
+ #if CONFIG_CSR
+-		if (csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0) {
++		if (csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0 && !finch_trusted_cache_file) {
+ 			VATTR_INIT(&va);
+ 			VATTR_WANTED(&va, va_flags);
+ 			error = vnode_getattr(srfmp->vp, &va, vfs_context_current());

@@ -1126,3 +1126,127 @@ xpc_pipe_create_with_user_session_uid(const char *name, uid_t uid, uint64_t flag
 	(void)uid;
 	return xpc_pipe_create(name, flags);
 }
+
+#pragma mark - Pipe interface routines, reply ids, misc SPI
+
+typedef struct xpc_pipe_s *finch_pipe_t;
+
+int _xpc_pipe_interface_routine(finch_pipe_t pipe, uint64_t routine, xpc_object_t message,
+    xpc_object_t *reply, uint64_t flags);
+int _xpc_pipe_interface_routine_async(finch_pipe_t pipe, uint64_t routine, xpc_object_t message,
+    dispatch_queue_t queue, void *handler);
+uint64_t _xpc_dictionary_get_reply_msg_id(xpc_object_t xdict);
+uint64_t _xpc_dictionary_extract_reply_msg_id(xpc_object_t xdict);
+
+/* A routine with an explicit number: msgh_id 0x40000000 | routine (as bootstrap uses). */
+int
+_xpc_pipe_interface_routine(finch_pipe_t pipe, uint64_t routine, xpc_object_t message,
+    xpc_object_t *reply, uint64_t flags)
+{
+	(void)flags;
+	return _xpc_pipe_routine_port(pipe->port,
+	    XPC_MSGID_PIPE_ROUTINE | (uint32_t)(routine & 0x00ffffff), message, reply, NULL);
+}
+
+/* FINCH-NOT-YET: asynchronous interface routines. */
+int
+_xpc_pipe_interface_routine_async(finch_pipe_t pipe, uint64_t routine, xpc_object_t message,
+    dispatch_queue_t queue, void *handler)
+{
+	(void)pipe; (void)routine; (void)message; (void)queue; (void)handler;
+	return ENOTSUP;
+}
+
+/* The Mach message id a received request arrived with. */
+uint64_t
+_xpc_dictionary_get_reply_msg_id(xpc_object_t xdict)
+{
+	return xpc_get_type(xdict) == XPC_TYPE_DICTIONARY ? ((struct _xpc_dictionary_s *)xdict)->msgid : 0;
+}
+
+uint64_t
+_xpc_dictionary_extract_reply_msg_id(xpc_object_t xdict)
+{
+	uint64_t id = _xpc_dictionary_get_reply_msg_id(xdict);
+	if (id != 0) {
+		((struct _xpc_dictionary_s *)xdict)->msgid = 0;
+	}
+	return id;
+}
+
+xpc_object_t xpc_create_from_plist(const void *data, size_t length);
+xpc_object_t xpc_create_from_plist_with_string_cache(const void *data, size_t length, void *cache);
+char *xpc_copy_clean_description(xpc_object_t object);
+xpc_object_t xpc_copy_event(const char *stream, const char *name);
+xpc_object_t xpc_coalition_copy_info(uint64_t coalition_id);
+void os_transaction_needs_more_time(os_transaction_t transaction);
+void xpc_transaction_try_exit_clean(void);
+
+/* The string cache only deduplicates key strings; the result is the same. */
+xpc_object_t
+xpc_create_from_plist_with_string_cache(const void *data, size_t length, void *cache)
+{
+	(void)cache;
+	return xpc_create_from_plist(data, length);
+}
+
+char *xpc_copy_clean_description(xpc_object_t o) { return xpc_copy_description(o); }
+
+/* Event streams have no registrations on Finch yet (see xpc_set_event). */
+xpc_object_t xpc_copy_event(const char *stream, const char *name) { (void)stream; (void)name; return NULL; }
+
+/* FINCH-NOT-YET: coalitions are a kernel feature launchd manages; no info yet. */
+xpc_object_t xpc_coalition_copy_info(uint64_t coalition_id) { (void)coalition_id; return NULL; }
+
+/* Finch doesn't idle-exit processes, so there's no deadline to extend or exit to try. */
+void os_transaction_needs_more_time(os_transaction_t t) { (void)t; }
+void xpc_transaction_try_exit_clean(void) {}
+
+/* reboot3(): launchd's reboot/shutdown entry point.
+ * FINCH-NOT-YET: finch-init has no shutdown sequence yet. */
+int reboot3(uint64_t flags, ...);
+int reboot3(uint64_t flags, ...) { (void)flags; return ENOTSUP; }
+
+#pragma mark - launch_data accessors (unreachable: _launch_msg2 never returns data)
+
+size_t launch_data_array_get_count(launch_data_t d) { (void)d; return 0; }
+launch_data_t launch_data_array_get_index(launch_data_t d, size_t i) { (void)d; (void)i; return NULL; }
+void launch_data_dict_iterate(launch_data_t d, launch_data_dict_iterator_t it, void *ctx) { (void)d; (void)it; (void)ctx; }
+bool launch_data_get_bool(launch_data_t d) { (void)d; return false; }
+long long launch_data_get_integer(launch_data_t d) { (void)d; return 0; }
+double launch_data_get_real(launch_data_t d) { (void)d; return 0; }
+const char *launch_data_get_string(launch_data_t d) { (void)d; return NULL; }
+launch_data_type_t launch_data_get_type(launch_data_t d) { (void)d; return (launch_data_type_t)0; }
+
+#pragma mark - Remote XPC and file transfers (FINCH-NOT-YET)
+
+/*
+ * Used by RemoteXPC (talking to other devices) and cryptex tooling. Their
+ * prototypes aren't published; these return failure (NULL / an error) and
+ * write nothing through any out-parameter, so callers see "not available".
+ */
+void *xpc_file_transfer_create_with_fd(void);
+void *xpc_file_transfer_create_with_path(void);
+void *xpc_file_transfer_copy_io(void);
+uint64_t xpc_file_transfer_get_transfer_id(void);
+int xpc_file_transfer_send_finished(void);
+int xpc_file_transfer_set_transport_writing_callbacks(void);
+int xpc_file_transfer_write_finished(void);
+int xpc_file_transfer_write_to_fd(void);
+void xpc_install_remote_hooks(void);
+void *xpc_make_serialization_with_ool(void);
+void *xpc_receive_remote_msg(void);
+void xpc_extension_type_init(void);
+
+void *xpc_file_transfer_create_with_fd(void) { return NULL; }
+void *xpc_file_transfer_create_with_path(void) { return NULL; }
+void *xpc_file_transfer_copy_io(void) { return NULL; }
+uint64_t xpc_file_transfer_get_transfer_id(void) { return 0; }
+int xpc_file_transfer_send_finished(void) { return ENOTSUP; }
+int xpc_file_transfer_set_transport_writing_callbacks(void) { return ENOTSUP; }
+int xpc_file_transfer_write_finished(void) { return ENOTSUP; }
+int xpc_file_transfer_write_to_fd(void) { return ENOTSUP; }
+void xpc_install_remote_hooks(void) {}
+void *xpc_make_serialization_with_ool(void) { return NULL; }
+void *xpc_receive_remote_msg(void) { return NULL; }
+void xpc_extension_type_init(void) {}

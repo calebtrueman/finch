@@ -63,6 +63,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         `os/transaction_private.h`; libdarwin also wants APFS's `apfs_fsctl.h`). Do 1.4's
         libxpc first.
   - [x] libsystem_notify and notifyd (Libnotify), with notifyd run on demand by finch-init
+  - [x] dyld shared cache, built by Finch from the image (`docs/design/DYLD_CACHE.md`):
+        process launch about 50× faster in the VM (3 s → 61 ms for `/usr/bin/true`)
   - [ ] libsystem_m, dyld, …
   - [x] Finch CrashReporterClient (`__crash_info` annotations), linked by Libc and notifyd
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,

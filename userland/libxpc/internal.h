@@ -191,6 +191,11 @@ XPC_INTERNAL kern_return_t _xpc_message_send(mach_port_t dest, mach_msg_type_nam
 XPC_INTERNAL kern_return_t _xpc_message_receive(mach_port_t port, mach_msg_option_t options,
     mach_msg_timeout_t timeout, mach_msg_header_t **out);
 XPC_INTERNAL xpc_object_t _xpc_message_decode(mach_msg_header_t *msg);
+
+struct xpc_pipe_s {
+	XPC_OBJECT_HEADER;
+	mach_port_t port;           /* owned send right to the server */
+};
 /* Pipe routine with an explicit message id (bootstrap uses 0x40000000 | routine).
  * On success *reply is the decoded reply and, if non-NULL, *sender_pid its sender. */
 XPC_INTERNAL int _xpc_pipe_routine_port(mach_port_t port, uint32_t msgid, xpc_object_t message,
