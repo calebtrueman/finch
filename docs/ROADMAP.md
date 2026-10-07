@@ -30,7 +30,7 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         run under finch-init (`tools/build-oss.sh`, 2026-10-06)
   - [x] bash 3.2 (bash-144), zsh 5.9 + modules (zsh-118, via `userland/oss/zsh.build.sh`),
         bc/dc. zsh is the console shell.
-  - [ ] libiconv i18n modules (`/usr/lib/i18n`, needed by zsh prompt expansion)
+  - [x] libiconv, libcharset and the i18n modules and tables (`/usr/lib/i18n`, `/usr/share/i18n`)
   - [ ] Deferred tools (see `userland/INVENTORY.md`)
   - [x] `reboot` / `halt` / `shutdown` from system_cmds, through finch-init's shutdown
         sequence (`reboot3`)

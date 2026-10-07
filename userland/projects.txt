@@ -33,3 +33,4 @@ Libsystem       Libsystem-1356
 dyld            dyld-1376.6
 libclosure      libclosure-96
 Libnotify       Libnotify-348.100.7
+libiconv        libiconv-115.100.1

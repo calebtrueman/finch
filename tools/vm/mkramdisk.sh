@@ -59,7 +59,10 @@ fi
 
 # 1. Apple OSS staging tree.
 if [[ -d "${ROOT}" ]]; then
-    rsync -a "${ROOT}/" "${mnt}/"
+    # Runtime files only: link stubs (.tbd), static archives and headers are
+    # build products for the host, not the OS.
+    rsync -a --exclude '*.tbd' --exclude '*.a' --exclude '/usr/include/' \
+        --exclude '/usr/local/include/' "${ROOT}/" "${mnt}/"
     n=0
     while IFS= read -r -d '' f; do
         if is_macho "$f"; then add_hashes "${mnt}${f#"${ROOT}"}"; n=$((n + 1)); fi

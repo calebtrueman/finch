@@ -81,7 +81,7 @@ the image rebuilds the cache.
 | `bash`, `zsh` + modules | bash-144, zsh-118 | **Built by Finch** (zsh is the console shell) |
 | `bc`, `dc` | bc-35 | **Built by Finch** |
 | `sh` | Prebuilt by darwin-vm | TODO: macOS's `sh` is a small shim that execs bash/zsh/dash |
-| `/usr/lib/i18n/*` (iconv modules) | libiconv-115.100.1 | Missing from the ramdisk; build it |
+| `libiconv.2`, `libcharset.1`, `/usr/lib/i18n/*` (25 modules), `/usr/share/i18n` (700 tables) | libiconv-115.100.1 | **Built by Finch** (exports match Apple's: 95/95, 2/2) |
 | file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds | Apple OSS (`userland/projects.txt`) | **Built by Finch**: 188 binaries via `tools/build-oss.sh` |
 | `mount_*`, `fsck_*`, `newfs_*` (from the restore ramdisk) | diskdev_cmds / hfs; APFS tools are closed | Mixed |
 
