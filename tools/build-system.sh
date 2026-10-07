@@ -50,6 +50,7 @@ steps=(
     "libiconv|oss libiconv charset libiconv iconv mkesdb mkcsmapper iconv_modules"
     "libsystem-finch|make -s -C userland/libsystem"
     "libm|make -s -C userland/libm"
+    "corecrypto|make -s -C userland/corecrypto install"
     "Libsystem|oss Libsystem Libsystem"
     "llvm-runtimes|tools/build-llvm-runtimes.sh"
     "objc4|oss objc4 objc-env objc"

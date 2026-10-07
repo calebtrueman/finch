@@ -630,5 +630,11 @@ $(BOOT_LIB): $(ABI_SOURCES) $(ABI_HEADERS) digest.c $(OPENSSL_ARCHIVE) exports.t
 	python3 tools/seal-corecrypto.py seal $@
 	codesign -f -s - $@
 
-install: $(BOOT_LIB)
+# OpenSSL is Apache-2.0: its licence travels with the binary that embeds it.
+NOTICES := $(ROOT)/usr/share/finch/licenses/OpenSSL
+$(NOTICES)/LICENSE.txt: $(OPENSSL_ARCHIVE)
+	@mkdir -p $(dir $@)
+	cp ../../build/src/openssl/LICENSE.txt ../../build/src/openssl/AUTHORS.md $(dir $@)
+
+install: $(BOOT_LIB) $(NOTICES)/LICENSE.txt
 .PHONY: install

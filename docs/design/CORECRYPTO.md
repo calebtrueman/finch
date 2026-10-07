@@ -1,11 +1,17 @@
-# Corecrypto replacement: work in progress
+# Corecrypto replacement
 
-Finch still uses Apple's shared corecrypto library in the boot image.
-`make -C userland/corecrypto install` builds Finch's replacement,
-`/usr/lib/system/libcorecrypto.dylib`, into `build/root`, but the image build
-doesn't run it yet: the library hasn't booted in the VM. The test library
+Finch's `/usr/lib/system/libcorecrypto.dylib` replaces Apple's in the boot
+image. `tools/build-system.sh` runs `make -C userland/corecrypto install`, which
+builds it into `build/root` with OpenSSL's licence notice. The test library
 (`abi-crypto.dylib`) is built from the same sources and is what the comparison
-checks load. The older SHA helpers used by dyld stay separate because their
+checks load.
+
+In the VM it boots under finch-init, and `finch-crypto-test` (`userland/tests`)
+passes there. That test confirms the loaded library is Finch's by its UUID and
+`__finch_seal` section. It then runs known-answer tests through CommonCrypto
+(SHA-256, HMAC, AES, PBKDF2), checks random output, and does a P-256 key
+round trip through corecrypto directly. OpenSSL's static initializer (`armcap`)
+runs before libSystem's without trouble. The older SHA helpers used by dyld stay separate because their
 layout differs from the shared library's layout.
 
 ## Source boundary
@@ -221,18 +227,12 @@ in `abi/rng.c` satisfies that reference from the kernel source the rest of the
 library uses. The image seal locates its own Mach-O header through
 `__dso_handle`, not `dladdr`, so there is no libdyld dependency.
 
-OpenSSL's ARM capability probe (`armcap.o`) is a static initializer. It runs
-before libSystem's initializer, so the VM boot test must confirm that it is safe
-there.
-
 ## Still required
 
-- Boot the installed library in the VM, then add it to the image build.
-- Confirm the OpenSSL initializer above is safe that early.
-- Rebuild CommonCrypto against the installed library and boot-test it.
-- Install OpenSSL's license notice alongside the library.
-- Reformat the dense sources in `abi/` to the repository's style before
-  further work on them.
+- The image still uses Apple's CommonCrypto on top of Finch's corecrypto. Next,
+  install Finch's CommonCrypto build (`build-commoncrypto.sh`) and boot-test it.
+- Broader in-VM coverage: Security framework users, TLS, and keychain once those
+  exist in the image.
 
 CommonCrypto now builds from its published source with Finch's source-facing
 headers in `compat/corecrypto`. Its export list matches all 245 host symbols.

@@ -27,6 +27,7 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | XNU, most Darwin userland | APSL 2.0 | Build and modify. Modifications to APSL files stay APSL and must be published. |
 | CF-Lite, libdispatch, swift-corelibs, Swift, LLVM/clang | Apache 2.0 / APSL | Build directly |
 | WebKit | BSD / LGPL | Build directly |
+| OpenSSL 3.5.9 | Apache 2.0 | Built and linked statically into Finch's libcorecrypto |
 | m1n1 | MIT | Import |
 | Mesa (incl. asahi driver) | MIT | Import |
 | Asahi **documentation** (wiki, register notes) | Docs | Use as reference |
@@ -35,6 +36,14 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | GNUstep | LGPL | Case by case. Dynamic linking is fine; avoid copying it into APSL/MIT files. |
 | Darling | GPL-3.0 | Ideas and research only. No code. |
 | Apple proprietary binaries (kexts, frameworks, firmware) | Apple EULA | **Never committed, never redistributed.** Loaded from the user's own macOS install at runtime only. |
+
+## Notices in the image
+
+A third-party licence that requires its notice to travel with binaries (Apache,
+MIT, BSD) is installed at `/usr/share/finch/licenses/<project>/`. The component
+that embeds the code installs it. For example, `make -C userland/corecrypto
+install` installs OpenSSL's `LICENSE.txt` and `AUTHORS.md`. libm's CORE-MATH
+(MIT) and FreeBSD msun (BSD) don't install their notices yet.
 
 ## Clean-room rule for GPL drivers
 
