@@ -164,7 +164,10 @@ if [[ -f "${FINCH_ROOT}/userland/oss/${project}.notices" ]]; then
         | while read -r file; do cp "${SRC}/${file}" "${notices}/"; done
 fi
 
-failed=$(grep -E '^\S+: (fatal )?error:' "${LOG}" | sed -E 's|^.*/'"${project}"'/([^/]+)/.*|\1|' | sort -u | tr '\n' ' ')
+# Source directories (≈ targets) with errors; errors in SDK headers they include
+# count against the project directory that included them.
+failed=$(grep -E '^\S+: (fatal )?error:' "${LOG}" | grep "/build/src/${project}/" \
+    | sed -E 's|^.*/build/src/'"${project}"'/([^/:]+)[/:].*|\1|' | sort -u | tr '\n' ' ')
 echo "${project}: ${installed} Mach-O installed into build/root (build exit ${status})"
 [[ -n "${failed}" ]] && echo "  failed in: ${failed}  (see ${LOG#"${FINCH_ROOT}/"})"
 exit 0

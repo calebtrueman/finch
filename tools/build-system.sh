@@ -22,6 +22,19 @@ oss() {   # oss <project> <targets...>: build, then fail on any compile/link err
         && ! grep -q "linker command failed" "build/logs/$1.log"
 }
 
+# Like oss, for command projects: the tools listed in userland/oss/<project>.deferred
+# (userland/INVENTORY.md) may fail; anything else failing stops the build.
+oss_cmds() {   # oss_cmds <project> <targets...>
+    local out failed allowed f
+    out=$(tools/build-oss.sh "$@" 2>&1)
+    echo "${out}"
+    failed=$(sed -n 's/^  failed in: \(.*\)  (see.*/\1/p' <<<"${out}")
+    allowed=$(grep -v '^\s*#' "userland/oss/$1.deferred" 2>/dev/null)
+    for f in ${failed}; do
+        grep -qx "${f}" <<<"${allowed}" || { echo "error: $1: ${f} failed and isn't deferred" >&2; return 1; }
+    done
+}
+
 # name | command
 steps=(
     "sdk|tools/mksdk.sh"
@@ -55,12 +68,22 @@ steps=(
     "libm|make -s -C userland/libm"
     "corecrypto|make -s -C userland/corecrypto install"
     "trace|make -s -C userland/libsystem/trace install"
-    "sh|make -s -C userland/sh"
-    "mount_tmpfs|make -s -C userland/mount_tmpfs"
     "Libsystem|oss Libsystem Libsystem"
     "llvm-runtimes|tools/build-llvm-runtimes.sh"
     "objc4|oss objc4 objc-env objc"
     "dyld|oss dyld dyld libdyld"
+    # Commands (userland/INVENTORY.md lists the deferred ones that don't build yet)
+    "file_cmds|oss_cmds file_cmds executables"
+    "shell_cmds|oss_cmds shell_cmds All_OSX"
+    "text_cmds|oss_cmds text_cmds executables"
+    "adv_cmds|oss_cmds adv_cmds Desktop"
+    "system_cmds|oss_cmds system_cmds All_MacOSX"
+    "bash|oss bash bash"
+    "zsh|oss zsh"
+    "bc|oss bc"
+    # Finch's own, after the commands so they're what the image gets
+    "sh|make -s -C userland/sh"
+    "mount_tmpfs|make -s -C userland/mount_tmpfs"
 )
 
 only="${1:-}"

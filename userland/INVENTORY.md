@@ -42,50 +42,55 @@ the image rebuilds the cache.
 | libsystem_notify | Libnotify-348.100.7 | **Built by Finch** |
 | libsystem_blocks | libclosure-96 | **Built by Finch** |
 | libdispatch | libdispatch-1542.100.32 | **Built by Finch** (build config reconstructed) |
-| libdyld | dyld-1376.6 | OPEN |
-| libcopyfile | copyfile-240 | OPEN |
-| libremovefile | removefile-85.100.6 | OPEN |
-| libkeymgr | keymgr-31 | OPEN |
-| libcommonCrypto | CommonCrypto-600035 | OPEN |
-| libsystem_configuration | configd-1405.100.8 | OPEN |
-| libsystem_dnssd | mDNSResponder-2881.100.56.0.1 | OPEN |
-| libsystem_asl | syslog-406 | OPEN |
-| libcompiler_rt | compiler-rt | LLVM |
-| libunwind | libunwind | LLVM |
-| libmacho | cctools (not in the 26.4 release) | ? |
-| libsystem_m | Libm | STALE: use FreeBSD msun or LLVM libc |
-| libcorecrypto | corecrypto (source-viewable, non-OSS license) | CLOSED |
-| libsystem_trace | os_log / os_activity | CLOSED |
+| libdyld | dyld-1376.6 | **Built by Finch** |
+| libcopyfile | copyfile-240 | **Built by Finch** |
+| libremovefile | removefile-85.100.6 | **Built by Finch** |
+| libkeymgr | keymgr-31 | **Built by Finch** |
+| libcommonCrypto | CommonCrypto-600035 | **Built by Finch** (unmodified source, on Finch libcorecrypto) |
+| libsystem_configuration | configd-1405.100.8 | **Built by Finch** |
+| libsystem_dnssd | mDNSResponder-2881.100.56.0.1 | **Built by Finch** |
+| libsystem_asl | syslog-406 | **Built by Finch** |
+| libcompiler_rt | compiler-rt | **Built by Finch** (LLVM 22.1.8) |
+| libunwind | libunwind | **Built by Finch** (LLVM 22.1.8) |
+| libmacho | cctools-1035.1.102 | **Built by Finch** |
+| libsystem_m | Libm (stale) | **Finch's**: CORE-MATH + FreeBSD msun (`userland/libm`) |
+| libcorecrypto | corecrypto (source-viewable, non-OSS license) | CLOSED: **Finch's** on OpenSSL 3.5.9 (`userland/corecrypto`, 1,092/1,092) |
+| libsystem_trace | os_log / os_activity | CLOSED: **Finch's** (`userland/libsystem/trace`, 197/197) |
 | libxpc, liblaunch | XPC / launchd | CLOSED: **replaced by Finch libxpc** (`userland/libxpc`, ABI-compatible; bootstrap served by finch-init) |
-| libquarantine | Quarantine | CLOSED |
-| libsystem_sandbox, libsystem_secinit | Sandbox | CLOSED |
-| libsystem_containermanager | Containers | CLOSED |
-| libsystem_coreservices | CoreServices | CLOSED |
-| libsystem_featureflags | Feature flags | CLOSED (Finch header `os/feature_private.h` matches its ABI; implementation TODO) |
-| libsystem_networkextension | NetworkExtension | CLOSED |
-| libsystem_symptoms | Symptoms | CLOSED |
-| libsystem_trial | Trial | CLOSED |
-| libsystem_eligibility | Eligibility | CLOSED |
-| libsystem_darwindirectory | Darwin directory services | CLOSED |
-| libsystem_collections | | ? |
-| libsystem_sanitizers | | ? |
-| libcache | | ? |
+| libquarantine | Quarantine | CLOSED: **Finch's** (`userland/libsystem`) |
+| libsystem_sandbox, libsystem_secinit | Sandbox | CLOSED: **Finch's** (`userland/libsystem`) |
+| libsystem_containermanager | Containers | CLOSED: **Finch's** |
+| libsystem_coreservices | CoreServices | CLOSED: **Finch's** |
+| libsystem_featureflags | Feature flags | CLOSED: **Finch's** |
+| libsystem_networkextension | NetworkExtension | CLOSED: **Finch's** |
+| libsystem_symptoms | Symptoms | CLOSED: **Finch's** |
+| libsystem_trial | Trial | CLOSED: **Finch's** |
+| libsystem_eligibility | Eligibility | CLOSED: **Finch's** |
+| libsystem_darwindirectory | Darwin directory services | CLOSED: **Finch's** |
+| libsystem_collections | Libc-1752.100.10 | **Built by Finch** |
+| libsystem_sanitizers | | CLOSED: **Finch's** |
+| libcache | | CLOSED: **Finch's** |
 | libunc | | ? |
 
 ## Other
 
 | Item | Source | Status |
 |---|---|---|
-| `/usr/lib/dyld` | dyld-1376.6 | OPEN |
+| `/usr/lib/dyld` | dyld-1376.6 | **Built by Finch** |
 | `/bin/launchctl` | launchd (closed) | **Replaced by Finch's** (`userland/launchctl`, talks to finch-init) |
 | `bash`, `zsh` + modules | bash-144, zsh-118 | **Built by Finch** (zsh is the console shell) |
 | `bc`, `dc` | bc-35 | **Built by Finch** |
-| `sh` | Prebuilt by darwin-vm | TODO: macOS's `sh` is a small shim that execs bash/zsh/dash |
+| `sh` | dash project (closed launcher) | **Finch's** (`userland/sh`): the variant launcher |
+| `mount_tmpfs` | tmpfs.fs (closed) | **Finch's** (`userland/mount_tmpfs`) |
+| libutil, libbsm, libncurses | libutil-73, OpenBSM-21 (+ `userland/oss/OpenBSM/finch_compat.c`), ncurses-79 | **Built by Finch** |
 | `libiconv.2`, `libcharset.1`, `/usr/lib/i18n/*` (25 modules), `/usr/share/i18n` (700 tables) | libiconv-115.100.1 | **Built by Finch** (exports match Apple's: 95/95, 2/2) |
-| file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds | Apple OSS (`userland/projects.txt`) | **Built by Finch**: 188 binaries via `tools/build-oss.sh` |
+| file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds | Apple OSS (`userland/projects.txt`) | **Built by Finch** (`tools/build-system.sh`; `ps` too, via `userland/patches/adv_cmds`) |
 | `mount_*`, `fsck_*`, `newfs_*` (from the restore ramdisk) | diskdev_cmds / hfs; APFS tools are closed | Mixed |
 
 ## Deferred commands (don't build yet)
+
+`userland/oss/<project>.deferred` lists these per project; `tools/build-system.sh` allows
+exactly them to fail.
 
 | Tool | Project | Blocker |
 |---|---|---|
@@ -93,7 +98,7 @@ the image rebuilds the cache.
 | install | file_cmds | macOS libmd lacks the incremental SHA-512 API |
 | ipcs | file_cmds | needs xnu kernel-private types |
 | su, login, passwd, chpass | shell_cmds, system_cmds | `rootless.h` and other private SPI; wait for the Finch security model |
-| md5 | text_cmds | sha224.h and the libmd incremental API |
+| md5, bintrans | text_cmds | sha224.h and the libmd incremental API |
 | pkill | adv_cmds | `sysmon.h` (closed) |
 | gencat | adv_cmds | `msgcat.h` |
 | latency, sc_usage, lskq, gcore, zprint, nvram, … | system_cmds | kernel-private tracing / zone / kqueue interfaces |

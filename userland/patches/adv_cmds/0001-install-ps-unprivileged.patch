@@ -1,0 +1,25 @@
+diff --git a/xcodescripts/install-ps.sh b/xcodescripts/install-ps.sh
+index 32920e7..88b9cab 100644
+--- a/xcodescripts/install-ps.sh
++++ b/xcodescripts/install-ps.sh
+@@ -7,13 +7,18 @@ fi
+ 
+ X=0
+ 
++# Finch: ownership needs root; unprivileged image builds keep the build user's
++# (release images are built with root, docs/ROADMAP.md 1.2).
++owner="-o root -g wheel"
++[ "$(id -u)" -eq 0 ] || owner=""
++
+ while [ "$X" -lt "$SCRIPT_INPUT_FILE_COUNT" ]; do
+ 	eval infile=\"\$SCRIPT_INPUT_FILE_$X\"
+ 	eval outfile=\"\$SCRIPT_OUTPUT_FILE_$X\"
+ 
+ 	outdir="$(dirname "$outfile")"
+-	[ -d "$outdir" ] || install -d -o root -g wheel -m 0755 "$outdir"
++	[ -d "$outdir" ] || install -d $owner -m 0755 "$outdir"
+ 
+-	install -c -o root -g wheel -m 4755 "$infile" "$outfile"
++	install -c $owner -m 4755 "$infile" "$outfile"
+ 	X=$((X+1))
+ done

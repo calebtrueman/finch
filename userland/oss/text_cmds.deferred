@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Tools that may fail to build until their blockers are solved (userland/INVENTORY.md).
+bintrans
+md5
