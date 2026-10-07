@@ -98,6 +98,7 @@ copy_headers "${SRC}/libplatform/private" "${INC}"
 
 # dyld: <mach-o/dyld_priv.h>, dyld_introspection.h, ... (public ones lose to the SDK).
 copy_headers "${SRC}/dyld/include/mach-o" "${INC}/mach-o" -maxdepth 1
+cp "${SRC}/dyld/include/objc-shared-cache.h" "${INC}/"   # libobjc reads the cache's optimized tables
 
 # Finch's CrashReporterClient (userland/CrashReporterClient): <CrashReporterClient.h>.
 cp "${FINCH_ROOT}/userland/CrashReporterClient/CrashReporterClient.h" "${INC}/CrashReporterClient.h"

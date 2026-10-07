@@ -1,0 +1,13 @@
+diff --git a/objc.xcodeproj/project.pbxproj b/objc.xcodeproj/project.pbxproj
+index 097b87b..710dc33 100644
+--- a/objc.xcodeproj/project.pbxproj
++++ b/objc.xcodeproj/project.pbxproj
+@@ -1085,7 +1085,7 @@
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 			shellPath = /bin/sh;
+-			shellScript = "set -x\nif [ $ACTION = \"installhdrs\" -o $ACTION = \"installapi\" ]; then exit; fi\n/usr/bin/xcrun -sdk macosx.internal clang++ -Wall -mmacosx-version-min=10.12 -arch x86_64 -std=c++11 \"${SRCROOT}/markgc.cpp\" -o \"${BUILT_PRODUCTS_DIR}/markgc\"\n\"${BUILT_PRODUCTS_DIR}/markgc\" \"${BUILT_PRODUCTS_DIR}/libobjc.A.dylib\" \"${CONFIGURATION}\" \"${ENABLE_ADDRESS_SANITIZER}\"\n";
++			shellScript = "set -x\nif [ $ACTION = \"installhdrs\" -o $ACTION = \"installapi\" ]; then exit; fi\n/usr/bin/xcrun -sdk macosx clang++ -Wall -mmacosx-version-min=10.12 -arch arm64 -std=c++11 \"${SRCROOT}/markgc.cpp\" -o \"${BUILT_PRODUCTS_DIR}/markgc\"\n\"${BUILT_PRODUCTS_DIR}/markgc\" \"${BUILT_PRODUCTS_DIR}/libobjc.A.dylib\" \"${CONFIGURATION}\" \"${ENABLE_ADDRESS_SANITIZER}\"\n";
+ 		};
+ 		830F2AFA0D73BC5800392440 /* Run Script (symlink) */ = {
+ 			isa = PBXShellScriptBuildPhase;

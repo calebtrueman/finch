@@ -77,7 +77,8 @@ FINCH_INIT=1 expect tools/vm/smoke.exp "ls -la /bin" "df -h /"
 tools/build-oss.sh libsyscall          # -> libsystem_kernel.dylib (needs tools/build-kernel.sh first)
 tools/build-oss.sh libplatform         # -> libsystem_platform.dylib
 tools/check-exports.sh /usr/lib/system/libsystem_platform.dylib
-tools/build-llvm-runtimes.sh           # -> libc++, libc++abi, libunwind (upstream LLVM)
+tools/build-llvm-runtimes.sh           # -> libc++, libc++abi, libunwind, libcompiler_rt (upstream LLVM)
+tools/build-oss.sh objc4 objc-env objc  # -> libobjc.A.dylib
 ```
 
 `check-exports.sh` compares our dylib with Apple's original and fails if any binary in the

@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Clang modules re-parse the SDK's unistd.h against xnu's private headers,
+// whose availability macros need the private-first include order.
+CLANG_ENABLE_MODULES = NO
+
+// Link-time libraries: Finch's libRosetta (build/root), libswiftCore's stub
+// from the SDK (delay-loaded: only Swift code brings the Swift runtime in),
+// and libobjc-env from this project's objc-env target.
+OTHER_LDFLAGS = $(inherited) -L$(FINCH_ROOT)/build/root/usr/lib -L$(SDKROOT)/usr/lib/swift -L$(BUILT_PRODUCTS_DIR)
