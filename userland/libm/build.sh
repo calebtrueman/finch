@@ -175,4 +175,20 @@ ${CC} -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib 
     -Wl,-dead_strip "${objs[@]}" -L"${SDKROOT}/usr/lib/system" -ldyld -lcompiler_rt \
     -o "${OUT}"
 codesign -f -s - "${OUT}" 2>/dev/null
+
+# Licence notices of the third-party code built in (docs/LICENSING.md).
+# Shewchuk's predicates are public domain and need none.
+log "collecting licence notices"
+LICENSES="${FINCH_ROOT}/build/root/usr/share/finch/licenses"
+cm_files=()
+for f in ${CM_FNS}; do
+    cm_files+=("${CM}/src/binary64/${f}/${f}.c" "${CM}/src/binary32/${f}/${f}f.c")
+done
+python3 -I "${FINCH_ROOT}/tools/collect-notices.py" "CORE-MATH (https://core-math.gitlabpages.inria.fr/), in libsystem_m" \
+    "${LICENSES}/CORE-MATH/NOTICES.txt" "${cm_files[@]}"
+msun_files=()
+for s in ${srcs} e_pow.c e_atan2.c; do msun_files+=("$(srcpath "${s}")"); done
+python3 -I "${FINCH_ROOT}/tools/collect-notices.py" "FreeBSD lib/msun (${MSUN_TAG}), in libsystem_m" \
+    "${LICENSES}/FreeBSD-msun/NOTICES.txt" "${msun_files[@]}"
+cp "${MSUN}/COPYRIGHT" "${LICENSES}/FreeBSD-msun/COPYRIGHT"
 log "done: ${OUT#"${FINCH_ROOT}/"}"

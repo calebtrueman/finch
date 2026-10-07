@@ -42,8 +42,11 @@ Contributions are accepted under the same dual license (inbound = outbound).
 A third-party licence that requires its notice to travel with binaries (Apache,
 MIT, BSD) is installed at `/usr/share/finch/licenses/<project>/`. The component
 that embeds the code installs it. For example, `make -C userland/corecrypto
-install` installs OpenSSL's `LICENSE.txt` and `AUTHORS.md`. libm's CORE-MATH
-(MIT) and FreeBSD msun (BSD) don't install their notices yet.
+install` installs OpenSSL's `LICENSE.txt` and `AUTHORS.md`, and libm's build
+installs CORE-MATH's and FreeBSD msun's notices. Where every source file
+carries its own notice (CORE-MATH's per-file authors, msun's mix of BSD and Sun
+fdlibm notices), `tools/collect-notices.py` collects them from exactly the
+files built in, listing each distinct notice once with the files it covers.
 
 ## Clean-room rule for GPL drivers
 

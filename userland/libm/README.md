@@ -10,6 +10,9 @@ so Finch builds `/usr/lib/system/libsystem_m.dylib` from open sources:
 | Geometry predicates (`simd_orient`, `simd_incircle`, `simd_insphere`) | Shewchuk's adaptive predicates (pinned by checksum), plus Finch's exact bignum fallback (`exact_predicates.c`) | public domain; MIT OR Apache-2.0 |
 | Apple's own interfaces: `fenv` with Apple's `fenv_t`, `__fpclassify*` and friends, `__sinpi`, `__sincos_stret`, `_Float16` functions, simd vector functions, matrix inverses, `matrix_identity_*` | Finch (`apple_math.c`, `apple_simd.c`) | MIT OR Apache-2.0 |
 
+`build.sh` also installs the notices of the code built in (CORE-MATH's and msun's,
+collected from those exact source files) to `/usr/share/finch/licenses/`.
+
 `build.sh` fetches the pinned sources, applies Finch's patches (`patches/`), and links
 the library as Apple ships it: the same 444 exports, version 3312.100.1, umbrella System,
 and no dependencies beyond libdyld and libcompiler_rt (no libc).
