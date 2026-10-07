@@ -36,3 +36,12 @@ clean:
 	rm -f $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test
 
 .PHONY: all clean
+
+$(OUT)/dispatch-watchdog-compare: dispatch-watchdog-compare.c
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fblocks $< -o $@
+
+check-dispatch-watchdog: $(OUT)/dispatch-watchdog-compare
+	$(OUT)/dispatch-watchdog-compare $(abspath ../../build/root/usr/lib/system/libdispatch.dylib)
+
+.PHONY: check-dispatch-watchdog

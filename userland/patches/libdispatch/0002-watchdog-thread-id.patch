@@ -1,0 +1,36 @@
+--- a/src/queue.c
++++ b/src/queue.c
+@@ -3399,6 +3399,8 @@
+ 
+ 
+ 
++#include "finch-watchdog.inc"
++
+ static void
+ _dispatch_lane_set_width(void *ctxt)
+ {
+--- /dev/null
++++ b/src/finch-watchdog.inc
+@@ -0,0 +1,22 @@
++/* Finch: report the thread holding a serial queue for watchdog callers.
++ * Match macOS 26.4: unsupported queue kinds return EINVAL, and an idle
++ * queue (or a vanished owner) returns ESRCH with a zero thread id.
++ */
++DISPATCH_EXPORT int
++dispatch_queue_get_threadid_4wdt(dispatch_queue_t dq, uint64_t *thread_id)
++{
++	*thread_id = 0;
++	switch (dx_type(dq)) {
++	case DISPATCH_QUEUE_SERIAL_TYPE:
++	case DISPATCH_QUEUE_MAIN_TYPE:
++	case DISPATCH_WORKLOOP_TYPE:
++		break;
++	default:
++		return EINVAL;
++	}
++	uint32_t owner = (uint32_t)os_atomic_load(&dq->dq_state, relaxed);
++	if (owner < 4) return ESRCH;
++	pthread_t thread = pthread_from_mach_thread_np(owner | 3);
++	if (!thread) return ESRCH;
++	return pthread_threadid_np(thread, thread_id);
++}

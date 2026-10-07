@@ -11,9 +11,8 @@
  * read from its entry points; tests/sb-compare.c checks the observable
  * behavior against it.
  *
- * Work in progress (not built yet): System Integrity Protection's part of
- * the library (rootless_*, _amkrtemp, gpu_bundle_*) is still to be written;
- * see docs/design/PHASE1-EXIT.md.
+ * File trust and protected directories live in rootless.c. Unused manifest
+ * and GPU helpers fail with ENOTSUP in unsupported.c.
  */
 
 #include <dlfcn.h>
