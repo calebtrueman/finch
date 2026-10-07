@@ -1,0 +1,5 @@
+__libsecinit_initializer
+_libsecinit_delete_all_data_container_content_for_current_user
+_libsecinit_fileoperation_save
+_libsecinit_fileoperation_set_attributes
+_libsecinit_fileoperation_symlink

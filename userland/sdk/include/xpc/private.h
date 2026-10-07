@@ -42,6 +42,13 @@ int xpc_pipe_routine_with_flags(xpc_pipe_t pipe, xpc_object_t message, xpc_objec
 int xpc_pipe_receive(mach_port_t port, xpc_object_t *message);
 int xpc_pipe_routine_reply(xpc_object_t reply);
 
+/* Environment variable naming a sandboxed app's container (dirhelper uses it
+ * as the per-user directory suffix). */
+#define XPC_ENV_SANDBOX_CONTAINER_ID "APP_SANDBOX_CONTAINER_ID"
+
+/* Is this process under App Sandbox? (Finch: never, yet.) */
+bool _xpc_runtime_is_app_sandboxed(void);
+
 /* Multi-user sessions (Finch has a single session: never enabled). */
 bool xpc_user_sessions_enabled(void);
 uid_t xpc_user_sessions_get_foreground_uid(int *error);

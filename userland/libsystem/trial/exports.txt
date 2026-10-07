@@ -1,0 +1,6 @@
+__os_trial_factor_get_bool_impl
+__os_trial_factor_get_long_impl
+__os_trial_factor_has_impl
+_libsystem_trialVersionNumber
+_libsystem_trialVersionString
+_MAX_FACTOR_STRING_LENGTH

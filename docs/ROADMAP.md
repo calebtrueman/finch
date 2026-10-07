@@ -86,8 +86,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
           shutdown
     - [ ] Run Apple's open-source daemons under it (notifyd, syslogd, configd, ...)
   - [x] libmalloc no longer depends on libcorecrypto
-  - [ ] libsystem_featureflags (ABI known: `_os_feature_enabled_impl`,
-        `_os_feature_enabled_simple_impl`)
+  - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
+        trial, secinit, sanitizers, libRosetta: Finch's own (`userland/libsystem`)
+  - [ ] The rest of the strict Phase 1 exit: `docs/design/PHASE1-EXIT.md`
 - [ ] **1.5 dyld from source.**
 - [ ] Finch root image on its own APFS volume (bare-metal Tier 3)
 

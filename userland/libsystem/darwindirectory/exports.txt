@@ -1,0 +1,3 @@
+_DarwinDirectoryGetGeneration
+_DarwinDirectoryRecordStoreApply
+_DarwinDirectoryRecordStoreApplyWithFilter

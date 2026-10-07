@@ -12,6 +12,9 @@ for dir in /private/tmp /private/var/tmp /private/var/run /private/var/log \
     mount_tmpfs "$dir" || echo "rc: warning: tmpfs on $dir failed"
 done
 chmod 1777 /private/tmp /private/var/tmp
+# Per-user temporary and cache directories (dirhelper's /var/folders). System
+# Policy refuses tmpfs there too, so the image links it into /private/var/tmp.
+mkdir -p /private/var/tmp/folders && chmod 755 /private/var/tmp/folders
 chmod 750 /private/var/root
 
 echo "rc: Finch userland coming up"

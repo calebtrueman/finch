@@ -14,3 +14,4 @@ build/userland/launchctl /bin/launchctl
 userland/tests/launchd/org.finch.test.unprivileged.plist /System/Library/Finch/LaunchDaemons/org.finch.test.unprivileged.plist
 build/userland/finch-launch-bench /usr/local/bin/finch-launch-bench
 build/userland/finch-trace /usr/local/bin/finch-trace
+build/userland/finch-images /usr/local/bin/finch-images

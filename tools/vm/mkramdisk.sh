@@ -45,6 +45,10 @@ is_macho() { file -b "$1" | grep -q '^Mach-O'; }
 
 # 0. Mount points for the tmpfs the boot script lays over the read-only root.
 mkdir -p "${mnt}/private/tmp" "${mnt}"/private/var/{tmp,run,log,root}
+# /var/folders (per-user temp/cache dirs) can't be a tmpfs mount point (System
+# Policy), so it's a link into the /private/var/tmp tmpfs; rc creates the target.
+rm -rf "${mnt}/private/var/folders"
+ln -s tmp/folders "${mnt}/private/var/folders"
 
 # The base ramdisk ships only the root-only /etc/master.passwd. macOS also has
 # the world-readable /etc/passwd (no password or expiry fields) that
@@ -61,12 +65,12 @@ fi
 if [[ -d "${ROOT}" ]]; then
     # Runtime files only: link stubs (.tbd), static archives and headers are
     # build products for the host, not the OS.
-    rsync -a --exclude '*.tbd' --exclude '*.a' --exclude '/usr/include/' \
+    rsync -a --exclude '*.tbd' --exclude '*.a' --exclude '*.dSYM' --exclude '/usr/include/' \
         --exclude '/usr/local/include/' "${ROOT}/" "${mnt}/"
     n=0
     while IFS= read -r -d '' f; do
         if is_macho "$f"; then add_hashes "${mnt}${f#"${ROOT}"}"; n=$((n + 1)); fi
-    done < <(find "${ROOT}" -type f -print0)
+    done < <(find "${ROOT}" -name '*.dSYM' -prune -o -type f -print0)
     echo "  build/root: ${n} Mach-O files"
 fi
 
