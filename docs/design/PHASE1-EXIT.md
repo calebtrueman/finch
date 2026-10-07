@@ -56,3 +56,4 @@ libsystem_collections, libsystem_m (Apple's Libm source is stale: use an open li
 | 2026-10-06 | 21 | featureflags (3,303/3,303 features match Apple's), coreservices (2,408/2,408 sysdir cases and per-user directories match; `/var/folders` now works in the VM), darwindirectory, eligibility, symptoms, trial, secinit, sanitizers, libRosetta |
 | 2026-10-06 | 22 | libSystem.B from Libsystem-1356 (same re-exports, exports and version as Apple's) |
 | 2026-10-06 | 24 | libkeymgr (keymgr-31, 11/11 exports), libremovefile (removefile-85.100.6, 14/14; APFS purgeable-clear constants read from Apple's library) |
+| 2026-10-07 | 26 | libquarantine (Finch's: 281,800 differential checks against Apple's, covering parsing, serializing, setters, limits, errors and reading real attributes; applying skips the closed kernel policy's restamping), libcopyfile (copyfile-240, 11/11; `cp` keeps quarantine in the VM) |

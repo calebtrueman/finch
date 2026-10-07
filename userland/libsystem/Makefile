@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Finch's replacements for closed libSystem libraries (docs/design/PHASE1-EXIT.md).
-LIBS := featureflags coreservices darwindirectory eligibility symptoms trial secinit sanitizers rosetta
-TESTED := featureflags coreservices
+LIBS := featureflags coreservices darwindirectory eligibility symptoms trial secinit sanitizers rosetta quarantine
+TESTED := featureflags coreservices quarantine
 
 all:
 	@for l in $(LIBS); do $(MAKE) -s -C $$l || exit 1; done
