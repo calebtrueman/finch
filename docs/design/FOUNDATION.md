@@ -277,4 +277,17 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   (dlopen at run time, which `tools/check-closed.py` can't see) are patched
   out. `finch-streams-test` is identical to Apple's on the host and in the
   VM; resolving host names in the VM waits for mDNSResponder.
+- 2026-10-08: predicates. `NSPredicate` (true, false, block, comparison and
+  compound predicates) and `NSExpression` (constants, key paths, variables,
+  functions, aggregates, subqueries, set operations, conditionals, blocks),
+  with Apple's class names. Format strings parse by recursive descent with
+  Apple's precedence, options ([cdn]), modifiers (ANY, ALL, NONE, SOME),
+  subscripts (FIRST, LAST, SIZE), CAST, TERNARY, SUBQUERY and the
+  arithmetic and statistics functions; descriptions and evaluation follow
+  Apple's (integer division, constant casts folded when parsed, 0o and 0b
+  literals as 0). Arrays, sets and ordered sets filter with predicates. A
+  bare collection operator (@sum without a key) now fails as Apple's KVC
+  does. UTI comparisons parse but evaluate false until Finch has a type
+  database. `finch-predicate-test` is identical to Apple's on the host and
+  in the VM.
 

@@ -171,9 +171,10 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] NSProxy, NSAssertionHandler, NSIndexPath, NSUndoManager, NSValueTransformer,
         NSNotificationQueue, NSAffineTransform, NSDateInterval (2026-10-08)
   - [x] Streams, ports, file handles, pipes, tasks, hosts (2026-10-08)
+  - [x] NSPredicate and NSExpression (2026-10-08)
   - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it):
-        NSPredicate/NSExpression, NSProgress, NSXMLParser, the URL loading system,
-        NSXPCConnection.
+        NSProgress, NSFileWrapper, NSXMLParser, the remaining formatters, the URL
+        loading system, NSXPCConnection.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit

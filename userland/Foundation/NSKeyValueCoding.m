@@ -426,6 +426,9 @@ collection_operator(id collection, NSString *keyPath)
     NSString *op = [keyPath substringWithRange:NSMakeRange(1, (dot.location == NSNotFound ? [keyPath length] : dot.location) - 1)];
     NSString *rest = dot.location == NSNotFound ? nil : [keyPath substringFromIndex:dot.location + 1];
     if ([op isEqualToString:NSCountKeyValueOperator]) return [NSNumber numberWithUnsignedInteger:[collection count]];
+    /* Every other operator needs a key path after it; without one Apple's
+     * looks the operator up as an ordinary key, which fails. */
+    if (!rest) return [collection valueForUndefinedKey:op];
     NSMutableArray *values = [NSMutableArray array];
     for (id o in collection) {
         id v = rest ? [o valueForKeyPath:rest] : o;
