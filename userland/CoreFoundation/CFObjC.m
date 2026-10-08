@@ -388,6 +388,8 @@ __CFFinchInitializeObjC(void)
     extern void __CFFinchInitializeRunLoopClasses(void);
     extern Class __CFFinchTimerClass(void);
     __CFFinchInitializeRunLoopClasses();
+    extern Class __CFFinchInitializeURLClasses(void);
+    set_class(_kCFRuntimeIDCFURL, __CFFinchInitializeURLClasses());
     set_class(_kCFRuntimeIDCFRunLoopTimer, __CFFinchTimerClass());
     __CFFinchInstallExceptionHandler();
     __CFFinchInstallForwardHandler();

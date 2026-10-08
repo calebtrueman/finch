@@ -31,8 +31,8 @@ block-beta
     block:L5
         columns 4
         t5["Foundation layer"]
-        foundation["Foundation<br/>strings, numbers, errors, threads,<br/>notifications, operation queues"]
-        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, run loops, timers,<br/>forwarding, NSInvocation"]
+        foundation["Foundation<br/>strings, numbers, threads, files,<br/>bundles, notifications, queues"]
+        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, NSURL, run loops,<br/>timers, forwarding"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         space5[" "]
         icu["libicucore<br/>ICU-76142.4.7"]

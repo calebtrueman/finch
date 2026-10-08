@@ -144,5 +144,6 @@ mkdir -p "${FW}/Versions/A"
     -L"${ROOT}/usr/lib" -licucore -Wl,-reexport-lobjc -lSystem -Wl,-upward_library,"${OBJ}/Foundation.tbd"
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/CoreFoundation "${FW}/CoreFoundation"
+"${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" A CoreFoundation com.apple.CoreFoundation CoreFoundation 6.9 4424.1.402 en_US
 codesign -f -s - -i com.apple.CoreFoundation "${FW}/Versions/A/CoreFoundation" 2>/dev/null
 log "installed ${FW#"${FINCH_ROOT}/"}"

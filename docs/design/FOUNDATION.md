@@ -166,4 +166,18 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   `-[NSInvocation invoke]` now leaves the arguments intact: it used to
   write the result over argument 0. `finch-runtime-test` (45 lines) is
   identical to Apple's on the host and in the VM, as are the other four.
+- 2026-10-08: files, URLs and bundles. In CF: `NSURL` with `__NSCFURL` as
+  CFURL's class (components, file URLs, path editing, standardizing, and
+  descriptions that show the base), plus `__apply:context:` and
+  `__applyValues:context:` for CF's apply functions. In Foundation:
+  `NSURLComponents` and `NSURLQueryItem` over CF's URL components, NSString's
+  percent encoding and NSCharacterSet's URL sets, `NSFileManager` (create,
+  copy, move, link, remove, attributes, directory enumeration with
+  `-skipDescendants`, standard directories), `NSSearchPathForDirectoriesInDomains`
+  through Libc's sysdir (in Apple's order, cryptexes included), `NSBundle`
+  over CFBundle (one object per bundle, resources, localized strings,
+  `+bundleForClass:`), `NSPropertyListSerialization`, and property-list and
+  string file I/O. Finch's frameworks now carry Info.plists with Apple's
+  identifiers (`tools/mkframeworkplist.sh`). `finch-files-test` is identical
+  to Apple's (the CFURL class name aside, which it doesn't print).
 

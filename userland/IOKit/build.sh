@@ -130,5 +130,6 @@ mkdir -p "${FW}/Versions/A"
     -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -lbsm -lSystem
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/IOKit "${FW}/IOKit"
+"${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" A IOKit com.apple.framework.IOKit "I/O Kit Framework" 2.0.2 "" English
 codesign -f -s - -i com.apple.framework.IOKit "${FW}/Versions/A/IOKit" 2>/dev/null
 log "installed ${FW#"${FINCH_ROOT}/"}"

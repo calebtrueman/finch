@@ -22,6 +22,7 @@
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/runtime.h>
+#include <sys/stat.h>
 
 #include "Foundation_Finch.h"
 
@@ -710,6 +711,22 @@ trimmed(NSString *s)
     }
     NSString *joined = [out componentsJoinedByString:@"/"];
     return abs ? [@"/" stringByAppendingString:joined] : ([joined length] ? joined : @"");
+}
+
+/* realpath(3) when the path exists, without a leading /private when the
+ * rest names the same file (as Apple's), else standardized. */
+- (NSString *)stringByResolvingSymlinksInPath
+{
+    NSString *s = [self stringByExpandingTildeInPath];
+    char buf[PATH_MAX];
+    if (![s isAbsolutePath] || !realpath([s fileSystemRepresentation], buf)) return [s stringByStandardizingPath];
+    NSString *r = [NSString stringWithUTF8String:buf];
+    if ([r hasPrefix:@"/private/"]) {
+        NSString *without = [r substringFromIndex:8];
+        struct stat a, b;
+        if (stat([without fileSystemRepresentation], &a) == 0 && stat(buf, &b) == 0 && a.st_ino == b.st_ino) r = without;
+    }
+    return r;
 }
 
 - (const char *)fileSystemRepresentation

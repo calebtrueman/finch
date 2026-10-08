@@ -46,5 +46,6 @@ mkdir -p "${FW}/Versions/C"
     -F"${ROOT}/System/Library/Frameworks" -Wl,-reexport_framework,CoreFoundation -Wl,-reexport-lobjc -lSystem
 ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/Foundation "${FW}/Foundation"
+"${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" C Foundation com.apple.Foundation Foundation 6.9 4424.1.402 en_US
 codesign -f -s - -i com.apple.Foundation "${FW}/Versions/C/Foundation" 2>/dev/null
 log "installed ${FW#"${FINCH_ROOT}/"}"

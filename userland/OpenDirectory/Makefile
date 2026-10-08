@@ -28,6 +28,7 @@ $(CFOD)/Versions/A/CFOpenDirectory: CFOpenDirectory.c $(OBJ)/hdr/CoreFoundation/
 	    -current_version 1.0.0 -compatibility_version 1.0.0 -framework CoreFoundation
 	ln -sfn A $(CFOD)/Versions/Current
 	ln -sfn Versions/Current/CFOpenDirectory $(CFOD)/CFOpenDirectory
+	$(FINCH_ROOT)/tools/mkframeworkplist.sh $(CFOD) A CFOpenDirectory com.apple.CFOpenDirectory CFOpenDirectory 26.4 666.100.1 English
 	codesign -f -s - $@ 2>/dev/null
 
 $(FW)/Versions/A/OpenDirectory: $(CFOD)/Versions/A/CFOpenDirectory
@@ -38,6 +39,7 @@ $(FW)/Versions/A/OpenDirectory: $(CFOD)/Versions/A/CFOpenDirectory
 	    -current_version 1.0.0 -compatibility_version 1.0.0 -Wl,-reexport_library,$< -Wl,-unexported_symbol,_finch_opendirectory_placeholder
 	ln -sfn A $(FW)/Versions/Current
 	ln -sfn Versions/Current/OpenDirectory $(FW)/OpenDirectory
+	$(FINCH_ROOT)/tools/mkframeworkplist.sh $(FW) A OpenDirectory com.apple.OpenDirectory OpenDirectory 26.4 666.100.1 English
 	codesign -f -s - $@ 2>/dev/null
 
 clean:

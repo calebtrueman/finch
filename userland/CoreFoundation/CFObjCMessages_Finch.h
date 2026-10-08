@@ -74,6 +74,7 @@ struct NSFastEnumerationState_;
 - (NSUInteger)countForKey:(id)key;
 - (BOOL)containsKey:(id)key;
 - (void)getObjects:(id *)objects andKeys:(id *)keys;
+- (void)__apply:(void (*)(const void *, const void *, void *))applier context:(void *)context;
 @end
 
 @interface NSMutableDictionary : NSDictionary
@@ -87,6 +88,7 @@ struct NSFastEnumerationState_;
 - (BOOL)__getValue:(id *)value forObj:(id)object;
 - (id)member:(id)object;
 - (void)getObjects:(id *)objects;
+- (void)__applyValues:(void (*)(const void *, void *))applier context:(void *)context;
 @end
 
 @interface NSMutableSet : NSSet

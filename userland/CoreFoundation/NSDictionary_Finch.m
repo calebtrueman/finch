@@ -289,6 +289,10 @@ ABSTRACT(- (id)keyEnumerator, "keyEnumerator")
     return v != nil;
 }
 - (NSUInteger)countForKey:(id)key { return [self objectForKey:key] ? 1 : 0; }
+- (void)__apply:(void (*)(const void *, const void *, void *))applier context:(void *)context
+{
+    for (id k in [self allKeys]) applier(k, [self objectForKey:k], context);
+}
 - (BOOL)containsKey:(id)key { return [self objectForKey:key] != nil; }
 - (NSUInteger)countForObject:(id)object
 {

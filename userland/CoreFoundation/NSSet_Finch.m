@@ -263,6 +263,10 @@ ABSTRACT(- (id)objectEnumerator, "objectEnumerator")
     return v != nil;
 }
 - (NSUInteger)countForObject:(id)object { return [self member:object] ? 1 : 0; }
+- (void)__applyValues:(void (*)(const void *, void *))applier context:(void *)context
+{
+    for (id o in [self allObjects]) applier(o, context);
+}
 
 - (CFTypeID)_cfTypeID { return CFSetGetTypeID(); }
 - (BOOL)isNSSet__ { return YES; }
