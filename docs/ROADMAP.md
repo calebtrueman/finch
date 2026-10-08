@@ -184,6 +184,16 @@ macOS on the M4 itself (m1n1 hypervisor).
 - [ ] USB, keyboard/trackpad, audio
 - [ ] Wi-Fi/Bluetooth
 - [ ] AGX kernel driver + Mesa asahi userspace
+- [ ] **POSIX conformance** (after the GUI stack, alongside the bare-metal userland;
+      see [design/POSIX.md](design/POSIX.md)). A correctness and portability baseline
+      that doesn't move the way macOS does. Not formal certification.
+  - Run an open POSIX conformance suite (Open POSIX Test Suite, plus the shell and
+    utility checks) on Finch's own code: finch-init, the launchd replacements, Libc
+    patches, the commands.
+  - Fix failures where Finch diverges from both POSIX and Apple. Where they disagree,
+    keep Apple's default (`$UNIX2003` variants, `COMMAND_MODE`).
+  - Unpatched Unix software builds on Finch: autotools projects, POSIX `sh` scripts,
+    Homebrew-style build systems.
 - [ ] **Standalone install: no macOS on the Mac.** The end goal for installing Finch.
   - The Finch container holds only a boot stub plus Finch. The stub is Apple's
     second-stage iBoot and device firmware, downloaded from Apple's restore image at
