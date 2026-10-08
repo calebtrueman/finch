@@ -14,3 +14,6 @@ Hard rules:
 - The M4 is the only machine (build host + test target). Test in QEMU (darwin-vm) first,
   then a VZ VM, then bare metal. On metal, only touch the boot policy of the dedicated
   Finch APFS container, never the main macOS. See `docs/HARDWARE.md`.
+- `docs/STACK.md` holds the Mermaid diagrams of the software stack. Any commit that
+  adds, replaces or removes a component updates them (and the "As of" line) in the
+  same commit. Run `tools/render-stack.sh` to check they render.

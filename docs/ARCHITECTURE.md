@@ -1,6 +1,6 @@
 # Finch Architecture
 
-Finch is a stack of layers. For each one, this doc lists where the code comes from today
+Finch is a stack of layers (diagrams of what runs today: `docs/STACK.md`). For each one, this doc lists where the code comes from today
 and what ultimately replaces it.
 
 | Status | Meaning |
