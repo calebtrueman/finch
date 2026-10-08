@@ -151,6 +151,11 @@ copy_headers "${SRC}/libpthread/private" "${INC}"
 (cd "${SRC}/Libinfo" && find . \( -name '*Priv*.h' -o -name '*_private.h' \) -exec cp {} "${INC}/" \;)
 # ... and configuration_profile.h (libsystem_info SPI; syslogd uses it).
 cp "${SRC}/Libinfo/gen.subproj/configuration_profile.h" "${INC}/"
+# Libinfo's async lookups and Libnotify's SPI (libresolv uses both).
+# (The overlay is searched after the SDK, so the public lookup headers still
+# come from the SDK.)
+cp "${SRC}"/Libinfo/lookup.subproj/*.h "${INC}/"
+cp "${SRC}/Libnotify/notify_private.h" "${INC}/"
 
 # libutil, libmd: flat headers.
 cp "${SRC}"/libutil/*.h "${INC}/"

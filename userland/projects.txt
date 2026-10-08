@@ -56,3 +56,8 @@ cron            cron-52
 DiskArbitration DiskArbitration-535.100.31
 ICU             ICU-76142.4.7
 IOHIDFamily     IOHIDFamily-2238.100.59
+zlib            zlib-100
+bzip2           bzip2-47
+libedit         libedit-65
+libresolv       libresolv-96
+AvailabilityVersions AvailabilityVersions-157.2

@@ -141,6 +141,9 @@ finch_xcconfig="${obj}/finch.xcconfig"
     # and absent from Finch's image (tools/check-closed.py). Libraries keep
     # their links, which match Apple's on purpose. A project's own link flags
     # are FINCH_PROJECT_LDFLAGS in its userland/oss/<project>.xcconfig.
+    # Apple's builds run projects' script phases unsandboxed (they generate
+    # headers and install files in the source and staging trees).
+    echo "ENABLE_USER_SCRIPT_SANDBOXING = NO"
     echo "FINCH_DEAD_STRIP_mh_execute = -Wl,-dead_strip_dylibs"
     echo "OTHER_LDFLAGS = \$(inherited) \$(FINCH_PROJECT_LDFLAGS) \$(FINCH_DEAD_STRIP_\$(MACH_O_TYPE))"
     # Finch's own headers (userland/sdk/include, in ${SDK}/override) come first

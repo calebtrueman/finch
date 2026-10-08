@@ -1,0 +1,87 @@
+zlib with Apple's AddOn optimizations (VEC_OPTIMIZE, INFFAST_OPT), as
+published in zlib-100 but not buildable as is:
+- include AddOn/zopt_defs.h where its declarations are used (inflate.c,
+  infback.c, inftrees.c, adler32.c, crc32.c);
+- with INFFAST_OPT, AddOn/zopt_inffast.c defines inflate_fast(), so
+  zlib's own inffast.c leaves it out.
+
+diff --git a/zlib/adler32.c b/zlib/adler32.c
+index 311cf74..65d66bb 100644
+--- a/zlib/adler32.c
++++ b/zlib/adler32.c
+@@ -6,6 +6,7 @@
+ /* @(#) $Id$ */
+ 
+ #include "zutil.h"
++#include "../AddOn/zopt_defs.h"   /* Finch: the vector types and macros used below */
+ 
+ local uLong adler32_combine_ OF((uLong adler1, uLong adler2, z_off64_t len2));
+ 
+diff --git a/zlib/crc32.c b/zlib/crc32.c
+index 366ebc7..563a5ab 100644
+--- a/zlib/crc32.c
++++ b/zlib/crc32.c
+@@ -28,6 +28,7 @@
+ #endif /* MAKECRCH */
+ 
+ #include "zutil.h"      /* for Z_U4, Z_U8, z_crc_t, and FAR definitions */
++#include "../AddOn/zopt_defs.h"   /* Finch: the vector types and macros used below */
+ 
+ #if defined(VEC_OPTIMIZE) && defined(__x86_64__)
+ #include <machine/cpu_capabilities.h>
+diff --git a/zlib/infback.c b/zlib/infback.c
+index 55dc2e3..418c0d7 100644
+--- a/zlib/infback.c
++++ b/zlib/infback.c
+@@ -14,6 +14,7 @@
+ #include "inftrees.h"
+ #include "inflate.h"
+ #include "inffast.h"
++#include "../AddOn/zopt_defs.h"   /* Finch: the vector types and macros used below */
+ 
+ /* function prototypes */
+ local void fixedtables OF((struct inflate_state FAR *state));
+diff --git a/zlib/inffast.c b/zlib/inffast.c
+index 1fec7f3..4802dca 100644
+--- a/zlib/inffast.c
++++ b/zlib/inffast.c
+@@ -47,6 +47,7 @@
+       requires strm->avail_out >= 258 for each loop to avoid checking for
+       output space.
+  */
++#if !defined(INFFAST_OPT)   /* Finch: AddOn/zopt_inffast.c provides the optimized one */
+ void ZLIB_INTERNAL inflate_fast(strm, start)
+ z_streamp strm;
+ unsigned start;         /* inflate()'s starting value for strm->avail_out */
+@@ -305,6 +306,7 @@ unsigned start;         /* inflate()'s starting value for strm->avail_out */
+     state->bits = bits;
+     return;
+ }
++#endif /* !INFFAST_OPT */
+ 
+ /*
+    inflate_fast() speedups that turned out slower (on a PowerPC G3 750CXe):
+diff --git a/zlib/inflate.c b/zlib/inflate.c
+index 43bf131..4cdb191 100644
+--- a/zlib/inflate.c
++++ b/zlib/inflate.c
+@@ -84,6 +84,7 @@
+ #include "inftrees.h"
+ #include "inflate.h"
+ #include "inffast.h"
++#include "../AddOn/zopt_defs.h"   /* Finch: the vector types and macros used below */
+ 
+ #ifdef MAKEFIXED
+ #  ifndef BUILDFIXED
+diff --git a/zlib/inftrees.c b/zlib/inftrees.c
+index e67c42e..18c0083 100644
+--- a/zlib/inftrees.c
++++ b/zlib/inftrees.c
+@@ -5,6 +5,7 @@
+ 
+ #include "zutil.h"
+ #include "inftrees.h"
++#include "../AddOn/zopt_defs.h"   /* Finch: the vector types and macros used below */
+ 
+ #define MAXBITS 15
+ 

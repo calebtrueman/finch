@@ -144,3 +144,9 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
   SDK, IOKitUser, xnu and configd, generates the MIG interfaces, and applies two
   fixes to the published source (`userland/IOKit/patches`). nvram, iostat and
   shutdown run on it in the VM.
+- 2026-10-08: the seven open libraries Finch's commands linked prebuilt are
+  built: zlib, bzip2, libedit, libresolv from Apple's sources (the published
+  zlib and libedit need small fixes; build-oss now runs projects' script
+  phases unsandboxed, as Apple's builds do), and liblzma, libxo, libsbuf from
+  upstream. `tools/check-closed.py` is down to 5: Foundation, OpenDirectory,
+  EndpointSecuritySystem, libcompression, libobjc-env.

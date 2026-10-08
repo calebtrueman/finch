@@ -71,6 +71,16 @@ steps=(
     "ICU|oss ICU"
     "CoreFoundation|userland/CoreFoundation/build.sh"
     "IOKit|userland/IOKit/build.sh"
+    # Libraries Apple publishes that Finch's commands link (tools/check-closed.py).
+    # libedit's generated headers come from its "make lists" target first.
+    "zlib|oss zlib libz"
+    "bzip2|oss bzip2 All"
+    "libedit|oss libedit 'make lists' && oss libedit libedit"
+    "libresolv|oss libresolv libresolv"
+    # The same from upstream, where Apple doesn't publish its copy for 26.4.
+    "xz|userland/xz/build.sh"
+    "libxo|userland/libxo/build.sh"
+    "libsbuf|userland/libsbuf/build.sh"
     # The Swift runtime (libobjc links it, as Apple's does)
     "swift|userland/swift/build.sh"
     "pam_modules|oss pam_modules rootok uwtmp self env group nologin sacl launchd"

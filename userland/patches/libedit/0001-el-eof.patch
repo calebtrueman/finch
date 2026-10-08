@@ -1,0 +1,21 @@
+Define EL_EOF, which read.c and readline.c use for end of input but the
+published libedit-65 never defines.
+
+diff --git a/src/el.h b/src/el.h
+index ab22289..3b69060 100644
+--- a/src/el.h
++++ b/src/el.h
+@@ -167,4 +167,13 @@ protected int	el_editmode(EditLine *, int, const Char **);
+ #else
+ #define EL_ABORT(a)	abort()
+ #endif
++/*
++ * Finch: read.c and readline.c record end of input as the last command,
++ * EL_EOF, which the published source never defines. Any value that isn't
++ * an editor function number works; one past the last is the natural one.
++ */
++#ifndef EL_EOF
++#define EL_EOF EL_NUM_FCNS
++#endif
++
+ #endif /* _h_el */

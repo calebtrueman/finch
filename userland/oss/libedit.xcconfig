@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// src/makelist (which generates fcns.h, help.h, ...) runs $AWK, which Apple's
+// build environment sets; Xcode exports build settings to script phases.
+AWK = /usr/bin/awk

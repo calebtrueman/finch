@@ -426,4 +426,63 @@
 #define DYLD_IOS_VERSION_26_7 0x001A0700
 #define dyld_platform_version_iOS_26_7 ({ (dyld_build_version_t){2, 0x001A0700}; })
 
+#define dyld_fall_2011_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007db0901}; })
+#define dyld_fall_2012_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007dc0901}; })
+#define dyld_fall_2013_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007dd0901}; })
+#define dyld_fall_2014_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007de0901}; })
+#define dyld_fall_2015_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007df0901}; })
+#define dyld_fall_2016_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e00901}; })
+#define dyld_fall_2017_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e10901}; })
+#define dyld_winter_2017_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e11201}; })
+#define dyld_spring_2018_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e20301}; })
+#define dyld_fall_2018_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e20901}; })
+#define dyld_late_fall_2018_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e21015}; })
+#define dyld_spring_2019_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e30301}; })
+#define dyld_summer_2019_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e30601}; })
+#define dyld_late_summer_2019_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e30715}; })
+#define dyld_fall_2019_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e30901}; })
+#define dyld_autumn_2019_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e30902}; })
+#define dyld_late_fall_2019_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e31015}; })
+#define dyld_winter_2019_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e31201}; })
+#define dyld_spring_2020_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e40301}; })
+#define dyld_late_spring_2020_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e40415}; })
+#define dyld_summer_2020_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e40601}; })
+#define dyld_late_summer_2020_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e40715}; })
+#define dyld_fall_2020_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e40901}; })
+#define dyld_late_fall_2020_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e41015}; })
+#define dyld_winter_2020_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e41201}; })
+#define dyld_spring_2021_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e50301}; })
+#define dyld_fall_2021_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e50901}; })
+#define dyld_late_fall_2021_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e51015}; })
+#define dyld_winter_2021_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e51201}; })
+#define dyld_late_winter_2021_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e51215}; })
+#define dyld_spring_2022_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e60301}; })
+#define dyld_late_spring_2022_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e6040f}; })
+#define dyld_summer_2022_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e60601}; })
+#define dyld_fall_2022_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e60901}; })
+#define dyld_late_fall_2022_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e61015}; })
+#define dyld_2022_SU_C_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e62100}; })
+#define dyld_2022_SU_D_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e62200}; })
+#define dyld_2022_SU_E_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e62300}; })
+#define dyld_2022_SU_F_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e62400}; })
+#define dyld_2022_SU_G_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e62500}; })
+#define dyld_fall_2023_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e70901}; })
+#define dyld_2023_SU_B_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e70c01}; })
+#define dyld_2023_SU_C_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e70d01}; })
+#define dyld_2023_SU_D_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e70e01}; })
+#define dyld_fall_2024_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e80901}; })   /* derived */
+#define dyld_2024_SU_B_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e80c01}; })   /* derived */
+#define dyld_2024_SU_C_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e80d01}; })   /* derived */
+#define dyld_2024_SU_D_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e80e01}; })   /* derived */
+#define dyld_2024_SU_E_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e80f01}; })   /* derived */
+#define dyld_2024_SU_F_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e81001}; })   /* derived */
+#define dyld_2024_SU_G_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e81101}; })   /* derived */
+#define dyld_fall_2025_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e90901}; })   /* derived */
+#define dyld_2025_SU_B_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e90c01}; })   /* derived */
+#define dyld_2025_SU_C_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e90d01}; })   /* derived */
+#define dyld_2025_SU_D_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e90e01}; })   /* derived */
+#define dyld_2025_SU_E_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e90f01}; })   /* derived */
+#define dyld_2025_SU_F_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e91001}; })   /* derived */
+#define dyld_2025_SU_G_os_versions ({ (dyld_build_version_t){0xffffffff, 0x007e91101}; })   /* derived */
+
 #endif /* _FINCH_DYLD_VERSIONS_H_ */

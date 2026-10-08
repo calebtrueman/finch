@@ -21,6 +21,29 @@ for name, (pfx, pnum, vers) in plat.items():
         out.append(f'#define DYLD_{pfx}_VERSION_{M}_{m} 0x{v:08X}')
         out.append(f'#define dyld_platform_version_{name}_{M}_{m} '
                    f'({{ (dyld_build_version_t){{{pnum}, 0x{v:08X}}}; }})')
+# Version sets (the aligned releases across platforms), as dyld_build_version_t
+# with platform 0xffffffff and the set encoded (year << 16) | (n << 8) | day.
+# The published ones come from AvailabilityVersions' availability.dsl. Apple's
+# published data stops at 2023_SU_D; later sets follow its naming pattern
+# (fall = .9.1, then SU_B, SU_C, ... = .12.1, .13.1, ...) and are marked
+# derived. Finch's dyld maps sets through its VersionMap.h.
+dsl = os.path.join(root, 'build/src/AvailabilityVersions/availability.dsl')
+sets = []
+if os.path.exists(dsl):
+    for line in open(dsl):
+        f = line.split()
+        if len(f) >= 3 and f[0] == 'set':
+            Y, n, d = (int(x) for x in f[2].split('.'))
+            sets.append((f[1], Y, n, d, False))
+for Y in (2024, 2025):
+    sets.append((f'fall_{Y}', Y, 9, 1, True))
+    for i, letter in enumerate('BCDEFG'):
+        sets.append((f'{Y}_SU_{letter}', Y, 12 + i, 1, True))
+out.append('')
+for name, Y, n, d, derived in sets:
+    v = (Y << 16) | (n << 8) | d
+    note = '   /* derived */' if derived else ''
+    out.append(f'#define dyld_{name}_os_versions ({{ (dyld_build_version_t){{0xffffffff, 0x{v:09x}}}; }}){note}')
 out += ['', '#endif /* _FINCH_DYLD_VERSIONS_H_ */', '']
 dst = os.path.join(root, 'userland/sdk/include/mach-o/finch_dyld_versions.h')
 open(dst, 'w').write('\n'.join(out))

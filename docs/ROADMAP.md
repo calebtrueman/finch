@@ -108,8 +108,11 @@ Apple's is closed. Developed in the emulated M4 first. The map is
                 Apple's, on the host and in the VM (2026-10-08)
           - [ ] ObjC-to-CF dispatch and the collection classes
         - [x] libswiftCore from Swift's open source (libobjc links it; 14,885/15,043 exports)
-        - [ ] The other closed libraries Finch-built binaries link (`tools/check-closed.py`):
-              zlib, bzip2, liblzma, libedit, libxo, libsbuf, libresolv, libcompression, …
+        - [x] zlib, bzip2, libedit, libresolv (Apple's sources) and liblzma, libxo, libsbuf
+              (upstream, where Apple doesn't publish its copy), each with Apple's exports
+              exactly (2026-10-08)
+        - [ ] The rest `tools/check-closed.py` lists: Foundation (gcore), OpenDirectory
+              (chkpasswd), EndpointSecuritySystem (login), libcompression
         - [x] IOKit.framework from IOKitUser: IOKitLib, power management, power sources
               (`userland/IOKit`; nvram, iostat and shutdown run on it, 2026-10-08)
         - [ ] cron; DiskArbitration; SystemConfiguration and configd; mDNSPosix
