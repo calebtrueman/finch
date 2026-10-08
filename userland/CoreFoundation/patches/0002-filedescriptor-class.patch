@@ -1,0 +1,26 @@
+CFRuntime.c: register CFFileDescriptor under its reserved static type ID
+(_kCFRuntimeIDCFFileDescriptor). The implementation is Finch's
+(userland/CoreFoundation/CFFileDescriptor_Finch.c).
+
+diff --git a/Sources/CoreFoundation/CFRuntime.c b/Sources/CoreFoundation/CFRuntime.c
+index 115cd84..9163064 100644
+--- a/Sources/CoreFoundation/CFRuntime.c
++++ b/Sources/CoreFoundation/CFRuntime.c
+@@ -189,6 +189,9 @@ static const CFRuntimeClass __CFTypeClass = {
+ // the lock does not protect most reading of these; we just leak the old table to allow read-only accesses to continue to work
+ static os_unfair_lock __CFBigRuntimeFunnel = OS_UNFAIR_LOCK_INIT;
+ 
++#if TARGET_OS_MAC
++CF_PRIVATE const CFRuntimeClass __CFFileDescriptorClass;   // Finch: CFFileDescriptor_Finch.c
++#endif
+ _CFClassTables __CFRuntimeClassTables __attribute__((aligned)) = {
+     .classTable = {
+     [_kCFRuntimeIDNotAType] = &__CFNotATypeClass,
+@@ -232,6 +235,7 @@ _CFClassTables __CFRuntimeClassTables __attribute__((aligned)) = {
+ 
+ #if TARGET_OS_MAC
+     [_kCFRuntimeIDCFMachPort] = &__CFMachPortClass,
++    [_kCFRuntimeIDCFFileDescriptor] = &__CFFileDescriptorClass,   // Finch: CFFileDescriptor_Finch.c
+ #endif
+ 
+ 

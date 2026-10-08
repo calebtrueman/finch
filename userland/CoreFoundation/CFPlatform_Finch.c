@@ -23,3 +23,19 @@ CF_PRIVATE int _CFThreadSetName(_CFThreadRef thread, const char *_Nonnull name) 
     if (!pthread_equal(thread, pthread_self())) return EINVAL;
     return pthread_setname_np(name);
 }
+
+/*
+ * App Nap (private SPI Apple's CoreFoundation exports): a process tells the
+ * system it's holding a power assertion, so it isn't throttled while idle
+ * (IOKit's power management calls this). Finch doesn't nap processes, so
+ * there's nothing to tell; the call is accepted and ignored.
+ */
+typedef CF_OPTIONS(uint64_t, __CFRunLoopOptions) {
+    __CFRunLoopOptionsTakeAssertion = 1 << 0,
+    __CFRunLoopOptionsDropAssertion = 1 << 1,
+};
+CF_EXPORT void __CFRunLoopSetOptionsReason(__CFRunLoopOptions options, CFStringRef reason);
+void __CFRunLoopSetOptionsReason(__CFRunLoopOptions options, CFStringRef reason) {
+    (void)options;
+    (void)reason;
+}

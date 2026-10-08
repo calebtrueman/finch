@@ -70,6 +70,7 @@ steps=(
     # ICU (libicucore + data), for CoreFoundation (docs/design/COREFOUNDATION.md)
     "ICU|oss ICU"
     "CoreFoundation|userland/CoreFoundation/build.sh"
+    "IOKit|userland/IOKit/build.sh"
     # The Swift runtime (libobjc links it, as Apple's does)
     "swift|userland/swift/build.sh"
     "pam_modules|oss pam_modules rootok uwtmp self env group nologin sacl launchd"

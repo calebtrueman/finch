@@ -12,8 +12,16 @@
 #include <mach/mach.h>
 #include <objc/message.h>
 #include <objc/runtime.h>
+#include <xpc/xpc.h>
+
+/* <CoreFoundation/CFXPCBridge.h> (private) */
+xpc_object_t _CFXPCCreateXPCObjectFromCFObject(CFTypeRef);
+CFTypeRef _CFXPCCreateCFObjectFromXPCObject(xpc_object_t);
+xpc_object_t _CFXPCCreateXPCMessageWithCFObject(CFTypeRef);
+CFTypeRef _CFXPCCreateCFObjectFromXPCMessage(xpc_object_t);
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 static int failures;
 
@@ -145,6 +153,16 @@ plists(void)
 	CFDataRef old = CFDataCreate(NULL, (const UInt8 *)"{ a = (1, \"two\"); b = <0102>; }", 31);
 	back = CFPropertyListCreateWithData(NULL, old, 0, &fmt, NULL);
 	check("openstep plist", back && fmt == kCFPropertyListOpenStepFormat && CFDictionaryGetCount(back) == 2);
+
+	/* CF <-> XPC (CFXPCBridge), as IOKit's power management uses it. */
+	xpc_object_t x = _CFXPCCreateXPCObjectFromCFObject(d);
+	printf("xpc type dictionary: %d, count %zu\n", xpc_get_type(x) == XPC_TYPE_DICTIONARY, xpc_dictionary_get_count(x));
+	CFTypeRef roundtrip = _CFXPCCreateCFObjectFromXPCObject(x);
+	check("xpc round trip", roundtrip && CFEqual(roundtrip, d));
+	xpc_object_t msg = _CFXPCCreateXPCMessageWithCFObject(CFSTR("payload"));
+	CFTypeRef fromMsg = _CFXPCCreateCFObjectFromXPCMessage(msg);
+	check("xpc message round trip", fromMsg && CFEqual(fromMsg, CFSTR("payload")));
+	printf("xpc message keys: %zu\n", xpc_dictionary_get_count(msg));
 }
 
 static void
@@ -205,6 +223,45 @@ mach_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	(void)port; (void)size;
 	*(int *)info = ((mach_msg_header_t *)msg)->msgh_id;
 	CFRunLoopStop(CFRunLoopGetCurrent());
+}
+
+static void
+fd_callback(CFFileDescriptorRef f, CFOptionFlags types, void *info)
+{
+	char c;
+	read(CFFileDescriptorGetNativeDescriptor(f), &c, 1);
+	((int *)info)[0]++;
+	((int *)info)[1] = (int)types;
+	((int *)info)[2] = c;
+	CFRunLoopStop(CFRunLoopGetCurrent());
+}
+
+/* CFFileDescriptor: one-shot read callback delivered by the run loop. */
+static void
+file_descriptor(void)
+{
+	int p[2], got[3] = { 0, 0, 0 };
+	pipe(p);
+	CFFileDescriptorContext ctx = { 0, got, NULL, NULL, NULL };
+	CFFileDescriptorRef f = CFFileDescriptorCreate(NULL, p[0], true, fd_callback, &ctx);
+	printf("fd type matches: %d\n", CFGetTypeID(f) == CFFileDescriptorGetTypeID());
+	CFRunLoopSourceRef src = CFFileDescriptorCreateRunLoopSource(NULL, f, 0);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), src, kCFRunLoopDefaultMode);
+	CFFileDescriptorEnableCallBacks(f, kCFFileDescriptorReadCallBack);
+	write(p[1], "ab", 2);
+	SInt32 r = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 5, false);
+	printf("fd callback: count %d types %d byte %c result %d\n", got[0], got[1], got[2], (int)r);
+	/* One-shot: data is still waiting, but no callback until re-enabled. */
+	r = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.3, false);
+	printf("fd one-shot: count %d result %d\n", got[0], (int)r);
+	CFFileDescriptorEnableCallBacks(f, kCFFileDescriptorReadCallBack);
+	r = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 5, false);
+	printf("fd re-enabled: count %d byte %c result %d\n", got[0], got[2], (int)r);
+	CFFileDescriptorInvalidate(f);
+	check("fd invalidated", !CFFileDescriptorIsValid(f));
+	CFRelease(src);
+	CFRelease(f);
+	close(p[1]);
 }
 
 static void
@@ -273,6 +330,7 @@ main(int argc, char **argv)
 	time_and_locale();
 	urls();
 	runloop();
+	file_descriptor();
 	objc_bridge();
 	printf("%s (%d failed checks)\n", failures ? "FAILED" : "done", failures);
 	return failures != 0;

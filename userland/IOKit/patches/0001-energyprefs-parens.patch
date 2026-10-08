@@ -1,0 +1,17 @@
+IOPMEnergyPrefs.c: balance the parentheses of the PowerNap support test.
+The published source closes one group too few before the block; the
+intended test is ((!DarkWakeBackgroundTasks && !SleepServices) && !PowerNap).
+
+diff --git a/pwr_mgt.subproj/IOPMEnergyPrefs.c b/pwr_mgt.subproj/IOPMEnergyPrefs.c
+index 465bc4e..576a805 100644
+--- a/pwr_mgt.subproj/IOPMEnergyPrefs.c
++++ b/pwr_mgt.subproj/IOPMEnergyPrefs.c
+@@ -1543,7 +1543,7 @@ void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
+                         !IOPMFeatureIsAvailableWithSupportedTable( CFSTR(kIOPMSleepServicesKey),
+                             (CFStringRef)profile_keys[profile_count], _supportedCached))
+                          && !supportsNewPNKey
+-                      )
++                      ))
+                    {
+                        CFDictionaryRemoveValue(this_profile, (CFStringRef)dict_keys[dict_count]);
+                    }

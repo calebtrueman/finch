@@ -110,7 +110,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         - [x] libswiftCore from Swift's open source (libobjc links it; 14,885/15,043 exports)
         - [ ] The other closed libraries Finch-built binaries link (`tools/check-closed.py`):
               zlib, bzip2, liblzma, libedit, libxo, libsbuf, libresolv, libcompression, …
-        - [ ] IOKit.framework (IOKitUser)
+        - [x] IOKit.framework from IOKitUser: IOKitLib, power management, power sources
+              (`userland/IOKit`; nvram, iostat and shutdown run on it, 2026-10-08)
         - [ ] cron; DiskArbitration; SystemConfiguration and configd; mDNSPosix
   - [x] libmalloc no longer depends on libcorecrypto
   - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
@@ -133,7 +134,7 @@ Apple's, for behaviour) and in Tier 1. The display is Tier 2's
 normally on its own kernel, until Finch's kernel runs on bare metal. The guest
 is set up and reachable with `tools/vz/ssh` (2026-10-08).
 - [ ] Prerequisites from Phase 1: CoreFoundation's ObjC bridge and collection
-      classes, IOKit (IOKitUser), the open libraries (`tools/check-closed.py`)
+      classes, the open libraries (`tools/check-closed.py`). IOKit is done.
 - [ ] Foundation (from swift-corelibs-foundation and Finch code), ABI-compatible
       with Apple's
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)

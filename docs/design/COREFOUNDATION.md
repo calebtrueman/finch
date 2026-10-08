@@ -136,3 +136,11 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
   of CF objects. libswiftCore is built from source, and `finch-swift-hello`
   (arrays, dictionaries, strings, closures, generics) runs on it in the VM
   with output identical to the host's.
+- 2026-10-08: CF gains CFFileDescriptor (Finch's: one-shot callbacks through a
+  run-loop source; identical to Apple's in `finch-cf-test`), the CF/XPC bridge
+  (`_CFXPCCreate…`), and App Nap's `__CFRunLoopSetOptionsReason` (accepted and
+  ignored; Finch doesn't nap processes). IOKit.framework is built from
+  IOKitUser (`userland/IOKit/build.sh`). The build assembles headers from the
+  SDK, IOKitUser, xnu and configd, generates the MIG interfaces, and applies two
+  fixes to the published source (`userland/IOKit/patches`). nvram, iostat and
+  shutdown run on it in the VM.

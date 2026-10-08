@@ -1,0 +1,61 @@
+IOCFURLAccess.c: list directories with opendir/readdir.
+getdirentries() is unavailable with 64-bit inodes (the default), so the
+published loop doesn't link; Apple's IOKit doesn't import it either. Same
+entries, same skips, NULL on a read error.
+
+diff --git a/IOCFURLAccess.c b/IOCFURLAccess.c
+index 404af44..a95bba4 100644
+--- a/IOCFURLAccess.c
++++ b/IOCFURLAccess.c
+@@ -385,9 +385,9 @@ static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char path[
+     CFIndex extLen = (extension ? CFStringGetLength(extension) : 0);
+     char extBuff[CFMaxPathSize];
+ 
+-    int fd, numread;
+-    long basep;
+-    char dirge[8192];
++    DIR *dir;
++    struct dirent *dent;
++    int failed = 0;
+ 
+     if (extLen > 0) {
+ 	// not sure what extension might contain ... currently unused
+@@ -395,8 +395,8 @@ static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char path[
+         extBuff[extLen] = '\0';	    // CFStringGetBytes set extLen to number of bytes in converted string
+     }
+     
+-    fd = open(path, O_RDONLY, 0777);
+-    if (fd < 0) {
++    dir = opendir(path);
++    if (dir == NULL) {
+         if (extension) {
+             CFRelease(extension);
+         }
+@@ -404,9 +404,13 @@ static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char path[
+     }
+     files = CFArrayCreateMutable(alloc, 0, &kCFTypeArrayCallBacks);
+ 
+-    while ((numread = getdirentries(fd, dirge, sizeof(dirge), &basep)) > 0) {
+-        struct dirent *dent;
+-        for (dent = (struct dirent *)dirge; dent < (struct dirent *)(dirge + numread); dent = (struct dirent *)((char *)dent + dent->d_reclen)) {
++    for (;;) {
++        errno = 0;
++        if ((dent = readdir(dir)) == NULL) {
++            failed = (errno != 0);
++            break;
++        }
++        {
+             CFURLRef fileURL;
+             CFIndex nameLen;
+ 
+@@ -448,8 +452,8 @@ static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char path[
+             CFRelease(fileURL);
+         }
+     }
+-    close(fd);
+-    if  (-1 == numread) {
++    closedir(dir);
++    if  (failed) {
+         CFRelease(files);
+         if (releaseBase) {
+             CFRelease(base);
