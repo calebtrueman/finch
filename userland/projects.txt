@@ -50,4 +50,3 @@ ncurses         ncurses-79
 # PAM (su, login)
 OpenPAM         OpenPAM-35
 pam_modules     pam_modules-217.100.6
-
