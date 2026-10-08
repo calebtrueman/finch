@@ -74,7 +74,7 @@ index 3a6a0aa..732a613 100644
  extern mach_port_t _dispatch_get_main_queue_port_4CF(void);
  
 diff --git a/Sources/CoreFoundation/CFRuntime.c b/Sources/CoreFoundation/CFRuntime.c
-index 9163064..8ad22ac 100644
+index 9163064..343aad2 100644
 --- a/Sources/CoreFoundation/CFRuntime.c
 +++ b/Sources/CoreFoundation/CFRuntime.c
 @@ -602,7 +602,7 @@ void _CFRuntimeInitStaticInstance(void *ptr, CFTypeID typeID) {
@@ -133,16 +133,29 @@ index 9163064..8ad22ac 100644
      __CFInfoType info = atomic_load(&(((CFRuntimeBase *)cf)->_cfinfoa));
      if (info & RC_CUSTOM_RC_BIT) { // custom ref counting for object
          CFTypeID typeID = __CFTypeIDFromInfo(info);
-@@ -991,7 +1000,7 @@ CFHashCode CFHash(CFTypeRef cf) {
+@@ -991,7 +1000,12 @@ CFHashCode CFHash(CFTypeRef cf) {
  // definition: produces a normally non-NULL debugging description of the object
  CFStringRef CFCopyDescription(CFTypeRef cf) {
      if (NULL == cf) return NULL;
 -    // CFTYPE_OBJC_FUNCDISPATCH0(CFStringRef, cf, _copyDescription);  // XXX returns 0 refcounted item under GC
 +    if (CFTYPE_IS_OBJC(cf)) return __CFFinchObjCCopyDescription(cf);
++    // Finch: arrays, dictionaries and sets describe themselves as their ObjC
++    // classes do (property-list text), as Apple's, which are ObjC objects.
++    CFTypeID descType = __CFGenericTypeID_inline(cf);
++    if (descType == _kCFRuntimeIDCFArray || descType == _kCFRuntimeIDCFDictionary || descType == _kCFRuntimeIDCFSet)
++        return __CFFinchObjCCopyDescription(cf);
      __CFGenericAssertIsCF(cf);
      if (NULL != __CFRuntimeClassTable[__CFGenericTypeID_inline(cf)]->copyDebugDesc) {
  	CFStringRef result = __CFRuntimeClassTable[__CFGenericTypeID_inline(cf)]->copyDebugDesc(cf);
-@@ -1014,6 +1023,7 @@ extern CFAllocatorRef __CFAllocatorGetAllocator(CFTypeRef);
+@@ -1003,6 +1017,7 @@ CFStringRef CFCopyDescription(CFTypeRef cf) {
+ // Definition: if type produces a formatting description, return that string, otherwise NULL
+ CF_PRIVATE CFStringRef __CFCopyFormattingDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
+     if (NULL == cf) return NULL;
++    if (CFTYPE_IS_OBJC(cf)) return NULL;  // Finch: %@ of an ObjC object is its -description (CFCopyDescription)
+     __CFGenericAssertIsCF(cf);
+     if (NULL != __CFRuntimeClassTable[__CFGenericTypeID_inline(cf)]->copyFormattingDesc) {
+ 	return __CFRuntimeClassTable[__CFGenericTypeID_inline(cf)]->copyFormattingDesc(cf, formatOptions);
+@@ -1014,6 +1029,7 @@ extern CFAllocatorRef __CFAllocatorGetAllocator(CFTypeRef);
  
  CFAllocatorRef CFGetAllocator(CFTypeRef cf) {
      if (NULL == cf) return kCFAllocatorSystemDefault;

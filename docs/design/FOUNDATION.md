@@ -145,4 +145,12 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   and in the VM, and gcore dumps a process in the VM through GCoreFramework
   on Finch's Foundation. **`tools/check-closed.py`: nothing Finch builds links
   a closed library.**
+- 2026-10-08: collection descriptions in Apple's property-list text
+  (`NSDescription_Finch.m` in CF): quoting (only ASCII letters and digits
+  go bare), escapes, nesting indentation, sorted string keys, sets as
+  `{( )}`. `CFCopyDescription` and `%@` give that text for arrays,
+  dictionaries and sets, as Apple's do (patch 0003), and `%@` of any
+  Objective-C object is its `-description`. Checked line for line against
+  Apple's in `finch-foundation-test`. `tools/cf-patch.sh` folds edits in
+  the swift-corelibs tree into the last CF patch.
 

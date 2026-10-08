@@ -166,6 +166,15 @@ main(int argc, char **argv)
         [ma sortUsingSelector:@selector(caseInsensitiveCompare:)];
         p(@"mutable sorted", [ma componentsJoinedByString:@" "]);
 
+        /* Descriptions (old-style property-list text) */
+        for (NSString *q in @[ @"plain", @"", @"two words", @"a_b", @"q\"t", @"tab\t", @"n\nl", @"ünï", @"123", @"\U0001F600" ])
+            printf("quoted: %s\n", [[@[ q ] description] stringByReplacingOccurrencesOfString:@"\n" withString:@"|"].UTF8String);
+        printf("%s\n", [@[ @1, @2.5, @YES, [NSNull null], @[ @"in", @[] ], @{}, [NSData dataWithBytes:"ab" length:2] ] description].UTF8String);
+        printf("%s\n", [@{ @"b": @1, @"a": @{ @"z": @[ @1, @2 ], @"y": @"v w" }, @"c d": @[] } description].UTF8String);
+        printf("%s\n", [[NSSet setWithObject:@"x"] description].UTF8String);
+        printf("%s\n", [NSString stringWithFormat:@"%@ / %@ / %@", @[ @1 ], @{ @"k": @"v" }, [NSMutableArray arrayWithObject:@"m"]].UTF8String);
+        printf("%s\n", [@[ @"a" ] descriptionWithLocale:nil indent:1].UTF8String);
+
         /* Runtime names */
         p(@"NSStringFromClass", NSStringFromClass([NSMutableString class]));
         printf("NSClassFromString: %d\n", NSClassFromString(@"NSNumber") == [NSNumber class]);
