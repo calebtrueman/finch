@@ -62,6 +62,7 @@ steps=(
     "libmacho|oss cctools"
     "libiconv|oss libiconv charset libiconv iconv mkesdb mkcsmapper iconv_modules"
     "libutil|oss libutil util"
+    "libmd|oss libmd libmd"
     "OpenBSM|oss OpenBSM bsm.0"
     "ncurses|oss ncurses libncurses"
     "libsystem-finch|make -s -C userland/libsystem"
@@ -72,6 +73,7 @@ steps=(
     "llvm-runtimes|tools/build-llvm-runtimes.sh"
     "objc4|oss objc4 objc-env objc"
     "dyld|oss dyld dyld libdyld"
+    "libsysmon|make -s -C userland/libsysmon"
     # Commands (userland/INVENTORY.md lists the deferred ones that don't build yet)
     "file_cmds|oss_cmds file_cmds executables"
     "shell_cmds|oss_cmds shell_cmds All_OSX"

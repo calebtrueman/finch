@@ -1,0 +1,29 @@
+diff --git a/Libnotify.xcodeproj/project.pbxproj b/Libnotify.xcodeproj/project.pbxproj
+index 74f5e24..1549b6e 100644
+--- a/Libnotify.xcodeproj/project.pbxproj
++++ b/Libnotify.xcodeproj/project.pbxproj
+@@ -887,7 +887,7 @@
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 1;
+ 			shellPath = "/bin/bash -e -x";
+-			shellScript = "if [ $(id -u) != 0 ]; then\n\tosascript -e \"do shell script quoted form of \\\"${SRCROOT}/notifyd/xcodescripts/mk_notify_conf.sh\\\" with administrator privileges\"\nelse\n\texec \"${SCRIPT_INPUT_FILE_0}\"\nfi\n";
++			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"\n";
+ 		};
+ /* End PBXShellScriptBuildPhase section */
+ 
+diff --git a/notifyd/xcodescripts/mk_notify_conf.sh b/notifyd/xcodescripts/mk_notify_conf.sh
+index 5220033..03e120b 100755
+--- a/notifyd/xcodescripts/mk_notify_conf.sh
++++ b/notifyd/xcodescripts/mk_notify_conf.sh
+@@ -1,6 +1,9 @@
+ set -e -x
+ ETCDIR="$DSTROOT"/private/etc
+-install -d -o root -g wheel -m 0755 "$ETCDIR"
+-install -c -o root -g wheel -m 0644 \
++# Finch: root ownership only in root builds (no administrator prompt).
++owner="-o root -g wheel"
++[ "$(id -u)" -eq 0 ] || owner=""
++install -d $owner -m 0755 "$ETCDIR"
++install -c $owner -m 0644 \
+ 	"$SRCROOT"/notifyd/"$NOTIFY_CONFIG" \
+ 	"$ETCDIR"/notify.conf

@@ -26,6 +26,18 @@ LOG="${FINCH_ROOT}/build/logs/${project}.log"
 [[ -d "${SDK}" ]] || { echo "error: ${SDK} missing (tools/mksdk.sh)" >&2; exit 1; }
 mkdir -p "${ROOT}" "$(dirname "${LOG}")"
 
+# Builds never prompt: a stand-in osascript, first on PATH, refuses the
+# "with administrator privileges" dialogs some Apple projects try to raise.
+nogui="${FINCH_ROOT}/build/obj/.nogui"
+mkdir -p "${nogui}"
+cat > "${nogui}/osascript" <<'EOT'
+#!/bin/sh
+echo "build-oss: refused osascript (no GUI prompts in builds): $*" >&2
+exit 1
+EOT
+chmod +x "${nogui}/osascript"
+export PATH="${nogui}:${PATH}"
+
 if [[ $# -gt 0 ]]; then
     targets=()
     for t in "$@"; do targets+=(-target "$t"); done
@@ -83,8 +95,14 @@ echo "${inputs_hash}" > "${obj}/.finch-inputs"
 # Stage into a per-project DSTROOT, then merge, so we know exactly what this
 # project produced.
 stage="${FINCH_ROOT}/build/stage/${project}"
-# A background indexer can still be writing into the old tree; retry once.
-rm -rf "${stage}" 2>/dev/null || { sleep 1; rm -rf "${stage}"; }
+# A background indexer can still be writing into the old tree; retry once. A
+# stage holding root-owned files (from a build run as root) can't be removed
+# unprivileged: move it aside to build/stage/.stale for a later `sudo rm`.
+rm -rf "${stage}" 2>/dev/null || { sleep 1; rm -rf "${stage}" 2>/dev/null; } || {
+    mkdir -p "${FINCH_ROOT}/build/stage/.stale"
+    mv "${stage}" "${FINCH_ROOT}/build/stage/.stale/${project}-$(date +%s)"
+    echo "note: moved a stage with root-owned files to build/stage/.stale (sudo rm -rf it)" >&2
+}
 
 # The Xcode project is usually <project>.xcodeproj; otherwise use the only one.
 xcodeproj="${SRC}/${project}.xcodeproj"
@@ -137,19 +155,41 @@ xcodebuild install "${targets[@]}" -project "${xcodeproj}" -xcconfig "${finch_xc
     DSTROOT="${stage}" \
     OBJROOT="${FINCH_ROOT}/build/obj/${project}" \
     SYMROOT="${FINCH_ROOT}/build/sym/${project}" \
-    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+    PROVISIONING_PROFILE_SPECIFIER= CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
     GCC_TREAT_WARNINGS_AS_ERRORS=NO \
     -IDEBuildingContinueBuildingAfterErrors=YES \
     > "${LOG}" 2>&1
 fi
 status=$?
 
-# Drop Apple-internal test payloads; sign every Mach-O (ad hoc) for the trust cache.
+# Drop Apple-internal test payloads; sign every Mach-O (ad hoc) for the trust cache,
+# keeping the entitlements Xcode embedded from each target's CODE_SIGN_ENTITLEMENTS
+# (ps reads other tasks, notifyd and the configd daemons need theirs).
 rm -rf "${stage}/AppleInternal" "${stage}/usr/local/share/"*tests* 2>/dev/null
+# Hardened-process mitigations (com.apple.{developer,security}.hardened-process*)
+# crash Finch's notifyd today (docs/design/HARDENED-PROCESS.md), so they're left
+# out until Finch supports them; every other entitlement is kept.
+sign_keeping_entitlements() {   # sign_keeping_entitlements <mach-o>
+    local f="$1" ent="${obj}/.entitlements.plist"
+    if codesign -d --entitlements - --xml "$f" > "${ent}" 2>/dev/null && [[ -s "${ent}" ]]; then
+        python3 -I - "${ent}" <<'EOT'
+import plistlib, sys
+p = sys.argv[1]
+d = plistlib.load(open(p, 'rb'))
+for k in [k for k in d if '.hardened-process' in k]:
+    del d[k]
+plistlib.dump(d, open(p, 'wb'))
+EOT
+        codesign -f -s - --preserve-metadata=identifier --entitlements "${ent}" "$f" 2>/dev/null \
+            && return
+    fi
+    codesign -f -s - --preserve-metadata=identifier "$f" 2>/dev/null || codesign -f -s - "$f" 2>/dev/null
+}
 installed=0
 while IFS= read -r -d '' f; do
     if file -b "$f" | grep -q 'Mach-O'; then
-        codesign -f -s - "$f" 2>/dev/null
+        sign_keeping_entitlements "$f"
         installed=$((installed + 1))
     fi
 done < <(find "${stage}" -type f -print0 2>/dev/null)

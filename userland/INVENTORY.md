@@ -82,7 +82,8 @@ the image rebuilds the cache.
 | `bc`, `dc` | bc-35 | **Built by Finch** |
 | `sh` | dash project (closed launcher) | **Finch's** (`userland/sh`): the variant launcher |
 | `mount_tmpfs` | tmpfs.fs (closed) | **Finch's** (`userland/mount_tmpfs`) |
-| libutil, libbsm, libncurses | libutil-73, OpenBSM-21 (+ `userland/oss/OpenBSM/finch_compat.c`), ncurses-79 | **Built by Finch** |
+| libsysmon | sysmon (closed; sysmond client) | **Finch's** (`userland/libsysmon`, 36/36): process tables from libproc, no sysmond; `pgrep`/`pkill` run on it |
+| libmd, libutil, libbsm, libncurses | libmd-7 (51/51; its SHA-2 headers in Finch's SDK), libutil-73, OpenBSM-21 (+ `userland/oss/OpenBSM/finch_compat.c`), ncurses-79 | **Built by Finch** |
 | `libiconv.2`, `libcharset.1`, `/usr/lib/i18n/*` (25 modules), `/usr/share/i18n` (700 tables) | libiconv-115.100.1 | **Built by Finch** (exports match Apple's: 95/95, 2/2) |
 | file_cmds, shell_cmds, text_cmds, adv_cmds, system_cmds | Apple OSS (`userland/projects.txt`) | **Built by Finch** (`tools/build-system.sh`; `ps` too, via `userland/patches/adv_cmds`) |
 | `mount_*`, `fsck_*`, `newfs_*` (from the restore ramdisk) | diskdev_cmds / hfs; APFS tools are closed | Mixed |
@@ -95,11 +96,9 @@ exactly them to fail.
 | Tool | Project | Blocker |
 |---|---|---|
 | mtree | file_cmds | APFS private headers (APFS is closed) |
-| install | file_cmds | macOS libmd lacks the incremental SHA-512 API |
 | ipcs | file_cmds | needs xnu kernel-private types |
 | su, login, passwd, chpass | shell_cmds, system_cmds | `rootless.h` and other private SPI; wait for the Finch security model |
-| md5, bintrans | text_cmds | sha224.h and the libmd incremental API |
-| pkill | adv_cmds | `sysmon.h` (closed) |
+| bintrans tests | text_cmds | Apple-internal `darwintest.h` (the tools themselves build) |
 | gencat | adv_cmds | `msgcat.h` |
 | latency, sc_usage, lskq, gcore, zprint, nvram, … | system_cmds | kernel-private tracing / zone / kqueue interfaces |
 

@@ -164,10 +164,9 @@ fetch "${xz_api}/lzma.h" "${INC}/lzma.h"
 for h in base bcj block check container delta filter hardware index index_hash lzma12 stream_flags version vli; do
     fetch "${xz_api}/lzma/${h}.h" "${INC}/lzma/${h}.h"
 done
-# FreeBSD 14.3 sha256.h / sha512.h (BSD-2-Clause): match macOS libmd's SHA*_ API.
-for h in sha256 sha512; do
-    fetch "https://raw.githubusercontent.com/freebsd/freebsd-src/release/14.3.0/sys/crypto/sha2/${h}.h" "${INC}/${h}.h"
-done
+# libmd's SHA-2 headers (<sha224.h> ... <sha512.h>): the API macOS's libmd exports,
+# CommonCrypto underneath.
+cp "${SRC}"/libmd/include/sha*.h "${INC}/"
 
 # <AppleFeatures/AppleFeatures.h>: Apple-internal feature-flag header, not
 # published. libplatform includes it without using any of its macros.
