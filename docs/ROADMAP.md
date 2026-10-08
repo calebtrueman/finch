@@ -45,7 +45,7 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         remounted read-write). Build release images with root.
   - [x] Writable /var/db: System Policy (the sandbox's platform profile) refuses a mount
         there, so it's a link into a tmpfs at `/private/var/rw` (2026-10-08)
-- [ ] **1.3 Open libSystem from source.** Swap dylibs one at a time, starting with
+- [x] **1.3 Open libSystem from source.** Swap dylibs one at a time, starting with
       libsystem_kernel from our own xnu build.
   - [x] libsystem_kernel (xnu libsyscall + patch 0003), running in the VM (2026-10-06).
         Missing vs Apple's build: 7 legacy `__stat`-family stubs, `register_uexc_handler`,
@@ -75,7 +75,7 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] Finch CrashReporterClient (`__crash_info` annotations), linked by Libc and notifyd
 - [ ] **1.4 Finch replacements for closed libSystem pieces** (libxpc, libsystem_trace,
       sandbox, quarantine, …). Start with the subset our binaries actually import.
-  - [ ] **libxpc**, the next gating piece: Apple-ABI-compatible XPC objects and
+  - [x] **libxpc**: Apple-ABI-compatible XPC objects and
         connections, with the Mach bootstrap/service registry in finch-init. Mac apps and
         most of libSystem's upper half depend on it. Plan and progress:
         `docs/design/XPC.md`.
@@ -106,13 +106,21 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         - [ ] CoreFoundation (swift-corelibs base; C API, then the ObjC collection classes)
           - [x] C API and CF objects as ObjC objects: `finch-cf-test` output identical to
                 Apple's, on the host and in the VM (2026-10-08)
-          - [ ] ObjC-to-CF dispatch and the collection classes
+          - [ ] ObjC-to-CF dispatch and the collection classes. In progress: CF compiles
+                as Objective-C with Apple's dispatch, and hosts NSException and the NSArray
+                cluster (`docs/design/FOUNDATION.md`). Dictionaries, sets, data and dates
+                are next.
         - [x] libswiftCore from Swift's open source (libobjc links it; 14,885/15,043 exports)
         - [x] zlib, bzip2, libedit, libresolv (Apple's sources) and liblzma, libxo, libsbuf
               (upstream, where Apple doesn't publish its copy), each with Apple's exports
               exactly (2026-10-08)
-        - [ ] The rest `tools/check-closed.py` lists: Foundation (gcore), OpenDirectory
-              (chkpasswd), EndpointSecuritySystem (login), libcompression
+        - [x] OpenDirectory (CFOpenDirectory's C API over the local node),
+              libEndpointSecuritySystem, and libcompression (Apple's API over LZFSE, LZ4,
+              Brotli, zlib and LZMA; cross-checked against Apple's): Finch's own (2026-10-08)
+        - [x] su and login authenticate through Finch's PAM stacks (OpenPAM's pam_unix
+              with Apple's pam_launchd; 2026-10-08)
+        - [ ] Foundation, the one closed library `tools/check-closed.py` still finds
+              (gcore's GCoreFramework). It's Phase 2's first item.
         - [x] IOKit.framework from IOKitUser: IOKitLib, power management, power sources
               (`userland/IOKit`; nvram, iostat and shutdown run on it, 2026-10-08)
         - [ ] cron; DiskArbitration; SystemConfiguration and configd; mDNSPosix
@@ -136,10 +144,12 @@ Apple's, for behaviour) and in Tier 1. The display is Tier 2's
 (`docs/design/TIER2-VZ.md`): a Virtualization.framework guest that boots
 normally on its own kernel, until Finch's kernel runs on bare metal. The guest
 is set up and reachable with `tools/vz/ssh` (2026-10-08).
-- [ ] Prerequisites from Phase 1: CoreFoundation's ObjC bridge and collection
-      classes, the open libraries (`tools/check-closed.py`). IOKit is done.
-- [ ] Foundation (from swift-corelibs-foundation and Finch code), ABI-compatible
-      with Apple's
+- [x] The open libraries Finch's binaries link: everything but Foundation
+      (`tools/check-closed.py`, 2026-10-08). IOKit is done.
+- [ ] CoreFoundation's ObjC bridge and the classes it hosts (in progress, above)
+- [ ] Foundation, Finch's own in Objective-C over Finch's CF, class for class where
+      Apple's is (`docs/design/FOUNDATION.md`). Behaviour is checked against Apple's
+      on the host; swift-corelibs-foundation is the reference implementation.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit

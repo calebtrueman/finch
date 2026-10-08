@@ -43,8 +43,8 @@ or `tools/check-exports.sh /usr/lib/system/libxpc.dylib` once ours builds.
 | X1 ✅ | **Object model + value types**: null, bool, int64, uint64, double, date, data, string, uuid, fd, array, dictionary, error. Create/get/set/apply, copy, equal, hash, `xpc_copy_description`. | Host unit tests pass. Exports match Apple's names for this subset. |
 | X2 ✅ | **Wire format**: serialize/deserialize compatible with Apple's (`'CPX@'` message magic), so Finch processes can talk to borrowed Apple daemons and vice versa. | Round-trip tests; decodes captured Apple messages. |
 | X3 ✅ | **Transport**: Mach-message connections on `dispatch_mach` channels (libdispatch `mach_private.h`), listeners, replies (sync and async), `xpc_pipe_*`, endpoints, `bootstrap_*`. | Two processes in the VM exchange messages. |
-| X4 | **finch-init as bootstrap server**: owns the bootstrap port, registers Mach services from launchd-format plists (`MachServices`), launches on demand. | A test daemon is looked up and launched by name. |
-| X5 | **Swap into the VM**: replace Apple's libxpc. Then unblock libsystem_darwin and libsystem_info (Finch `xpc/private.h`). | VM boots on Finch libxpc; check-exports clean for imported symbols. |
+| X4 ✅ | **finch-init as bootstrap server**: owns the bootstrap port, registers Mach services from launchd-format plists (`MachServices`), launches on demand. | A test daemon is looked up and launched by name. |
+| X5 ✅ | **Swap into the VM**: replace Apple's libxpc. Then unblock libsystem_darwin and libsystem_info (Finch `xpc/private.h`). | VM boots on Finch libxpc; check-exports clean for imported symbols. |
 
 The X1 work lives in `userland/libxpc/`: C for the object types, plus one `.m` file for the
 class definitions, the same way libdispatch's `object.m` does it. It's built with Finch's
