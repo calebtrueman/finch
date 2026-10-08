@@ -57,6 +57,10 @@ expect tools/vm/smoke.exp
 `tools/vm/run.sh` uses `build/vm/ramdisk.dmg` when it exists. Otherwise it uses darwin-vm's
 base ramdisk.
 
+The image adds a test user, `finchtest` (uid 501, no password, so it's reachable only
+by `su` from root), for per-user domain tests. Home directories are under `/Users`, a
+link into the `/private/var/rw` tmpfs, as `/var/db` is.
+
 `mkramdisk.sh` runs without sudo, so files it adds belong to `_unknown` (uid 99) in the VM,
 not root. Everything runs as root there, so this rarely matters. The exception is setuid
 tools used by another user, e.g. `su` run from `nobody` reports "not running setuid".

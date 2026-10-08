@@ -18,6 +18,9 @@ Apple's `/System/Library/LaunchDaemons` is deliberately not loaded. Most of thos
 are closed-source and expect launchd features and each other. They'll be enabled one at
 a time as Finch can run them.
 
+Per-user agents come from other directories when a user's domain is created (see
+"Domains" below).
+
 Finch's job plists live in `userland/LaunchDaemons` and are installed into
 `/System/Library/Finch/LaunchDaemons`. They keep Apple's labels and service names
 (for example `com.apple.notifyd` serving `com.apple.system.notification_center`), so
@@ -38,7 +41,8 @@ clients find them by the usual names.
 | `RunAtLoad` | Start when loaded |
 | `KeepAlive` | `true` restarts after any exit. `{SuccessfulExit: bool}` restarts only after a successful (or failed) exit. Other conditions are treated as `true`. |
 | `ThrottleInterval` | Minimum seconds between starts (default 10, as in launchd) |
-| `UserName`, `GroupName` | Run as this user and group, with supplementary groups from `getgrouplist` |
+| `UserName`, `GroupName` | Run as this user and group, with supplementary groups from `getgrouplist`. Ignored for agents, which run as their domain's user. |
+| `LimitLoadToSessionType` | Agents only: see "Domains" |
 | `WorkingDirectory`, `EnvironmentVariables` | As in launchd |
 | `StandardInPath`, `StandardOutPath`, `StandardErrorPath` | Default `/dev/null`. Files are opened (and created) by finch-init, so as root. |
 | `Disabled` | The job isn't loaded |
@@ -52,6 +56,58 @@ Every job also gets `XPC_SERVICE_NAME=<Label>` (as launchd sets it), plus `USER`
 `LOGNAME` and `HOME` when it has a `UserName`. Jobs start in their own session with
 default signal handling, and no file descriptors are inherited except 0–2 and the
 job's own sockets.
+
+## Domains
+
+As in launchd, jobs and Mach service names live in domains:
+
+| Domain | Jobs | Created |
+|---|---|---|
+| `system` | LaunchDaemons | At boot |
+| `user/<uid>` (also addressed as `gui/<uid>`) | LaunchAgents, run as the user | On first request (below) |
+
+A process's bootstrap port names its domain, and children inherit it. A look-up
+searches the caller's domain, then the system domain, so a user's processes see
+the user's agents and every system service. The system domain's processes don't
+see agents. A check-in registers in the caller's own domain. A user domain may
+declare a name that the system domain also has, and its own processes then get
+the user's.
+
+**Entering a user domain.** A login does what it does on macOS: `/etc/pam.d/login` and
+`su` (for `su -l`) run Apple's `pam_launchd` (pam_modules, built from source).
+It climbs to the system domain with `bootstrap_parent` (root only), asks for the
+user's domain port with `bootstrap_look_up_per_user(…, NULL, uid, …)` and makes it
+the task's bootstrap port. `launchctl asuser <uid> <command>` does the same for one
+command. Root may ask for any user's domain, a user only for their own. Finch's
+libxpc implements these calls, plus `bootstrap_get_root`,
+`_vprocmgr_move_subset_to_user`, `_vprocmgr_switch_to_session` and
+`_vproc_post_fork_ping`, as control requests to finch-init.
+
+**Creating one.** On the first request, finch-init makes the domain (a new port with its
+own request thread in `bootstrapd.c`), then loads the agents in:
+
+| Directory | Contents |
+|---|---|
+| `/System/Library/Finch/LaunchAgents` | Finch's own agents (and, in the dev VM, test agents) |
+| `/Library/LaunchAgents` | Third-party agents, as on macOS |
+| `~/Library/LaunchAgents` | The user's own. As launchd requires, each plist must belong to the user or root and be writable only by its owner (others are skipped and logged). Symlinks aren't followed. |
+
+It then starts the RunAtLoad and KeepAlive agents. Agents run as the domain's user
+(its primary group and `getgrouplist` groups), with `USER`, `LOGNAME` and `HOME`, and
+with the domain's port as their bootstrap port.
+
+**Session types.** On macOS, `user/<uid>` loads only agents limited to the
+`Background` session, and the Aqua (GUI) login's `gui/<uid>` domain loads the rest,
+since `Aqua` is the default. Finch has no GUI login yet, so a user's one domain stands
+in for both. It loads agents with no `LimitLoadToSessionType` or with `Aqua` or
+`Background`. `LoginWindow`, `StandardIO` and `System` agents aren't loaded.
+`launchctl managername` reports `Background`. This changes when Phase 2 brings a
+graphical login.
+
+**Lifetime.** A user domain lasts until `launchctl bootout user/<uid>`, which stops its
+agents and destroys its port. The port becomes a dead name in any process still holding
+it, so its look-ups fail. A later request creates the domain afresh. Shutdown stops
+agents along with daemons.
 
 ## Sockets
 
@@ -119,9 +175,17 @@ macOS syntax:
 | `launchctl load` / `bootstrap system <plist>…` | Load jobs at runtime (RunAtLoad and KeepAlive apply) |
 | `launchctl unload <plist>…`, `bootout system/<label>` | SIGTERM the job, remove it and release its service names |
 
-Only the `system` domain exists. Requests are xpc_pipe routines on the bootstrap port
-carrying an `op` key, with errno results. Anyone may list and print. Changes need an
-effective uid of 0, taken from the request's audit token.
+| `launchctl print user/<uid>`, `print user/<uid>/<label>` | The same for a user domain (`gui/<uid>` is accepted for `user/<uid>`) |
+| `launchctl bootstrap user/<uid> <plist>…` | Load agents into a user's domain, creating it if needed |
+| `launchctl bootout user/<uid>/<label>`, `bootout user/<uid>` | Remove one agent, or the whole domain |
+| `launchctl asuser <uid> <command>…` | Run a command in the user's domain |
+| `launchctl manageruid`, `managerpid`, `managername` | The caller's domain: its uid (0 for system), finch-init's pid, `System` or `Background` |
+
+Commands without a domain (`list`, `start`, `stop`, `load`, `unload`) act on the
+caller's domain. Requests are xpc_pipe routines on the bootstrap port carrying an `op`
+key (and a `domain` when one is named), with errno results. Anyone may read the system
+domain, and a user may read their own. Changes need an effective uid of 0, taken from the
+request's audit token, except that a user may change their own domain.
 
 ## Shutdown and reboot
 
@@ -154,6 +218,22 @@ exit.
     message, check-in only by the job, the triggering message still queued after
     check-in, the right returning with unread messages when the job's right dies, and
     clients' send rights staying valid throughout.
+- `bootstrap-test` also covers domains: look-ups falling back to the parent, check-ins
+  staying in the caller's domain, shadowing, `bootstrap_parent` (refused to non-root
+  in a user domain), `bootstrap_look_up_per_user`, the control hook's domain, and
+  destruction.
+- Per-user agents (VM; the dev image has a test user, `finchtest`, uid 501, whose home is
+  under `/Users`, a link into a tmpfs). As root, copy
+  `/usr/local/share/finch-tests/org.finch.test.homeagent.plist` into
+  `~finchtest/Library/LaunchAgents`, plus a group-writable copy, then
+  `su -l finchtest -c 'finch-xpc-service-test useragent'`. pam_launchd moves su into
+  user/501. The domain is created with the system test agent and the home agent; the
+  group-writable copy is refused. `org.finch.test.agent` starts on demand as uid 501,
+  and system services stay visible. The home agent (RunAtLoad) records that it ran as
+  `finchtest`. From the system domain, `print system/org.finch.test.agent` fails and
+  `print gui/501/org.finch.test.agent` works. As the user, changing the system domain
+  is refused and booting out the user's own agent works. `launchctl asuser` and
+  `bootout user/<uid>` were also checked.
 - `finch-xpc-service-test ondemand` (VM): a client messages `org.finch.test.ondemand`.
   finch-init launches the daemon, which answers and then exits on request. The same
   client connection then relaunches it with a new pid.
@@ -167,10 +247,10 @@ exit.
 
 ## Not yet
 
-- Per-user agents (`LaunchAgents`) and per-user domains.
-- These keys: `Sockets`, `WatchPaths`, `QueueDirectories`, `StartInterval`,
-  `StartCalendarInterval`, `LaunchEvents`, `KeepAlive` conditions other than
-  `SuccessfulExit`, `ExitTimeOut`, `ResetAtClose`, `HideUntilCheckIn`, `Nice`,
-  `ProcessType`, resource limits.
-- Starting a fresh process takes about 2 s in the emulator, because there's no dyld
-  shared cache. On-demand launch latency will fall when Finch builds one.
+- A graphical login session (`gui/<uid>` as its own domain, Aqua-only agents), and
+  `login/<asid>` and `pid/<pid>` domains.
+- Domains created on a user's first process even without pam_launchd. On macOS,
+  launchd also creates them for any process of that uid.
+- These keys: `LaunchEvents`, `KeepAlive` conditions other than `SuccessfulExit`,
+  `ExitTimeOut`, `ResetAtClose`, `HideUntilCheckIn`, `Nice`, `ProcessType`, resource
+  limits.

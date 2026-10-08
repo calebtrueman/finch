@@ -7,13 +7,20 @@
  * accepts the commonly used macOS syntax and talks to finch-init with control
  * requests over the bootstrap port.
  *
+ * A <domain> is system, user/<uid>, or gui/<uid> (the same domain on Finch:
+ * docs/design/SERVICES.md). A <service-target> is <domain>/<label>. Commands
+ * without one (list, start, stop, load, unload) act on the caller's domain,
+ * the one its bootstrap port names.
+ *
  *   launchctl list [label]
- *   launchctl print system | system/<label>
+ *   launchctl print <domain> | <service-target>
  *   launchctl start|stop <label>
- *   launchctl kickstart [-k] system/<label>
- *   launchctl kill <signal> system/<label>
- *   launchctl load <plist>...          launchctl bootstrap system <plist>...
- *   launchctl unload <plist>...        launchctl bootout system/<label> | system <plist>
+ *   launchctl kickstart [-k] <service-target>
+ *   launchctl kill <signal> <service-target>
+ *   launchctl load <plist>...          launchctl bootstrap <domain> <plist>...
+ *   launchctl unload <plist>...        launchctl bootout <service-target> | <domain> [<plist>...]
+ *   launchctl asuser <uid> <command> [args...]
+ *   launchctl manageruid | managerpid | managername
  */
 
 #include <errno.h>
@@ -28,6 +35,8 @@
 #include <unistd.h>
 #include <xpc/xpc.h>
 
+kern_return_t bootstrap_look_up_per_user(mach_port_t bp, const name_t service_name, uid_t target_user,
+    mach_port_t *sp);
 typedef struct xpc_pipe_s *xpc_pipe_t;
 xpc_pipe_t xpc_pipe_create_from_port(mach_port_t port, uint64_t flags);
 int xpc_pipe_routine(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t *reply);
@@ -64,17 +73,51 @@ make(const char *op, const char *label)
 	return r;
 }
 
-/* "system/<label>" -> "<label>"; plain labels are accepted too. */
-static const char *
-target_label(const char *target)
+/* Length of the domain at the start of `target` ("system", "user/501",
+ * "gui/501"), or 0 if it doesn't start with one. */
+static size_t
+domain_length(const char *target)
 {
-	const char *slash = strchr(target, '/');
-	if (slash == NULL) return target;
-	if (strncmp(target, "system/", 7) != 0) {
-		fprintf(stderr, "launchctl: only the system domain exists on Finch: %s\n", target);
+	size_t n;
+
+	if (strncmp(target, "system", 6) == 0 && (target[6] == '\0' || target[6] == '/')) return 6;
+	if (strncmp(target, "user/", 5) == 0) n = 5;
+	else if (strncmp(target, "gui/", 4) == 0) n = 4;
+	else return 0;
+	if (target[n] < '0' || target[n] > '9') return 0;
+	while (target[n] >= '0' && target[n] <= '9') n++;
+	return target[n] == '\0' || target[n] == '/' ? n : 0;
+}
+
+static bool
+is_domain(const char *target)
+{
+	size_t n = domain_length(target);
+	return n > 0 && target[n] == '\0';
+}
+
+/* "<domain>/<label>" -> label, with the domain added to `req`. A plain label
+ * is accepted too, in the caller's domain. */
+static const char *
+target_label(const char *target, xpc_object_t req)
+{
+	size_t n = domain_length(target);
+	char domain[32];
+
+	if (n == 0) {
+		if (strchr(target, '/') != NULL) {
+			fprintf(stderr, "launchctl: unknown domain in %s (system, user/<uid> or gui/<uid>)\n", target);
+			exit(EXIT_FAILURE);
+		}
+		return target;
+	}
+	if (target[n] != '/' || target[n + 1] == '\0' || n >= sizeof(domain)) {
+		fprintf(stderr, "launchctl: %s is a domain, not a service target\n", target);
 		exit(EXIT_FAILURE);
 	}
-	return slash + 1;
+	snprintf(domain, sizeof(domain), "%.*s", (int)n, target);
+	xpc_dictionary_set_string(req, "domain", domain);
+	return target + n + 1;
 }
 
 static int
@@ -90,9 +133,11 @@ report(const char *what, int err)
 }
 
 static int
-simple(const char *op, const char *label)
+simple(const char *op, const char *target)
 {
-	xpc_object_t r = make(op, label);
+	xpc_object_t r = make(op, NULL);
+	const char *label = target_label(target, r);
+	xpc_dictionary_set_string(r, "label", label);
 	int err = request(r, NULL);
 	xpc_release(r);
 	return report(label, err);
@@ -155,12 +200,16 @@ print_kv(const char *key, xpc_object_t job, const char *field)
 static int
 cmd_print(const char *target)
 {
-	if (strcmp(target, "system") == 0) {
+	if (is_domain(target)) {
 		xpc_object_t r = make("list", NULL), reply;
+		xpc_dictionary_set_string(r, "domain", target);
 		int err = request(r, &reply);
 		xpc_release(r);
-		if (err != 0) return report("system", err);
-		printf("system = {\n\tjobs = {\n");
+		if (err != 0) {
+			xpc_release(reply);
+			return report(target, err == ESRCH ? ENOENT : err);
+		}
+		printf("%s = {\n\tjobs = {\n", xpc_dictionary_get_string(reply, "domain"));
 		xpc_array_apply(xpc_dictionary_get_value(reply, "jobs"), ^bool(size_t i, xpc_object_t job) {
 			(void)i;
 			int64_t pid = xpc_dictionary_get_int64(job, "pid");
@@ -174,8 +223,9 @@ cmd_print(const char *target)
 		return 0;
 	}
 
-	const char *label = target_label(target);
-	xpc_object_t r = make("print", label), reply;
+	xpc_object_t r = make("print", NULL), reply;
+	const char *label = target_label(target, r);
+	xpc_dictionary_set_string(r, "label", label);
 	int err = request(r, &reply);
 	xpc_release(r);
 	if (err != 0) {
@@ -183,7 +233,7 @@ cmd_print(const char *target)
 		return report(label, err);
 	}
 	xpc_object_t job = xpc_dictionary_get_value(reply, "job");
-	printf("system/%s = {\n", label);
+	printf("%s/%s = {\n", xpc_dictionary_get_string(job, "domain"), label);
 	print_kv("path", job, "path");
 	print_kv("state", job, "state");
 	print_kv("program", job, "program");
@@ -255,12 +305,13 @@ plist_label(const char *path)
 }
 
 static int
-cmd_load(char **paths, int n)
+cmd_load(const char *domain, char **paths, int n)
 {
 	int failures = 0;
 	for (int i = 0; i < n; i++) {
 		char abs[PATH_MAX];
 		xpc_object_t r = make("load", NULL);
+		if (domain) xpc_dictionary_set_string(r, "domain", domain);
 		xpc_dictionary_set_string(r, "path", realpath(paths[i], abs) ? abs : paths[i]);
 		int err = request(r, NULL);
 		xpc_release(r);
@@ -270,20 +321,73 @@ cmd_load(char **paths, int n)
 }
 
 static int
-cmd_unload_paths(char **paths, int n)
+cmd_unload_paths(const char *domain, char **paths, int n)
 {
 	int failures = 0;
 	for (int i = 0; i < n; i++) {
-		char *label = plist_label(paths[i]);
+		char *label = plist_label(paths[i]), *target;
 		if (label == NULL) {
 			fprintf(stderr, "launchctl: %s: not a job plist\n", paths[i]);
 			failures++;
 			continue;
 		}
-		failures += simple("unload", label);
+		if (domain) {
+			asprintf(&target, "%s/%s", domain, label);
+		} else {
+			target = strdup(label);
+		}
+		failures += simple("unload", target);
+		free(target);
 		free(label);
 	}
 	return failures != 0;
+}
+
+/* `asuser`: run a command with `uid`'s domain as its bootstrap port. */
+static int
+cmd_asuser(const char *uid_s, char **argv)
+{
+	char *end;
+	unsigned long uid = strtoul(uid_s, &end, 10);
+	mach_port_t port;
+	kern_return_t kr;
+
+	if (*uid_s == '\0' || *end != '\0') {
+		fprintf(stderr, "launchctl: bad uid %s\n", uid_s);
+		return 1;
+	}
+	kr = bootstrap_look_up_per_user(bootstrap_port, NULL, (uid_t)uid, &port);
+	if (kr != BOOTSTRAP_SUCCESS) {
+		fprintf(stderr, "launchctl: can't find the domain of uid %lu: %s\n", uid, bootstrap_strerror(kr));
+		return 1;
+	}
+	task_set_special_port(mach_task_self(), TASK_BOOTSTRAP_PORT, port);
+	execvp(argv[0], argv);
+	fprintf(stderr, "launchctl: %s: %s\n", argv[0], strerror(errno));
+	return 1;
+}
+
+/* manageruid / managerpid / managername: about the caller's domain. */
+static int
+cmd_manager(const char *what)
+{
+	xpc_object_t r = make("domain", NULL), reply;
+	int err = request(r, &reply);
+
+	xpc_release(r);
+	if (err != 0) {
+		xpc_release(reply);
+		return report(what, err);
+	}
+	if (strcmp(what, "manageruid") == 0) {
+		printf("%llu\n", xpc_dictionary_get_uint64(reply, "uid"));
+	} else if (strcmp(what, "managerpid") == 0) {
+		printf("1\n");   /* finch-init manages every domain */
+	} else {
+		printf("%s\n", xpc_dictionary_get_string(reply, "session"));
+	}
+	xpc_release(reply);
+	return 0;
 }
 
 static int
@@ -302,14 +406,17 @@ usage(void)
 {
 	fprintf(stderr,
 	    "usage: launchctl list [label]\n"
-	    "       launchctl print system | system/<label>\n"
+	    "       launchctl print <domain> | <domain>/<label>\n"
 	    "       launchctl start | stop <label>\n"
-	    "       launchctl kickstart [-k] system/<label>\n"
-	    "       launchctl kill <signal> system/<label>\n"
+	    "       launchctl kickstart [-k] <domain>/<label>\n"
+	    "       launchctl kill <signal> <domain>/<label>\n"
 	    "       launchctl load | unload <plist>...\n"
-	    "       launchctl bootstrap system <plist>...\n"
-	    "       launchctl bootout system/<label> | system <plist>...\n"
-	    "       launchctl version\n");
+	    "       launchctl bootstrap <domain> <plist>...\n"
+	    "       launchctl bootout <domain>/<label> | <domain> [<plist>...]\n"
+	    "       launchctl asuser <uid> <command> [args...]\n"
+	    "       launchctl manageruid | managerpid | managername\n"
+	    "       launchctl version\n"
+	    "<domain> is system, user/<uid> or gui/<uid>.\n");
 	return 64;
 }
 
@@ -336,8 +443,9 @@ main(int argc, char **argv)
 	}
 	if (strcmp(cmd, "kickstart") == 0 && argc >= 3) {
 		bool k = argc == 4 && strcmp(argv[2], "-k") == 0;
-		const char *label = target_label(argv[argc - 1]);
-		xpc_object_t r = make("kickstart", label);
+		xpc_object_t r = make("kickstart", NULL);
+		const char *label = target_label(argv[argc - 1], r);
+		xpc_dictionary_set_string(r, "label", label);
 		xpc_dictionary_set_bool(r, "kill", k);
 		int err = request(r, NULL);
 		xpc_release(r);
@@ -353,8 +461,9 @@ main(int argc, char **argv)
 			fprintf(stderr, "launchctl: unknown signal %s\n", argv[2]);
 			return 1;
 		}
-		const char *label = target_label(argv[3]);
-		xpc_object_t r = make("kill", label);
+		xpc_object_t r = make("kill", NULL);
+		const char *label = target_label(argv[3], r);
+		xpc_dictionary_set_string(r, "label", label);
 		xpc_dictionary_set_int64(r, "signal", sig);
 		int err = request(r, NULL);
 		xpc_release(r);
@@ -362,20 +471,35 @@ main(int argc, char **argv)
 	}
 	if (strcmp(cmd, "load") == 0 && argc >= 3) {
 		int first = (strcmp(argv[2], "-w") == 0) ? 3 : 2;   /* -w (persist enable) is accepted, not needed */
-		return cmd_load(argv + first, argc - first);
+		return cmd_load(NULL, argv + first, argc - first);
 	}
 	if (strcmp(cmd, "unload") == 0 && argc >= 3) {
 		int first = (strcmp(argv[2], "-w") == 0) ? 3 : 2;
-		return cmd_unload_paths(argv + first, argc - first);
+		return cmd_unload_paths(NULL, argv + first, argc - first);
 	}
-	if (strcmp(cmd, "bootstrap") == 0 && argc >= 4 && strcmp(argv[2], "system") == 0) {
-		return cmd_load(argv + 3, argc - 3);
+	if (strcmp(cmd, "bootstrap") == 0 && argc >= 4 && is_domain(argv[2])) {
+		return cmd_load(argv[2], argv + 3, argc - 3);
 	}
 	if (strcmp(cmd, "bootout") == 0 && argc >= 3) {
-		if (strcmp(argv[2], "system") == 0 && argc >= 4) {
-			return cmd_unload_paths(argv + 3, argc - 3);
+		if (is_domain(argv[2]) && argc >= 4) {
+			return cmd_unload_paths(argv[2], argv + 3, argc - 3);
 		}
-		return simple("unload", target_label(argv[2]));
+		if (is_domain(argv[2])) {
+			/* A whole user domain: its agents stop and it goes away. */
+			xpc_object_t r = make("remove-domain", NULL);
+			xpc_dictionary_set_string(r, "domain", argv[2]);
+			int err = request(r, NULL);
+			xpc_release(r);
+			return report(argv[2], err == EINVAL ? ENOTSUP : err);
+		}
+		return simple("unload", argv[2]);
+	}
+	if (strcmp(cmd, "asuser") == 0 && argc >= 4) {
+		return cmd_asuser(argv[2], argv + 3);
+	}
+	if (strcmp(cmd, "manageruid") == 0 || strcmp(cmd, "managerpid") == 0 ||
+	    strcmp(cmd, "managername") == 0) {
+		return cmd_manager(cmd);
 	}
 	return usage();
 }

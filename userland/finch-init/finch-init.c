@@ -223,8 +223,7 @@ start_bootstrap_server(void)
 	mach_port_t port;
 
 	init_queue = dispatch_queue_create("org.finch.init", DISPATCH_QUEUE_SERIAL);
-	jobs_init(init_queue, logmsg);
-	port = bootstrapd_start(init_queue, &jobs_bootstrap_hooks);
+	port = jobs_init(init_queue, logmsg);
 	if (port == MACH_PORT_NULL) {
 		logmsg("bootstrap server failed to start; Mach services unavailable");
 		return;

@@ -54,10 +54,19 @@ ln -s tmp/folders "${mnt}/private/var/folders"
 rm -rf "${mnt}/private/var/db"
 ln -s rw/db "${mnt}/private/var/db"
 
+# A test user for per-user domains (docs/design/SERVICES.md): no password, so
+# it's reachable only through su from root. Home directories live under
+# /Users, a link into the /private/var/rw tmpfs (rc creates the target).
+etc="${mnt}/private/etc"
+if ! grep -q '^finchtest:' "${etc}/master.passwd"; then
+    echo 'finchtest:*:501:20::0:0:Finch Test User:/Users/finchtest:/bin/zsh' >> "${etc}/master.passwd"
+fi
+rm -rf "${mnt}/Users"
+ln -s private/var/rw/Users "${mnt}/Users"
+
 # The base ramdisk ships only the root-only /etc/master.passwd. macOS also has
 # the world-readable /etc/passwd (no password or expiry fields) that
 # non-root processes' user lookups read; derive it, as pwd_mkdb would.
-etc="${mnt}/private/etc"
 if [[ -f "${etc}/master.passwd" && ! -f "${etc}/passwd" ]]; then
     awk -F: 'BEGIN { OFS = ":" } /^#/ { print; next } NF >= 10 { print $1, "*", $3, $4, $8, $9, $10 }' \
         "${etc}/master.passwd" > "${etc}/passwd"

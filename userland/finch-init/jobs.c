@@ -11,7 +11,14 @@
  *   WorkingDirectory, StandardInPath, StandardOutPath, StandardErrorPath,
  *   UserName, GroupName, ThrottleInterval, Disabled, and the launch-on-demand
  *   triggers StartInterval, StartCalendarInterval, WatchPaths,
- *   QueueDirectories and Sockets (triggers.c).
+ *   QueueDirectories and Sockets (triggers.c), and for agents
+ *   LimitLoadToSessionType.
+ *
+ * Jobs live in domains: the system domain (LaunchDaemons, created at boot)
+ * and a domain per user (LaunchAgents, created on first request: pam_launchd's
+ * bootstrap_look_up_per_user, `launchctl asuser`, or `launchctl bootstrap
+ * user/<uid>`). An agent runs as its domain's user with the domain's bootstrap
+ * port, so it and its children find the user's services, then the system's.
  *
  * Unknown keys are ignored. Everything runs on finch-init's serial queue.
  */
@@ -38,12 +45,21 @@
 #include "triggers.h"
 
 xpc_object_t xpc_create_from_plist(const void *data, size_t length);
+xpc_object_t xpc_mach_send_create(mach_port_t port);
 
 /* posix_spawn extensions (<spawn_private.h>): run the child as another user. */
 int posix_spawnattr_set_uid_np(const posix_spawnattr_t *attr, uid_t uid);
 int posix_spawnattr_set_gid_np(const posix_spawnattr_t *attr, gid_t gid);
 int posix_spawnattr_set_groups_np(const posix_spawnattr_t *attr, int ngroups, gid_t *gidarray, uid_t gmuid);
 
+/* Where a user domain's agents come from, in order; then ~/Library/LaunchAgents. */
+static const char *const agent_dirs[] = {
+	"/System/Library/Finch/LaunchAgents",   /* Finch's own agents */
+	"/Library/LaunchAgents",                /* third-party agents, as on macOS */
+};
+
+static struct job_domain system_domain = { .name = "system" };
+static struct job_domain *user_domains;
 static struct job *jobs;
 dispatch_queue_t queue;
 static bool shutting_down;
@@ -71,8 +87,41 @@ job_free(struct job *j)
 	free(j);
 }
 
+/*
+ * May an agent load into a user domain? LimitLoadToSessionType is a string or
+ * an array of them. Finch has no graphical (Aqua) session yet, so a user's
+ * one domain stands in for both user/<uid> (Background) and gui/<uid>
+ * (Aqua, the default): agents for either load. LoginWindow, StandardIO and
+ * System agents don't.
+ */
+static bool
+agent_session_ok(xpc_object_t plist)
+{
+	xpc_object_t v = xpc_dictionary_get_value(plist, "LimitLoadToSessionType");
+	__block bool ok = false;
+
+	if (v == NULL) {
+		return true;
+	}
+	if (xpc_get_type(v) == XPC_TYPE_STRING) {
+		const char *t = xpc_string_get_string_ptr(v);
+		return strcmp(t, "Aqua") == 0 || strcmp(t, "Background") == 0;
+	}
+	if (xpc_get_type(v) == XPC_TYPE_ARRAY) {
+		xpc_array_apply(v, ^bool(size_t i, xpc_object_t t) {
+			(void)i;
+			if (xpc_get_type(t) == XPC_TYPE_STRING && (strcmp(xpc_string_get_string_ptr(t), "Aqua") == 0 ||
+			    strcmp(xpc_string_get_string_ptr(t), "Background") == 0)) {
+				ok = true;
+			}
+			return !ok;
+		});
+	}
+	return ok;
+}
+
 static struct job *
-job_from_plist(xpc_object_t plist, const char *path)
+job_from_plist(struct job_domain *d, xpc_object_t plist, const char *path)
 {
 	struct job *j;
 	xpc_object_t args, keepalive;
@@ -84,7 +133,11 @@ job_from_plist(xpc_object_t plist, const char *path)
 	if (xpc_dictionary_get_bool(plist, "Disabled")) {
 		return NULL;
 	}
+	if (d != &system_domain && !agent_session_ok(plist)) {
+		return NULL;
+	}
 	j = calloc(1, sizeof(*j));
+	j->domain = d;
 	j->label = dup_string(plist, "Label");
 	j->path = strdup(path);
 	j->last_exit = INT_MIN;
@@ -120,8 +173,12 @@ job_from_plist(xpc_object_t plist, const char *path)
 	j->stdin_path = dup_string(plist, "StandardInPath");
 	j->stdout_path = dup_string(plist, "StandardOutPath");
 	j->stderr_path = dup_string(plist, "StandardErrorPath");
-	j->user = dup_string(plist, "UserName");
-	j->group = dup_string(plist, "GroupName");
+	if (d == &system_domain) {
+		j->user = dup_string(plist, "UserName");
+		j->group = dup_string(plist, "GroupName");
+	} else {
+		j->user = strdup(d->user);   /* an agent runs as its user; UserName is ignored, as in launchd */
+	}
 	j->run_at_load = xpc_dictionary_get_bool(plist, "RunAtLoad");
 	j->throttle = DEFAULT_THROTTLE_SEC;
 	if (xpc_dictionary_get_value(plist, "ThrottleInterval") != NULL) {
@@ -156,10 +213,10 @@ job_find_pid(pid_t pid)
 }
 
 static struct job *
-job_find_label(const char *label)
+job_find_label(struct job_domain *d, const char *label)
 {
 	for (struct job *j = jobs; j != NULL; j = j->next) {
-		if (strcmp(j->label, label) == 0) return j;
+		if (j->domain == d && strcmp(j->label, label) == 0) return j;
 	}
 	return NULL;
 }
@@ -254,6 +311,10 @@ job_spawn(struct job *j)
 	if (pw != NULL) {
 		posix_spawnattr_set_uid_np(&attr, pw->pw_uid);
 	}
+	if (j->domain != &system_domain) {
+		/* Else it inherits finch-init's: the system domain's. */
+		posix_spawnattr_setspecialport_np(&attr, j->domain->port, TASK_BOOTSTRAP_PORT);
+	}
 
 	rc = posix_spawn(&j->pid, j->program, &fa, &attr, j->argv, envp);
 	posix_spawn_file_actions_destroy(&fa);
@@ -309,7 +370,7 @@ may_check_in_hook(void *owner, pid_t pid)
 	return pid > 0 && ((struct job *)owner)->pid == pid;
 }
 
-static int control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *token);
+static int control_hook(void *context, xpc_object_t request, xpc_object_t reply, const audit_token_t *token);
 
 const struct bootstrapd_hooks jobs_bootstrap_hooks = {
 	.demand = demand_hook,
@@ -319,10 +380,15 @@ const struct bootstrapd_hooks jobs_bootstrap_hooks = {
 
 #pragma mark - Loading
 
+/*
+ * Load one plist into `d`. With `strict`, the file must belong to the domain's
+ * user (or root) and not be writable by others, as launchd requires of
+ * ~/Library/LaunchAgents.
+ */
 static int
-job_load_file(const char *path, struct job **out)
+job_load_file(struct job_domain *d, const char *path, bool strict, struct job **out)
 {
-	int fd = open(path, O_RDONLY | O_CLOEXEC);
+	int fd = open(path, O_RDONLY | O_CLOEXEC | (strict ? O_NOFOLLOW : 0));
 	struct stat st;
 	xpc_object_t plist = NULL, services;
 	struct job *j;
@@ -330,6 +396,13 @@ job_load_file(const char *path, struct job **out)
 
 	if (out) *out = NULL;
 	if (fd < 0) return errno;
+	if (strict && (fstat(fd, &st) != 0 || (st.st_uid != d->uid && st.st_uid != 0) ||
+	    (st.st_mode & (S_IWGRP | S_IWOTH)))) {
+		log_fn("%s: not loaded: must belong to %s or root and be writable only by its owner",
+		    path, d->user);
+		close(fd);
+		return EPERM;
+	}
 	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0 && st.st_size < (1 << 20) &&
 	    (buf = malloc((size_t)st.st_size)) != NULL) {
 		if (read(fd, buf, (size_t)st.st_size) == st.st_size) {
@@ -342,13 +415,13 @@ job_load_file(const char *path, struct job **out)
 		log_fn("%s: not a property list", path);
 		return EINVAL;
 	}
-	j = job_from_plist(plist, path);
+	j = job_from_plist(d, plist, path);
 	if (j == NULL) {
 		xpc_release(plist);
 		return EINVAL;
 	}
-	if (job_find_label(j->label) != NULL) {
-		log_fn("%s: job %s is already loaded", path, j->label);
+	if (job_find_label(d, j->label) != NULL) {
+		log_fn("%s: job %s is already loaded in %s", path, j->label, d->name);
 		job_free(j);
 		xpc_release(plist);
 		return EEXIST;
@@ -358,7 +431,7 @@ job_load_file(const char *path, struct job **out)
 		if (services != NULL && xpc_get_type(services) == XPC_TYPE_DICTIONARY) {
 			xpc_dictionary_apply(services, ^bool(const char *name, xpc_object_t value) {
 				(void)value;   /* ResetAtClose, HideUntilCheckIn: not supported yet */
-				int err = bootstrapd_declare(name, j);
+				int err = bootstrapd_declare(d->port, name, j);
 				if (err == 0) {
 					j->nservices++;
 				} else {
@@ -383,15 +456,17 @@ plist_name(const struct dirent *d)
 	return d->d_name[0] != '.' && n > 6 && strcmp(d->d_name + n - 6, ".plist") == 0;
 }
 
-void
+mach_port_t
 jobs_init(dispatch_queue_t q, void (*log)(const char *fmt, ...))
 {
 	queue = q;
 	log_fn = log;
+	system_domain.port = bootstrapd_start(q, &jobs_bootstrap_hooks, &system_domain);
+	return system_domain.port;
 }
 
-int
-jobs_load_dir(const char *dir)
+static int
+load_dir(struct job_domain *d, const char *dir, bool strict)
 {
 	struct dirent **names;
 	int n = scandir(dir, &names, plist_name, alphasort), loaded = 0;
@@ -400,7 +475,7 @@ jobs_load_dir(const char *dir)
 	for (int i = 0; i < n; i++) {
 		struct job *before = jobs;
 		snprintf(path, sizeof(path), "%s/%s", dir, names[i]->d_name);
-		job_load_file(path, NULL);
+		job_load_file(d, path, strict, NULL);
 		loaded += jobs != before;
 		free(names[i]);
 	}
@@ -408,14 +483,106 @@ jobs_load_dir(const char *dir)
 	return loaded;
 }
 
-void
-jobs_start_all(void)
+int
+jobs_load_dir(const char *dir)
+{
+	return load_dir(&system_domain, dir, false);
+}
+
+static bool
+starts_at_load(const struct job *j)
+{
+	return j->run_at_load || j->keepalive == KEEPALIVE_ALWAYS || j->keepalive == KEEPALIVE_ON_FAILURE;
+}
+
+static void
+start_domain(struct job_domain *d)
 {
 	for (struct job *j = jobs; j != NULL; j = j->next) {
-		if (j->run_at_load || j->keepalive == KEEPALIVE_ALWAYS || j->keepalive == KEEPALIVE_ON_FAILURE) {
+		if (j->domain == d && starts_at_load(j)) {
 			job_start(j);
 		}
 	}
+}
+
+void
+jobs_start_all(void)
+{
+	start_domain(&system_domain);
+}
+
+#pragma mark - User domains
+
+static struct job_domain *
+user_domain_find(uid_t uid)
+{
+	for (struct job_domain *d = user_domains; d != NULL; d = d->next) {
+		if (d->uid == uid) return d;
+	}
+	return NULL;
+}
+
+/* The user's domain, created (and its agents loaded and started) if needed.
+ * NULL with *err set if the user doesn't exist or the domain can't be made. */
+static struct job_domain *
+user_domain(uid_t uid, int *err)
+{
+	struct job_domain *d = user_domain_find(uid);
+	struct passwd *pw;
+	char dir[PATH_MAX];
+	int n = 0;
+
+	if (d != NULL) {
+		return d;
+	}
+	if (uid == 0 || (pw = getpwuid(uid)) == NULL) {
+		*err = uid == 0 ? EINVAL : ESRCH;   /* root's agents would run in the system domain */
+		return NULL;
+	}
+	d = calloc(1, sizeof(*d));
+	snprintf(d->name, sizeof(d->name), "user/%u", uid);
+	d->uid = uid;
+	d->user = strdup(pw->pw_name);
+	d->home = strdup(pw->pw_dir);
+	d->port = bootstrapd_domain_create(system_domain.port, d);
+	if (d->port == MACH_PORT_NULL) {
+		free(d->user); free(d->home); free(d);
+		*err = ENOMEM;
+		return NULL;
+	}
+	d->next = user_domains;
+	user_domains = d;
+	for (size_t i = 0; i < sizeof(agent_dirs) / sizeof(agent_dirs[0]); i++) {
+		n += load_dir(d, agent_dirs[i], false);
+	}
+	snprintf(dir, sizeof(dir), "%s/Library/LaunchAgents", d->home);
+	n += load_dir(d, dir, true);
+	log_fn("%s: domain for %s created, %d agent%s", d->name, d->user, n, n == 1 ? "" : "s");
+	start_domain(d);
+	return d;
+}
+
+static void job_remove(struct job *j);
+
+/* `launchctl bootout user/<uid>`: stop its agents and close the domain. */
+static void
+user_domain_remove(struct job_domain *d)
+{
+	struct job *j = jobs, *next;
+
+	for (; j != NULL; j = next) {
+		next = j->next;
+		if (j->domain == d) job_remove(j);
+	}
+	for (struct job_domain **pp = &user_domains; *pp != NULL; pp = &(*pp)->next) {
+		if (*pp == d) {
+			*pp = d->next;
+			break;
+		}
+	}
+	bootstrapd_domain_destroy(d->port);
+	log_fn("%s: domain removed", d->name);
+	free(d->user); free(d->home); free(d);
 }
 
 bool
@@ -465,6 +632,7 @@ job_remove(struct job *j)
 	bootstrapd_undeclare(j);
 	triggers_disarm(j);
 	j->unloading = true;
+	j->domain = NULL;   /* the domain may go before the process does */
 	if (j->pid > 0) {
 		kill(j->pid, SIGTERM);   /* freed when it exits */
 	} else if (!j->start_pending) {
@@ -484,6 +652,7 @@ job_describe(struct job *j)
 	xpc_object_t d = xpc_dictionary_create(NULL, NULL, 0), a, svc;
 
 	xpc_dictionary_set_string(d, "label", j->label);
+	xpc_dictionary_set_string(d, "domain", j->domain->name);
 	xpc_dictionary_set_string(d, "path", j->path);
 	xpc_dictionary_set_string(d, "program", j->program);
 	a = xpc_array_create(NULL, 0);
@@ -514,29 +683,75 @@ job_describe(struct job *j)
 }
 
 /*
- * Requests: {op, label?, path?, signal?, kill?}. Anyone may list and print;
- * changes need root. Errors are errno values.
+ * The domain a request names with "domain" ("system", "user/<uid>", or
+ * "gui/<uid>", which is the same domain on Finch), or else the domain whose
+ * port it arrived on. With `create`, a user domain is made if needed (if the
+ * caller may). NULL with *err set if there's no such domain.
+ */
+static struct job_domain *
+target_domain(struct job_domain *here, xpc_object_t request, uid_t euid, bool create, int *err)
+{
+	const char *name = xpc_dictionary_get_string(request, "domain");
+	char *end;
+	unsigned long uid;
+
+	*err = ESRCH;
+	if (name == NULL) return here;
+	if (strcmp(name, "system") == 0) return &system_domain;
+	if (strncmp(name, "user/", 5) == 0) name += 5;
+	else if (strncmp(name, "gui/", 4) == 0) name += 4;
+	else return NULL;
+	uid = strtoul(name, &end, 10);
+	if (*name == '\0' || *end != '\0' || uid > UINT32_MAX) {
+		*err = EINVAL;
+		return NULL;
+	}
+	if (!create || user_domain_find((uid_t)uid) != NULL) {
+		return user_domain_find((uid_t)uid);
+	}
+	if (euid != 0 && euid != uid) {
+		*err = EPERM;
+		return NULL;
+	}
+	return user_domain((uid_t)uid, err);
+}
+
+static bool
+may_read(const struct job_domain *d, uid_t euid)
+{
+	return d == &system_domain || euid == 0 || euid == d->uid;
+}
+
+static bool
+may_change(const struct job_domain *d, uid_t euid)
+{
+	return euid == 0 || (d != &system_domain && euid == d->uid);
+}
+
+/*
+ * Requests: {op, domain?, label?, path?, signal?, kill?, uid?}. Each acts on a
+ * domain (target_domain). Anyone may read the system domain and a user its
+ * own; changes need root, or for a user domain its user. Errors are errno values.
  */
 static int
-control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *token)
+control_hook(void *context, xpc_object_t request, xpc_object_t reply, const audit_token_t *token)
 {
 	const char *op = xpc_dictionary_get_string(request, "op");
 	const char *label = xpc_dictionary_get_string(request, "label");
-	bool root = token->val[1] == 0;   /* euid */
-	struct job *j = label ? job_find_label(label) : NULL;
+	uid_t euid = (uid_t)token->val[1];
+	bool load = strcmp(op, "load") == 0;
+	struct job_domain *d;
+	struct job *j;
+	int err;
 
-	if (strcmp(op, "list") == 0) {
-		xpc_object_t a = xpc_array_create(NULL, 0);
-		for (struct job *k = jobs; k != NULL; k = k->next) {
-			xpc_object_t d = xpc_dictionary_create(NULL, NULL, 0);
-			xpc_dictionary_set_string(d, "label", k->label);
-			xpc_dictionary_set_int64(d, "pid", k->pid);
-			if (k->last_exit != INT_MIN) xpc_dictionary_set_int64(d, "last_exit", k->last_exit);
-			xpc_array_append_value(a, d);
-			xpc_release(d);
-		}
-		xpc_dictionary_set_value(reply, "jobs", a);
-		xpc_release(a);
+	if (strcmp(op, "per-user") == 0) {
+		/* bootstrap_look_up_per_user(): the user's domain port, made if needed. */
+		uid_t uid = (uid_t)xpc_dictionary_get_uint64(request, "uid");
+		if (euid != 0 && euid != uid) return EPERM;
+		if ((d = user_domain(uid, &err)) == NULL) return err;
+		xpc_object_t port = xpc_mach_send_create(d->port);
+		xpc_dictionary_set_value(reply, "port", port);
+		xpc_release(port);
 		return 0;
 	}
 	if (strcmp(op, "checkin") == 0) {
@@ -545,43 +760,77 @@ control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *toke
 		pid_t pid = (pid_t)token->val[5];
 		for (struct job *k = jobs; k != NULL; k = k->next) {
 			if (k->pid == pid && !k->unloading) {
-				xpc_object_t d = job_describe(k);
-				xpc_dictionary_set_value(reply, "job", d);
-				xpc_release(d);
+				xpc_object_t desc = job_describe(k);
+				xpc_dictionary_set_value(reply, "job", desc);
+				xpc_release(desc);
 				return 0;
 			}
 		}
 		return ESRCH;
 	}
-	if (strcmp(op, "print") == 0) {
-		if (j == NULL) return ESRCH;
-		xpc_object_t d = job_describe(j);
-		xpc_dictionary_set_value(reply, "job", d);
-		xpc_release(d);
-		return 0;
-	}
-	if (!root) {
-		return EPERM;
-	}
 	if (strcmp(op, "reboot") == 0) {
 		int howto = (int)xpc_dictionary_get_uint64(request, "howto");
+		if (euid != 0) return EPERM;
 		if (shutting_down) return EALREADY;
 		/* Reply first; the sequence runs on the queue after this request. */
 		dispatch_async(queue, ^{ jobs_shutdown(howto); });
 		return 0;
 	}
-	if (strcmp(op, "load") == 0) {
+	if ((d = target_domain(context, request, euid, load, &err)) == NULL) {
+		return err;
+	}
+	if (strcmp(op, "domain") == 0) {
+		/* launchctl manageruid / managername, vproc's VPROC_GSK_MGR_UID. */
+		xpc_dictionary_set_string(reply, "name", d->name);
+		xpc_dictionary_set_uint64(reply, "uid", d->uid);
+		xpc_dictionary_set_string(reply, "session", d == &system_domain ? "System" : "Background");
+		return 0;
+	}
+	if (!may_read(d, euid)) {
+		return EPERM;
+	}
+	j = label ? job_find_label(d, label) : NULL;
+	if (strcmp(op, "list") == 0) {
+		xpc_object_t a = xpc_array_create(NULL, 0);
+		for (struct job *k = jobs; k != NULL; k = k->next) {
+			if (k->domain != d) continue;
+			xpc_object_t desc = xpc_dictionary_create(NULL, NULL, 0);
+			xpc_dictionary_set_string(desc, "label", k->label);
+			xpc_dictionary_set_int64(desc, "pid", k->pid);
+			if (k->last_exit != INT_MIN) xpc_dictionary_set_int64(desc, "last_exit", k->last_exit);
+			xpc_array_append_value(a, desc);
+			xpc_release(desc);
+		}
+		xpc_dictionary_set_string(reply, "domain", d->name);
+		xpc_dictionary_set_value(reply, "jobs", a);
+		xpc_release(a);
+		return 0;
+	}
+	if (strcmp(op, "print") == 0) {
+		if (j == NULL) return ESRCH;
+		xpc_object_t desc = job_describe(j);
+		xpc_dictionary_set_value(reply, "job", desc);
+		xpc_release(desc);
+		return 0;
+	}
+	if (!may_change(d, euid)) {
+		return EPERM;
+	}
+	if (load) {
 		const char *path = xpc_dictionary_get_string(request, "path");
 		struct job *loaded;
-		int err;
 		if (path == NULL) return EINVAL;
-		err = job_load_file(path, &loaded);
-		if (err == 0 && (loaded->run_at_load || loaded->keepalive == KEEPALIVE_ALWAYS ||
-		    loaded->keepalive == KEEPALIVE_ON_FAILURE)) {
+		err = job_load_file(d, path, false, &loaded);
+		if (err == 0 && starts_at_load(loaded)) {
 			job_start(loaded);
 		}
 		if (err == 0) xpc_dictionary_set_string(reply, "label", loaded->label);
 		return err;
+	}
+	if (strcmp(op, "remove-domain") == 0) {
+		if (d == &system_domain) return EINVAL;
+		user_domain_remove(d);
+		return 0;
 	}
 	if (j == NULL) {
 		return ESRCH;

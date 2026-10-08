@@ -9,6 +9,7 @@
 #define FINCH_TRIGGERS_H
 
 #include <dispatch/dispatch.h>
+#include <mach/mach.h>
 #include <spawn.h>
 #include <stdbool.h>
 #include <time.h>
@@ -26,7 +27,17 @@ struct job_socket {
 	char **unlink_paths;        /* Unix sockets finch-init created (one per fd, or NULL) */
 };
 
+/* A domain of jobs: the system domain (LaunchDaemons) or a user's (LaunchAgents). */
+struct job_domain {
+	char name[32];              /* "system", "user/<uid>" */
+	uid_t uid;                  /* 0 for the system domain */
+	char *user, *home;          /* user domains */
+	mach_port_t port;           /* its bootstrap port (bootstrapd) */
+	struct job_domain *next;
+};
+
 struct job {
+	struct job_domain *domain;
 	char *label;
 	char *program;
 	char **argv;

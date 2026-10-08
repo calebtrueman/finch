@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test agent for ~/Library/LaunchAgents: the per-user test copies it into
+     the test user's home. It runs once when the user's domain is created and
+     records which user it ran as. No LimitLoadToSessionType: an Aqua agent,
+     which Finch loads into the user's domain. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.homeagent</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/id</string>
+		<string>-un</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/tmp/org.finch.test.homeagent.out</string>
+</dict>
+</plist>

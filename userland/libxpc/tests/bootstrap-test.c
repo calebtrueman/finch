@@ -4,8 +4,8 @@
  *
  * finch-init's bootstrap server (userland/finch-init/bootstrapd.c) against
  * Finch libxpc's bootstrap client, in one process: registry rules, rights,
- * owner death, and XPC Mach-service connections and sessions resolved through
- * the server.
+ * owner death, domains (per-user namespaces under the system's), and XPC
+ * Mach-service connections and sessions resolved through the server.
  */
 
 #include <dispatch/dispatch.h>
@@ -20,9 +20,12 @@
 #include "../../finch-init/bootstrapd.h"
 
 typedef struct xpc_pipe_s *xpc_pipe_t;
+xpc_object_t xpc_mach_send_create(mach_port_t port);
 xpc_pipe_t xpc_pipe_create_from_port(mach_port_t port, uint64_t flags);
 int xpc_pipe_routine(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t *reply);
 kern_return_t bootstrap_look_up2(mach_port_t bp, const name_t name, mach_port_t *sp, pid_t pid, uint64_t flags);
+kern_return_t bootstrap_look_up_per_user(mach_port_t bp, const name_t name, uid_t uid, mach_port_t *sp);
+kern_return_t bootstrap_get_root(mach_port_t bp, mach_port_t *root);
 
 static int failures, checks;
 #define CHECK(cond) do { checks++; if (!(cond)) { failures++; \
@@ -48,7 +51,27 @@ fake_may_check_in(void *owner, pid_t pid)
 	return owner == &fake_job && allow_check_in && pid == getpid();
 }
 
-static const struct bootstrapd_hooks fake_hooks = { fake_demand, fake_may_check_in };
+/* Fake domains: the control hook reports which domain a request arrived on,
+ * and answers "per-user" with the user domain's port. */
+static int system_context, user_context;
+static void *last_context;
+static mach_port_t user_port;
+
+static int
+fake_control(void *context, xpc_object_t request, xpc_object_t reply, const audit_token_t *token)
+{
+	(void)token;
+	last_context = context;
+	if (strcmp(xpc_dictionary_get_string(request, "op"), "per-user") == 0) {
+		if (xpc_dictionary_get_uint64(request, "uid") != getuid()) return EPERM;
+		xpc_object_t p = xpc_mach_send_create(user_port);
+		xpc_dictionary_set_value(reply, "port", p);
+		xpc_release(p);
+	}
+	return 0;
+}
+
+static const struct bootstrapd_hooks fake_hooks = { fake_demand, fake_may_check_in, fake_control };
 static dispatch_queue_t server_queue;
 
 static bool
@@ -132,9 +155,9 @@ test_declared(mach_port_t bp)
 	__block int err = -1;
 
 	demanded = dispatch_semaphore_create(0);
-	dispatch_sync(server_queue, ^{ err = bootstrapd_declare("org.finch.test.declared", &fake_job); });
+	dispatch_sync(server_queue, ^{ err = bootstrapd_declare(bp, "org.finch.test.declared", &fake_job); });
 	CHECK(err == 0);
-	dispatch_sync(server_queue, ^{ err = bootstrapd_declare("org.finch.test.declared", &fake_job); });
+	dispatch_sync(server_queue, ^{ err = bootstrapd_declare(bp, "org.finch.test.declared", &fake_job); });
 	CHECK(err == EEXIST);
 
 	/* Visible before the job runs; no demand until a message arrives. */
@@ -185,6 +208,103 @@ test_reply_fields(mach_port_t bp)
 	if (reply) xpc_release(reply);
 	xpc_release(req);
 	xpc_release((xpc_object_t)pipe);
+}
+
+/* A control request on `port`; returns its error and the context it reached. */
+static int
+control(mach_port_t port, const char *op, void **context)
+{
+	xpc_pipe_t pipe = xpc_pipe_create_from_port(port, 0);
+	xpc_object_t req = xpc_dictionary_create(NULL, NULL, 0), reply = NULL;
+	int err = -1;
+
+	last_context = NULL;
+	xpc_dictionary_set_string(req, "op", op);
+	if (xpc_pipe_routine(pipe, req, &reply) == 0) {
+		err = (int)xpc_dictionary_get_int64(reply, "error");
+		xpc_release(reply);
+	}
+	*context = last_context;
+	xpc_release(req);
+	xpc_release((xpc_object_t)pipe);
+	return err;
+}
+
+/* A user domain under the system domain: fallback, isolation, shadowing, teardown. */
+static void
+test_domains(mach_port_t bp)
+{
+	mach_port_t sys_recv, usr_recv, shadow_recv, send, parent, root, per_user;
+	void *context;
+	__block int err = -1;
+
+	dispatch_sync(server_queue, ^{ user_port = bootstrapd_domain_create(bp, &user_context); });
+	CHECK(MACH_PORT_VALID(user_port) && user_port != bp);
+	mach_port_t up = user_port;
+
+	/* Requests reach the job manager with their domain's context. */
+	CHECK(control(bp, "x", &context) == 0 && context == &system_context);
+	CHECK(control(up, "x", &context) == 0 && context == &user_context);
+
+	/* Look-ups fall back to the parent; check-ins stay in the caller's domain. */
+	CHECK(bootstrap_check_in(bp, "org.finch.test.sys", &sys_recv) == BOOTSTRAP_SUCCESS);
+	CHECK(bootstrap_check_in(up, "org.finch.test.usr", &usr_recv) == BOOTSTRAP_SUCCESS);
+	CHECK(bootstrap_look_up(up, "org.finch.test.sys", &send) == BOOTSTRAP_SUCCESS);
+	mach_port_deallocate(mach_task_self(), send);
+	CHECK(bootstrap_look_up(up, "org.finch.test.usr", &send) == BOOTSTRAP_SUCCESS);
+	mach_port_deallocate(mach_task_self(), send);
+	CHECK(bootstrap_look_up(bp, "org.finch.test.usr", &send) == BOOTSTRAP_UNKNOWN_SERVICE);
+
+	/* A user domain may shadow a system name; its own processes get its port. */
+	CHECK(bootstrap_check_in(up, "org.finch.test.sys", &shadow_recv) == BOOTSTRAP_SUCCESS);
+	CHECK(bootstrap_look_up(up, "org.finch.test.sys", &send) == BOOTSTRAP_SUCCESS);
+	ping(send, 0x200);
+	CHECK(pong(shadow_recv) == 0x200);
+	mach_port_deallocate(mach_task_self(), send);
+	CHECK(bootstrap_look_up(bp, "org.finch.test.sys", &send) == BOOTSTRAP_SUCCESS);
+	ping(send, 0x201);
+	CHECK(pong(sys_recv) == 0x201);
+	mach_port_deallocate(mach_task_self(), send);
+
+	/* Declared names are per domain too. */
+	dispatch_sync(server_queue, ^{ err = bootstrapd_declare(up, "org.finch.test.declared", &user_context); });
+	CHECK(err == 0);
+	dispatch_sync(server_queue, ^{ bootstrapd_undeclare(&user_context); });
+
+	/* The system domain is its own parent. Leaving a user domain needs root. */
+	CHECK(bootstrap_parent(bp, &parent) == BOOTSTRAP_SUCCESS && parent == bp);
+	mach_port_deallocate(mach_task_self(), parent);
+	CHECK(bootstrap_get_root(bp, &root) == BOOTSTRAP_SUCCESS && root == bp);
+	mach_port_deallocate(mach_task_self(), root);
+	if (geteuid() != 0) {
+		CHECK(bootstrap_parent(up, &parent) == BOOTSTRAP_NOT_PRIVILEGED);
+	} else {
+		CHECK(bootstrap_parent(up, &parent) == BOOTSTRAP_SUCCESS && parent == bp);
+		mach_port_deallocate(mach_task_self(), parent);
+	}
+
+	/* bootstrap_look_up_per_user: the domain's port, or a name in it. */
+	CHECK(bootstrap_look_up_per_user(bp, NULL, getuid(), &per_user) == BOOTSTRAP_SUCCESS && per_user == up);
+	mach_port_deallocate(mach_task_self(), per_user);
+	CHECK(bootstrap_look_up_per_user(bp, "org.finch.test.usr", getuid(), &send) == BOOTSTRAP_SUCCESS);
+	ping(send, 0x202);
+	CHECK(pong(usr_recv) == 0x202);
+	mach_port_deallocate(mach_task_self(), send);
+	CHECK(bootstrap_look_up_per_user(bp, NULL, getuid() + 1, &per_user) == BOOTSTRAP_NOT_PRIVILEGED);
+
+	/* Destroyed: requests on its port fail, the system domain is untouched. */
+	dispatch_sync(server_queue, ^{ bootstrapd_domain_destroy(up); });
+	CHECK(bootstrap_look_up(up, "org.finch.test.sys", &send) != BOOTSTRAP_SUCCESS);
+	CHECK(bootstrap_look_up(bp, "org.finch.test.sys", &send) == BOOTSTRAP_SUCCESS);
+	mach_port_deallocate(mach_task_self(), send);
+	dispatch_sync(server_queue, ^{ bootstrapd_domain_destroy(bp); });   /* refused: the system domain */
+	CHECK(bootstrap_look_up(bp, "org.finch.test.sys", &send) == BOOTSTRAP_SUCCESS);
+	mach_port_deallocate(mach_task_self(), send);
+	mach_port_deallocate(mach_task_self(), up);   /* our copy of the (now dead) name */
+
+	mach_port_mod_refs(mach_task_self(), sys_recv, MACH_PORT_RIGHT_RECEIVE, -1);
+	mach_port_mod_refs(mach_task_self(), usr_recv, MACH_PORT_RIGHT_RECEIVE, -1);
+	mach_port_mod_refs(mach_task_self(), shadow_recv, MACH_PORT_RIGHT_RECEIVE, -1);
 }
 
 /* XPC services resolved through the server: a listener checks in, clients look up. */
@@ -242,13 +362,14 @@ int
 main(void)
 {
 	server_queue = dispatch_queue_create("bootstrapd", DISPATCH_QUEUE_SERIAL);
-	mach_port_t bp = bootstrapd_start(server_queue, &fake_hooks);
+	mach_port_t bp = bootstrapd_start(server_queue, &fake_hooks, &system_context);
 
 	setvbuf(stdout, NULL, _IONBF, 0);
 	CHECK(bp != MACH_PORT_NULL);
 	test_registry(bp);
 	test_reply_fields(bp);
 	test_declared(bp);
+	test_domains(bp);
 
 	bootstrap_port = bp;   /* XPC Mach-service connections use the global */
 	test_xpc_services();

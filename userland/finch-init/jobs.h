@@ -12,13 +12,13 @@
 
 #include "bootstrapd.h"
 
-/* Hooks to pass to bootstrapd_start(). */
-extern const struct bootstrapd_hooks jobs_bootstrap_hooks;
+/* Start the bootstrap server (bootstrapd.c) with the job manager's hooks. All
+ * other job functions run on `q`, the server's queue. Returns the system
+ * domain's bootstrap port, or MACH_PORT_NULL. Call it off the queue. */
+mach_port_t jobs_init(dispatch_queue_t q, void (*log)(const char *fmt, ...));
 
-/* All job functions run on `q`, the bootstrap server's queue. */
-void jobs_init(dispatch_queue_t q, void (*log)(const char *fmt, ...));
-
-/* Load every *.plist in `dir` and declare its MachServices. Returns the number of jobs loaded. */
+/* Load every *.plist in `dir` into the system domain and declare its
+ * MachServices. Returns the number of jobs loaded. */
 int jobs_load_dir(const char *dir);
 
 /* Start RunAtLoad and KeepAlive jobs. */

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test agent: loaded into each user's domain, started as that user when a
+     client in the domain messages its service (finch-xpc-service-test useragent). -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.agent</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/finch-xpc-service-test</string>
+		<string>daemon</string>
+		<string>org.finch.test.agent</string>
+	</array>
+	<key>MachServices</key>
+	<dict>
+		<key>org.finch.test.agent</key>
+		<true/>
+	</dict>
+	<key>LimitLoadToSessionType</key>
+	<array>
+		<string>Aqua</string>
+		<string>Background</string>
+	</array>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+</dict>
+</plist>
