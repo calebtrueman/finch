@@ -55,6 +55,16 @@ own Makefile against the private-header overlay.
 XPC services inside app bundles (`.xpc`), `NSXPCConnection` itself (that's Foundation),
 sandbox extensions, and the Apple-account-backed services.
 
+Apple's launchd itself. finch-init is PID 1, and launchd imports private SPI nothing else
+in the image uses, so Finch's libxpc doesn't export it yet, and the base image's launchd stops at "Symbol
+not found" on a Finch image (`FINCH_INIT=0 tools/vm/run.sh`). As of 26.4 the missing
+symbols are: the bundle SPI (`xpc_bundle_*`, `xpc_string_cache_create`,
+`xpc_string_create_cached`), `_xpc_dictionary_create_reply_with_port`,
+`_xpc_dictionary_extract_mach_send`, `_xpc_pipe_handle_mig`,
+`xpc_pipe_create_reply_from_port`, `xpc_receive_mach_msg`,
+`xpc_array_copy_mach_send`, `xpc_array_set_mach_send`, `xpc_date_get_value_absolute`,
+`xpc_dictionary_apply_f` and `xpc_exit_reason_get_label`.
+
 ## Progress log
 
 - **X1 (2026-10-06):** `userland/libxpc` builds as an arm64e `libxpc.dylib`. 39/39 host

@@ -73,7 +73,9 @@ grep -rl --include='*.xcconfig' 'Makefiles/CoreOS/Xcode/BSD.xcconfig' "${SRC}" 2
 fr="${FINCH_ROOT}/build/xnu-work/fakeroot"
 private_first="-I${SDK}/override -I${SDK}/availability -I${fr}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -I${fr}/usr/local/include"
 cflags_private=""
-[[ -f "${FINCH_ROOT}/userland/oss/${project}.private-first" ]] && cflags_private="${private_first}"
+is_private_first=""
+[[ -f "${FINCH_ROOT}/userland/oss/${project}.private-first" ]] \
+    && cflags_private="${private_first}" is_private_first=1
 # Declarations Apple's internal headers would supply (force-included).
 [[ -f "${FINCH_ROOT}/userland/oss/${project}.prelude.h" ]] \
     && cflags_private+=" -include ${FINCH_ROOT}/userland/oss/${project}.prelude.h"
@@ -139,14 +141,16 @@ finch_xcconfig="${obj}/finch.xcconfig"
     # they only fill in what the SDK lacks.
     # (Not both: clang drops a -I directory that's also a system directory,
     # which would silently move the overlay to the end.)
-    overlay_after="-idirafter ${SDK}/override"
-    [[ -n "${cflags_private}" ]] && overlay_after=""
+    # (The private availability macros, last of all, for xnu private headers
+    # such as <sys/resource_private.h> that need them.)
+    overlay_after="-idirafter ${SDK}/override -idirafter ${SDK}/availability"
+    [[ -n "${is_private_first}" ]] && overlay_after=""
     echo "OTHER_CFLAGS = \$(inherited) -Wno-error ${cflags_private} -idirafter ${SDK}/include ${overlay_after} -F${SDK}/Frameworks"
     # mig preprocesses .defs files, which import private .defs and headers too.
     echo "OTHER_MIGFLAGS = \$(inherited) -I${SDK}/override -I${SDK}/include"
     # TAPI re-parses the installed headers to build .tbd files; it needs the
     # same header order as the compiler, or private availability macros fail.
-    [[ -n "${cflags_private}" ]] \
+    [[ -n "${is_private_first}" ]] \
         && echo "OTHER_TAPI_FLAGS = \$(inherited) ${private_first} -idirafter ${SDK}/include -F${SDK}/Frameworks"
 } > "${finch_xcconfig}"
 

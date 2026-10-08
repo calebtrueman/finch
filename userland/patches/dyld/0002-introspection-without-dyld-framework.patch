@@ -1,0 +1,20 @@
+diff --git a/libdyld_introspection/dyld_introspection.cpp b/libdyld_introspection/dyld_introspection.cpp
+index c997946..f534128 100644
+--- a/libdyld_introspection/dyld_introspection.cpp
++++ b/libdyld_introspection/dyld_introspection.cpp
+@@ -91,7 +91,15 @@ const IntrospectionVtable* dyldFrameworkIntrospectionVtable() {
+         }
+         // We want to use the atlas, so try to open up Dyld.framework
+         void* handle = dlopen("/System/Library/PrivateFrameworks/Dyld.framework/Dyld", RTLD_LOCAL);
++        // Finch: Dyld.framework (Swift, on Foundation) may not be installed;
++        // without it, use libdyld's own implementations below.
++        if (handle == nullptr) {
++            return;
++        }
+         vtable = (IntrospectionVtable*)dlsym(handle, "_dyld_legacy_introspection_vtable");
++        if (vtable == nullptr) {
++            return;
++        }
+         if (vtable->version >= 3) {
+             *(vtable->allImageInfos) = (mach_vm_address_t)gAPIs->_dyld_all_image_infos_TEMP();
+         }

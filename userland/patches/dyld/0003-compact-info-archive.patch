@@ -1,0 +1,194 @@
+diff --git a/common/AAREncoder.cpp b/common/AAREncoder.cpp
+index 5e16dd1..df8f235 100644
+--- a/common/AAREncoder.cpp
++++ b/common/AAREncoder.cpp
+@@ -22,6 +22,8 @@
+  * @APPLE_LICENSE_HEADER_END@
+  */
+ 
++#include <string.h>
++
+ #include "CRC32c.h"
+ #include "AAREncoder.h"
+ 
+@@ -41,21 +43,75 @@ static uint8_t byteSizeForValue(size_t value) {
+     return 8;
+ }
+ 
++// Finch: the published source leaves the archive encoding out. This writes
++// what macOS 26.4's dyld writes: one uncompressed Apple Archive (AA01) entry
++// per file, with fields TYP1 F, PATP <path>, DAT<A|B|C> <size> and XATA
++// holding one extended attribute, "com.apple.dyld.crc32c" = {uint32 entry
++// size, uint32 crc32c of the entry up to that crc}. Symlinks are TYP1 L,
++// PATP <from>, LNKP <to>.
++static const char kCRCAttrName[] = "com.apple.dyld.crc32c";
++static const uint32_t kCRCAttrSize = 4 + sizeof(kCRCAttrName) + 4 + 4;
++
++static char dataSizeTag(uint8_t byteSize) {
++    return byteSize <= 2 ? 'A' : (byteSize == 4 ? 'B' : 'C');
++}
++
++static uint8_t dataSizeBytes(size_t size) {
++    uint8_t byteSize = byteSizeForValue(size);
++    return byteSize < 2 ? 2 : byteSize;
++}
++
+ uint16_t AAREncoder::headerSize(const File& file) const {
+-    size_t headerSize = 0;
+-    return headerSize;
++    size_t headerSize = 4 + 2;                          // AA01, header size
++    headerSize += 4 + 1;                                // TYP1 F
++    headerSize += 4 + 2 + strlen(file.path);            // PATP
++    headerSize += 4 + dataSizeBytes(file.data.size());  // DATA/DATB/DATC
++    headerSize += 4 + 2;                                // XATA
++    return (uint16_t)headerSize;
+ }
+ 
+ void AAREncoder::encodeFile(const File& file, ByteStream& output) const {
+-
++    uint64_t start          = output.size();
++    uint16_t pathLength     = (uint16_t)strlen(file.path);
++    uint8_t  dataSizeLength = dataSizeBytes(file.data.size());
++    output.push_back<std::string_view>("AA01");
++    output.push_back<uint16_t>(headerSize(file));
++    output.push_back<std::string_view>("TYP1");
++    output.push_back<uint8_t>('F');
++    output.push_back<std::string_view>("PATP");
++    output.push_back<uint16_t>(pathLength);
++    output.push_back<std::string_view>(std::string_view(file.path, pathLength));
++    output.push_back<std::string_view>("DAT");
++    output.push_back<uint8_t>((uint8_t)dataSizeTag(dataSizeLength));
++    output.push_back(dataSizeLength, file.data.size());
++    output.push_back<std::string_view>("XATA");
++    output.push_back<uint16_t>((uint16_t)kCRCAttrSize);
++    output.insert(output.end(), file.data.begin(), file.data.end());
++    output.push_back<uint32_t>(kCRCAttrSize);
++    output.push_back<std::string_view>(std::string_view(kCRCAttrName, sizeof(kCRCAttrName)));
++    uint64_t entrySize = output.size() - start + 4 + 4;
++    output.push_back<uint32_t>((uint32_t)entrySize);
++    output.push_back<uint32_t>(crc32c(&output.bytes()[start], (size_t)(output.size() - start)));
+ }
+ 
+ uint16_t AAREncoder::headerSize(const Link& link) const {
+-    size_t headerSize = 0;
+-    return headerSize;
++    size_t headerSize = 4 + 2 + 4 + 1;
++    headerSize += 4 + 2 + strlen(link.from);
++    headerSize += 4 + 2 + strlen(link.to);
++    return (uint16_t)headerSize;
+ }
+ 
+ void AAREncoder::encodeLink(const Link& link, ByteStream& output) const {
++    output.push_back<std::string_view>("AA01");
++    output.push_back<uint16_t>(headerSize(link));
++    output.push_back<std::string_view>("TYP1");
++    output.push_back<uint8_t>('L');
++    output.push_back<std::string_view>("PATP");
++    output.push_back<uint16_t>((uint16_t)strlen(link.from));
++    output.push_back<const char*>(link.from);
++    output.push_back<std::string_view>("LNKP");
++    output.push_back<uint16_t>((uint16_t)strlen(link.to));
++    output.push_back<const char*>(link.to);
+ }
+ 
+ AAREncoder::AAREncoder(lsl::Allocator& allocator) : _allocator(&allocator), _files(allocator), _links(allocator) {}
+diff --git a/common/ProcessAtlas.cpp b/common/ProcessAtlas.cpp
+index a341ad6..4ad8738 100644
+--- a/common/ProcessAtlas.cpp
++++ b/common/ProcessAtlas.cpp
+@@ -1580,11 +1580,94 @@ ProcessSnapshot::ProcessSnapshot(Allocator& ephemeralAllocator, FileManager& fil
+ extern "C" const bool unwrapCompactInfo(void* _Nonnull buffer, uint64_t* _Nonnull size);
+ #endif /* BUILDING_LIBDYLD && !TARGET_OS_DRIVERKIT && !TARGET_OS_EXCLAVEKIT */
+ 
++// Finch: dyld publishes its compact info inside an uncompressed Apple Archive
++// (AA01; see AAREncoder.cpp), as process.cinfo. Return that entry's data, or
++// the buffer itself when it isn't an archive (older dyld), or an empty span.
++static std::span<std::byte> compactInfoInArchive(std::span<std::byte> buffer) {
++    const uint8_t* bytes = (const uint8_t*)buffer.data();
++    size_t size = buffer.size();
++    if ( (size < 6) || (memcmp(bytes, "AA01", 4) != 0) ) {
++        return buffer;
++    }
++    size_t entry = 0;
++    while ( entry + 6 <= size && memcmp(&bytes[entry], "AA01", 4) == 0 ) {
++        size_t headerSize = bytes[entry+4] | ((size_t)bytes[entry+5] << 8);
++        if ( (headerSize < 6) || (entry + headerSize > size) ) {
++            break;
++        }
++        const char* path       = nullptr;
++        size_t      pathLength = 0;
++        size_t      blobsSize  = 0;
++        size_t      dataOffset = 0;
++        size_t      dataSize   = 0;
++        bool        haveData   = false;
++        size_t      field      = entry + 6;
++        size_t      headerEnd  = entry + headerSize;
++        bool        malformed  = false;
++        auto readUInt = [&](size_t at, size_t width) {
++            uint64_t value = 0;
++            for ( size_t b = 0; b < width; ++b ) {
++                value |= (uint64_t)bytes[at+b] << (8*b);
++            }
++            return value;
++        };
++        while ( field + 4 <= headerEnd ) {
++            const uint8_t* key = &bytes[field];
++            char type = (char)key[3];
++            field += 4;
++            size_t width = 0;
++            switch ( type ) {
++                case '1': width = 1; break;
++                case '2': width = 2; break;
++                case '4': width = 4; break;
++                case '8': width = 8; break;
++                case 'A': width = 2; break;
++                case 'B': width = 4; break;
++                case 'C': width = 8; break;
++                case 'T': width = 12; break;
++                case 'P':
++                    if ( field + 2 > headerEnd ) { malformed = true; break; }
++                    width = 2 + (size_t)readUInt(field, 2);
++                    break;
++                default:
++                    malformed = true;
++                    break;
++            }
++            if ( malformed || (field + width > headerEnd) ) {
++                malformed = true;
++                break;
++            }
++            if ( type == 'P' && memcmp(key, "PAT", 3) == 0 ) {
++                path       = (const char*)&bytes[field+2];
++                pathLength = width - 2;
++            } else if ( type == 'A' || type == 'B' || type == 'C' ) {
++                size_t blobSize = (size_t)readUInt(field, width);
++                if ( memcmp(key, "DAT", 3) == 0 ) {
++                    dataOffset = headerEnd + blobsSize;
++                    dataSize   = blobSize;
++                    haveData   = true;
++                }
++                blobsSize += blobSize;
++            }
++            field += width;
++        }
++        if ( malformed || (headerEnd + blobsSize > size) ) {
++            break;
++        }
++        if ( haveData && path && pathLength == strlen("process.cinfo") && memcmp(path, "process.cinfo", pathLength) == 0 ) {
++            return buffer.subspan(dataOffset, dataSize);
++        }
++        entry = headerEnd + blobsSize;
++    }
++    return std::span<std::byte>();
++}
++
+ ProcessSnapshot::ProcessSnapshot(Allocator& ephemeralAllocator, FileManager& fileManager, bool useIdentityMapper, const std::span<std::byte> data)
+     :   _ephemeralAllocator(ephemeralAllocator), _fileManager(fileManager), _images(_transactionalAllocator),
+         _identityMapper(_transactionalAllocator.makeShared<Mapper>(_transactionalAllocator)), _useIdentityMapper(useIdentityMapper) {
+         Serializer serializer(*this);
+-        bool deserializedSucceeed = serializer.deserialize(data);
++        // Finch: unwrap dyld's archive here (Apple's libdyld leaves that to Dyld.framework below).
++        bool deserializedSucceeed = serializer.deserialize(compactInfoInArchive(data));
+ #if BUILDING_LIBDYLD && !TARGET_OS_DRIVERKIT && !TARGET_OS_EXCLAVEKIT
+         static dispatch_once_t onceToken;
+         static __typeof__(unwrapCompactInfo) *unwrapCompactInfoPtr = nullptr;

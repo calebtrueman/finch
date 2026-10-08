@@ -50,8 +50,8 @@ echo y | ./fix_perms.sh firmware/ramdisk.dmg
 ```sh
 make -C userland/finch-init       # -> build/userland/finch-init
 tools/vm/mkramdisk.sh             # base ramdisk + tools/vm/overlay.txt -> build/vm/ (no sudo)
-FINCH_INIT=1 tools/vm/run.sh      # boot with finch-init as PID 1 (launchdsuffix=finch)
-FINCH_INIT=1 expect tools/vm/smoke.exp
+tools/vm/run.sh                   # boot with finch-init as PID 1 (launchdsuffix=finch)
+expect tools/vm/smoke.exp
 ```
 
 `tools/vm/run.sh` uses `build/vm/ramdisk.dmg` when it exists. Otherwise it uses darwin-vm's
@@ -68,7 +68,7 @@ tools/build-oss.sh text_cmds executables
 tools/build-oss.sh adv_cmds Desktop
 tools/build-oss.sh system_cmds All_MacOSX
 tools/vm/mkramdisk.sh                    # overlays build/root, trusts every Mach-O, checks dylib deps
-FINCH_INIT=1 expect tools/vm/smoke.exp "ls -la /bin" "df -h /"
+expect tools/vm/smoke.exp "ls -la /bin" "df -h /"
 ```
 
 ## libSystem pieces

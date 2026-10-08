@@ -97,10 +97,18 @@ exactly them to fail.
 |---|---|---|
 | mtree | file_cmds | APFS private headers (APFS is closed) |
 | ipcs | file_cmds | needs xnu kernel-private types |
-| su, login, passwd, chpass | shell_cmds, system_cmds | `rootless.h` and other private SPI; wait for the Finch security model |
+| passwd, chpass | system_cmds | OpenDirectory (closed) |
+| atrun | system_cmds | Background Task Management SPI (closed) |
 | bintrans tests | text_cmds | Apple-internal `darwintest.h` (the tools themselves build) |
 | gencat | adv_cmds | `msgcat.h` |
-| latency, sc_usage, lskq, gcore, zprint, nvram, … | system_cmds | kernel-private tracing / zone / kqueue interfaces |
+| zprint, zlog | system_cmds | CoreSymbolication (closed) |
+
+su and login build, but link Apple's `libpam.2.dylib` (OpenPAM is the open
+replacement); login weak-links libEndpointSecuritySystem, which the image doesn't have.
+gcore works on processes it may read (in the VM, `finch-debuggee`); it relies on
+libdyld's introspection, which needed two dyld patches (`userland/patches/dyld`):
+falling back from the absent Dyld.framework, and the AA01 compact-info archive that
+Apple's published dyld leaves out.
 
 ## Static libraries Finch provides
 

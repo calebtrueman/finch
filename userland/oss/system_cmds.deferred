@@ -2,13 +2,6 @@
 # Tools that may fail to build until their blockers are solved (userland/INVENTORY.md).
 atrun
 chpass
-gcore
-latency
-login
-lskq
-nvram
 passwd
-sc_usage
-taskpolicy
 zlog
 zprint

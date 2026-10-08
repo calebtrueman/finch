@@ -20,4 +20,6 @@ build/userland/finch-objc-test /usr/local/bin/finch-objc-test
 build/userland/finch-crypto-test /usr/local/bin/finch-crypto-test
 build/userland/finch-log-test /usr/local/bin/finch-log-test
 build/userland/finch-hardened-test /usr/local/bin/finch-hardened-test
+build/userland/finch-debuggee /usr/local/bin/finch-debuggee
+build/userland/finch-introspect-test /usr/local/bin/finch-introspect-test
 build/userland/finch-excwatch /usr/local/bin/finch-excwatch

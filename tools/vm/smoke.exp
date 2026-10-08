@@ -1,8 +1,8 @@
 #!/usr/bin/expect -f
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Boot the emulated M4, run a few commands in the console shell, quit.
-#   expect tools/vm/smoke.exp            # stock launchd as PID 1
-#   FINCH_INIT=1 expect tools/vm/smoke.exp   # finch-init as PID 1
+#   expect tools/vm/smoke.exp            # finch-init as PID 1
+#   FINCH_INIT=0 expect tools/vm/smoke.exp   # the base image's launchd (tools/vm/run.sh)
 #   expect tools/vm/smoke.exp "cmd1" "cmd2"   # run these instead of the defaults
 # Exits 3 if any command output mentions dyld (a missing library or symbol).
 set timeout 300

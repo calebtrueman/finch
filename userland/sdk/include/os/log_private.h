@@ -61,6 +61,20 @@ char *os_log_pack_send_and_compose(os_log_pack_t pack, os_log_t log,
 bool os_log_shim_enabled(void *addr);
 void os_log_with_args_4syslog(os_log_t log, os_log_type_t type, const char *format, va_list args, void *addr);
 
+/*
+ * Log hooks: a block that sees every message at or above a level, in the
+ * process, before it goes to the logging system. os_log_set_hook returns the
+ * previous hook, which the new one may chain to. The message is opaque here;
+ * os_log_copy_message_string formats it (free the result).
+ */
+typedef const struct os_log_message_s *os_log_message_t;
+typedef void (^os_log_hook_t)(os_log_type_t type, os_log_message_t message);
+
+os_log_hook_t os_log_set_hook(os_log_type_t level, os_log_hook_t hook);
+os_log_hook_t os_log_set_hook_with_params(os_log_type_t level, uint64_t params, os_log_hook_t hook);
+char *os_log_copy_message_string(os_log_message_t message);
+char *os_log_copy_decorated_message(os_log_type_t type, os_log_message_t message);
+
 __END_DECLS
 
 #define os_log_send_and_compose(flags, fmtp, buf, bufsize, log, type, format, ...) \

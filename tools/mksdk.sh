@@ -43,6 +43,12 @@ rsync -a "${XNU_ROOT}/System/Library/Frameworks/Kernel.framework" "${SDK}/Framew
 (cd "${SDK}/Frameworks/System.framework" && ln -sfn B Versions/Current \
     && ln -sfn Versions/Current/PrivateHeaders PrivateHeaders)
 copy_headers "${sysfw}/Versions/B/PrivateHeaders" "${INC}"
+# IOKit's private keys (<IOKit/IOKitKeysPrivate.h>, used by nvram). The SDK's
+# IOKit.framework doesn't have it, and clang keeps searching past a framework
+# that lacks a header, so it's found here.
+mkdir -p "${INC}/IOKit"
+cp "${XNU_ROOT}/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/IOKitKeysPrivate.h" \
+    "${INC}/IOKit/"
 
 chmod -R u+w "${SDK}"   # xnu installs headers read-only
 

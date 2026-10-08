@@ -25,7 +25,7 @@ Replace the userland with Darwin built from Apple's open source, plus Finch code
 Apple's is closed. Developed in the emulated M4 first. The map is
 `userland/INVENTORY.md`.
 - [x] **1.1 Finch PID 1.** `finch-init` replaces the closed launchd: console, OS version
-      sysctls, rc script, respawning shell, orphan reaping. Boot with `FINCH_INIT=1`
+      sysctls, rc script, respawning shell, orphan reaping. The default PID 1 of Finch's VM image
       (2026-10-06).
 - [ ] **1.2 Commands from source.** Build shell_cmds, file_cmds, text_cmds, system_cmds and
       bash/zsh ourselves, replacing darwin-vm's prebuilt sysroot.

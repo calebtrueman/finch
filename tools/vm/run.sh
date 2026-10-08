@@ -4,7 +4,10 @@
 # and ramdisk.
 #
 # Environment:
-#   FINCH_INIT=1     boot finch-init as PID 1 (launchdsuffix=finch)
+#   FINCH_INIT=0     boot the base image's launchd instead of finch-init (PID 1 by
+#                    default when build/vm has Finch's ramdisk; launchdsuffix=finch). Apple's launchd needs xpc SPI
+#                    Finch's libxpc doesn't have (docs/design/XPC.md), so with a
+#                    Finch image it stops at "Symbol not found".
 #   BOOT_ARGS_EXTRA  extra boot-args to append
 #   KC / RAMDISK / TC  override images (defaults: darwin-vm bootkc, build/vm ramdisk if built)
 #   DEBUG=1          expose a GDB stub on :1234 and wait for the debugger
@@ -17,6 +20,7 @@ FW="${DVM}/firmware"
 QEMU="${DVM}/qemu-sptm/build/qemu-system-aarch64"
 
 if [[ -f "${FINCH_ROOT}/build/vm/ramdisk.dmg" ]]; then
+    : "${FINCH_INIT:=1}"   # Finch's image: finch-init is PID 1
     : "${RAMDISK:=${FINCH_ROOT}/build/vm/ramdisk.dmg}"
     : "${TC:=${FINCH_ROOT}/build/vm/ramdisk.tc}"
 fi
