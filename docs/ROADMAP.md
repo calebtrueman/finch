@@ -156,9 +156,10 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         NSNumber/NSValue and literals, NSCharacterSet, NSError, NSAutoreleasePool,
         NSLog and the common functions. `finch-foundation-test` is identical to
         Apple's, and GCoreFramework (gcore) runs on it (2026-10-08).
-  - [ ] The rest, by what apps use: NSThread, NSRunLoop/NSTimer, NSFileManager,
-        NSBundle, NSProcessInfo, notifications, NSURL, NSLocale/NSDateFormatter,
-        archiving and property lists, KVC/KVO, descriptions of collections.
+  - [x] Collection descriptions; NSRunLoop/NSTimer, NSThread, locks, notifications,
+        operation queues, NSProcessInfo, performSelector variants (2026-10-08)
+  - [ ] The rest, by what apps use: NSFileManager, NSBundle, NSURL,
+        NSLocale/NSDateFormatter, archiving and property lists, KVC/KVO, NSPort.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit

@@ -25,7 +25,7 @@ log() { echo "==> $*"; }
 # Foundation implements classes the SDK declares: the methods it doesn't have
 # yet, and the protocol methods it gets from CoreFoundation, aren't errors.
 CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
-    -fno-objc-arc -fobjc-exceptions -fblocks -fno-common
+    -fno-objc-arc -fobjc-weak -fobjc-exceptions -fblocks -fno-common
     -Wall -Wextra -Werror -Wno-unused-parameter -Wno-incomplete-implementation
     -Wno-objc-property-implementation -Wno-protocol -Wno-objc-protocol-method-implementation
     -Wno-deprecated-declarations -Wno-deprecated-implementations -Wno-objc-designated-initializers

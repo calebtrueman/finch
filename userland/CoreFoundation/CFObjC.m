@@ -316,6 +316,36 @@ check_mutable_set(id self, SEL _cmd)
 - (NSUInteger)retainCount { return NSUIntegerMax; }
 @end
 
+/* NSBlock, which Apple's CoreFoundation hosts: libclosure's block classes
+ * (__NSStackBlock__ and friends, in libsystem_blocks) are made with NSObject
+ * as their superclass, and CF makes NSBlock their superclass when it
+ * initializes (libclosure's data.m says so). It gives blocks -copy and
+ * -invoke. */
+extern void *_Block_copy(const void *block);
+extern Class class_setSuperclass(Class cls, Class newSuper);
+
+@interface NSBlock : NSObject
+@end
+@implementation NSBlock
+- (id)copy { return (id)_Block_copy(self); }
+- (id)copyWithZone:(struct _NSZone *)zone { return (id)_Block_copy(self); }
+- (void)invoke { ((void (^)(void))self)(); }
+- (id)debugDescription { return [self description]; }
+@end
+
+static void
+reparent_blocks(void)
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    const char *names[] = { "__NSStackBlock__", "__NSMallocBlock__", "__NSAutoBlock__", "__NSGlobalBlock__" };
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+        Class c = objc_getClass(names[i]);
+        if (c && class_getSuperclass(c) != [NSBlock class]) class_setSuperclass(c, [NSBlock class]);
+    }
+#pragma clang diagnostic pop
+}
+
 /* Store `cls` in the class-table slot for `type`, signed as CF reads it
  * back (_GetCFRuntimeObjcClassAtIndex). */
 static void
@@ -355,6 +385,11 @@ __CFFinchInitializeObjC(void)
     set_class(_kCFRuntimeIDCFSet, __CFFinchInitializeSetClasses());
     set_class(_kCFRuntimeIDCFData, __CFFinchInitializeDataClasses());
     set_class(_kCFRuntimeIDCFDate, __CFFinchInitializeDateClasses());
+    extern void __CFFinchInitializeRunLoopClasses(void);
+    extern Class __CFFinchTimerClass(void);
+    __CFFinchInitializeRunLoopClasses();
+    set_class(_kCFRuntimeIDCFRunLoopTimer, __CFFinchTimerClass());
     __CFFinchInstallExceptionHandler();
     __CFFinchInstallForwardHandler();
+    reparent_blocks();
 }

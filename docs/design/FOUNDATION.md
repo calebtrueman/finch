@@ -153,4 +153,17 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   Objective-C object is its `-description`. Checked line for line against
   Apple's in `finch-foundation-test`. `tools/cf-patch.sh` folds edits in
   the swift-corelibs tree into the last CF patch.
+- 2026-10-08: the run-loop and threading layer. In CF: `NSRunLoop` (one per
+  CFRunLoop), `NSTimer` with `__NSCFTimer` as CFRunLoopTimer's class
+  (target/selector, block and invocation timers; `-fire`; user info), the
+  run-loop mode names, and `NSBlock`, which CF makes the superclass of
+  libclosure's block classes at startup, as Apple's does. In Foundation: `NSThread`, the
+  `NSLock` family, `NSNotification`/`NSNotificationCenter` (weak observers,
+  block observers on operation queues), `NSOperation`/`NSBlockOperation`/
+  `NSInvocationOperation`/`NSOperationQueue` on libdispatch (asynchronous
+  operations wait for KVO), `NSProcessInfo`, and NSObject's `-performSelector:`
+  variants (onto a thread's run loop, after a delay, cancellable).
+  `-[NSInvocation invoke]` now leaves the arguments intact: it used to
+  write the result over argument 0. `finch-runtime-test` (45 lines) is
+  identical to Apple's on the host and in the VM, as are the other four.
 

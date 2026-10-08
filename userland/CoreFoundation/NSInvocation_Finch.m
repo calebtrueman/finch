@@ -627,11 +627,18 @@ check_index(NSInvocation *self, SEL _cmd, NSInteger idx, NSMethodSignature *sig)
 
 - (void)invokeUsingIMP:(IMP)imp
 {
+    /* The call's registers come back into a scratch copy of the frame: the
+     * result registers (x0, v0...) are also argument registers, and the
+     * invocation's arguments must survive the call. */
     ArgInfo *r = [_signature _finchReturn];
-    if (r->indirect) *(void **)(_frame + FRAME_X8) = _retdata;
+    NSUInteger length = [_signature frameLength];
+    unsigned char stackbuf[512], *frame = length <= sizeof(stackbuf) ? stackbuf : malloc(length);
+    memcpy(frame, _frame, length);
+    if (r->indirect) *(void **)(frame + FRAME_X8) = _retdata;
     id old = (_retainedArgs && r->isObject) ? *(id *)_retdata : nil;
-    __CFFinchInvoke(_frame, (void *)imp, _frame + FRAME_STACK, [_signature frameLength] - FRAME_STACK);
-    if (!r->indirect) frame_get(r, _frame, _retdata);
+    __CFFinchInvoke(frame, (void *)imp, frame + FRAME_STACK, length - FRAME_STACK);
+    if (!r->indirect) frame_get(r, frame, _retdata);
+    if (frame != stackbuf) free(frame);
     if (_retainedArgs && r->isObject) {
         [*(id *)_retdata retain];
         [old release];

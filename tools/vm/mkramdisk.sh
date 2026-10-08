@@ -19,6 +19,10 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 ROOT="${FINCH_ROOT}/build/root"
 
 mkdir -p "${OUT}"
+# An interrupted build can leave the previous image attached; copying over
+# it then makes the APFS resize below fail. Detach it first.
+stale=$(hdiutil info | awk -v img="${OUT}/ramdisk.dmg" '$1 == "image-path" { f = ($3 == img) } f && /^\/dev\/disk[0-9]+[ \t]/ { print $1; exit }')
+[[ -n "${stale}" ]] && hdiutil detach -force "${stale}" >/dev/null
 cp "${FW}/ramdisk.dmg" "${OUT}/ramdisk.dmg"
 # Grow the image. It's raw APFS with no partition map, which `hdiutil resize`
 # rejects, so extend the file and let APFS grow its container into the new
