@@ -47,6 +47,7 @@ foundation for an open replacement for iOS on iPhone/iPad hardware.
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md): the layer cake and where each piece comes from
+- [Stack](docs/STACK.md): diagrams of what runs on Finch today and how it links
 - [Roadmap](docs/ROADMAP.md): phased milestones with exit criteria
 - [Licensing](docs/LICENSING.md): what we can import, from whom, and how
 - [Hardware](docs/HARDWARE.md): target machines and the dev/test setup
