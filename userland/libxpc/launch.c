@@ -10,8 +10,9 @@
  * request names the caller's job and its MachServices, and the receive
  * rights come from bootstrap_check_in, as a job using the newer API gets
  * them. The reply has the shape launchd's has: {Label, MachServices: {name:
- * machport}}. Other requests fail with ENOTSUP. Sockets (launchd's socket
- * activation) aren't provided yet.
+ * machport}, Sockets: {name: [fd]}}. A job inherits its sockets from
+ * finch-init, which reports their descriptors; launch_activate_socket() asks
+ * the same way. Other requests fail with ENOTSUP.
  */
 
 #include <errno.h>
@@ -63,8 +64,10 @@ launch_data_get_type(const launch_data_t d)
 	return d->type;
 }
 
-void
-launch_data_free(launch_data_t d)
+/* <launch.h> declares launch_data_free's argument nonnull, which lets the
+ * compiler drop a NULL check there; empty slots are freed through this. */
+static void
+data_free(launch_data_t d)
 {
 	if (d == NULL) {
 		return;
@@ -73,7 +76,7 @@ launch_data_free(launch_data_t d)
 	case LAUNCH_DATA_DICTIONARY:
 	case LAUNCH_DATA_ARRAY:
 		for (size_t i = 0; i < d->count; i++) {
-			launch_data_free(d->items[i]);
+			data_free(d->items[i]);
 		}
 		free(d->items);
 		break;
@@ -85,6 +88,12 @@ launch_data_free(launch_data_t d)
 		break;
 	}
 	free(d);
+}
+
+void
+launch_data_free(launch_data_t d)
+{
+	data_free(d);
 }
 
 launch_data_t
@@ -141,7 +150,7 @@ launch_data_dict_insert(launch_data_t dict, const launch_data_t value, const cha
 	}
 	for (size_t i = 0; i < dict->count; i += 2) {
 		if (strcmp(dict->items[i]->bytes, key) == 0) {
-			launch_data_free(dict->items[i + 1]);
+			data_free(dict->items[i + 1]);
 			dict->items[i + 1] = value;
 			return true;
 		}
@@ -177,8 +186,8 @@ launch_data_dict_remove(launch_data_t dict, const char *key)
 	}
 	for (size_t i = 0; i < dict->count; i += 2) {
 		if (strcmp(dict->items[i]->bytes, key) == 0) {
-			launch_data_free(dict->items[i]);
-			launch_data_free(dict->items[i + 1]);
+			data_free(dict->items[i]);
+			data_free(dict->items[i + 1]);
 			memmove(&dict->items[i], &dict->items[i + 2],
 			    (dict->count - i - 2) * sizeof(launch_data_t));
 			dict->count -= 2;
@@ -216,7 +225,7 @@ launch_data_array_set_index(launch_data_t array, const launch_data_t value, size
 	if (index >= array->count && !grow(array, index + 1)) {
 		return false;
 	}
-	launch_data_free(array->items[index]);
+	data_free(array->items[index]);
 	array->items[index] = value;
 	return true;
 }
@@ -333,11 +342,11 @@ launch_data_get_opaque_size(const launch_data_t d)
 
 #pragma mark launch_msg
 
-static launch_data_t
-checkin(void)
+/* finch-init's description of the caller's job (a reply to retain), or NULL with errno set. */
+static xpc_object_t
+copy_own_job(xpc_object_t *reply_out)
 {
-	xpc_object_t req = xpc_dictionary_create(NULL, NULL, 0), reply = NULL, job, services;
-	launch_data_t result, mach;
+	xpc_object_t req = xpc_dictionary_create(NULL, NULL, 0), reply = NULL, job;
 	int rc;
 
 	xpc_dictionary_set_string(req, "op", "checkin");
@@ -354,6 +363,19 @@ checkin(void)
 		errno = rc ? rc : ESRCH;
 		return NULL;
 	}
+	*reply_out = reply;
+	return job;
+}
+
+static launch_data_t
+checkin(void)
+{
+	xpc_object_t reply, job = copy_own_job(&reply), services, sockets;
+	launch_data_t result, mach;
+
+	if (job == NULL) {
+		return NULL;
+	}
 
 	result = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 	launch_data_dict_insert(result,
@@ -368,8 +390,48 @@ checkin(void)
 		}
 	}
 	launch_data_dict_insert(result, mach, LAUNCH_JOBKEY_MACHSERVICES);
+	sockets = xpc_dictionary_get_value(job, "sockets");
+	if (sockets != NULL) {
+		launch_data_t socks = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+		xpc_dictionary_apply(sockets, ^bool(const char *name, xpc_object_t fds) {
+			launch_data_t a = launch_data_alloc(LAUNCH_DATA_ARRAY);
+			for (size_t i = 0; i < xpc_array_get_count(fds); i++) {
+				launch_data_array_set_index(a,
+				    launch_data_new_fd((int)xpc_array_get_int64(fds, i)), i);
+			}
+			launch_data_dict_insert(socks, a, name);
+			return true;
+		});
+		launch_data_dict_insert(result, socks, LAUNCH_JOBKEY_SOCKETS);
+	}
 	xpc_release(reply);
 	return result;
+}
+
+/* launch_activate_socket(3): the descriptors of the caller's socket `name`. */
+int
+launch_activate_socket(const char *name, int **fds, size_t *count)
+{
+	xpc_object_t reply, job = copy_own_job(&reply), sockets, list;
+
+	*fds = NULL;
+	*count = 0;
+	if (job == NULL) {
+		return errno == ESRCH ? ESRCH : errno;
+	}
+	sockets = xpc_dictionary_get_value(job, "sockets");
+	list = sockets ? xpc_dictionary_get_value(sockets, name) : NULL;
+	if (list == NULL || xpc_array_get_count(list) == 0) {
+		xpc_release(reply);
+		return ENOENT;
+	}
+	*count = xpc_array_get_count(list);
+	*fds = malloc(*count * sizeof(int));
+	for (size_t i = 0; i < *count; i++) {
+		(*fds)[i] = (int)xpc_array_get_int64(list, i);
+	}
+	xpc_release(reply);
+	return 0;
 }
 
 launch_data_t

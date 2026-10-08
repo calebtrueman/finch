@@ -1026,7 +1026,6 @@ int _launch_job_routine_async(int routine, xpc_object_t msg, xpc_object_t *reply
 int _xpc_domain_routine(int routine, xpc_object_t msg, xpc_object_t *reply);
 int _xpc_service_routine(int routine, xpc_object_t msg, xpc_object_t *reply);
 void *_launch_msg2(void *request, int fd, void *reply_block);
-int launch_activate_socket(const char *name, int **fds, size_t *count);
 #include <launch.h>
 
 int _launch_job_routine(int r, xpc_object_t m, xpc_object_t *o) { (void)r; (void)m; if (o) *o = NULL; return ENOTSUP; }
@@ -1034,7 +1033,6 @@ int _launch_job_routine_async(int r, xpc_object_t m, xpc_object_t *o) { (void)r;
 int _xpc_domain_routine(int r, xpc_object_t m, xpc_object_t *o) { (void)r; (void)m; if (o) *o = NULL; return ENOTSUP; }
 int _xpc_service_routine(int r, xpc_object_t m, xpc_object_t *o) { (void)r; (void)m; if (o) *o = NULL; return ENOTSUP; }
 void *_launch_msg2(void *req, int fd, void *b) { (void)req; (void)fd; (void)b; errno = ENOTSUP; return NULL; }
-int launch_activate_socket(const char *n, int **f, size_t *c) { (void)n; *f = NULL; *c = 0; return ENOENT; }
 
 #pragma mark - OS version queries
 

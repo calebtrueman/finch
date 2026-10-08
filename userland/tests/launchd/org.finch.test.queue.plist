@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test job: started while /tmp/finch-queue has entries; moves one out per run. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.queue</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>mkdir -p /tmp/finch-done; f=$(ls /tmp/finch-queue | head -1); [ -n "$f" ] &amp;&amp; mv "/tmp/finch-queue/$f" /tmp/finch-done/</string>
+	</array>
+	<key>QueueDirectories</key>
+	<array>
+		<string>/tmp/finch-queue</string>
+	</array>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+</dict>
+</plist>

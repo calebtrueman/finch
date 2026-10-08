@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test job: started every 2 seconds, and when /tmp/finch-watched changes. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.triggers</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>echo run &gt;&gt; /tmp/finch-triggers.log</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>2</integer>
+	<key>WatchPaths</key>
+	<array>
+		<string>/tmp/finch-watched</string>
+	</array>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+</dict>
+</plist>

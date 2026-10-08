@@ -86,8 +86,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
   - [x] **Service manager** in finch-init: launchd job plists, MachServices with launch on
         demand, KeepAlive, run as another user (`docs/design/SERVICES.md`)
     - [x] `launchctl` (Finch's own: list, print, start/stop, kickstart, kill, load/unload)
-    - [ ] LaunchAgents and per-user domains, Sockets/timers/WatchPaths,
-          shutdown
+    - [x] Sockets, StartInterval, StartCalendarInterval, WatchPaths, QueueDirectories,
+          `launch_activate_socket` and `launch_msg` check-in (2026-10-07)
+    - [ ] LaunchAgents and per-user domains
     - [ ] Run Apple's open-source daemons under it (notifyd, syslogd, configd, ...)
       - [x] notifyd; syslogd (checks in with `launch_msg`, which Finch's libxpc
             answers from finch-init's job; 2026-10-07)

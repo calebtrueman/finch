@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Test job: started when a client connects to its socket. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.socket</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/finch-socket-test</string>
+		<string>daemon</string>
+	</array>
+	<key>Sockets</key>
+	<dict>
+		<key>Listeners</key>
+		<dict>
+			<key>SockPathName</key>
+			<string>/var/run/org.finch.test.socket</string>
+			<key>SockPathMode</key>
+			<integer>438</integer>
+		</dict>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+	<key>StandardErrorPath</key>
+	<string>/var/log/org.finch.test.socket.log</string>
+</dict>
+</plist>

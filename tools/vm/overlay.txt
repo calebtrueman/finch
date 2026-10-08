@@ -13,6 +13,10 @@ userland/LaunchDaemons/com.apple.notifyd.plist /System/Library/Finch/LaunchDaemo
 userland/LaunchDaemons/com.apple.syslogd.plist /System/Library/Finch/LaunchDaemons/com.apple.syslogd.plist
 build/userland/launchctl /bin/launchctl
 userland/tests/launchd/org.finch.test.unprivileged.plist /System/Library/Finch/LaunchDaemons/org.finch.test.unprivileged.plist
+userland/tests/launchd/org.finch.test.socket.plist /System/Library/Finch/LaunchDaemons/org.finch.test.socket.plist
+userland/tests/launchd/org.finch.test.triggers.plist /System/Library/Finch/LaunchDaemons/org.finch.test.triggers.plist
+userland/tests/launchd/org.finch.test.queue.plist /System/Library/Finch/LaunchDaemons/org.finch.test.queue.plist
+build/userland/finch-socket-test /usr/local/bin/finch-socket-test
 build/userland/finch-launch-bench /usr/local/bin/finch-launch-bench
 build/userland/finch-cxx-test /usr/local/bin/finch-cxx-test
 build/userland/finch-trace /usr/local/bin/finch-trace

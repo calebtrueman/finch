@@ -9,7 +9,9 @@
  *   Label, Program, ProgramArguments, MachServices, RunAtLoad, KeepAlive
  *   (bool, or a dictionary with SuccessfulExit), EnvironmentVariables,
  *   WorkingDirectory, StandardInPath, StandardOutPath, StandardErrorPath,
- *   UserName, GroupName, ThrottleInterval, Disabled.
+ *   UserName, GroupName, ThrottleInterval, Disabled, and the launch-on-demand
+ *   triggers StartInterval, StartCalendarInterval, WatchPaths,
+ *   QueueDirectories and Sockets (triggers.c).
  *
  * Unknown keys are ignored. Everything runs on finch-init's serial queue.
  */
@@ -33,6 +35,7 @@
 
 #include "bootstrapd.h"
 #include "jobs.h"
+#include "triggers.h"
 
 xpc_object_t xpc_create_from_plist(const void *data, size_t length);
 
@@ -41,34 +44,10 @@ int posix_spawnattr_set_uid_np(const posix_spawnattr_t *attr, uid_t uid);
 int posix_spawnattr_set_gid_np(const posix_spawnattr_t *attr, gid_t gid);
 int posix_spawnattr_set_groups_np(const posix_spawnattr_t *attr, int ngroups, gid_t *gidarray, uid_t gmuid);
 
-#define DEFAULT_THROTTLE_SEC 10   /* launchd's ThrottleInterval default */
-
-enum keepalive { KEEPALIVE_NO, KEEPALIVE_ALWAYS, KEEPALIVE_ON_SUCCESS, KEEPALIVE_ON_FAILURE };
-
-struct job {
-	char *label;
-	char *program;
-	char **argv;
-	xpc_object_t env;           /* EnvironmentVariables dictionary, or NULL */
-	char *cwd, *stdin_path, *stdout_path, *stderr_path, *user, *group;
-	bool run_at_load;
-	enum keepalive keepalive;
-	int throttle;
-	int nservices;
-	pid_t pid;
-	time_t started;
-	bool start_pending;         /* a throttled start is scheduled */
-	char *path;                 /* plist it came from */
-	int runs;                   /* times started */
-	int last_exit;              /* exit status, or -signal; INT_MIN if never exited */
-	bool unloading;             /* removed; freed when the process exits */
-	struct job *next;
-};
-
 static struct job *jobs;
-static dispatch_queue_t queue;
+dispatch_queue_t queue;
 static bool shutting_down;
-static void (*log_fn)(const char *fmt, ...);
+void (*log_fn)(const char *fmt, ...);
 
 static char *
 dup_string(xpc_object_t dict, const char *key)
@@ -77,9 +56,10 @@ dup_string(xpc_object_t dict, const char *key)
 	return s ? strdup(s) : NULL;
 }
 
-static void
+void
 job_free(struct job *j)
 {
+	triggers_free(j);
 	free(j->label);
 	free(j->program);
 	for (char **a = j->argv; a && *a; a++) free(*a);
@@ -159,6 +139,10 @@ job_from_plist(xpc_object_t plist, const char *path)
 			j->keepalive = KEEPALIVE_ALWAYS;
 		}
 	}
+	if (!triggers_parse(j, plist)) {
+		job_free(j);
+		return NULL;
+	}
 	return j;
 }
 
@@ -188,7 +172,6 @@ add_open(posix_spawn_file_actions_t *fa, int fd, const char *path, int flags)
 	return posix_spawn_file_actions_addopen(fa, fd, path, flags, 0644);
 }
 
-static void job_start(struct job *j);
 
 static void
 job_spawn(struct job *j)
@@ -239,6 +222,7 @@ job_spawn(struct job *j)
 	envp[i] = NULL;
 
 	posix_spawn_file_actions_init(&fa);
+	triggers_inherit(j, &fa);
 	add_open(&fa, STDIN_FILENO, j->stdin_path ? j->stdin_path : "/dev/null", O_RDONLY);
 	add_open(&fa, STDOUT_FILENO, j->stdout_path ? j->stdout_path : "/dev/null",
 	    O_WRONLY | O_CREAT | O_APPEND);
@@ -283,10 +267,11 @@ job_spawn(struct job *j)
 	}
 	j->started = time(NULL);
 	j->runs++;
+	triggers_started(j);
 }
 
 /* Start now, or after the throttle interval if it last started too recently. */
-static void
+void
 job_start(struct job *j)
 {
 	time_t now = time(NULL);
@@ -384,6 +369,7 @@ job_load_file(const char *path, struct job **out)
 		}
 		j->next = jobs;
 		jobs = j;
+		triggers_arm(j);
 	}
 	xpc_release(plist);
 	if (out) *out = j;
@@ -459,6 +445,7 @@ jobs_child_exited(pid_t pid, int status)
 	if (restart) {
 		job_start(j);
 	}
+	triggers_exited(j);
 	/* Its services' receive rights come back via port-destroyed; watch them again. */
 	bootstrapd_rearm(j);
 	return true;
@@ -476,6 +463,7 @@ job_remove(struct job *j)
 		}
 	}
 	bootstrapd_undeclare(j);
+	triggers_disarm(j);
 	j->unloading = true;
 	if (j->pid > 0) {
 		kill(j->pid, SIGTERM);   /* freed when it exits */
@@ -521,6 +509,7 @@ job_describe(struct job *j)
 	bootstrapd_describe(j, svc);
 	xpc_dictionary_set_value(d, "services", svc);
 	xpc_release(svc);
+	triggers_describe(j, d);
 	return d;
 }
 

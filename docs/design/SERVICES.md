@@ -26,6 +26,7 @@ clients find them by the usual names.
 | Job | Program | Started |
 |---|---|---|
 | `com.apple.notifyd` | notifyd (Libnotify, built from source) | On demand, by the first notify client |
+| `com.apple.syslogd` | syslogd (syslog, built from source) | At boot; kept alive |
 
 ## Supported keys
 
@@ -41,10 +42,33 @@ clients find them by the usual names.
 | `WorkingDirectory`, `EnvironmentVariables` | As in launchd |
 | `StandardInPath`, `StandardOutPath`, `StandardErrorPath` | Default `/dev/null`. Files are opened (and created) by finch-init, so as root. |
 | `Disabled` | The job isn't loaded |
+| `StartInterval` | Start every N seconds |
+| `StartCalendarInterval` | Start when the local time matches a dictionary (or one of an array of them) of `Minute`, `Hour`, `Day`, `Weekday` (0 or 7 is Sunday), `Month`; a missing key matches anything. Checked at the start of each minute. |
+| `WatchPaths` | Start when a path changes, or appears (a missing path is looked for every 5 s) |
+| `QueueDirectories` | Start while a directory has entries; started again on exit until it's empty |
+| `Sockets` | See below |
 
 Every job also gets `XPC_SERVICE_NAME=<Label>` (as launchd sets it), plus `USER`,
 `LOGNAME` and `HOME` when it has a `UserName`. Jobs start in their own session with
-default signal handling, and no file descriptors are inherited except 0–2.
+default signal handling, and no file descriptors are inherited except 0–2 and the
+job's own sockets.
+
+## Sockets
+
+Each `Sockets` entry is a dictionary (or an array of them) of launchd's `Sock*` keys:
+`SockPathName` and `SockPathMode` for a Unix socket, or `SockNodeName`,
+`SockServiceName` and `SockFamily` (`IPv4`, `IPv6`) for internet sockets, with
+`SockType` `stream` (default), `dgram` or `seqpacket`. finch-init creates and binds
+them (and listens, for stream sockets) when the job loads, and starts the job when
+one is ready to read. Active sockets (`SockPassive = false`) and Bonjour aren't
+supported.
+
+The job inherits its sockets at the same descriptor numbers. It finds them as
+launchd jobs do: `launch_activate_socket(name, &fds, &count)`, or the `Sockets`
+dictionary of `launch_msg(LAUNCH_KEY_CHECKIN)`'s reply (`{name: [fd]}`). Finch's
+libxpc gets both from finch-init's `checkin` request, which describes the caller's
+job. While the job runs, finch-init stops watching its sockets; it watches them again
+when the job exits. Unloading the job closes them and removes Unix socket files.
 
 ## Mach services and launch on demand
 
