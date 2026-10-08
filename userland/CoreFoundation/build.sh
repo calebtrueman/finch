@@ -121,7 +121,8 @@ mkdir -p "${FW}/Versions/A"
 # less the one for Swift's constant-string class.
 # The compiler's constant-string class symbol is the ObjC class (CFObjC.m).
 { grep -v '^_\$s' "${CF}/DarwinSymbolAliases"
-  echo '_OBJC_CLASS_$___NSCFConstantString ___CFConstantStringClassReference'; } > "${OBJ}/aliases"
+  echo '_OBJC_CLASS_$___NSCFConstantString ___CFConstantStringClassReference'
+  grep -v '^#' "${HERE}/NSConstants.aliases"; } > "${OBJ}/aliases"
 # CF links Foundation upward, as Apple's does: __NSCFString subclasses
 # Foundation's NSMutableString, __NSCFNumber its NSNumber. Foundation links
 # CF, so CF is linked against a stub naming the Foundation classes it uses

@@ -33,3 +33,10 @@ extern char OBJC_CLASS_$___NSCFType[], OBJC_CLASS_$___NSCFBoolean[], OBJC_CLASS_
 #define __kCFAllocatorTypeID_CONST _kCFRuntimeIDCFAllocator
 
 #endif
+
+/* Apple's autorelease-pool entry points (CFPlatform_Finch.c), which the run
+ * loop uses around each callout. */
+#include <stdint.h>
+extern uintptr_t _CFAutoreleasePoolPush(void);
+extern void _CFAutoreleasePoolPop(uintptr_t pool);
+

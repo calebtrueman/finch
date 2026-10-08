@@ -31,8 +31,8 @@ block-beta
     block:L5
         columns 4
         t5["Foundation layer"]
-        foundation["Foundation<br/>strings, numbers, threads, files,<br/>bundles, notifications, queues"]
-        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, NSURL, run loops,<br/>timers, forwarding"]
+        foundation["Foundation<br/>strings, numbers, threads, files,<br/>bundles, formatters, queues"]
+        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, NSURL, locales,<br/>calendars, defaults, run loops"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         space5[" "]
         icu["libicucore<br/>ICU-76142.4.7"]
@@ -53,6 +53,10 @@ block-beta
         pam["OpenPAM + pam_modules"]
         pamunix["pam_unix, Finch pam.d"]
         ess["libEndpointSecuritySystem"]
+        space4b[" "]
+        tz["tzdata 2026c (IANA)"]
+        space4c[" "]
+        space4d[" "]
     end
     block:L3
         columns 4
@@ -106,9 +110,9 @@ block-beta
     class apps,desktop,shell,appkit,cg,later,kexts,metal planned
     class cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
-    class swift,codecs,cxx,qemu upstream
+    class swift,codecs,cxx,qemu,tz upstream
     class vz firmware
-    class space5,space5b,space5c,space4,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space5,space5b,space5c,space4,space4b,space4c,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |

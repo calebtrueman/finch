@@ -180,4 +180,17 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   string file I/O. Finch's frameworks now carry Info.plists with Apple's
   identifiers (`tools/mkframeworkplist.sh`). `finch-files-test` is identical
   to Apple's (the CFURL class name aside, which it doesn't print).
+- 2026-10-08: international. In CF: `NSLocale`, `NSTimeZone`, `NSCalendar` and
+  `NSDateComponents`, with `__NSCFLocale`, `__NSCFTimeZone` and `__NSCFCalendar` as
+  the classes of CF's objects (Apple's are Swift now; the behaviour is ICU's
+  either way); `NSUserDefaults` over CFPreferences (argument, app, global and
+  registration domains, Apple's typed conversions); the 274 `NS*` string
+  constants Apple's CF exports (`NSConstants_Finch.c`, 52 of them linker
+  aliases of CF's own kCF constants, as on macOS); `_CFAutoreleasePoolPush`,
+  with an autorelease pool around each run-loop callout as Apple's run loop
+  has. CF now asks ObjC numbers for their type (`DEPLOYMENT_RUNTIME_OBJC`
+  paths in CFNumber), which literal numbers need. In Foundation: `NSFormatter`,
+  `NSDateFormatter` and `NSNumberFormatter` over CF's formatters. The image gets
+  the time-zone database, built from IANA's tzdata 2026c (`userland/tzdata`).
+  `finch-intl-test` is identical to Apple's on the host and in the VM.
 

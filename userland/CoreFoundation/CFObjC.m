@@ -388,6 +388,12 @@ __CFFinchInitializeObjC(void)
     extern void __CFFinchInitializeRunLoopClasses(void);
     extern Class __CFFinchTimerClass(void);
     __CFFinchInitializeRunLoopClasses();
+    extern void __CFFinchInitializeLocaleClasses(Class *, Class *, Class *);
+    Class locale, zone, calendar;
+    __CFFinchInitializeLocaleClasses(&locale, &zone, &calendar);
+    set_class(_kCFRuntimeIDCFLocale, locale);
+    set_class(_kCFRuntimeIDCFTimeZone, zone);
+    set_class(_kCFRuntimeIDCFCalendar, calendar);
     extern Class __CFFinchInitializeURLClasses(void);
     set_class(_kCFRuntimeIDCFURL, __CFFinchInitializeURLClasses());
     set_class(_kCFRuntimeIDCFRunLoopTimer, __CFFinchTimerClass());

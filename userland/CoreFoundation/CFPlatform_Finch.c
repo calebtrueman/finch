@@ -39,3 +39,10 @@ void __CFRunLoopSetOptionsReason(__CFRunLoopOptions options, CFStringRef reason)
     (void)options;
     (void)reason;
 }
+
+/* Apple's CoreFoundation exports these; the run loop pushes a pool around
+ * each callout with them. */
+extern void *objc_autoreleasePoolPush(void);
+extern void objc_autoreleasePoolPop(void *pool);
+CF_EXPORT uintptr_t _CFAutoreleasePoolPush(void) { return (uintptr_t)objc_autoreleasePoolPush(); }
+CF_EXPORT void _CFAutoreleasePoolPop(uintptr_t pool) { objc_autoreleasePoolPop((void *)pool); }

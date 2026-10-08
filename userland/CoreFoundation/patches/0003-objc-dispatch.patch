@@ -59,8 +59,29 @@ index 5814281..d7a4764 100644
 +CF_PRIVATE Boolean _CFDataIsMutable(CFDataRef data) {
 +    return __CFDataIsMutable(data);
 +}
+diff --git a/Sources/CoreFoundation/CFNumber.c b/Sources/CoreFoundation/CFNumber.c
+index fca8f61..7c83a70 100644
+--- a/Sources/CoreFoundation/CFNumber.c
++++ b/Sources/CoreFoundation/CFNumber.c
+@@ -1177,14 +1177,14 @@ CFNumberRef CFNumberCreate(CFAllocatorRef allocator, CFNumberType type, const vo
+ CFNumberType CFNumberGetType(CFNumberRef number) {
+     CF_SWIFT_FUNCDISPATCHV(_kCFRuntimeIDCFNumber, CFNumberType, (CFSwiftRef)number, NSNumber._cfNumberGetType);
+     CFNumberType type;
+-#if DEPLOYMENT_RUNTIME_OBJC
++#if DEPLOYMENT_RUNTIME_OBJC || __OBJC__  // Finch: CF is compiled as ObjC
+     if (CF_IS_OBJC(_kCFRuntimeIDCFNumber, (const void *)number)) {
+         type = (CFNumberType)[(NSNumber *)number _cfNumberType];
+     } else {
+ #endif
+          __CFAssertIsNumber(number);
+         type = __CFNumberGetType(number);
+-#if DEPLOYMENT_RUNTIME_OBJC
++#if DEPLOYMENT_RUNTIME_OBJC || __OBJC__  // Finch: CF is compiled as ObjC
+     }
+ #endif
+     if (kCFNumberSInt128Type == type) type = kCFNumberSInt64Type; // must hide this type, since it is not public
 diff --git a/Sources/CoreFoundation/CFRunLoop.c b/Sources/CoreFoundation/CFRunLoop.c
-index 3a6a0aa..732a613 100644
+index 3a6a0aa..975f792 100644
 --- a/Sources/CoreFoundation/CFRunLoop.c
 +++ b/Sources/CoreFoundation/CFRunLoop.c
 @@ -97,7 +97,9 @@ extern _CFThreadRef pthread_main_thread_np(void);
@@ -73,6 +94,26 @@ index 3a6a0aa..732a613 100644
  
  extern mach_port_t _dispatch_get_main_queue_port_4CF(void);
  
+@@ -980,7 +982,7 @@ struct __CFRunLoop {
+ 
+ // When `rl` is 0, will push an ARP unconditionally. A hack to facilitate places where we had ARPs before.
+ static inline uintptr_t __CFRunLoopPerCalloutARPBegin(CFRunLoopRef rl) {
+-#if DEPLOYMENT_RUNTIME_OBJC
++#if DEPLOYMENT_RUNTIME_OBJC || __OBJC__  // Finch: an autorelease pool per callout, as Apple's
+     return !rl || rl->_perCalloutARP ? _CFAutoreleasePoolPush() : 0;
+ #else
+     return 0;
+@@ -988,7 +990,9 @@ static inline uintptr_t __CFRunLoopPerCalloutARPBegin(CFRunLoopRef rl) {
+ }
+ 
+ static inline void __CFRunLoopPerCalloutARPEnd(const uintptr_t pool) {
+-#if DEPLOYMENT_RUNTIME_OBJC
++#if __OBJC__ && !DEPLOYMENT_RUNTIME_OBJC
++    if (pool) _CFAutoreleasePoolPop(pool);   // Finch: exceptions pass through
++#elif DEPLOYMENT_RUNTIME_OBJC
+     if (pool) {
+         @try {
+             _CFAutoreleasePoolPop(pool);
 diff --git a/Sources/CoreFoundation/CFRuntime.c b/Sources/CoreFoundation/CFRuntime.c
 index 9163064..343aad2 100644
 --- a/Sources/CoreFoundation/CFRuntime.c

@@ -40,6 +40,7 @@ build/userland/finch-forward-test /usr/local/bin/finch-forward-test
 build/userland/finch-foundation-test /usr/local/bin/finch-foundation-test
 build/userland/finch-runtime-test /usr/local/bin/finch-runtime-test
 build/userland/finch-files-test /usr/local/bin/finch-files-test
+build/userland/finch-intl-test /usr/local/bin/finch-intl-test
 build/userland/finch-log-test /usr/local/bin/finch-log-test
 build/userland/finch-hardened-test /usr/local/bin/finch-hardened-test
 build/userland/finch-debuggee /usr/local/bin/finch-debuggee

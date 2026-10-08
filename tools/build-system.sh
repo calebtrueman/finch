@@ -69,6 +69,7 @@ steps=(
     # (the other pam_modules need closed frameworks: OpenDirectory, Heimdal, LocalAuthentication)
     # ICU (libicucore + data), for CoreFoundation (docs/design/COREFOUNDATION.md)
     "ICU|oss ICU"
+    "tzdata|userland/tzdata/build.sh"
     "CoreFoundation|userland/CoreFoundation/build.sh"
     # Finch's Foundation (CF links it upward; docs/design/FOUNDATION.md)
     "Foundation|userland/Foundation/build.sh"

@@ -19,6 +19,10 @@ mkdir -p /private/var/tmp/folders && chmod 755 /private/var/tmp/folders
 # /var/db, the daemons' state, is a link into /private/var/rw for the same
 # reason, and so is /Users (home directories).
 mkdir -p /private/var/rw/db /private/var/rw/Users
+# The time-zone database is in the image at /usr/share/zoneinfo; macOS (and
+# CoreFoundation, and /etc/localtime) look in /var/db/timezone/zoneinfo.
+mkdir -p /private/var/rw/db/timezone
+ln -sfn /usr/share/zoneinfo /private/var/rw/db/timezone/zoneinfo
 chmod 755 /private/var/rw /private/var/rw/db /private/var/rw/Users
 chmod 750 /private/var/root
 
