@@ -133,4 +133,6 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
   authentication enforced) and in the VM. It covers strings, collections,
   property lists (byte-identical XML and binary), ICU formatting, locales,
   calendars, URLs, run-loop timers and Mach ports, blocks, and the ObjC classes
-  of CF objects. libswiftCore is built from source.
+  of CF objects. libswiftCore is built from source, and `finch-swift-hello`
+  (arrays, dictionaries, strings, closures, generics) runs on it in the VM
+  with output identical to the host's.
