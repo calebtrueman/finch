@@ -89,6 +89,65 @@ FinchCreateWithFormat(CFDictionaryRef options, CFStringRef format, va_list args)
 
 /* MARK: - Functions */
 
+/* NSObject.h's allocation functions. Zones are gone; the extra reference
+ * counts live in a side table for classes that count their own. */
+id
+NSAllocateObject(Class aClass, NSUInteger extraBytes, NSZone *zone)
+{
+    return class_createInstance(aClass, extraBytes);
+}
+
+void
+NSDeallocateObject(id object)
+{
+    object_dispose(object);
+}
+
+id
+NSCopyObject(id object, NSUInteger extraBytes, NSZone *zone)
+{
+    return object_copy(object, class_getInstanceSize(object_getClass(object)) + extraBytes);
+}
+
+BOOL
+NSShouldRetainWithZone(id anObject, NSZone *requestedZone)
+{
+    return YES;
+}
+
+static pthread_mutex_t extra_lock = PTHREAD_MUTEX_INITIALIZER;
+static CFMutableDictionaryRef extra_counts;
+
+void
+NSIncrementExtraRefCount(id object)
+{
+    pthread_mutex_lock(&extra_lock);
+    if (!extra_counts) extra_counts = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+    uintptr_t n = (uintptr_t)CFDictionaryGetValue(extra_counts, object);
+    CFDictionarySetValue(extra_counts, object, (const void *)(n + 1));
+    pthread_mutex_unlock(&extra_lock);
+}
+
+BOOL
+NSDecrementExtraRefCountWasZero(id object)
+{
+    pthread_mutex_lock(&extra_lock);
+    uintptr_t n = extra_counts ? (uintptr_t)CFDictionaryGetValue(extra_counts, object) : 0;
+    if (n > 1) CFDictionarySetValue(extra_counts, object, (const void *)(n - 1));
+    else if (n == 1) CFDictionaryRemoveValue(extra_counts, object);
+    pthread_mutex_unlock(&extra_lock);
+    return n == 0;
+}
+
+NSUInteger
+NSExtraRefCount(id object)
+{
+    pthread_mutex_lock(&extra_lock);
+    uintptr_t n = extra_counts ? (uintptr_t)CFDictionaryGetValue(extra_counts, object) : 0;
+    pthread_mutex_unlock(&extra_lock);
+    return n;
+}
+
 NSString *
 NSStringFromClass(Class aClass)
 {
@@ -303,6 +362,52 @@ NSLog(NSString *format, ...)
     return [NSArray arrayWithArray:m];
 }
 
+- (NSArray *)sortedArrayWithOptions:(NSSortOptions)opts usingComparator:(NSComparator NS_NOESCAPE)cmptr
+{
+    return [self sortedArrayUsingComparator:cmptr];
+}
+
+- (NSArray *)sortedArrayUsingFunction:(NSInteger (NS_NOESCAPE *)(id, id, void *))comparator context:(void *)context
+{
+    NSMutableArray *m = [[self mutableCopy] autorelease];
+    [m sortUsingFunction:comparator context:context];
+    return [NSArray arrayWithArray:m];
+}
+
+- (NSArray *)sortedArrayUsingFunction:(NSInteger (NS_NOESCAPE *)(id, id, void *))comparator context:(void *)context hint:(NSData *)hint
+{
+    return [self sortedArrayUsingFunction:comparator context:context];
+}
+
+- (NSData *)sortedArrayHint { return [NSData data]; }
+
+/* Binary search, as Apple's: the range must be sorted by `cmp`. */
+- (NSUInteger)indexOfObject:(id)obj inSortedRange:(NSRange)r options:(NSBinarySearchingOptions)opts usingComparator:(NSComparator NS_NOESCAPE)cmp
+{
+    if (NSMaxRange(r) > [self count])
+        FinchRaise(NSRangeException, "*** -[NSArray indexOfObject:inSortedRange:options:usingComparator:]: range {%lu, %lu} extends beyond bounds [0 .. %lu]",
+            (unsigned long)r.location, (unsigned long)r.length, (unsigned long)([self count] ? [self count] - 1 : 0));
+    BOOL first = (opts & NSBinarySearchingFirstEqual) != 0, last = (opts & NSBinarySearchingLastEqual) != 0;
+    BOOL insert = (opts & NSBinarySearchingInsertionIndex) != 0;
+    NSUInteger lo = r.location, hi = NSMaxRange(r), found = NSNotFound;
+    while (lo < hi) {
+        NSUInteger mid = lo + (hi - lo) / 2;
+        NSComparisonResult c = cmp([self objectAtIndex:mid], obj);
+        if (c == NSOrderedSame) {
+            found = mid;
+            if (first || (insert && !last)) hi = mid;
+            else if (last) lo = mid + 1;
+            else break;
+        } else if (c == NSOrderedAscending) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    if (insert) return found != NSNotFound && !last && !first ? found : (last && found != NSNotFound ? found + 1 : lo);
+    return found;
+}
+
 @end
 
 /* CoreFoundation's NSMutableArray has this (CF sends it to ObjC arrays). */
@@ -341,6 +446,25 @@ sort(NSMutableArray *self, CFComparatorFunction fn, void *context)
 
 - (void)sortUsingSelector:(SEL)comparator { sort(self, selector_compare, comparator); }
 - (void)sortUsingComparator:(NSComparator NS_NOESCAPE)cmptr { sort(self, block_compare, cmptr); }
+- (void)sortWithOptions:(NSSortOptions)opts usingComparator:(NSComparator NS_NOESCAPE)cmptr { sort(self, block_compare, cmptr); }
+
+typedef struct {
+    NSInteger (*fn)(id, id, void *);
+    void *context;
+} FunctionComparison;
+
+static CFComparisonResult
+function_compare(const void *a, const void *b, void *context)
+{
+    FunctionComparison *f = context;
+    return (CFComparisonResult)f->fn((id)a, (id)b, f->context);
+}
+
+- (void)sortUsingFunction:(NSInteger (NS_NOESCAPE *)(id, id, void *))compare context:(void *)context
+{
+    FunctionComparison f = { compare, context };
+    sort(self, function_compare, &f);
+}
 
 @end
 

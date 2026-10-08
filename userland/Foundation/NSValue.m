@@ -417,10 +417,12 @@ INIT(initWithUnsignedInteger, NSUInteger)
 
 @end
 
+/* Not through CF's cache of small integers, which makes them all SInt32:
+ * [NSNumber numberWithLongLong:5] is a "q", as Apple's is. */
 static id
 cfnumber(CFNumberType type, const void *value)
 {
-    return (id)CFNumberCreate(NULL, type, value);
+    return (id)CFNumberCreate(kCFAllocatorMalloc, type, value);
 }
 
 @implementation NSPlaceholderNumber

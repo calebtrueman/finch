@@ -181,10 +181,15 @@ check_mutable(id self, SEL _cmd)
 
 /* CFNumber and CFBoolean as NSNumbers (Foundation's class, linked upward):
  * -objCType and -getValue: are what NSNumber's accessors build on. */
+CF_EXPORT CFNumberType _CFNumberGetType2(CFNumberRef number);
+#define FINCH_SINT128 ((CFNumberType)17)   /* kCFNumberSInt128Type, CFNumber_Private.h */
+
+/* Unsigned values above LLONG_MAX are 128-bit CFNumbers: "Q", as Apple's. */
 static const char *
 number_objc_type(CFNumberRef n)
 {
-    switch (CFNumberGetType(n)) {
+    switch (_CFNumberGetType2(n)) {
+    case FINCH_SINT128: return "Q";
     case kCFNumberSInt8Type: case kCFNumberCharType: return "c";
     case kCFNumberSInt16Type: case kCFNumberShortType: return "s";
     case kCFNumberSInt32Type: case kCFNumberIntType: return "i";
@@ -213,6 +218,12 @@ FINCH_CF_OBJECT_MEMORY
     case 'i': CFNumberGetValue(n, kCFNumberIntType, value); break;
     case 'f': CFNumberGetValue(n, kCFNumberFloatType, value); break;
     case 'd': CFNumberGetValue(n, kCFNumberDoubleType, value); break;
+    case 'Q': {
+        struct { int64_t high; uint64_t low; } s128;
+        CFNumberGetValue(n, FINCH_SINT128, &s128);
+        memcpy(value, &s128.low, sizeof(s128.low));
+        break;
+    }
     default: CFNumberGetValue(n, kCFNumberLongLongType, value); break;
     }
 }

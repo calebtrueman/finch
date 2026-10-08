@@ -432,18 +432,15 @@ collection_operator(id collection, NSString *keyPath)
         if (v && v != [NSNull null]) [values addObject:v];
     }
     if ([op isEqualToString:NSSumKeyValueOperator] || [op isEqualToString:NSAverageKeyValueOperator]) {
-        double sum = 0;
-        BOOL integral = YES;
-        for (NSNumber *n in values) {
-            sum += [n doubleValue];
-            integral = integral && (strchr("cCsSiIlLqQB", *[n objCType]) != NULL);
-        }
+        /* Apple's adds in decimal and answers an NSDecimalNumber. */
+        NSDecimalNumber *sum = [NSDecimalNumber zero];
+        for (NSNumber *n in values)
+            sum = [sum decimalNumberByAdding:[NSDecimalNumber decimalNumberWithDecimal:[n decimalValue]]];
         if ([op isEqualToString:NSAverageKeyValueOperator]) {
             if ([values count] == 0) return nil;
-            sum /= (double)[values count];
-            integral = NO;
+            sum = [sum decimalNumberByDividingBy:[NSDecimalNumber decimalNumberWithMantissa:[values count] exponent:0 isNegative:NO]];
         }
-        return integral ? [NSNumber numberWithLongLong:(long long)sum] : [NSNumber numberWithDouble:sum];
+        return sum;
     }
     if ([op isEqualToString:NSMaximumKeyValueOperator] || [op isEqualToString:NSMinimumKeyValueOperator]) {
         BOOL max = [op isEqualToString:NSMaximumKeyValueOperator];

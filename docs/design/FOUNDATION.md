@@ -208,4 +208,17 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   `NSProcessInfo.arguments[0]` is the full executable path. `finch-kvc-test`
   is identical to Apple's on the host and in the VM; `@sum` and `@avg`
   return NSNumbers until NSDecimalNumber exists.
+- 2026-10-08: data formats. `NSDecimalNumber`, `NSDecimalNumberHandler` and
+  the `NSDecimal` functions (128-bit mantissas, worked on 1024-bit integers
+  so any two exponents line up; division to 39 digits, truncated, as
+  Apple's; every rounding mode); `NSScanner` (Apple's skipping, overflow and
+  hex rules, `-scanDecimal:`); `NSJSONSerialization` (Apple's number types,
+  error messages and positions, JSON5, pretty printing and sorted keys in
+  Finder's order); `NSUUID` (`__NSConcreteUUID`); `NSSortDescriptor` and the
+  descriptor, function and binary-search sorting methods; NSObject.h's
+  `NSAllocateObject` family. `@sum` and `@avg` now answer NSDecimalNumbers.
+  Numbers Foundation makes keep their type ([NSNumber numberWithLongLong:5]
+  is a `q`; CF's small-integer cache made it an `i`), and unsigned values
+  above `LLONG_MAX` are `Q`. `finch-data-test` is identical to Apple's on
+  the host and in the VM.
 

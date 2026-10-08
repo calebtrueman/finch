@@ -29,6 +29,11 @@ CFDictionaryRef FinchFormatOptions(id locale);
 __attribute__((visibility("hidden")))
 CFStringRef FinchCreateWithFormat(CFDictionaryRef options, CFStringRef format, va_list args);
 
+/* Parse a decimal number in `s` from `start` (NSDecimal.m): the index after
+ * it, or NSNotFound if there are no digits there. */
+__attribute__((visibility("hidden")))
+NSUInteger FinchScanDecimal(NSString *s, NSUInteger start, NSString *separator, NSDecimal *out);
+
 /* Objects that are never freed implement -dealloc without calling super. */
 #define FINCH_NO_SUPER_DEALLOC \
     _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wobjc-missing-super-calls\"") \

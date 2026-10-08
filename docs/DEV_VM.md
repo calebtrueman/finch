@@ -152,6 +152,11 @@ Rerunning boots normally.
   investigated. As with any qemu-sptm bug, it would be reported upstream
   as an issue.
 
+## Console output
+The serial console drops bytes 0x80–0x9F, so 4-byte UTF-8 characters (emoji)
+look garbled in `smoke.exp` logs, though the program wrote the right bytes.
+Pipe output through `od -An -tx1` to check what a program actually wrote.
+
 ## Status
 - 2026-10-06: the stock 25E253 kernel boots to a root shell. It reports
   `hw.model: Mac16,10` with 10 CPUs and 8 GB.

@@ -162,8 +162,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] NSLocale, NSTimeZone, NSCalendar, the date and number formatters,
         NSUserDefaults, the time-zone database (2026-10-08)
   - [x] KVC and KVO, NSIndexSet, geometry functions and NSValue boxes (2026-10-08)
-  - [ ] The rest, by what apps use: archiving, NSJSONSerialization, NSDecimalNumber,
-        NSPort, NSAttributedString, NSScanner, NSRegularExpression.
+  - [x] NSDecimalNumber, NSScanner, NSJSONSerialization, NSUUID, NSSortDescriptor (2026-10-08)
+  - [ ] The rest, by what apps use: archiving, streams and file handles,
+        NSPort, NSAttributedString, NSRegularExpression, NSOrderedSet, NSUndoManager.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit

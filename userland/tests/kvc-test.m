@@ -12,6 +12,7 @@
 static const char *
 masked(NSString *s)
 {
+    if (!s) return "(null)";
     NSMutableString *m = [s mutableCopy];
     for (NSRange r = [m rangeOfString:@"0x"]; r.location != NSNotFound; r = [m rangeOfString:@"0x" options:0 range:NSMakeRange(r.location + 3, m.length - r.location - 3)]) {
         NSUInteger end = r.location + 2;

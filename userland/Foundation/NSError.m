@@ -116,3 +116,6 @@ NSErrorUserInfoKey const NSRecoveryAttempterErrorKey = @"NSRecoveryAttempter";
 NSErrorUserInfoKey const NSHelpAnchorErrorKey = @"NSHelpAnchor";
 NSErrorUserInfoKey const NSStringEncodingErrorKey = @"NSStringEncodingErrorKey";
 NSErrorUserInfoKey const NSURLErrorKey = @"NSURL";
+NSErrorUserInfoKey const NSDebugDescriptionErrorKey = @"NSDebugDescription";
+NSErrorUserInfoKey const NSLocalizedFailureErrorKey = @"NSLocalizedFailure";
+NSErrorUserInfoKey const NSMultipleUnderlyingErrorsKey = @"NSMultipleUnderlyingErrorsKey";
