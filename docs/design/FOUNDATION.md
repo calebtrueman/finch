@@ -110,7 +110,21 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   CF calls on ObjC subclasses, NS messages on CF objects, mutation, copying,
   fast enumeration, descriptions, exceptions. Its output is identical to
   Apple's CoreFoundation on the host and in the VM.
-  Next in CF: `NSOrderedSet`, `NSURL`, `NSLocale`/`NSTimeZone`/`NSCalendar`, `NSRunLoop`/`NSTimer`,
-  streams, literal classes, and message forwarding (`NSInvocation`,
-  `NSMethodSignature`, unrecognized-selector exceptions).
+- 2026-10-08: message forwarding, as Apple's CF provides it. That means libobjc's forward
+  handler (`NSForwarding_arm64.s`: the message's registers saved in a frame
+  in Apple's measured layout, with unwind info so exceptions pass through),
+  `-forwardingTargetForSelector:`, `-forwardInvocation:` with an
+  `NSInvocation`, and `-doesNotRecognizeSelector:` raising Apple's
+  "unrecognized selector sent to instance" exception. `NSMethodSignature`
+  places arguments by Darwin's arm64 ABI, with the same frame offsets as
+  Apple's (checked against its debug description): sub-word integers
+  extended, HFAs a member per v register, composites over 16 bytes by
+  reference, stack arguments at natural alignment. `NSInvocation` builds,
+  invokes, retains arguments and swaps return values. Also `NSGetSizeAndAlignment` and NSObject's
+  `-methodSignatureForSelector:`, `-description` and `+description`.
+  `finch-forward-test` (unrecognized selectors, forwarding targets, a
+  proxy, hand-built invocations across every ABI case) is identical to
+  Apple's on the host and in the VM.
+  Next in CF: `NSOrderedSet`, `NSURL`, `NSLocale`/`NSTimeZone`/`NSCalendar`,
+  `NSRunLoop`/`NSTimer`, streams, literal classes, tagged-pointer strings.
 

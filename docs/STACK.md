@@ -6,7 +6,7 @@ These diagrams are updated in every commit that changes the stack, and
 `tools/render-stack.sh` checks that they render.
 
 **As of 2026-10-08:** CoreFoundation dispatches to Objective-C objects as
-Apple's does, and hosts NSException and the collection, data and date classes. Foundation is the
+Apple's does, and hosts NSException, the collection, data and date classes, and message forwarding. Foundation is the
 only closed library Finch's binaries still link (`tools/check-closed.py`), and
 Finch's own is in progress (`docs/design/FOUNDATION.md`).
 
@@ -31,7 +31,7 @@ block-beta
         columns 4
         t5["Foundation layer"]
         foundation["Foundation (next)"]
-        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, NSException"]
+        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, NSException,<br/>forwarding, NSInvocation"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         space5[" "]
         icu["libicucore<br/>ICU-76142.4.7"]

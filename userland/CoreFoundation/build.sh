@@ -85,7 +85,7 @@ done
 srcs=$(sed -n '/add_library(CoreFoundation STATIC/,/)/p' "${CF}/CMakeLists.txt" | grep -o '[A-Za-z_]*\.c' \
     | grep -vx 'uuid\.c' | sed "s|^|${CF}/|")
 srcs+=" $(for e in "${DARWIN_FILES[@]}"; do echo "${DARWIN}/${e%% *}"; done)"
-srcs+=" $(ls "${HERE}"/*.c "${HERE}"/*.m 2>/dev/null || true)"
+srcs+=" $(ls "${HERE}"/*.c "${HERE}"/*.m "${HERE}"/*.s 2>/dev/null || true)"
 
 CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
     -DCF_BUILDING_CF -DDEPLOYMENT_RUNTIME_SWIFT=0 -DINCLUDE_OBJC=1 -DHAVE_STRUCT_TIMESPEC -DU_DISABLE_RENAMING=1
@@ -104,7 +104,10 @@ failed=0
 compile() {   # compile <source>: object into ${OBJ}/o, errors into <object>.log
     local o="${OBJ}/o/$(basename "${1%.*}").o"
     [[ "$o" -nt "$1" && "$o" -nt "${HERE}/finch_prefix.h" && "$o" -nt "${HERE}/CFObjCDispatch_Finch.h" && "$o" -nt "${HERE}/CFObjCMessages_Finch.h" ]] && return 0
-    "${CC}" -x objective-c "${CFLAGS[@]}" -c "$1" -o "$o" 2> "$o.log" || { echo "  failed: $(basename "$1") ($(grep -c 'error:' "$o.log") errors, ${o#"${FINCH_ROOT}/"}.log)"; return 1; }
+    case "$1" in
+    *.s) "${CC}" -arch arm64e -mmacosx-version-min=26.0 -c "$1" -o "$o" ;;
+    *)   "${CC}" -x objective-c "${CFLAGS[@]}" -c "$1" -o "$o" ;;
+    esac 2> "$o.log" || { echo "  failed: $(basename "$1") ($(grep -c 'error:' "$o.log") errors, ${o#"${FINCH_ROOT}/"}.log)"; return 1; }
 }
 export -f compile; export CC OBJ HERE FINCH_ROOT
 export CFLAGS_STR="$(printf '%q ' "${CFLAGS[@]}")"

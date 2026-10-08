@@ -109,8 +109,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
           - [ ] ObjC-to-CF dispatch and the collection classes. In progress: CF compiles
                 as Objective-C with Apple's dispatch, and hosts NSException, the array,
                 dictionary and set clusters, NSData and NSDate, identical to Apple's in
-                `finch-bridge-test` (`docs/design/FOUNDATION.md`). Next: the rest of the
-                classes Apple's CF hosts, and message forwarding.
+                `finch-bridge-test`; message forwarding and NSInvocation, identical to
+                Apple's in `finch-forward-test` (`docs/design/FOUNDATION.md`). Next:
+                the rest of the classes Apple's CF hosts.
         - [x] libswiftCore from Swift's open source (libobjc links it; 14,885/15,043 exports)
         - [x] zlib, bzip2, libedit, libresolv (Apple's sources) and liblzma, libxo, libsbuf
               (upstream, where Apple doesn't publish its copy), each with Apple's exports

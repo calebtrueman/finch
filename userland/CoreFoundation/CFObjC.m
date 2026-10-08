@@ -193,11 +193,12 @@ __CFFinchInitializeObjC(void)
     extern Class __CFFinchInitializeArrayClasses(void), __CFFinchInitializeDictionaryClasses(void),
         __CFFinchInitializeSetClasses(void), __CFFinchInitializeDataClasses(void),
         __CFFinchInitializeDateClasses(void);
-    extern void __CFFinchInstallExceptionHandler(void);
+    extern void __CFFinchInstallExceptionHandler(void), __CFFinchInstallForwardHandler(void);
     set_class(_kCFRuntimeIDCFArray, __CFFinchInitializeArrayClasses());
     set_class(_kCFRuntimeIDCFDictionary, __CFFinchInitializeDictionaryClasses());
     set_class(_kCFRuntimeIDCFSet, __CFFinchInitializeSetClasses());
     set_class(_kCFRuntimeIDCFData, __CFFinchInitializeDataClasses());
     set_class(_kCFRuntimeIDCFDate, __CFFinchInitializeDateClasses());
     __CFFinchInstallExceptionHandler();
+    __CFFinchInstallForwardHandler();
 }
