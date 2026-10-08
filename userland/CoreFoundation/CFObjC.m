@@ -415,6 +415,13 @@ __CFFinchInitializeObjC(void)
     set_class(_kCFRuntimeIDCFRunLoopTimer, __CFFinchTimerClass());
     extern Class __CFFinchAttributedStringClass(void);
     set_class(_kCFRuntimeIDCFAttributedString, __CFFinchAttributedStringClass());
+    extern Class __CFFinchErrorClass(void);
+    set_class(_kCFRuntimeIDCFError, __CFFinchErrorClass());
+    extern void __CFFinchStreamClasses(Class *, Class *);
+    Class input, output;
+    __CFFinchStreamClasses(&input, &output);
+    set_class(_kCFRuntimeIDCFReadStream, input);
+    set_class(_kCFRuntimeIDCFWriteStream, output);
     __CFFinchInstallExceptionHandler();
     __CFFinchInstallForwardHandler();
     reparent_blocks();

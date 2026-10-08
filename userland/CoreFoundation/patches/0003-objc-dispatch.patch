@@ -220,6 +220,21 @@ index 9163064..343aad2 100644
      if (_kCFRuntimeIDCFAllocator == __CFGenericTypeID_inline(cf)) {
  	return __CFAllocatorGetAllocator(cf);
      }
+diff --git a/Sources/CoreFoundation/CFSocketStream.c b/Sources/CoreFoundation/CFSocketStream.c
+index 37c64e0..98cca80 100644
+--- a/Sources/CoreFoundation/CFSocketStream.c
++++ b/Sources/CoreFoundation/CFSocketStream.c
+@@ -154,9 +154,7 @@ static void initializeCFNetworkSupport(void) {
+     }
+ #endif
+ 
+-    if (!CFNetworkSupport._CFSocketStreamCreatePair) CFLog(__kCFLogAssertion, CFSTR("CoreFoundation: failed to dynamically link symbol _CFSocketStreamCreatePair"));
+-    if (!CFNetworkSupport._CFErrorCreateWithStreamError) CFLog(__kCFLogAssertion, CFSTR("CoreFoundation: failed to dynamically link symbol _CFErrorCreateWithStreamError"));
+-    if (!CFNetworkSupport._CFStreamErrorFromCFError) CFLog(__kCFLogAssertion, CFSTR("CoreFoundation: failed to dynamically link symbol _CFStreamErrorFromCFError"));
++    /* Finch: no CFNetwork to link (CFUtilities.c); CF's own paths are used, quietly. */
+             
+     __CFBitSet(CFNetworkSupport.flags, kInitialized);
+ }
 diff --git a/Sources/CoreFoundation/CFString.c b/Sources/CoreFoundation/CFString.c
 index a49dad4..0b39334 100644
 --- a/Sources/CoreFoundation/CFString.c
@@ -248,6 +263,41 @@ index b81736c..993dd13 100644
  
  /*
      Pre-10.6 property keys
+diff --git a/Sources/CoreFoundation/CFUtilities.c b/Sources/CoreFoundation/CFUtilities.c
+index eed25f1..01f0911 100644
+--- a/Sources/CoreFoundation/CFUtilities.c
++++ b/Sources/CoreFoundation/CFUtilities.c
+@@ -495,8 +495,14 @@ CF_EXPORT Boolean _CFExecutableLinkedOnOrAfter(CFSystemVersion version) {
+     return true;
+ }
+ 
++/* Finch: CF never loads Apple's closed frameworks (CarbonCore,
++ * CoreServicesInternal, CFNetwork). The lookups below find nothing, so CF
++ * takes its own paths; Finch's replacements will be wired in here. */
++#define FINCH_NO_CLOSED_FRAMEWORKS 1
++
+ #if TARGET_OS_OSX
+ CF_PRIVATE void *__CFLookupCarbonCoreFunction(const char *name) {
++    if (FINCH_NO_CLOSED_FRAMEWORKS) return NULL;
+     static void *image = NULL;
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{
+@@ -512,6 +518,7 @@ CF_PRIVATE void *__CFLookupCarbonCoreFunction(const char *name) {
+ 
+ #if TARGET_OS_MAC
+ CF_PRIVATE void *__CFLookupCoreServicesInternalFunction(const char *name) {
++    if (FINCH_NO_CLOSED_FRAMEWORKS) return NULL;
+     static void *image = NULL;
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{
+@@ -525,6 +532,7 @@ CF_PRIVATE void *__CFLookupCoreServicesInternalFunction(const char *name) {
+ }
+ 
+ CF_PRIVATE void *__CFLookupCFNetworkFunction(const char *name) {
++    if (FINCH_NO_CLOSED_FRAMEWORKS) return NULL;
+     static void *image = NULL;
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{
 diff --git a/Sources/CoreFoundation/internalInclude/CFInternal.h b/Sources/CoreFoundation/internalInclude/CFInternal.h
 index a348793..4339c75 100644
 --- a/Sources/CoreFoundation/internalInclude/CFInternal.h

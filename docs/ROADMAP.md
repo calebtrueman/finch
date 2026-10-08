@@ -110,8 +110,10 @@ Apple's is closed. Developed in the emulated M4 first. The map is
                 as Objective-C with Apple's dispatch, and hosts NSException, the array,
                 dictionary and set clusters, NSData and NSDate, identical to Apple's in
                 `finch-bridge-test`; message forwarding and NSInvocation, identical to
-                Apple's in `finch-forward-test` (`docs/design/FOUNDATION.md`). Next:
-                the rest of the classes Apple's CF hosts.
+                Apple's in `finch-forward-test` (`docs/design/FOUNDATION.md`). Since
+                then: ordered sets, NSCache, streams, ports and the CFError and
+                CFAttributedString bridges. Left of Apple's CF classes: NSFileSecurity,
+                NSSharedKeySet, the constant data and date classes, tagged-pointer strings.
         - [x] libswiftCore from Swift's open source (libobjc links it; 14,885/15,043 exports)
         - [x] zlib, bzip2, libedit, libresolv (Apple's sources) and liblzma, libxo, libsbuf
               (upstream, where Apple doesn't publish its copy), each with Apple's exports
@@ -168,9 +170,10 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         collections, NSCountedSet (2026-10-08)
   - [x] NSProxy, NSAssertionHandler, NSIndexPath, NSUndoManager, NSValueTransformer,
         NSNotificationQueue, NSAffineTransform, NSDateInterval (2026-10-08)
-  - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it): streams,
-        file handles and tasks, NSPort, NSPredicate/NSExpression, NSProgress,
-        NSXMLParser, the URL loading system, NSXPCConnection.
+  - [x] Streams, ports, file handles, pipes, tasks, hosts (2026-10-08)
+  - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it):
+        NSPredicate/NSExpression, NSProgress, NSXMLParser, the URL loading system,
+        NSXPCConnection.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit

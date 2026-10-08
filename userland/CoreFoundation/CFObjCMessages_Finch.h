@@ -27,7 +27,7 @@ struct NSFastEnumerationState_;
 
 @class NSString, NSMutableString, NSArray, NSMutableArray, NSDictionary, NSMutableDictionary,
     NSSet, NSMutableSet, NSData, NSMutableData, NSDate, NSNumber, NSLocale, NSTimeZone,
-    NSCalendar, NSCharacterSet, NSMutableCharacterSet, NSAttributedString,
+    NSCalendar, NSCharacterSet, NSMutableCharacterSet, NSAttributedString, NSStream, NSPort,
     NSMutableAttributedString, NSURL, NSError, NSTimer, NSInputStream, NSOutputStream, NSMachPort;
 
 @interface NSObject (FinchCFMessages)
@@ -267,19 +267,25 @@ struct NSFastEnumerationState_;
 - (void)invalidate;
 @end
 
-@interface NSMachPort : NSObject
-- (mach_port_t)machPort;
+@interface NSPort : NSObject
 - (BOOL)isValid;
 - (void)invalidate;
 @end
 
-@interface NSInputStream : NSObject
+@interface NSMachPort : NSPort
+- (mach_port_t)machPort;
+@end
+
+@interface NSStream : NSObject
+@end
+
+@interface NSInputStream : NSStream
 - (NSInteger)read:(uint8_t *)buffer maxLength:(NSUInteger)length;
 - (BOOL)getBuffer:(uint8_t **)buffer length:(NSUInteger *)length;
 - (BOOL)hasBytesAvailable;
 @end
 
-@interface NSOutputStream : NSObject
+@interface NSOutputStream : NSStream
 - (NSInteger)write:(const uint8_t *)buffer maxLength:(NSUInteger)length;
 - (BOOL)hasSpaceAvailable;
 @end

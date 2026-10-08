@@ -263,4 +263,18 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   HFS type codes, and the error domains, keys, exception names and old
   defaults keys Apple exports. `finch-misc-test` is identical to Apple's on
   the host and in the VM.
+- 2026-10-08: streams, ports and processes. In CF, as Apple's are:
+  `NSStream`, `NSInputStream` and `NSOutputStream` with `__NSCFInputStream`
+  and `__NSCFOutputStream` as CFReadStream's and CFWriteStream's classes
+  (delegate events through CF's client callback), `CFStreamCreateBoundPair`
+  (swift-corelibs lacks it), `NSPort` and `NSMachPort` over CFMachPort
+  (components as out-of-line memory and port descriptors), and
+  `__NSCFError`, which bridges CFError to NSError. In Foundation:
+  `NSFileHandle` (background reads that notify on the asking thread's run
+  loop, readability handlers), `NSPipe`, `NSTask` (posix_spawn, a dispatch
+  process source for termination), `NSPortMessage` and `NSHost`. CF's
+  lookups of Apple's closed CarbonCore, CoreServicesInternal and CFNetwork
+  (dlopen at run time, which `tools/check-closed.py` can't see) are patched
+  out. `finch-streams-test` is identical to Apple's on the host and in the
+  VM; resolving host names in the VM waits for mDNSResponder.
 

@@ -102,31 +102,31 @@ cocoa_description(NSInteger code, NSDictionary *info)
 
 - (NSString *)localizedDescription
 {
-    NSString *d = [_userInfo objectForKey:NSLocalizedDescriptionKey];
+    NSString *d = [[self userInfo] objectForKey:NSLocalizedDescriptionKey];
     if (d) return d;
-    if ([_domain isEqualToString:NSCocoaErrorDomain] && (d = cocoa_description(_code, _userInfo))) return d;
+    if ([[self domain] isEqualToString:NSCocoaErrorDomain] && (d = cocoa_description([self code], [self userInfo]))) return d;
     NSString *reason = [self localizedFailureReason];
     if (reason) return [@"The operation couldn’t be completed. " stringByAppendingString:reason];
-    NSString *domain = [_domain isEqualToString:NSCocoaErrorDomain] ? @"Cocoa" : _domain;
-    return [NSString stringWithFormat:@"The operation couldn’t be completed. (%@ error %ld.)", domain, (long)_code];
+    NSString *domain = [[self domain] isEqualToString:NSCocoaErrorDomain] ? @"Cocoa" : [self domain];
+    return [NSString stringWithFormat:@"The operation couldn’t be completed. (%@ error %ld.)", domain, (long)[self code]];
 }
 
 - (NSString *)localizedFailureReason
 {
-    NSString *r = [_userInfo objectForKey:NSLocalizedFailureReasonErrorKey];
+    NSString *r = [[self userInfo] objectForKey:NSLocalizedFailureReasonErrorKey];
     if (r) return r;
-    if ([_domain isEqualToString:NSPOSIXErrorDomain] && _code > 0 && _code < 1000)
-        return [NSString stringWithUTF8String:strerror((int)_code)];
+    if ([[self domain] isEqualToString:NSPOSIXErrorDomain] && [self code] > 0 && [self code] < 1000)
+        return [NSString stringWithUTF8String:strerror((int)[self code])];
     return nil;
 }
 
-- (NSString *)localizedRecoverySuggestion { return [_userInfo objectForKey:NSLocalizedRecoverySuggestionErrorKey]; }
-- (NSArray<NSString *> *)localizedRecoveryOptions { return [_userInfo objectForKey:NSLocalizedRecoveryOptionsErrorKey]; }
-- (id)recoveryAttempter { return [_userInfo objectForKey:NSRecoveryAttempterErrorKey]; }
-- (NSString *)helpAnchor { return [_userInfo objectForKey:NSHelpAnchorErrorKey]; }
+- (NSString *)localizedRecoverySuggestion { return [[self userInfo] objectForKey:NSLocalizedRecoverySuggestionErrorKey]; }
+- (NSArray<NSString *> *)localizedRecoveryOptions { return [[self userInfo] objectForKey:NSLocalizedRecoveryOptionsErrorKey]; }
+- (id)recoveryAttempter { return [[self userInfo] objectForKey:NSRecoveryAttempterErrorKey]; }
+- (NSString *)helpAnchor { return [[self userInfo] objectForKey:NSHelpAnchorErrorKey]; }
 - (NSArray<NSError *> *)underlyingErrors
 {
-    NSError *u = [_userInfo objectForKey:NSUnderlyingErrorKey];
+    NSError *u = [[self userInfo] objectForKey:NSUnderlyingErrorKey];
     return u ? @[ u ] : @[];
 }
 
@@ -135,15 +135,15 @@ cocoa_description(NSInteger code, NSDictionary *info)
     /* Apple's: POSIX errors by strerror even over the user info, then the
      * user info's description or failure reason, else "(null)". */
     NSString *d = nil;
-    if ([_domain isEqualToString:NSPOSIXErrorDomain] && _code > 0 && _code < 1000) d = [NSString stringWithUTF8String:strerror((int)_code)];
-    if (!d) d = [_userInfo objectForKey:NSLocalizedDescriptionKey];
-    if (!d && [_domain isEqualToString:NSCocoaErrorDomain]) d = cocoa_description(_code, _userInfo);
+    if ([[self domain] isEqualToString:NSPOSIXErrorDomain] && [self code] > 0 && [self code] < 1000) d = [NSString stringWithUTF8String:strerror((int)[self code])];
+    if (!d) d = [[self userInfo] objectForKey:NSLocalizedDescriptionKey];
+    if (!d && [[self domain] isEqualToString:NSCocoaErrorDomain]) d = cocoa_description([self code], [self userInfo]);
     if (!d) d = [self localizedFailureReason];
-    NSMutableString *s = [NSMutableString stringWithFormat:@"Error Domain=%@ Code=%ld \"%@\"", _domain, (long)_code, d ? d : @"(null)"];
-    if ([_userInfo count]) {
+    NSMutableString *s = [NSMutableString stringWithFormat:@"Error Domain=%@ Code=%ld \"%@\"", [self domain], (long)[self code], d ? d : @"(null)"];
+    if ([[self userInfo] count]) {
         [s appendString:@" UserInfo={"];
         NSUInteger i = 0;
-        for (id k in _userInfo) [s appendFormat:@"%@%@=%@", i++ ? @", " : @"", k, [_userInfo objectForKey:k]];
+        for (id k in [self userInfo]) [s appendFormat:@"%@%@=%@", i++ ? @", " : @"", k, [[self userInfo] objectForKey:k]];
         [s appendString:@"}"];
     }
     return s;
@@ -154,11 +154,10 @@ cocoa_description(NSInteger code, NSDictionary *info)
     if (other == self) return YES;
     if (![other isKindOfClass:[NSError class]]) return NO;
     NSError *o = other;
-    return _code == o->_code && [_domain isEqualToString:o->_domain] &&
-        (_userInfo == o->_userInfo || [[self userInfo] isEqual:[o userInfo]]);
+    return [self code] == [o code] && [[self domain] isEqualToString:[o domain]] && [[self userInfo] isEqual:[o userInfo]];
 }
 
-- (NSUInteger)hash { return [_domain hash] ^ (NSUInteger)_code; }
+- (NSUInteger)hash { return [[self domain] hash] ^ (NSUInteger)[self code]; }
 - (id)copyWithZone:(NSZone *)zone { return [self retain]; }
 + (BOOL)supportsSecureCoding { return YES; }
 
