@@ -46,6 +46,11 @@ copy_headers "${sysfw}/Versions/B/PrivateHeaders" "${INC}"
 # IOKit's private keys (<IOKit/IOKitKeysPrivate.h>, used by nvram). The SDK's
 # IOKit.framework doesn't have it, and clang keeps searching past a framework
 # that lacks a header, so it's found here.
+# The SysV semaphore internals ipcs reads (Apple's file_cmds finds this one in
+# Kernel.framework/PrivateHeaders, which would shadow the user-space sys/
+# headers if put on the search path whole).
+cp "${XNU_ROOT}/System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/sys/sem_internal.h" \
+    "${INC}/sys/"
 mkdir -p "${INC}/IOKit"
 cp "${XNU_ROOT}/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/IOKitKeysPrivate.h" \
     "${INC}/IOKit/"

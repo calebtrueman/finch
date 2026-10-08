@@ -95,12 +95,9 @@ exactly them to fail.
 
 | Tool | Project | Blocker |
 |---|---|---|
-| mtree | file_cmds | APFS private headers (APFS is closed) |
-| ipcs | file_cmds | needs xnu kernel-private types |
 | passwd, chpass | system_cmds | OpenDirectory (closed) |
 | atrun | system_cmds | Background Task Management SPI (closed) |
 | bintrans tests | text_cmds | Apple-internal `darwintest.h` (the tools themselves build) |
-| gencat | adv_cmds | `msgcat.h` |
 | zprint, zlog | system_cmds | CoreSymbolication (closed) |
 
 su and login build and use Finch's PAM: libpam from Apple's OpenPAM, the pam_modules
