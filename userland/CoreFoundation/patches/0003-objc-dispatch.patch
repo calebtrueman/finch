@@ -31,6 +31,22 @@ index cc03d66..a75a45e 100644
 +CF_PRIVATE Boolean _CFArrayIsMutable(CFArrayRef array) {
 +    return __CFArrayGetType(array) != __kCFArrayImmutable;
 +}
+diff --git a/Sources/CoreFoundation/CFAttributedString.c b/Sources/CoreFoundation/CFAttributedString.c
+index 3ee9737..9448cf4 100644
+--- a/Sources/CoreFoundation/CFAttributedString.c
++++ b/Sources/CoreFoundation/CFAttributedString.c
+@@ -36,6 +36,11 @@ CF_INLINE Boolean __CFAttributedStringIsMutable(CFAttributedStringRef attrStr) {
+     return !__CFRuntimeGetFlag(attrStr, 0);
+ }
+ 
++/* Finch: for the Objective-C class (NSAttributedString_Finch.m). */
++CF_PRIVATE Boolean _CFAttributedStringIsMutable(CFAttributedStringRef attrStr) {
++    return __CFAttributedStringIsMutable(attrStr);
++}
++
+ CF_INLINE void __CFAttributedStringSetMutable(CFAttributedStringRef attrStr, Boolean flag) {
+     // The first bit is 'immutable', so flip the sense
+     __CFRuntimeSetFlag(attrStr, 0, !flag);
 diff --git a/Sources/CoreFoundation/CFCharacterSet.c b/Sources/CoreFoundation/CFCharacterSet.c
 index 3c818e3..dd7ccf5 100644
 --- a/Sources/CoreFoundation/CFCharacterSet.c

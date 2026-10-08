@@ -44,6 +44,12 @@ NSUInteger FinchScanDecimal(NSString *s, NSUInteger start, NSString *separator, 
 - (NSArray *)_finchDecodeArrayOfObjectsForKey:(NSString *)key;
 @end
 
+/* NSString's NSRegularExpressionSearch (NSRegularExpression.m). */
+__attribute__((visibility("hidden")))
+NSRange FinchRegexRange(NSString *string, NSString *pattern, NSStringCompareOptions mask, NSRange range);
+__attribute__((visibility("hidden")))
+NSUInteger FinchRegexReplace(NSMutableString *string, NSString *pattern, NSString *templ, NSStringCompareOptions mask, NSRange range);
+
 /* Objects that are never freed implement -dealloc without calling super. */
 #define FINCH_NO_SUPER_DEALLOC \
     _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wobjc-missing-super-calls\"") \

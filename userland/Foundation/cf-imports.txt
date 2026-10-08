@@ -5,3 +5,5 @@ NSNumber
 NSValue
 NSCharacterSet
 NSMutableCharacterSet
+NSAttributedString
+NSMutableAttributedString

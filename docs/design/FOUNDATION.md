@@ -235,4 +235,19 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   host and in the VM, including decoding an archive Apple's Foundation made.
   Modern compiled nibs are `NIBArchive` files, not keyed archives; AppKit
   will bring that decoder.
+- 2026-10-08: text and collections. `NSAttributedString` and
+  `NSMutableAttributedString` (abstract classes on two primitives each, the
+  mutable-string proxy, enumeration, Apple's archive format with LEB128 run
+  info), with CF's `__NSCFAttributedString` as CFAttributedString's class;
+  `NSRegularExpression`, `NSTextCheckingResult` (Apple's result class names)
+  and NSString's regular-expression search, over CF's ICU regexes;
+  `NSDataDetector` for links and phone numbers with Finch's own patterns
+  (Apple's is the closed DataDetectorsCore; dates and addresses aren't
+  detected yet); `NSHashTable`, `NSMapTable`, `NSPointerArray`,
+  `NSPointerFunctions` and the C map/hash table API, with zeroing weak
+  entries; `NSCountedSet`; Apple's Cocoa error descriptions. `NSOrderedSet`
+  and `NSCache` live in CoreFoundation, as Apple's do: binaries linked
+  against the SDK bind them there. Sets and ordered sets nested in a
+  collection's description are quoted, as Apple's are.
+  `finch-collections-test` is identical to Apple's on the host and in the VM.
 

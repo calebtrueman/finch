@@ -86,6 +86,9 @@ copy_key(id key)
 
 @implementation NSDictionary
 
+/* CFDictionaryCreateMutableCopy of an Objective-C dictionary (CFDictionary.c). */
+- (id)_cfMutableCopy { return [self mutableCopyWithZone:NULL]; }
+
 + (instancetype)allocWithZone:(struct _NSZone *)zone
 {
     if (self == [NSDictionary class]) return (id)immutablePlaceholder;

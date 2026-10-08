@@ -360,6 +360,7 @@ cf_copy_of(NSString *s)
     if (!searchString)
         FinchRaise(NSInvalidArgumentException, "*** -[%s %s]: nil argument", object_getClassName(self), sel_getName(_cmd));
     CFRange found;
+    if (mask & NSRegularExpressionSearch) return FinchRegexRange(self, searchString, mask, range);
     if ([searchString length] == 0 || [self length] == 0) return NSMakeRange(NSNotFound, 0);
     if (CFStringFindWithOptionsAndLocale((CFStringRef)self, (CFStringRef)searchString,
             CFRangeMake((CFIndex)range.location, (CFIndex)range.length), (CFStringCompareFlags)mask, (CFLocaleRef)locale, &found))
@@ -813,6 +814,7 @@ cf_apply(NSMutableString *self, void (^op)(CFMutableStringRef))
 {
     if (!target || !replacement)
         FinchRaise(NSInvalidArgumentException, "*** -[%s %s]: nil argument", object_getClassName(self), sel_getName(_cmd));
+    if (options & NSRegularExpressionSearch) return FinchRegexReplace(self, target, replacement, options, searchRange);
     NSUInteger count = 0;
     NSRange r = searchRange;
     BOOL backwards = (options & NSBackwardsSearch) != 0;

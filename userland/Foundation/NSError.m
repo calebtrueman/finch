@@ -49,13 +49,66 @@
 - (NSInteger)code { return _code; }
 - (NSDictionary<NSErrorUserInfoKey, id> *)userInfo { return _userInfo ? _userInfo : @{}; }
 
+/* Apple's descriptions of the Cocoa errors, with the file ("f.txt"), its
+ * folder ("dir") or the invalid value from the user info when there is one. */
+static NSString *
+cocoa_description(NSInteger code, NSDictionary *info)
+{
+    NSString *path = [info objectForKey:NSFilePathErrorKey];
+    if (!path) path = [[info objectForKey:NSURLErrorKey] path];
+    NSString *file = [path lastPathComponent], *folder = [[path stringByDeletingLastPathComponent] lastPathComponent];
+    id value = [info objectForKey:@"NSInvalidValue"];
+#define WITH_FILE(with, without) return file ? [NSString stringWithFormat:with, file] : without
+    switch (code) {
+    case NSFileNoSuchFileError: WITH_FILE(@"The file “%@” doesn’t exist.", @"The file doesn’t exist.");
+    case NSFileReadUnknownError: WITH_FILE(@"The file “%@” couldn’t be opened.", @"The file couldn’t be opened.");
+    case NSFileReadNoPermissionError:
+        WITH_FILE(@"The file “%@” couldn’t be opened because you don’t have permission to view it.",
+            @"The file couldn’t be opened because you don’t have permission to view it.");
+    case NSFileReadCorruptFileError:
+        WITH_FILE(@"The file “%@” couldn’t be opened because it isn’t in the correct format.",
+            @"The file couldn’t be opened because it isn’t in the correct format.");
+    case NSFileReadNoSuchFileError:
+        WITH_FILE(@"The file “%@” couldn’t be opened because there is no such file.", @"The file couldn’t be opened because it doesn’t exist.");
+    case NSFileReadInapplicableStringEncodingError: return @"The file couldn’t be opened using the specified text encoding.";
+    case NSFileReadUnknownStringEncodingError:
+        WITH_FILE(@"The file “%@” couldn’t be opened because the text encoding of its contents can’t be determined.",
+            @"The file couldn’t be opened because the text encoding of the contents couldn’t be determined.");
+    case NSFileWriteUnknownError:
+        return file ? [NSString stringWithFormat:@"The file “%@” couldn’t be saved in the folder “%@”.", file, folder] : @"The file couldn’t be saved.";
+    case NSFileWriteNoPermissionError:
+        return file ? [NSString stringWithFormat:@"You don’t have permission to save the file “%@” in the folder “%@”.", file, folder]
+                    : @"The file couldn’t be saved because you don’t have permission.";
+    case NSFileWriteInvalidFileNameError:
+        WITH_FILE(@"The item couldn’t be saved because the file name “%@” is invalid.", @"The item couldn’t be saved because the file name is invalid.");
+    case NSFileWriteFileExistsError:
+        return file ? [NSString stringWithFormat:@"The file “%@” couldn’t be saved in the folder “%@” because a file with the same name already exists.", file, folder]
+                    : @"The file couldn’t be saved because a file with the same name already exists.";
+    case NSFileWriteOutOfSpaceError:
+        WITH_FILE(@"You can’t save the file “%@” because there isn’t enough space.", @"The file couldn’t be saved because there isn’t enough space.");
+    case NSFileWriteVolumeReadOnlyError:
+        WITH_FILE(@"You can’t save the file “%@” because the volume is read only.", @"The file couldn’t be saved because the volume is read only.");
+    case NSFormattingError: return value ? [NSString stringWithFormat:@"The value “%@” is invalid.", value] : @"The value is invalid.";
+    case NSUserCancelledError: return @"The operation was cancelled.";
+    case NSPropertyListReadCorruptError: return @"The data couldn’t be read because it isn’t in the correct format.";
+    case NSPropertyListWriteStreamError: return @"The data couldn’t be written because of an error in the destination for the data.";
+    case NSCoderReadCorruptError: return @"The data couldn’t be read because it isn’t in the correct format.";
+    case NSCoderValueNotFoundError: return @"The data couldn’t be read because it is missing.";
+    case NSCoderInvalidValueError: return @"The data couldn’t be written because it isn’t in the correct format.";
+    default: return nil;
+    }
+#undef WITH_FILE
+}
+
 - (NSString *)localizedDescription
 {
     NSString *d = [_userInfo objectForKey:NSLocalizedDescriptionKey];
     if (d) return d;
+    if ([_domain isEqualToString:NSCocoaErrorDomain] && (d = cocoa_description(_code, _userInfo))) return d;
     NSString *reason = [self localizedFailureReason];
     if (reason) return [@"The operation couldn’t be completed. " stringByAppendingString:reason];
-    return [NSString stringWithFormat:@"The operation couldn’t be completed. (%@ error %ld.)", _domain, (long)_code];
+    NSString *domain = [_domain isEqualToString:NSCocoaErrorDomain] ? @"Cocoa" : _domain;
+    return [NSString stringWithFormat:@"The operation couldn’t be completed. (%@ error %ld.)", domain, (long)_code];
 }
 
 - (NSString *)localizedFailureReason
@@ -84,6 +137,7 @@
     NSString *d = nil;
     if ([_domain isEqualToString:NSPOSIXErrorDomain] && _code > 0 && _code < 1000) d = [NSString stringWithUTF8String:strerror((int)_code)];
     if (!d) d = [_userInfo objectForKey:NSLocalizedDescriptionKey];
+    if (!d && [_domain isEqualToString:NSCocoaErrorDomain]) d = cocoa_description(_code, _userInfo);
     if (!d) d = [self localizedFailureReason];
     NSMutableString *s = [NSMutableString stringWithFormat:@"Error Domain=%@ Code=%ld \"%@\"", _domain, (long)_code, d ? d : @"(null)"];
     if ([_userInfo count]) {

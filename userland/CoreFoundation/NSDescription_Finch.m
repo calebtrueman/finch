@@ -90,7 +90,9 @@ append_element(CFMutableStringRef out, id o, id locale, NSUInteger level)
 {
     if (is_kind(o, "NSString")) {
         append_quoted(out, (CFStringRef)o);
-    } else if ([o respondsToSelector:@selector(descriptionWithLocale:indent:)]) {
+    } else if ((is_kind(o, "NSArray") || is_kind(o, "NSDictionary")) && [o respondsToSelector:@selector(descriptionWithLocale:indent:)]) {
+        /* Only arrays and dictionaries nest; sets and ordered sets are
+         * quoted descriptions, as Apple's are. */
         CFStringAppend(out, (CFStringRef)[o descriptionWithLocale:locale indent:level]);
     } else if (is_kind(o, "NSData")) {
         CFStringAppend(out, (CFStringRef)[o description]);
