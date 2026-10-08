@@ -43,6 +43,12 @@ void *voucher_activity_get_metadata_buffer(size_t *n)
 	*n = sizeof(metadata);
 	return metadata;
 }
+static unsigned flushes;
+void voucher_activity_flush(uint8_t stream)
+{
+	(void)stream;
+	flushes++;
+}
 uint64_t voucher_activity_trace_v_2(uint8_t stream, uint64_t id, uint64_t stamp,
     const struct iovec *v, size_t pub, size_t priv, uint32_t flags)
 {
@@ -195,6 +201,7 @@ int main(void)
 	uint32_t pc;
 	memcpy(&pc, packet, 4);
 	assert(pc == 123 && !memcmp(packet + 4, &names.id, 2) && !memcmp(packet + 6, data, 8));
+	assert(flushes == 1);   /* the first message is pushed (and it's an error) */
 	finch_trace_useraction(&__dso_handle, format, &__dso_handle + 456);
 	assert(packet_size == 4 && packet_stream == 0 && (packet_id & 0xffff) == 0x302);
 	memcpy(&pc, packet, 4);
@@ -203,6 +210,7 @@ int main(void)
 	p.format = dynamic_format;
 	finch_trace_log_send(&log, 1, &p, data, 8, false);
 	assert(packet_stream == 2 && (uint32_t)(packet_id >> 32) == 0x80000000);
+	assert(flushes == 1);   /* info messages wait for their chunk */
 	char *text = finch_log_compose_wire("%s", packet + 6, packet_size - 6, NULL, 0);
 	assert(!strcmp(text, "number 42"));
 	free(text);

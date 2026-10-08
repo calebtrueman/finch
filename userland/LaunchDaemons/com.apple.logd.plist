@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- finch-logd (userland/logd): receives every process's os_log messages over
+     the firehose (com.apple.logd, the name Finch's libsystem_trace looks up)
+     and stores them for log(1). Same label and service as Apple's logd. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.logd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/finch-logd</string>
+	</array>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.logd</key>
+		<true/>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+	<key>StandardErrorPath</key>
+	<string>/var/log/finch-logd.log</string>
+</dict>
+</plist>

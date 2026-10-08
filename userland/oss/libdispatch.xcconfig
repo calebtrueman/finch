@@ -23,3 +23,5 @@ PRODUCT_NAME = dispatch
 EXECUTABLE_PREFIX = lib
 INSTALL_PATH = /usr/lib/system
 LD_DYLIB_INSTALL_NAME = /usr/lib/system/libdispatch.dylib
+// libfirehose_server (for Finch's logd) limits itself to the build host's arch.
+VALID_ARCHS = arm64 arm64e

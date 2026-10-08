@@ -415,6 +415,8 @@ print_banner(void)
 	fflush(stdout);
 }
 
+void os_trace_set_mode(uint32_t mode);   /* libsystem_trace SPI */
+
 int
 main(void)
 {
@@ -425,6 +427,11 @@ main(void)
 	signal(SIGQUIT, SIG_IGN);
 	signal(SIGTSTP, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
+
+	/* PID 1 serves the bootstrap namespace, so it can't look up logd through it
+	 * (it would wait on itself): no os_log tracing here, as with launchd. Its
+	 * own messages go to the console (logmsg). Not inherited by jobs. */
+	os_trace_set_mode(0x100);
 
 	attach_console();
 	publish_os_version();

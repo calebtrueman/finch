@@ -40,6 +40,7 @@ struct trace_hooks {
 };
 extern void voucher_activity_initialize_4libtrace(const struct trace_hooks *);
 extern void *voucher_activity_get_metadata_buffer(size_t *);
+extern void voucher_activity_flush(uint8_t stream);
 extern uint64_t voucher_activity_trace_v_2(
     uint8_t, uint64_t, uint64_t, const struct iovec *, size_t, size_t, uint32_t);
 extern void *_dyld_get_shared_cache_range(size_t *);
@@ -70,7 +71,17 @@ uint64_t finch_trace_send(uint8_t stream, uint64_t id, uint64_t stamp, const str
 		return 0;
 	if (client_type == 2)
 		return finch_rt_send(stream, id, stamp, iov, public_size, private_size, flags);
-	return voucher_activity_trace_v_2(stream, id, stamp, iov, public_size, private_size, flags);
+	uint64_t result =
+	    voucher_activity_trace_v_2(stream, id, stamp, iov, public_size, private_size, flags);
+	/* The firehose client registers with logd on its first push, and logd sees a
+	 * chunk when it's pushed or the process exits. Push the first message (which
+	 * registers the process), and errors and faults as they happen. */
+	static _Atomic bool pushed;
+	uint8_t type = (uint8_t)(id >> 8);
+	if (!atomic_exchange_explicit(&pushed, true, memory_order_relaxed) ||
+	    ((id & 0xff) == 4 && type >= 16))
+		voucher_activity_flush(stream);
+	return result;
 }
 mach_port_t finch_trace_logd_port(void)
 {

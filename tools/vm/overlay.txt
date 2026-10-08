@@ -11,6 +11,7 @@ userland/tests/launchd/org.finch.test.ondemand.plist /System/Library/Finch/Launc
 userland/tests/launchd/org.finch.test.keepalive.plist /System/Library/Finch/LaunchDaemons/org.finch.test.keepalive.plist
 userland/LaunchDaemons/com.apple.notifyd.plist /System/Library/Finch/LaunchDaemons/com.apple.notifyd.plist
 userland/LaunchDaemons/com.apple.syslogd.plist /System/Library/Finch/LaunchDaemons/com.apple.syslogd.plist
+userland/LaunchDaemons/com.apple.logd.plist /System/Library/Finch/LaunchDaemons/com.apple.logd.plist
 build/userland/launchctl /bin/launchctl
 userland/tests/launchd/org.finch.test.unprivileged.plist /System/Library/Finch/LaunchDaemons/org.finch.test.unprivileged.plist
 userland/tests/launchd/org.finch.test.socket.plist /System/Library/Finch/LaunchDaemons/org.finch.test.socket.plist
