@@ -31,10 +31,15 @@ Finch's own kernel:
 - `MACHINE_CONFIG=VMAPPLE tools/build-kernel.sh` still builds it for the VM
   platform, should Apple's VM gain a supported way to boot a custom kernel.
 
-## Also needs the user at the machine
+## Reaching the guest
 
-The guest's first boot runs Setup Assistant, which needs the GUI (`finch-vz run`).
-After that, enable Remote Login in the guest so Finch's tools can drive it over SSH.
+Set up 2026-10-08: user `developer`, hostname `Developers-Virtual-Machine.local`
+(reached over the VM's NAT by mDNS), Remote Login on.
+- `tools/vz/ssh [command...]` logs in with the key in `build/vz/ssh/` (installed
+  with `ssh-copy-id`; the key and `known_hosts` stay in the build tree, never
+  committed) and mounts the host's `build/` share at `~/finch` (virtiofs tag
+  `finch`), so Finch's builds run in the guest without copying.
+- The VM must be running: `tools/vz/finch-vz run` (or `--headless`).
 
 ## Status
 

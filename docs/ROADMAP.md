@@ -130,7 +130,8 @@ CoreGraphics and AppKit, so Finch builds open ones before running any app
 (work that Phase 4 had). Most of it is built and tested on the host (against
 Apple's, for behaviour) and in Tier 1. The display is Tier 2's
 (`docs/design/TIER2-VZ.md`): a Virtualization.framework guest that boots
-normally on its own kernel, until Finch's kernel runs on bare metal.
+normally on its own kernel, until Finch's kernel runs on bare metal. The guest
+is set up and reachable with `tools/vz/ssh` (2026-10-08).
 - [ ] Prerequisites from Phase 1: CoreFoundation's ObjC bridge and collection
       classes, IOKit (IOKitUser), the open libraries (`tools/check-closed.py`)
 - [ ] Foundation (from swift-corelibs-foundation and Finch code), ABI-compatible

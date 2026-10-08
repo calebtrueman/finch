@@ -1,0 +1,20 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Run a command in the Tier 2 guest (docs/design/TIER2-VZ.md), or open a shell.
+# Logs in as `developer` with the key in build/vz/ssh (installed once with
+# ssh-copy-id) and mounts the host's build/ share (virtiofs tag `finch`) at
+# ~/finch first if it isn't already.
+#
+#   tools/vz/ssh                 interactive shell
+#   tools/vz/ssh <command...>    run a command
+set -euo pipefail
+FINCH_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+KEYS="${FINCH_ROOT}/build/vz/ssh"
+HOST="${FINCH_VZ_HOST:-Developers-Virtual-Machine.local}"
+[[ -f "${KEYS}/id_ed25519" ]] || { echo "no key in build/vz/ssh (see docs/design/TIER2-VZ.md)" >&2; exit 1; }
+mount='mkdir -p ~/finch && { mount | grep -q " on $HOME/finch " || mount_virtiofs finch ~/finch; }'
+opts=(-i "${KEYS}/id_ed25519" -o BatchMode=yes -o UserKnownHostsFile="${KEYS}/known_hosts")
+if [[ $# -eq 0 ]]; then
+    exec ssh -t "${opts[@]}" "developer@${HOST}" "${mount}; exec \$SHELL -l"
+fi
+exec ssh "${opts[@]}" "developer@${HOST}" "${mount}; $*"
