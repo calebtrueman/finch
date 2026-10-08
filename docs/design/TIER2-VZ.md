@@ -41,7 +41,5 @@ After that, enable Remote Login in the guest so Finch's tools can drive it over 
 - 2026-10-08: the custom-kernel path was abandoned. `-[VZMacOSBootLoader _setROMURL:]`
   makes Virtualization's VM service crash at start, even with an unmodified ROM,
   and modifying the boot chain isn't a direction Finch takes. The host-side
-  patched copies were deleted. **To do (user):** the guest's Preboot and Recovery
-  volumes still hold a modified `iBoot.img4` from that attempt. Copy the original,
-  saved as `build/vz/iBoot.orig.img4`, back over both (with the VM stopped) before
-  booting the guest.
+  patched copies were deleted, and the guest's Preboot and Recovery volumes have
+  their original `iBoot.img4` again. The VM boots on the standard chain.
