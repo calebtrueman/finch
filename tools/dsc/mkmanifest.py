@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 """Write a dyld_shared_cache_builder JSON manifest for a root filesystem.
 
-    mkmanifest.py <root> <manifest.json>
+    mkmanifest.py <root> <manifest.json> [<exclude.txt>]
 
 Every Mach-O dylib and executable with an arm64e slice under <root> becomes
 an input. The builder decides which dylibs are eligible for the cache, and
 builds prebuilt launch loaders for the executables (it needs at least one
 in /usr/bin). Every symlink that resolves to one of the dylibs becomes a
 manifest symlink, so framework aliases like Foo.framework/Foo ->
-Versions/Current/Foo resolve in the cache.
+Versions/Current/Foo resolve in the cache. Paths listed in <exclude.txt>
+(one per line, as in the image) are left out.
 """
 import json
 import os
@@ -54,8 +55,11 @@ def thin_filetype(h, want_arm64e=False):
     return filetype
 
 
-def main(root, out):
+def main(root, out, exclude_file=None):
     root = os.path.realpath(root)
+    exclude = set()
+    if exclude_file and os.path.exists(exclude_file):
+        exclude = {l.strip() for l in open(exclude_file) if l.strip()}
     dylibs, executables, links = set(), set(), []
     for dirpath, dirnames, filenames in os.walk(root):
         rel_dir = "/" + os.path.relpath(dirpath, root) if dirpath != root else ""
@@ -67,7 +71,7 @@ def main(root, out):
             rel = rel_dir + "/" + name
             if os.path.islink(full):
                 links.append((rel, full))
-            elif os.path.isfile(full):
+            elif os.path.isfile(full) and rel not in exclude:
                 kind = arm64e_filetype(full)
                 if kind == MH_DYLIB:
                     dylibs.add(rel)
@@ -97,10 +101,11 @@ def main(root, out):
     }
     with open(out, "w") as f:
         json.dump(manifest, f, indent=1)
-    print(f"{len(dylibs)} dylibs, {len(executables)} executables, {len(symlinks)} symlinks -> {out}")
+    print(f"{len(dylibs)} dylibs, {len(executables)} executables, {len(symlinks)} symlinks"
+          + (f", {len(exclude)} left out" if exclude else "") + f" -> {out}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:])

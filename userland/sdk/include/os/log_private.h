@@ -28,6 +28,9 @@
 
 __BEGIN_DECLS
 
+/* The subsystem Xcode shows as runtime issues (CoreFoundation, Foundation). */
+#define OS_LOG_SUBSYSTEM_RUNTIME_ISSUES "com.apple.runtime-issues"
+
 #define OS_LOG_F_SEND     0x1u   /* emit to the logging system */
 #define OS_LOG_F_COMPOSE  0x2u   /* also format into the caller's buffer */
 

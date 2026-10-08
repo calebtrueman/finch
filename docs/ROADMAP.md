@@ -100,8 +100,14 @@ Apple's is closed. Developed in the emulated M4 first. The map is
       - [ ] cron, configd, mDNSResponder, diskarbitrationd. They link closed frameworks,
             which Finch builds or writes first (nothing closed is borrowed):
             `docs/design/COREFOUNDATION.md`
-        - [ ] libicucore (ICU-76142.4.7)
+        - [x] libicucore (ICU-76142.4.7; all 8,979 exports)
         - [ ] CoreFoundation (swift-corelibs base; C API, then the ObjC collection classes)
+          - [x] C API and CF objects as ObjC objects: `finch-cf-test` output identical to
+                Apple's, on the host and in the VM (2026-10-08)
+          - [ ] ObjC-to-CF dispatch and the collection classes
+        - [x] libswiftCore from Swift's open source (libobjc links it; 14,885/15,043 exports)
+        - [ ] The other closed libraries Finch-built binaries link (`tools/check-closed.py`):
+              zlib, bzip2, liblzma, libedit, libxo, libsbuf, libresolv, libcompression, …
         - [ ] IOKit.framework (IOKitUser)
         - [ ] cron; DiskArbitration; SystemConfiguration and configd; mDNSPosix
   - [x] libmalloc no longer depends on libcorecrypto

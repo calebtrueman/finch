@@ -12,7 +12,7 @@ VARIANT_DARWINEXTSN_CANCELABLE_MACROS = -DVARIANT_CANCELABLE -DVARIANT_DARWINEXT
 // verification checks the product against that.
 FINCH_VERSION_LDFLAGS_c = -Wl,-current_version,1752.100.10
 FINCH_VERSION_LDFLAGS_collections = -Wl,-current_version,1752.100.10
-OTHER_LDFLAGS = $(inherited) $(FINCH_VERSION_LDFLAGS_$(PRODUCT_NAME))
+FINCH_PROJECT_LDFLAGS = $(FINCH_VERSION_LDFLAGS_$(PRODUCT_NAME))
 
 // Build libsystem_c.dylib and libsystem_darwin.dylib in separate build-oss.sh
 // runs: libdarwin's TAPI verification scans $(DSTROOT)/usr/include as its

@@ -118,9 +118,44 @@ if [[ "${FINCH_DSC:-1}" != 0 ]]; then
     builder="${FINCH_ROOT}/build/tools/dyld_shared_cache_builder"
     [[ -x "${builder}" ]] || "${FINCH_ROOT}/tools/dsc/build-builder.sh" >/dev/null || die "cache builder build failed"
     rm -rf "${mnt}/System/Library/dyld"
-    python3 "${FINCH_ROOT}/tools/dsc/mkmanifest.py" "${mnt}" "${OUT}/dsc-manifest.json" | sed 's/^/  dsc: /'
-    "${builder}" -dylib_cache "${mnt}" -dst_root "${mnt}" -json_manifest "${OUT}/dsc-manifest.json" \
-        -print_cdhashes > "${OUT}/dsc-build.log" 2>&1 || die "shared cache build failed (see ${OUT}/dsc-build.log)"
+    # The base image still holds closed Apple binaries that link libraries
+    # Finch has replaced (CoreFoundation, ...) and need symbols Finch's don't
+    # have yet. Nothing on the boot path uses them, so the builder's
+    # "Referenced from" images are left out of the cache and the build is
+    # retried. A Finch-built image with a missing symbol is a real error.
+    exclude="${OUT}/dsc-exclude.txt"
+    : > "${exclude}"
+    finch_files="${OUT}/finch-files.txt"
+    { (cd "${ROOT}" 2>/dev/null && find . -type f | sed 's|^\.||')
+      grep -v '^\s*#' "${OVERLAY}" | sed '/^\s*$/d' | awk '{print $2}'; } | sort -u > "${finch_files}"
+    for attempt in 1 2 3 4 5 6 7 8; do
+        rm -rf "${mnt}/System/Library/dyld"
+        python3 "${FINCH_ROOT}/tools/dsc/mkmanifest.py" "${mnt}" "${OUT}/dsc-manifest.json" "${exclude}" | sed 's/^/  dsc: /'
+        if "${builder}" -dylib_cache "${mnt}" -dst_root "${mnt}" -json_manifest "${OUT}/dsc-manifest.json" \
+            -print_cdhashes > "${OUT}/dsc-build.log" 2>&1; then
+            break
+        fi
+        unresolved=$(sed -n 's/^ *Referenced from: //p' "${OUT}/dsc-build.log" | sort -u)
+        [[ -n "${unresolved}" && ${attempt} -lt 8 ]] || die "shared cache build failed (see ${OUT}/dsc-build.log)"
+        # A Finch-built image may be left out only if it still links a closed
+        # library (it isn't open yet anyway; reported below).
+        for img in $(comm -12 <(echo "${unresolved}") "${finch_files}"); do
+            closed=$(otool -L "${mnt}${img}" 2>/dev/null | tail -n +2 | awk '{print $1}' | while read -r dep; do
+                [[ "${dep}" == "${img}" ]] && continue
+                real=$(cd "${mnt}" && python3 -c 'import os,sys; print(os.path.realpath("."+sys.argv[1])[1:])' "${dep}")
+                grep -qx "${dep}" "${finch_files}" || grep -qx "/${real#*/}" "${finch_files}" || echo "${dep}"
+            done)
+            [[ -n "${closed}" ]] || die "Finch-built ${img} needs symbols Finch's libraries don't have (see ${OUT}/dsc-build.log)"
+            echo "  dsc: warning: ${img} still links closed $(echo ${closed} | tr ' ' ',')"
+        done
+        echo "${unresolved}" >> "${exclude}"
+        sort -u -o "${exclude}" "${exclude}"
+        # They can't load against Finch's libraries, so they leave the image
+        # too (as a missing file, a weak dependency on one, such as
+        # libobjc's on libswiftCore, is fine).
+        echo "${unresolved}" | while read -r img; do rm -f "${mnt}${img}"; done
+    done
+    [[ -s "${exclude}" ]] && echo "  dsc: removed $(wc -l < "${exclude}" | tr -d ' ') closed base-image binaries Finch's libraries can't satisfy yet (${exclude#"${FINCH_ROOT}/"})"
     # As on macOS since 11, dylibs in the cache aren't also on disk. dyld in
     # PID 1 scans for "roots" (on-disk dylibs overriding the cache) at boot;
     # finding them, every process would load from disk and patch the cache.
@@ -144,6 +179,24 @@ if [[ "${FINCH_DSC:-1}" != 0 ]]; then
     mv "${mnt}"/System/Library/dyld/*.map "${OUT}/" 2>/dev/null   # host-side debugging aid, kept out of the image
     sed -n 's/.* cdhash: \([0-9a-f]*\)$/\1/p' "${OUT}/dsc-build.log" >> "${OUT}/all_hashes"
     echo "  dsc: $(ls "${mnt}/System/Library/dyld" | wc -l | tr -d ' ') cache files, $(du -sh "${mnt}/System/Library/dyld" | cut -f1)"
+fi
+
+# 5. Finch-built binaries whose libraries aren't in the image (on disk or in
+#    the shared cache): those still linking closed libraries the image had to
+#    drop. tools/check-closed.py lists every closed link.
+if [[ -f "${OUT}/dyld_shared_cache_arm64e.map" ]]; then
+    broken=$(grep -v '^\s*#' "${OVERLAY}" | sed '/^\s*$/d' | awk '{print $2}' | cat - <(cd "${ROOT}" && find . -type f | sed 's|^\.||') \
+        | sort -u | while read -r img; do
+            [[ -f "${mnt}${img}" ]] && is_macho "${mnt}${img}" || continue
+            otool -L "${mnt}${img}" 2>/dev/null | tail -n +2 | grep -v ', weak)$' | awk '{print $1}' | while read -r dep; do
+                [[ "${dep}" == @* || -e "${mnt}${dep}" ]] && continue
+                grep -qx "${dep}" "${OUT}/dyld_shared_cache_arm64e.map" || echo "${img} (${dep})"
+            done
+        done | sort -u)
+    if [[ -n "${broken}" ]]; then
+        echo "  warning: Finch-built binaries that can't load (a closed library they link isn't in the image):"
+        printf '    %s\n' ${broken// /_}
+    fi
 fi
 
 sort -u -o "${OUT}/all_hashes" "${OUT}/all_hashes"

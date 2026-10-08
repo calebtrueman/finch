@@ -69,6 +69,9 @@ steps=(
     # (the other pam_modules need closed frameworks: OpenDirectory, Heimdal, LocalAuthentication)
     # ICU (libicucore + data), for CoreFoundation (docs/design/COREFOUNDATION.md)
     "ICU|oss ICU"
+    "CoreFoundation|userland/CoreFoundation/build.sh"
+    # The Swift runtime (libobjc links it, as Apple's does)
+    "swift|userland/swift/build.sh"
     "pam_modules|oss pam_modules rootok uwtmp self env group nologin sacl launchd"
     "pam|make -s -C userland/pam"
     "libsystem-finch|make -s -C userland/libsystem"

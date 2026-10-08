@@ -16,7 +16,7 @@ GCC_SYMBOLS_PRIVATE_EXTERN = YES
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) __DARWIN_NON_CANCELABLE=1 OS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY=1 __PTHREAD_EXPOSE_INTERNALS__=1
 LINK_WITH_STANDARD_LIBRARIES = NO
 CURRENT_PROJECT_VERSION = 1542.100.32
-OTHER_LDFLAGS = $(inherited) -umbrella System -nodefaultlibs -L$(SDKROOT)/usr/lib/system -ldyld -lcompiler_rt -lsystem_kernel -lsystem_platform -lsystem_pthread -lsystem_malloc -lsystem_c -lsystem_blocks -lunwind -Wl,-upward-lsystem_darwin -Wl,-upward-lobjc -Wl,-alias_list,$(SRCROOT)/xcodeconfig/libdispatch.aliases -Wl,-order_file,$(SRCROOT)/xcodeconfig/libdispatch.order -Wl,-interposable_list,$(SRCROOT)/xcodeconfig/libdispatch.interposable -Wl,-current_version,1542.100.32 -Wl,-compatibility_version,1
+FINCH_PROJECT_LDFLAGS = -umbrella System -nodefaultlibs -L$(SDKROOT)/usr/lib/system -ldyld -lcompiler_rt -lsystem_kernel -lsystem_platform -lsystem_pthread -lsystem_malloc -lsystem_c -lsystem_blocks -lunwind -Wl,-upward-lsystem_darwin -Wl,-upward-lobjc -Wl,-alias_list,$(SRCROOT)/xcodeconfig/libdispatch.aliases -Wl,-order_file,$(SRCROOT)/xcodeconfig/libdispatch.order -Wl,-interposable_list,$(SRCROOT)/xcodeconfig/libdispatch.interposable -Wl,-current_version,1542.100.32 -Wl,-compatibility_version,1
 
 // Product identity (also stripped from the published config).
 PRODUCT_NAME = dispatch

@@ -136,6 +136,13 @@ finch_xcconfig="${obj}/finch.xcconfig"
     [[ -f "${FINCH_ROOT}/userland/oss/${project}.xcconfig" ]] \
         && echo "#include \"${FINCH_ROOT}/userland/oss/${project}.xcconfig\""
     echo "LIBRARY_SEARCH_PATHS = \$(inherited) ${FINCH_ROOT}/build/userland/lib"
+    # Executables drop libraries they use nothing from: Apple's projects link
+    # some (IOKit in halt, SystemConfiguration in dynamic_pager) that are closed
+    # and absent from Finch's image (tools/check-closed.py). Libraries keep
+    # their links, which match Apple's on purpose. A project's own link flags
+    # are FINCH_PROJECT_LDFLAGS in its userland/oss/<project>.xcconfig.
+    echo "FINCH_DEAD_STRIP_mh_execute = -Wl,-dead_strip_dylibs"
+    echo "OTHER_LDFLAGS = \$(inherited) \$(FINCH_PROJECT_LDFLAGS) \$(FINCH_DEAD_STRIP_\$(MACH_O_TYPE))"
     # Finch's own headers (userland/sdk/include, in ${SDK}/override) come first
     # for private-first projects, and after everything else for the rest, so
     # they only fill in what the SDK lacks.

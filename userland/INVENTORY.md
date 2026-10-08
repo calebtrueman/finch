@@ -31,6 +31,9 @@ the image rebuilds the cache.
 | `newsyslog` (com.apple.newsyslog) | syslog-406 | **Built by Finch**, every hour at :30; Apple's `/etc/newsyslog.conf` |
 | `dynamic_pager` (com.apple.dynamic_pager) | system_cmds-1042.100.6.0.1 | **Built by Finch**, runs once at boot |
 | `logd` (com.apple.logd) | closed | **Replaced by `finch-logd`** (`userland/logd`, on libdispatch's open firehose server; `docs/design/LOGD.md`), with Finch's `log(1)` |
+| CoreFoundation.framework | swift-corelibs-foundation (Apache 2.0) | **Built by Finch** (`userland/CoreFoundation`; `docs/design/COREFOUNDATION.md`) |
+| libicucore | ICU-76142.4.7 | **Built by Finch** |
+| libswiftCore | swift (Apache 2.0) | **Built by Finch** (`userland/swift`) |
 | `cron`, `configd`, `mDNSResponder`, `diskarbitrationd` | cron-52, configd-1405.100.8, mDNSResponder-2881.100.56.0.1, DiskArbitration | OPEN, but they link closed frameworks (CoreFoundation, IOKit, and for cron BackgroundTaskManagement and CoreAnalytics), which Finch builds or writes first (`docs/design/COREFOUNDATION.md`). Apple doesn't publish mDNSResponder's macOS daemon for 26.4; Finch will run the portable `mDNSPosix` one. |
 
 ## libSystem (`/usr/lib/libSystem.B.dylib` + `/usr/lib/system/*`)
