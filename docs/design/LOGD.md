@@ -36,8 +36,8 @@ it can't look logd up through itself.
   from the loader-namespace records (namespace 5).
 - It composes messages with libsystem_trace's `os_log_fmt_compose`, with private
   values redacted, so the text is exactly what the process would compose.
-- It appends records (`logstore.h`) to `/var/log/finch/os_log.records`, rotating
-  to `.0` at 16 MiB. `/var/db/diagnostics` isn't writable in the dev image.
+- It appends records (`logstore.h`) to `/var/db/diagnostics/finch/os_log.records`,
+  rotating to `.0` at 16 MiB. They're Finch records, not Apple's tracev3 files.
 
 ## log(1) (`userland/logd/log.c`)
 

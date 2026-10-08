@@ -12,7 +12,8 @@
 
 #include <stdint.h>
 
-#define LOGSTORE_PATH  "/var/log/finch/os_log.records"
+#define LOGSTORE_DIR   "/var/db/diagnostics/finch"
+#define LOGSTORE_PATH  LOGSTORE_DIR "/os_log.records"
 #define LOGSTORE_MAX   (16u << 20)
 
 struct logstore_record {

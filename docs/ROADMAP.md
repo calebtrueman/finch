@@ -41,7 +41,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
         and /var/{tmp,run,log,root}
   - [ ] Root-owned files in dev images (they arrive as uid 99; the root fs can't be
         remounted read-write). Build release images with root.
-  - [ ] Writable /var/db (System Policy denies tmpfs there)
+  - [x] Writable /var/db: System Policy (the sandbox's platform profile) refuses a mount
+        there, so it's a link into a tmpfs at `/private/var/rw` (2026-10-08)
 - [ ] **1.3 Open libSystem from source.** Swap dylibs one at a time, starting with
       libsystem_kernel from our own xnu build.
   - [x] libsystem_kernel (xnu libsyscall + patch 0003), running in the VM (2026-10-06).

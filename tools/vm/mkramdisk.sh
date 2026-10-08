@@ -44,11 +44,15 @@ add_hashes() {
 is_macho() { file -b "$1" | grep -q '^Mach-O'; }
 
 # 0. Mount points for the tmpfs the boot script lays over the read-only root.
-mkdir -p "${mnt}/private/tmp" "${mnt}"/private/var/{tmp,run,log,root}
+mkdir -p "${mnt}/private/tmp" "${mnt}"/private/var/{tmp,run,log,root,rw}
 # /var/folders (per-user temp/cache dirs) can't be a tmpfs mount point (System
 # Policy), so it's a link into the /private/var/tmp tmpfs; rc creates the target.
 rm -rf "${mnt}/private/var/folders"
 ln -s tmp/folders "${mnt}/private/var/folders"
+# Nor can /var/db: it's a link into the /private/var/rw tmpfs. Writes through
+# the link resolve to /private/var/rw/db, which no System Policy rule names.
+rm -rf "${mnt}/private/var/db"
+ln -s rw/db "${mnt}/private/var/db"
 
 # The base ramdisk ships only the root-only /etc/master.passwd. macOS also has
 # the world-readable /etc/passwd (no password or expiry fields) that

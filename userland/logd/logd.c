@@ -260,7 +260,8 @@ log_names(firehose_client_t fc, uint16_t id, const char **subsystem, const char 
 static void
 store_open(void)
 {
-	mkdir("/var/log/finch", 0755);
+	mkdir("/var/db/diagnostics", 0755);
+	mkdir(LOGSTORE_DIR, 0755);
 	store_fd = open(LOGSTORE_PATH, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
 }
 
