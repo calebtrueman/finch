@@ -194,4 +194,13 @@ write_plist(id plist, NSString *path, BOOL atomically)
 {
     return [self writeToFile:[url path] options:o error:error];
 }
+- (instancetype)initWithContentsOfURL:(NSURL *)url
+{
+    if (![url isFileURL]) { [self release]; return nil; }
+    return [self initWithContentsOfFile:[url path]];
+}
+- (instancetype)initWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)o error:(NSError **)error
+{
+    return [self initWithContentsOfFile:[url path] options:o error:error];
+}
 @end

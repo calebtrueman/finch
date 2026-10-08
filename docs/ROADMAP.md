@@ -172,9 +172,12 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         NSNotificationQueue, NSAffineTransform, NSDateInterval (2026-10-08)
   - [x] Streams, ports, file handles, pipes, tasks, hosts (2026-10-08)
   - [x] NSPredicate and NSExpression (2026-10-08)
+  - [x] NSProgress, NSFileWrapper, byte-count, ISO 8601 and date-components formatters,
+        collection differences (2026-10-08)
   - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it):
-        NSProgress, NSFileWrapper, NSXMLParser, the remaining formatters, the URL
-        loading system, NSXPCConnection.
+        NSXMLParser (needs libxml2 from Apple's source), units and measurements,
+        the URL loading system, NSXPCConnection, a system-wide distributed
+        notification center.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit

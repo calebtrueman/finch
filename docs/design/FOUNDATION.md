@@ -290,4 +290,15 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   does. UTI comparisons parse but evaluate false until Finch has a type
   database. `finch-predicate-test` is identical to Apple's on the host and
   in the VM.
+- 2026-10-08: documents. `NSProgress` (parent and child trees, implicit
+  children while current, cancel/pause/resume with handlers, KVO-observable
+  fraction), `NSByteCountFormatter`, `NSISO8601DateFormatter`,
+  `NSDateComponentsFormatter` (English for now: Apple's localizes through
+  ICU's measure formats, which have no C API),
+  `NSOrderedCollectionDifference` and the array and ordered-set diffing
+  methods, `NSDistributedNotificationCenter` (the in-process center Apple
+  gives processes without a window server; system-wide delivery needs a
+  distnoted), and `NSFileWrapper` (files, directories and links, Apple's
+  numbered keys for clashing names). NSData reads URLs.
+  `finch-documents-test` is identical to Apple's on the host and in the VM.
 
