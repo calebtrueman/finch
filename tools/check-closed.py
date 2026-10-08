@@ -12,7 +12,14 @@ doesn't ship, such as libobjc's to libobjc-env) must also come from Finch.
 Prints each closed library with how many Finch binaries link it; -v lists
 them. Exit 1 if any.
 check-boot-path.py asks the narrower question of what the boot loads.
+
+It also lists closed frameworks whose paths appear as strings in Finch's
+binaries: what code could dlopen() at run time, which linking doesn't show
+(CF used to load CFNetwork that way). These are reported, not counted:
+some are only names in tables (dyld's), and the rest are listed in
+docs/design/COREFOUNDATION.md until Finch provides them.
 """
+import re
 import os
 import subprocess
 import sys
@@ -61,10 +68,25 @@ def macos_ships(path):
     return subprocess.run(['dyld_info', '-exports', path], capture_output=True).returncode == 0
 
 
+FRAMEWORK_PATH = re.compile(rb'/System/Library/(?:Private)?Frameworks/[A-Za-z0-9_]+\.framework[A-Za-z0-9_/.]*')
+
+# Names that are only compared, never loaded: dyld's policy lists, and
+# libobjc's check for AppleScriptObjC apps.
+TABLE_ONLY = {'/usr/lib/dyld', '/usr/lib/libobjc.A.dylib'}
+
+
+def mentioned_frameworks(host_file):
+    """Framework paths that appear as strings in a binary."""
+    with open(host_file, 'rb') as f:
+        data = f.read()
+    return {m.decode() for m in FRAMEWORK_PATH.findall(data)}
+
+
 def main():
     verbose = '-v' in sys.argv[1:]
     files = finch_files()
     users = defaultdict(list)
+    mentions = defaultdict(set)
     for image, host in sorted(files.items()):
         if not os.path.isfile(host) or os.path.islink(host):
             continue
@@ -78,6 +100,11 @@ def main():
             if weak and not macos_ships(dep):
                 continue                       # absent on macOS too: nothing loads
             users[dep].append(image)
+        if image not in TABLE_ONLY:
+            for fw in mentioned_frameworks(host):
+                bundle = fw.split('.framework')[0] + '.framework'
+                if not provided(bundle, files) and not any(p.startswith(bundle) for p in files):
+                    mentions[bundle].add(image)
     for dep, who in sorted(users.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         print(f'{len(who):4d}  {dep}')
         if verbose:
@@ -85,6 +112,10 @@ def main():
                 print(f'        {w}')
     print(f'{len(users)} closed libraries linked by Finch-built binaries' if users
           else 'nothing Finch builds links a closed library')
+    if mentions:
+        print('closed frameworks named in Finch-built binaries (possible run-time loads):')
+        for fw, who in sorted(mentions.items()):
+            print(f'      {fw}: {" ".join(sorted(who))}')
     return 1 if users else 0
 
 

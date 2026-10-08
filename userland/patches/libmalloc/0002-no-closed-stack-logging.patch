@@ -1,0 +1,16 @@
+diff --git a/src/malloc.c b/src/malloc.c
+index b777921..0dbb37b 100644
+--- a/src/malloc.c
++++ b/src/malloc.c
+@@ -4016,6 +4016,11 @@ _malloc_register_stack_logger(bool at_startup)
+ 	if (_dlopen == NULL) {
+ 		return false;
+ 	}
++	/* Finch: MallocStackLogging.framework is closed and not loaded; stack
++	 * logging is unavailable until Finch has its own. */
++	if (1) {
++		return false;
++	}
+ 	dylib = _dlopen("/System/Library/PrivateFrameworks/MallocStackLogging.framework/MallocStackLogging", RTLD_GLOBAL);
+ 	if (dylib == NULL) {
+ 		return false;	

@@ -1,0 +1,19 @@
+Finch: never load Apple's closed SystemConfiguration (it returns NULL for every
+symbol, as when the framework is missing) until Finch builds it from configd.
+
+
+diff --git a/IOSystemConfiguration.c b/IOSystemConfiguration.c
+index 62e3bad..ce47f6b 100644
+--- a/IOSystemConfiguration.c
++++ b/IOSystemConfiguration.c
+@@ -51,6 +51,10 @@ const CFStringRef _io_kSCDynamicStoreDomainState = CFSTR("State:");
+ 
+ static void * symAddrInSC(const char *name)
+ {
++    /* Finch: Apple's SystemConfiguration is closed; nothing is loaded until
++     * Finch builds it from configd. The SC calls below then do nothing, as
++     * they do where the framework is missing. */
++    if (1) return NULL;
+     static void * handle = NULL;
+     
+     if (!handle) {

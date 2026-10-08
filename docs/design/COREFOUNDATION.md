@@ -163,3 +163,15 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
 - 2026-10-08: Foundation is Finch's (`docs/design/FOUNDATION.md`), so
   `tools/check-closed.py` finds no closed library in anything Finch builds.
 
+## Run-time loads of closed frameworks
+
+Linking isn't the only way to depend on a closed library: code can
+`dlopen()` one by path. `tools/check-closed.py` also lists closed framework
+paths named in Finch's binaries. Patched so far (2026-10-08): CF's lookups
+of CarbonCore, CoreServicesInternal and CFNetwork (`CFUtilities.c`), IOKit's
+SystemConfiguration (`userland/IOKit/patches/0003`), and libmalloc's
+MallocStackLogging (`userland/patches/libmalloc/0002`). Each returns nothing,
+so the caller takes the path it takes when the framework is missing, until
+Finch provides its own (SystemConfiguration from configd, networking for
+CFNetwork's stream functions).
+
