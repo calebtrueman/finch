@@ -250,4 +250,17 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   against the SDK bind them there. Sets and ordered sets nested in a
   collection's description are quoted, as Apple's are.
   `finch-collections-test` is identical to Apple's on the host and in the VM.
+- 2026-10-08: coverage and odds and ends. `tools/check-framework-api.py`
+  compares Finch's exports with the SDK's (classes and C symbols, in the
+  image Apple puts them in; Foundation re-exports CF, so Foundation's API
+  may come from CF but not the reverse). New: `NSProxy` (a root class on
+  libobjc's reference counting), `NSAssertionHandler` (what NSAssert calls;
+  failures go to os_log as Apple's do), `NSIndexPath`, `NSDateInterval`,
+  `NSAffineTransform`, `NSValueTransformer` and its named transformers,
+  `NSUndoManager` (groups, event grouping on the run loop, redo, invocation
+  proxies, block handlers, levels, notifications), `NSNotificationQueue`,
+  `NSSetUncaughtExceptionHandler`, zones and pages, NSDebug.h's switches,
+  HFS type codes, and the error domains, keys, exception names and old
+  defaults keys Apple exports. `finch-misc-test` is identical to Apple's on
+  the host and in the VM.
 

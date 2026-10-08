@@ -130,9 +130,18 @@ __CFFinchRaise(NSString *n, const char *format, ...)
     __builtin_unreachable();
 }
 
+/* NSSetUncaughtExceptionHandler's (Foundation's API; CF holds it, as
+ * Foundation re-exports CF). It runs first, then the default report. */
+typedef void NSUncaughtExceptionHandler(NSException *exception);
+static NSUncaughtExceptionHandler *user_handler;
+
+CF_EXPORT NSUncaughtExceptionHandler *NSGetUncaughtExceptionHandler(void) { return user_handler; }
+CF_EXPORT void NSSetUncaughtExceptionHandler(NSUncaughtExceptionHandler *handler) { user_handler = handler; }
+
 static void
 uncaught(id exception)
 {
+    if (user_handler && [exception isKindOfClass:[NSException class]]) user_handler(exception);
     char n[256] = "", r[1024] = "";
     if ([exception isKindOfClass:[NSException class]]) {
         NSException *e = exception;

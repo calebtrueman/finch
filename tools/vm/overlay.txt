@@ -45,6 +45,7 @@ build/userland/finch-kvc-test /usr/local/bin/finch-kvc-test
 build/userland/finch-data-test /usr/local/bin/finch-data-test
 build/userland/finch-archive-test /usr/local/bin/finch-archive-test
 build/userland/finch-collections-test /usr/local/bin/finch-collections-test
+build/userland/finch-misc-test /usr/local/bin/finch-misc-test
 build/userland/finch-log-test /usr/local/bin/finch-log-test
 build/userland/finch-hardened-test /usr/local/bin/finch-hardened-test
 build/userland/finch-debuggee /usr/local/bin/finch-debuggee

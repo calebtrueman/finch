@@ -166,8 +166,11 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] NSCoder, NSKeyedArchiver/NSKeyedUnarchiver in Apple's format (2026-10-08)
   - [x] NSAttributedString, NSRegularExpression, NSOrderedSet, NSCache, pointer
         collections, NSCountedSet (2026-10-08)
-  - [ ] The rest, by what apps use: streams, file handles and tasks, NSPort,
-        NSUndoManager, NSPredicate, NSProgress, NSValueTransformer.
+  - [x] NSProxy, NSAssertionHandler, NSIndexPath, NSUndoManager, NSValueTransformer,
+        NSNotificationQueue, NSAffineTransform, NSDateInterval (2026-10-08)
+  - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it): streams,
+        file handles and tasks, NSPort, NSPredicate/NSExpression, NSProgress,
+        NSXMLParser, the URL loading system, NSXPCConnection.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit
