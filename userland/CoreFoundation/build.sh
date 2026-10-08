@@ -122,12 +122,26 @@ mkdir -p "${FW}/Versions/A"
 # The compiler's constant-string class symbol is the ObjC class (CFObjC.m).
 { grep -v '^_\$s' "${CF}/DarwinSymbolAliases"
   echo '_OBJC_CLASS_$___NSCFConstantString ___CFConstantStringClassReference'; } > "${OBJ}/aliases"
+# CF links Foundation upward, as Apple's does: __NSCFString subclasses
+# Foundation's NSMutableString, __NSCFNumber its NSNumber. Foundation links
+# CF, so CF is linked against a stub naming the Foundation classes it uses
+# (userland/Foundation/cf-imports.txt); at run time it's Finch's Foundation.
+{ echo "--- !tapi-tbd"
+  echo "tbd-version: 4"
+  echo "targets: [ arm64e-macos ]"
+  echo "install-name: '/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation'"
+  echo "current-version: 4424.1.255"
+  echo "compatibility-version: 300"
+  echo "exports:"
+  echo "  - targets: [ arm64e-macos ]"
+  echo "    objc-classes: [ $(grep -v '^#' "${FINCH_ROOT}/userland/Foundation/cf-imports.txt" | paste -sd, - | sed 's/,/, /g') ]"
+  echo "..."; } > "${OBJ}/Foundation.tbd"
 "${CC}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
     -install_name /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation \
     -current_version 4424.1.255 -compatibility_version 150 -Wl,-alias_list,"${OBJ}/aliases" \
     -Wl,-init,___CFInitialize \
     "${OBJ}"/o/*.o -o "${FW}/Versions/A/CoreFoundation" -lobjc \
-    -L"${ROOT}/usr/lib" -licucore -Wl,-reexport-lobjc -lSystem
+    -L"${ROOT}/usr/lib" -licucore -Wl,-reexport-lobjc -lSystem -Wl,-upward_library,"${OBJ}/Foundation.tbd"
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/CoreFoundation "${FW}/CoreFoundation"
 codesign -f -s - -i com.apple.CoreFoundation "${FW}/Versions/A/CoreFoundation" 2>/dev/null

@@ -1,0 +1,7 @@
+# Foundation classes CoreFoundation subclasses or names (it links Foundation upward).
+NSString
+NSMutableString
+NSNumber
+NSValue
+NSCharacterSet
+NSMutableCharacterSet

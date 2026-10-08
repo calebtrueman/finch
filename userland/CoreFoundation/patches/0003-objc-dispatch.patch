@@ -5,7 +5,8 @@ calls (CFRetain, CFRelease, CFGetRetainCount, CFCopyDescription,
 CFGetAllocator) and CFArrayGetValueAtIndex get their ObjC paths back;
 retyping an instance (CFDictionary, CFSet, stack keys) and static instances
 set the ObjC class; and two declarations that clash with ObjC are skipped.
-_CFArrayIsMutable and _CFDataIsMutable are for __NSCFArray and __NSCFData.
+_CFArrayIsMutable, _CFDataIsMutable and _CFCharacterSetIsMutable are for the
+classes of those objects; __CFStringIsMutable is Apple's export, for Foundation.
 
 
 diff --git a/Sources/CoreFoundation/CFArray.c b/Sources/CoreFoundation/CFArray.c
@@ -29,6 +30,20 @@ index cc03d66..a75a45e 100644
 +// Apple's does (userland/CoreFoundation/NSArray_Finch.m).
 +CF_PRIVATE Boolean _CFArrayIsMutable(CFArrayRef array) {
 +    return __CFArrayGetType(array) != __kCFArrayImmutable;
++}
+diff --git a/Sources/CoreFoundation/CFCharacterSet.c b/Sources/CoreFoundation/CFCharacterSet.c
+index 3c818e3..dd7ccf5 100644
+--- a/Sources/CoreFoundation/CFCharacterSet.c
++++ b/Sources/CoreFoundation/CFCharacterSet.c
+@@ -3201,3 +3201,9 @@ CFIndex __CFCharDigitValue(UniChar ch) {
+     return u_charDigitValue(ch);
+ }
+ #endif
++
++// Finch: for __NSCFCharacterSet, which raises on mutating an immutable set
++// (userland/CoreFoundation/CFObjC.m).
++CF_PRIVATE Boolean _CFCharacterSetIsMutable(CFCharacterSetRef cset) {
++    return __CFCSetIsMutable(cset);
 +}
 diff --git a/Sources/CoreFoundation/CFData.c b/Sources/CoreFoundation/CFData.c
 index 5814281..d7a4764 100644
@@ -135,6 +150,20 @@ index 9163064..8ad22ac 100644
      if (_kCFRuntimeIDCFAllocator == __CFGenericTypeID_inline(cf)) {
  	return __CFAllocatorGetAllocator(cf);
      }
+diff --git a/Sources/CoreFoundation/CFString.c b/Sources/CoreFoundation/CFString.c
+index a49dad4..0b39334 100644
+--- a/Sources/CoreFoundation/CFString.c
++++ b/Sources/CoreFoundation/CFString.c
+@@ -7944,3 +7944,9 @@ void CFShowStr(CFStringRef str) {
+ #undef HANGUL_VCOUNT
+ #undef HANGUL_TCOUNT
+ #undef HANGUL_NCOUNT
++
++// Finch: Apple's CoreFoundation exports this; Foundation's string classes
++// use it (userland/Foundation).
++CF_EXPORT Boolean __CFStringIsMutable(CFStringRef str) {
++    return __CFStrIsMutable(str);
++}
 diff --git a/Sources/CoreFoundation/CFURLAccess.c b/Sources/CoreFoundation/CFURLAccess.c
 index b81736c..993dd13 100644
 --- a/Sources/CoreFoundation/CFURLAccess.c

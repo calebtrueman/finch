@@ -70,6 +70,8 @@ steps=(
     # ICU (libicucore + data), for CoreFoundation (docs/design/COREFOUNDATION.md)
     "ICU|oss ICU"
     "CoreFoundation|userland/CoreFoundation/build.sh"
+    # Finch's Foundation (CF links it upward; docs/design/FOUNDATION.md)
+    "Foundation|userland/Foundation/build.sh"
     "IOKit|userland/IOKit/build.sh"
     # Libraries Apple publishes that Finch's commands link (tools/check-closed.py).
     # libedit's generated headers come from its "make lists" target first.

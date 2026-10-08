@@ -121,8 +121,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
               Brotli, zlib and LZMA; cross-checked against Apple's): Finch's own (2026-10-08)
         - [x] su and login authenticate through Finch's PAM stacks (OpenPAM's pam_unix
               with Apple's pam_launchd; 2026-10-08)
-        - [ ] Foundation, the one closed library `tools/check-closed.py` still finds
-              (gcore's GCoreFramework). It's Phase 2's first item.
+        - [x] Foundation: Finch's own (Phase 2's first item, below). Since 2026-10-08,
+              `tools/check-closed.py` finds no closed library in anything Finch builds.
         - [x] IOKit.framework from IOKitUser: IOKitLib, power management, power sources
               (`userland/IOKit`; nvram, iostat and shutdown run on it, 2026-10-08)
         - [ ] cron; DiskArbitration; SystemConfiguration and configd; mDNSPosix
@@ -146,12 +146,19 @@ Apple's, for behaviour) and in Tier 1. The display is Tier 2's
 (`docs/design/TIER2-VZ.md`): a Virtualization.framework guest that boots
 normally on its own kernel, until Finch's kernel runs on bare metal. The guest
 is set up and reachable with `tools/vz/ssh` (2026-10-08).
-- [x] The open libraries Finch's binaries link: everything but Foundation
+- [x] The open libraries Finch's binaries link: all of them, Foundation included
       (`tools/check-closed.py`, 2026-10-08). IOKit is done.
 - [ ] CoreFoundation's ObjC bridge and the classes it hosts (in progress, above)
 - [ ] Foundation, Finch's own in Objective-C over Finch's CF, class for class where
       Apple's is (`docs/design/FOUNDATION.md`). Behaviour is checked against Apple's
       on the host; swift-corelibs-foundation is the reference implementation.
+  - [x] The framework, linked as Apple's, with CF linked to it upward; NSString,
+        NSNumber/NSValue and literals, NSCharacterSet, NSError, NSAutoreleasePool,
+        NSLog and the common functions. `finch-foundation-test` is identical to
+        Apple's, and GCoreFramework (gcore) runs on it (2026-10-08).
+  - [ ] The rest, by what apps use: NSThread, NSRunLoop/NSTimer, NSFileManager,
+        NSBundle, NSProcessInfo, notifications, NSURL, NSLocale/NSDateFormatter,
+        archiving and property lists, KVC/KVO, descriptions of collections.
 - [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit

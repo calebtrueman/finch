@@ -522,3 +522,75 @@ check_mutable(id self, SEL _cmd)
 }
 
 @end
+
+/* MARK: - Constant literals */
+
+/* clang's constant dictionary literal (@{@"k": @1} built for macOS 11+),
+ * with the layout the compiler emits: options, count, keys, objects. */
+@interface NSConstantDictionary : NSDictionary {
+    NSUInteger _options;
+    NSUInteger _count;
+    const id *_keys;
+    const id *_objects;
+}
+@end
+
+@implementation NSConstantDictionary
+FINCH_IMMORTAL_MEMORY
+- (NSUInteger)count { return _count; }
+- (id)objectForKey:(id)key
+{
+    if (!key) return nil;
+    for (NSUInteger i = 0; i < _count; i++)
+        if (_keys[i] == key || [_keys[i] isEqual:key]) return _objects[i];
+    return nil;
+}
+- (id)keyEnumerator
+{
+    NSArray *keys = [NSArray arrayWithObjects:_keys count:_count];
+    return [[[__NSFastEnumerationEnumerator alloc] _initWithCollection:keys reverse:NO] autorelease];
+}
+- (void)getObjects:(id *)objects andKeys:(id *)keys count:(NSUInteger)count
+{
+    NSUInteger n = count < _count ? count : _count;
+    if (keys) memcpy(keys, _keys, n * sizeof(id));
+    if (objects) memcpy(objects, _objects, n * sizeof(id));
+}
+- (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state
+                                  objects:(id __unsafe_unretained [])buffer count:(NSUInteger)len
+{
+    if (state->state) return 0;
+    state->state = 1;
+    state->itemsPtr = (id *)_keys;
+    state->mutationsPtr = &state->extra[0];
+    return _count;
+}
+- (id)copyWithZone:(struct _NSZone *)zone { return self; }
+@end
+
+/* The empty dictionary: what clang's @{} refers to (___NSDictionary0__struct). */
+@interface __NSDictionary0 : NSDictionary
+@end
+@implementation __NSDictionary0
+FINCH_IMMORTAL_MEMORY
+- (NSUInteger)count { return 0; }
+- (id)objectForKey:(id)key { return nil; }
+- (id)keyEnumerator
+{
+    return [[[__NSFastEnumerationEnumerator alloc] _initWithCollection:[NSArray array] reverse:NO] autorelease];
+}
+- (void)getObjects:(id *)objects andKeys:(id *)keys count:(NSUInteger)count { }
+- (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state
+                                  objects:(id __unsafe_unretained [])buffer count:(NSUInteger)len
+{
+    return 0;
+}
+- (id)copyWithZone:(struct _NSZone *)zone { return self; }
+@end
+
+extern char OBJC_CLASS_$___NSDictionary0[];
+struct __finch_NSDictionary0_object { __ptrauth_cf_objc_isa_pointer uintptr_t isa; };
+CF_EXPORT struct __finch_NSDictionary0_object __NSDictionary0__struct;
+struct __finch_NSDictionary0_object __NSDictionary0__struct = { (uintptr_t)OBJC_CLASS_$___NSDictionary0 };
+CF_EXPORT const id __NSDictionary0__;   /* as clang declares it */
+const id __NSDictionary0__ = (id)&__NSDictionary0__struct;

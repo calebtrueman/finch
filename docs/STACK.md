@@ -5,10 +5,11 @@ What runs on Finch today and where each piece comes from, bottom to top.
 These diagrams are updated in every commit that changes the stack, and
 `tools/render-stack.sh` checks that they render.
 
-**As of 2026-10-08:** CoreFoundation dispatches to Objective-C objects as
-Apple's does, and hosts NSException, the collection, data and date classes, and message forwarding. Foundation is the
-only closed library Finch's binaries still link (`tools/check-closed.py`), and
-Finch's own is in progress (`docs/design/FOUNDATION.md`).
+**As of 2026-10-08:** nothing Finch builds links a closed library
+(`tools/check-closed.py`). Finch's own Foundation has its core classes, on a
+CoreFoundation that dispatches to Objective-C objects as Apple's does and
+hosts the collections, data, dates, exceptions and message forwarding
+(`docs/design/FOUNDATION.md`).
 
 ```mermaid
 block-beta
@@ -30,7 +31,7 @@ block-beta
     block:L5
         columns 4
         t5["Foundation layer"]
-        foundation["Foundation (next)"]
+        foundation["Foundation<br/>NSString, NSNumber, NSError,<br/>NSCharacterSet, NSLog, ..."]
         cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, NSException,<br/>forwarding, NSInvocation"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         space5[" "]
@@ -39,7 +40,7 @@ block-beta
         swift["libswiftCore 6.3.1"]
         space5b[" "]
         iokit["IOKit.framework<br/>(IOKitUser)"]
-        gcore["GCoreFramework<br/>(links closed Foundation)"]
+        gcore["GCoreFramework<br/>(gcore, on Finch Foundation)"]
         space5c[" "]
     end
     block:L4
@@ -102,8 +103,8 @@ block-beta
     classDef firmware fill:#fee2e2,stroke:#b91c1c,color:#450a0a
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
-    class apps,desktop,shell,appkit,cg,later,foundation,kexts,metal planned
-    class cf,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class apps,desktop,shell,appkit,cg,later,kexts,metal planned
+    class cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu upstream
     class vz firmware
@@ -132,8 +133,7 @@ flowchart LR
     classDef closed fill:#ffffff,stroke:#b91c1c,color:#b91c1c,stroke-width:2px
 
     gcore["GCoreFramework"]:::apple
-    foundation["Foundation<br/>(Apple's, closed: the last one)"]:::closed
-    ffound["Finch Foundation"]:::planned
+    ffound["Foundation"]:::finch
     cf["CoreFoundation"]:::finch
     iokit["IOKit"]:::apple
     od["OpenDirectory"]:::finch
@@ -153,10 +153,10 @@ flowchart LR
     kern["libsystem_kernel"]:::apple
     xnu["XNU"]:::apple
 
-    gcore --> foundation
+    gcore --> ffound
     gcore -.->|"linked, unused"| comp
-    foundation -.->|"to be replaced by"| ffound
-    ffound <--> cf
+    ffound -->|"re-exports"| cf
+    cf -.->|"upward, as Apple's"| ffound
     cf --> objc --> swift
     cf --> icu
     iokit --> cf

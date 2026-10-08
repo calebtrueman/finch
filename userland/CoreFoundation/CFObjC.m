@@ -30,6 +30,9 @@
 
 #include "CFInternal.h"
 #include "CFRuntime_Internal.h"
+#include "CFObjCClasses_Finch.h"
+
+CF_EXPORT Boolean __CFStringIsMutable(CFStringRef str);
 
 #import <objc/NSObject.h>
 #import <objc/runtime.h>
@@ -78,15 +81,23 @@
 
 @end
 
-@interface __NSCFString : __NSCFType
+/* CFString as an NSMutableString (Foundation's class, linked upward as
+ * Apple's CF does). NSString's primitives, its fast paths, and mutation,
+ * over CF; Foundation's NSString methods do the rest through CF too. */
+@interface __NSCFString : NSMutableString
 @end
-/* NSString's primitives and fast paths over CFString. The rest of NSString
- * is Foundation's, on these (docs/design/FOUNDATION.md). */
 @implementation __NSCFString
+FINCH_CF_OBJECT_MEMORY
+- (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
+- (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
+- (BOOL)isEqualToString:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
 - (BOOL)isNSString__ { return YES; }
 - (NSUInteger)length { return (NSUInteger)CFStringGetLength((CFStringRef)self); }
 - (unichar)characterAtIndex:(NSUInteger)idx
 {
+    CFIndex n = CFStringGetLength((CFStringRef)self);
+    if (idx >= (NSUInteger)n)
+        __CFFinchRaise(NSRangeException, "-[__NSCFString characterAtIndex:]: Range or index out of bounds");
     return CFStringGetCharacterAtIndex((CFStringRef)self, (CFIndex)idx);
 }
 - (void)getCharacters:(unichar *)buffer range:(NSRange)range
@@ -104,25 +115,57 @@
 {
     return CFStringGetCString((CFStringRef)self, buffer, (CFIndex)max + 1, encoding);
 }
-- (const char *)UTF8String
-{
-    const char *fast = CFStringGetCStringPtr((CFStringRef)self, kCFStringEncodingUTF8);
-    if (fast) return fast;
-    CFIndex n = CFStringGetMaximumSizeForEncoding(CFStringGetLength((CFStringRef)self), kCFStringEncodingUTF8) + 1;
-    CFMutableDataRef d = CFDataCreateMutable(NULL, n);
-    CFDataSetLength(d, n);
-    char *p = (char *)CFDataGetMutableBytePtr(d);
-    if (!CFStringGetCString((CFStringRef)self, p, n, kCFStringEncodingUTF8)) p[0] = 0;
-    [(id)d autorelease];
-    return p;
-}
 - (id)description { return self; }
-- (id)copyWithZone:(struct _NSZone *)zone { return (id)CFStringCreateCopy(NULL, (CFStringRef)self); }
+- (id)copyWithZone:(struct _NSZone *)zone
+{
+    if (!__CFStringIsMutable((CFStringRef)self)) return (id)CFRetain((CFTypeRef)self);
+    return (id)CFStringCreateCopy(NULL, (CFStringRef)self);
+}
 - (id)mutableCopyWithZone:(struct _NSZone *)zone
 {
     return (id)CFStringCreateMutableCopy(NULL, 0, (CFStringRef)self);
 }
-- (BOOL)isEqualToString:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
+
+static void
+check_mutable(id self, SEL _cmd)
+{
+    if (!__CFStringIsMutable((CFStringRef)self))
+        __CFFinchRaise(NSInvalidArgumentException, "Attempt to mutate immutable object with %s", sel_getName(_cmd));
+}
+
+- (void)replaceCharactersInRange:(NSRange)range withString:(NSString *)string
+{
+    check_mutable(self, _cmd);
+    CFIndex n = CFStringGetLength((CFStringRef)self);
+    if (range.location > (NSUInteger)n || range.length > (NSUInteger)n - range.location)
+        __CFFinchRaise(NSRangeException, "-[__NSCFString replaceCharactersInRange:withString:]: Range or index out of bounds");
+    CFStringReplace((CFMutableStringRef)self, CFRangeMake((CFIndex)range.location, (CFIndex)range.length),
+        string ? (CFStringRef)string : CFSTR(""));
+}
+- (void)appendString:(NSString *)string
+{
+    check_mutable(self, _cmd);
+    if (!string) __CFFinchRaise(NSInvalidArgumentException, "-[__NSCFString appendString:]: nil argument");
+    CFStringAppend((CFMutableStringRef)self, (CFStringRef)string);
+}
+- (void)appendCharacters:(const unichar *)chars length:(NSUInteger)length
+{
+    check_mutable(self, _cmd);
+    CFStringAppendCharacters((CFMutableStringRef)self, chars, (CFIndex)length);
+}
+- (void)insertString:(NSString *)string atIndex:(NSUInteger)idx
+{
+    check_mutable(self, _cmd);
+    if (idx > (NSUInteger)CFStringGetLength((CFStringRef)self))
+        __CFFinchRaise(NSRangeException, "-[__NSCFString insertString:atIndex:]: Range or index out of bounds");
+    CFStringInsert((CFMutableStringRef)self, (CFIndex)idx, (CFStringRef)string);
+}
+- (void)deleteCharactersInRange:(NSRange)range { [self replaceCharactersInRange:range withString:(NSString *)CFSTR("")]; }
+- (void)setString:(NSString *)string
+{
+    check_mutable(self, _cmd);
+    CFStringReplaceAll((CFMutableStringRef)self, string ? (CFStringRef)string : CFSTR(""));
+}
 @end
 
 @interface __NSCFConstantString : __NSCFString
@@ -133,21 +176,133 @@
 - (instancetype)retain { return self; }
 - (oneway void)release { }
 - (NSUInteger)retainCount { return NSUIntegerMax; }
+- (id)copyWithZone:(struct _NSZone *)zone { return self; }
 @end
 
-@interface __NSCFNumber : __NSCFType
+/* CFNumber and CFBoolean as NSNumbers (Foundation's class, linked upward):
+ * -objCType and -getValue: are what NSNumber's accessors build on. */
+static const char *
+number_objc_type(CFNumberRef n)
+{
+    switch (CFNumberGetType(n)) {
+    case kCFNumberSInt8Type: case kCFNumberCharType: return "c";
+    case kCFNumberSInt16Type: case kCFNumberShortType: return "s";
+    case kCFNumberSInt32Type: case kCFNumberIntType: return "i";
+    case kCFNumberFloat32Type: case kCFNumberFloatType: return "f";
+    case kCFNumberFloat64Type: case kCFNumberDoubleType: return "d";
+    case kCFNumberCGFloatType: return "d";
+    case kCFNumberLongType: case kCFNumberNSIntegerType: case kCFNumberCFIndexType: return "q";
+    default: return "q";
+    }
+}
+
+@interface __NSCFNumber : NSNumber
 @end
 @implementation __NSCFNumber
+FINCH_CF_OBJECT_MEMORY
+- (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
+- (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
 - (BOOL)isNSNumber__ { return YES; }
+- (const char *)objCType { return number_objc_type((CFNumberRef)self); }
+- (void)getValue:(void *)value
+{
+    CFNumberRef n = (CFNumberRef)self;
+    switch (*number_objc_type(n)) {
+    case 'c': CFNumberGetValue(n, kCFNumberCharType, value); break;
+    case 's': CFNumberGetValue(n, kCFNumberShortType, value); break;
+    case 'i': CFNumberGetValue(n, kCFNumberIntType, value); break;
+    case 'f': CFNumberGetValue(n, kCFNumberFloatType, value); break;
+    case 'd': CFNumberGetValue(n, kCFNumberDoubleType, value); break;
+    default: CFNumberGetValue(n, kCFNumberLongLongType, value); break;
+    }
+}
+- (void)getValue:(void *)value size:(NSUInteger)size { [self getValue:value]; }
+- (id)copyWithZone:(struct _NSZone *)zone { return [self retain]; }
 @end
 
-@interface __NSCFBoolean : __NSCFType
+@interface __NSCFBoolean : NSNumber
 @end
 @implementation __NSCFBoolean
 - (BOOL)isNSNumber__ { return YES; }
 - (instancetype)retain { return self; }
 - (oneway void)release { }
 - (NSUInteger)retainCount { return NSUIntegerMax; }
+- (void)dealloc { }
+- (CFTypeID)_cfTypeID { return CFBooleanGetTypeID(); }
+- (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
+- (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
+- (const char *)objCType { return "c"; }
+- (void)getValue:(void *)value { *(char *)value = CFBooleanGetValue((CFBooleanRef)self) ? 1 : 0; }
+- (void)getValue:(void *)value size:(NSUInteger)size { [self getValue:value]; }
+- (BOOL)boolValue { return CFBooleanGetValue((CFBooleanRef)self); }
+- (id)copyWithZone:(struct _NSZone *)zone { return self; }
+@end
+
+/* CFCharacterSet as an NSMutableCharacterSet (Foundation's class, linked
+ * upward). Mutating an immutable set (a predefined one, say) raises. */
+CF_PRIVATE Boolean _CFCharacterSetIsMutable(CFCharacterSetRef cset);   /* CFCharacterSet.c (patch 0003) */
+
+@interface __NSCFCharacterSet : NSMutableCharacterSet
+@end
+@implementation __NSCFCharacterSet
+FINCH_CF_OBJECT_MEMORY
+- (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
+- (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
+- (BOOL)characterIsMember:(unichar)c { return CFCharacterSetIsCharacterMember((CFCharacterSetRef)self, c); }
+- (BOOL)longCharacterIsMember:(UTF32Char)c { return CFCharacterSetIsLongCharacterMember((CFCharacterSetRef)self, c); }
+- (BOOL)hasMemberInPlane:(uint8_t)plane { return CFCharacterSetHasMemberInPlane((CFCharacterSetRef)self, plane); }
+- (BOOL)isSupersetOfSet:(id)other { return CFCharacterSetIsSupersetOfSet((CFCharacterSetRef)self, (CFCharacterSetRef)other); }
+- (id)invertedSet { return [(id)CFCharacterSetCreateInvertedSet(NULL, (CFCharacterSetRef)self) autorelease]; }
+- (id)bitmapRepresentation { return [(id)CFCharacterSetCreateBitmapRepresentation(NULL, (CFCharacterSetRef)self) autorelease]; }
+- (id)copyWithZone:(struct _NSZone *)zone
+{
+    if (!_CFCharacterSetIsMutable((CFCharacterSetRef)self)) return (id)CFRetain((CFTypeRef)self);
+    return (id)CFCharacterSetCreateCopy(NULL, (CFCharacterSetRef)self);
+}
+- (id)mutableCopyWithZone:(struct _NSZone *)zone { return (id)CFCharacterSetCreateMutableCopy(NULL, (CFCharacterSetRef)self); }
+
+static void
+check_mutable_set(id self, SEL _cmd)
+{
+    if (!_CFCharacterSetIsMutable((CFCharacterSetRef)self))
+        __CFFinchRaise(NSInternalInconsistencyException, FINCH_METHOD_FMT ": mutating method sent to immutable object",
+            FINCH_METHOD_ARGS);
+}
+- (void)addCharactersInRange:(NSRange)r
+{
+    check_mutable_set(self, _cmd);
+    CFCharacterSetAddCharactersInRange((CFMutableCharacterSetRef)self, CFRangeMake((CFIndex)r.location, (CFIndex)r.length));
+}
+- (void)removeCharactersInRange:(NSRange)r
+{
+    check_mutable_set(self, _cmd);
+    CFCharacterSetRemoveCharactersInRange((CFMutableCharacterSetRef)self, CFRangeMake((CFIndex)r.location, (CFIndex)r.length));
+}
+- (void)addCharactersInString:(id)s
+{
+    check_mutable_set(self, _cmd);
+    CFCharacterSetAddCharactersInString((CFMutableCharacterSetRef)self, (CFStringRef)s);
+}
+- (void)removeCharactersInString:(id)s
+{
+    check_mutable_set(self, _cmd);
+    CFCharacterSetRemoveCharactersInString((CFMutableCharacterSetRef)self, (CFStringRef)s);
+}
+- (void)formUnionWithCharacterSet:(id)other
+{
+    check_mutable_set(self, _cmd);
+    CFCharacterSetUnion((CFMutableCharacterSetRef)self, (CFCharacterSetRef)other);
+}
+- (void)formIntersectionWithCharacterSet:(id)other
+{
+    check_mutable_set(self, _cmd);
+    CFCharacterSetIntersect((CFMutableCharacterSetRef)self, (CFCharacterSetRef)other);
+}
+- (void)invert
+{
+    check_mutable_set(self, _cmd);
+    CFCharacterSetInvert((CFMutableCharacterSetRef)self);
+}
 @end
 
 @interface NSNull : __NSCFType
@@ -188,6 +343,7 @@ __CFFinchInitializeObjC(void)
     set_class(_kCFRuntimeIDCFNumber, [__NSCFNumber class]);
     set_class(_kCFRuntimeIDCFBoolean, [__NSCFBoolean class]);
     set_class(_kCFRuntimeIDCFNull, [NSNull class]);
+    set_class(_kCFRuntimeIDCFCharacterSet, [__NSCFCharacterSet class]);
 
     /* The classes CF hosts for Foundation (NS*_Finch.m). */
     extern Class __CFFinchInitializeArrayClasses(void), __CFFinchInitializeDictionaryClasses(void),

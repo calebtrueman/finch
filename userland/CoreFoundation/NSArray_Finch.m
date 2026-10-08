@@ -645,3 +645,63 @@ check_mutable(id self, SEL _cmd)
 }
 
 @end
+
+/* MARK: - Constant literals */
+
+/* clang's constant array literal (@[@"a", @"b"] built for macOS 11+), with
+ * the layout the compiler emits: count, then a pointer to the objects. */
+@interface NSConstantArray : NSArray {
+    NSUInteger _count;
+    const id *_objects;
+}
+@end
+
+@implementation NSConstantArray
+FINCH_IMMORTAL_MEMORY
+- (NSUInteger)count { return _count; }
+- (id)objectAtIndex:(NSUInteger)idx
+{
+    check_index(self, _cmd, idx, _count);
+    return _objects[idx];
+}
+- (void)getObjects:(id *)objects range:(NSRange)range
+{
+    if (range.location > _count || range.length > _count - range.location)
+        __CFFinchRaise(NSRangeException, "*** " FINCH_METHOD_FMT ": range {%lu, %lu} extends beyond bounds [0 .. %lu]",
+            FINCH_METHOD_ARGS, (unsigned long)range.location, (unsigned long)range.length, (unsigned long)(_count ? _count - 1 : 0));
+    memcpy(objects, _objects + range.location, range.length * sizeof(id));
+}
+- (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state
+                                  objects:(id __unsafe_unretained [])buffer count:(NSUInteger)len
+{
+    if (state->state) return 0;
+    state->state = 1;
+    state->itemsPtr = (id *)_objects;
+    state->mutationsPtr = &state->extra[0];
+    return _count;
+}
+- (id)copyWithZone:(struct _NSZone *)zone { return self; }
+@end
+
+/* The empty array: what clang's @[] refers to (___NSArray0__struct), and
+ * Apple's CF exports both it and a pointer to it. */
+@interface __NSArray0 : NSArray
+@end
+@implementation __NSArray0
+FINCH_IMMORTAL_MEMORY
+- (NSUInteger)count { return 0; }
+- (id)objectAtIndex:(NSUInteger)idx { check_index(self, _cmd, idx, 0); return nil; }
+- (id)copyWithZone:(struct _NSZone *)zone { return self; }
+- (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state
+                                  objects:(id __unsafe_unretained [])buffer count:(NSUInteger)len
+{
+    return 0;
+}
+@end
+
+extern char OBJC_CLASS_$___NSArray0[];
+struct __finch_NSArray0_object { __ptrauth_cf_objc_isa_pointer uintptr_t isa; };
+CF_EXPORT struct __finch_NSArray0_object __NSArray0__struct;
+struct __finch_NSArray0_object __NSArray0__struct = { (uintptr_t)OBJC_CLASS_$___NSArray0 };
+CF_EXPORT const id __NSArray0__;   /* as clang declares it */
+const id __NSArray0__ = (id)&__NSArray0__struct;

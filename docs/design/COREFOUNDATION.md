@@ -160,3 +160,6 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
   for LZMA and Brotli, which return 0). Not done: LZBITMAP (Apple's
   undocumented format) and the private `compression_stream_*` calls.
   `tools/check-closed.py` is down to 1: Foundation.
+- 2026-10-08: Foundation is Finch's (`docs/design/FOUNDATION.md`), so
+  `tools/check-closed.py` finds no closed library in anything Finch builds.
+

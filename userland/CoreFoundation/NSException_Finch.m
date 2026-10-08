@@ -22,6 +22,7 @@ NSExceptionName const NSInvalidArgumentException = (NSString *)CFSTR("NSInvalidA
 NSExceptionName const NSInternalInconsistencyException = (NSString *)CFSTR("NSInternalInconsistencyException");
 NSExceptionName const NSMallocException = (NSString *)CFSTR("NSMallocException");
 
+__attribute__((objc_exception))   /* exports OBJC_EHTYPE_$_NSException, for @catch (NSException *) */
 @interface NSException : NSObject <NSCopying> {
     NSString *name;
     NSString *reason;

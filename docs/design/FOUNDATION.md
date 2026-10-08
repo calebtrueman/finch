@@ -127,4 +127,22 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   Apple's on the host and in the VM.
   Next in CF: `NSOrderedSet`, `NSURL`, `NSLocale`/`NSTimeZone`/`NSCalendar`,
   `NSRunLoop`/`NSTimer`, streams, literal classes, tagged-pointer strings.
+- 2026-10-08: **Finch's Foundation.framework** (`userland/Foundation`), compiled
+  against the SDK's Foundation headers so every method has Apple's
+  signature, linked as Apple's (Versions/C, 4424.1.255, re-exporting libobjc
+  and CoreFoundation). CF links it upward through a stub naming the classes CF
+  subclasses (`cf-imports.txt`). `__NSCFString` is now an `NSMutableString`,
+  `__NSCFNumber` and `__NSCFBoolean` are `NSNumber`s, and `__NSCFCharacterSet` is an
+  `NSMutableCharacterSet`. First classes: NSString and NSMutableString (class
+  cluster over CFString, paths, encodings), NSNumber and NSValue (with clang's
+  constant number literals), NSCharacterSet, NSError, NSAutoreleasePool, plus
+  NSLog, the NSStringFrom…/…FromString functions, NSHomeDirectory and
+  friends, and Foundation's categories on CF's collections (joining, sorting,
+  file I/O). CF gains the constant literal classes (`NSConstantArray`,
+  `NSConstantDictionary`), the empty singletons `@[]`/`@{}` refer to, and the
+  `@catch (NSException *)` type. `finch-foundation-test` (ARC and literals,
+  as apps are built; 92 lines) is identical to Apple's Foundation on the host
+  and in the VM, and gcore dumps a process in the VM through GCoreFramework
+  on Finch's Foundation. **`tools/check-closed.py`: nothing Finch builds links
+  a closed library.**
 
