@@ -127,6 +127,31 @@ br set -n panic_with_thread_kernel_state
 c
 ```
 
+## Known intermittent boot failures
+
+Smoke runs fail now and then in two ways, both seen in every session's logs
+since Phase 1 (2026-10-06 onward: roughly 1 in 12 runs over several hundred).
+Rerunning boots normally.
+
+- **New processes stall after the jobs load.** `smoke.exp` reports
+  `TIMEOUT waiting for shell`. Tracing finch-init on 2026-10-08 showed that the
+  console shell is forked and exec'd, and syslogd and dynamic_pager are
+  exec'd too (AMFI logs them), but none of the three reaches its first
+  bootstrap request. Every process makes that lookup of logd early in
+  libSystem's initialization, so the stall is between exec and libSystem init:
+  in the kernel, dyld, or the emulated TXM/SPTM path. finch-init and its
+  bootstrap server stay responsive. It was seen in about 1 boot in 3 with
+  dynamic_pager's job and none in 10 without it, which suggests
+  timing (more concurrent execs) more than dynamic_pager itself. That job
+  only exits in the VM. The next step is the QEMU gdb stub
+  (`DEBUG=1 tools/vm/run.sh`) on a stalled boot, to see where the kernel
+  threads of those processes wait.
+- **QEMU exits during the boot banner.** `smoke.exp` reports `send: spawn id
+  ... not open`. The console stops mid-banner, right after
+  `load_init_program`, and the emulator process is gone. Not yet
+  investigated. As with any qemu-sptm bug, it would be reported upstream
+  as an issue.
+
 ## Status
 - 2026-10-06: the stock 25E253 kernel boots to a root shell. It reports
   `hw.model: Mac16,10` with 10 CPUs and 8 GB.
