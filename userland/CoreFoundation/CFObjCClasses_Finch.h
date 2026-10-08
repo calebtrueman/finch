@@ -12,9 +12,11 @@
 #include "CFInternal.h"
 #import <objc/runtime.h>
 #import <objc/message.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
 /* <Foundation/NSEnumerator.h>, <Foundation/NSObject.h> */
-typedef struct {
+typedef struct NSFastEnumerationState_ {
     unsigned long state;
     id __unsafe_unretained *itemsPtr;
     unsigned long *mutationsPtr;
@@ -64,6 +66,20 @@ CF_PRIVATE void __CFFinchRaise(NSString *name, const char *format, ...) __attrib
     - (BOOL)retainWeakReference { return _CFTryRetain((CFTypeRef)self) != NULL; } \
     - (CFTypeID)_cfTypeID { return CFGetTypeID((CFTypeRef)self); } \
     - (void)dealloc { }
+
+/* Collect a nil-terminated variadic list (from `first`) into objects[count]. */
+#define COLLECT_VARARGS(first, objects, count, ...) do { \
+        va_list ap; NSUInteger count = 0; \
+        va_start(ap, first); for (id o = first; o; o = va_arg(ap, id)) count++; va_end(ap); \
+        id stackbuf[16], *objects = count <= 16 ? stackbuf : malloc(count * sizeof(id)); \
+        va_start(ap, first); NSUInteger i_ = 0; for (id o = first; o; o = va_arg(ap, id)) objects[i_++] = o; va_end(ap); \
+        __VA_ARGS__; \
+        if (objects != stackbuf) free(objects); \
+    } while (0)
+
+/* CF objects and immortal objects have a -dealloc that deliberately doesn't
+ * call super's: CF frees CF objects, and immortal ones are never freed. */
+#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
 
 /* Objects that live as long as the process (placeholders, singletons). */
 #define FINCH_IMMORTAL_MEMORY \

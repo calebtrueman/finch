@@ -101,3 +101,16 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   `CFArrayGetValueAtIndex`, and isa updates when an instance is retyped
   (CFDictionary and CFSet are made as CFBasicHash), which an ObjC-aware
   `CFHash` relies on.
+- 2026-10-08: CF also hosts `NSDictionary`/`NSMutableDictionary` (keys copied,
+  as NSDictionary promises), `NSSet`/`NSMutableSet`, `NSData`/`NSMutableData` and
+  `NSDate`, with `__NSCFDictionary`, `__NSCFSet`, `__NSCFData` and `__NSDate` as
+  the classes of CF's own objects, plus `NSNull`'s `<null>`. Each concrete
+  class's `+alloc` goes through its placeholder, so `[[obj class] alloc]`
+  makes a CF object. `finch-bridge-test` now covers all of them (90 lines):
+  CF calls on ObjC subclasses, NS messages on CF objects, mutation, copying,
+  fast enumeration, descriptions, exceptions. Its output is identical to
+  Apple's CoreFoundation on the host and in the VM.
+  Next in CF: `NSOrderedSet`, `NSURL`, `NSLocale`/`NSTimeZone`/`NSCalendar`, `NSRunLoop`/`NSTimer`,
+  streams, literal classes, and message forwarding (`NSInvocation`,
+  `NSMethodSignature`, unrecognized-selector exceptions).
+

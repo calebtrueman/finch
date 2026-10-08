@@ -5,7 +5,7 @@ calls (CFRetain, CFRelease, CFGetRetainCount, CFCopyDescription,
 CFGetAllocator) and CFArrayGetValueAtIndex get their ObjC paths back;
 retyping an instance (CFDictionary, CFSet, stack keys) and static instances
 set the ObjC class; and two declarations that clash with ObjC are skipped.
-_CFArrayIsMutable is for __NSCFArray (NSArray_Finch.m).
+_CFArrayIsMutable and _CFDataIsMutable are for __NSCFArray and __NSCFData.
 
 
 diff --git a/Sources/CoreFoundation/CFArray.c b/Sources/CoreFoundation/CFArray.c
@@ -29,6 +29,20 @@ index cc03d66..a75a45e 100644
 +// Apple's does (userland/CoreFoundation/NSArray_Finch.m).
 +CF_PRIVATE Boolean _CFArrayIsMutable(CFArrayRef array) {
 +    return __CFArrayGetType(array) != __kCFArrayImmutable;
++}
+diff --git a/Sources/CoreFoundation/CFData.c b/Sources/CoreFoundation/CFData.c
+index 5814281..d7a4764 100644
+--- a/Sources/CoreFoundation/CFData.c
++++ b/Sources/CoreFoundation/CFData.c
+@@ -868,3 +868,9 @@ CFRange CFDataFind(CFDataRef data, CFDataRef dataToFind, CFRange searchRange, CF
+ #undef INLINE_BYTES_THRESHOLD
+ #undef CFDATA_MAX_SIZE
+ #undef REVERSE_BUFFER
++
++// Finch: for __NSCFData, which raises on mutating an immutable data object
++// as Apple's does (userland/CoreFoundation/NSData_Finch.m).
++CF_PRIVATE Boolean _CFDataIsMutable(CFDataRef data) {
++    return __CFDataIsMutable(data);
 +}
 diff --git a/Sources/CoreFoundation/CFRunLoop.c b/Sources/CoreFoundation/CFRunLoop.c
 index 3a6a0aa..732a613 100644

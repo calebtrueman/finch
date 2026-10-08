@@ -23,6 +23,7 @@ typedef NSUInteger NSCalendarUnit;
 typedef NSUInteger NSStringCompareOptions;
 typedef NSInteger NSTimeZoneNameStyle;
 typedef unsigned short unichar;
+struct NSFastEnumerationState_;
 
 @class NSString, NSMutableString, NSArray, NSMutableArray, NSDictionary, NSMutableDictionary,
     NSSet, NSMutableSet, NSData, NSMutableData, NSDate, NSNumber, NSLocale, NSTimeZone,
@@ -51,6 +52,8 @@ typedef unsigned short unichar;
 - (id)propertyForKey:(NSString *)key;
 - (BOOL)setProperty:(id)property forKey:(NSString *)key;
 - (CFComparisonResult)compare:(id)other;
+- (NSUInteger)countByEnumeratingWithState:(struct NSFastEnumerationState_ *)state
+                                  objects:(id __unsafe_unretained *)buffer count:(NSUInteger)len;
 @end
 
 @interface NSArray : NSObject

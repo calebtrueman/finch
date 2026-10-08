@@ -125,15 +125,6 @@ check_object(id self, SEL _cmd, id object)
 }
 + (instancetype)arrayWithArray:(NSArray *)array { return [[[self alloc] initWithArray:array] autorelease]; }
 
-/* The variadic forms collect their nil-terminated arguments. */
-#define COLLECT_VARARGS(first, objects, count, body) do { \
-        va_list ap; NSUInteger count = 0; \
-        va_start(ap, first); for (id o = first; o; o = va_arg(ap, id)) count++; va_end(ap); \
-        id stackbuf[16], *objects = count <= 16 ? stackbuf : malloc(count * sizeof(id)); \
-        va_start(ap, first); NSUInteger i_ = 0; for (id o = first; o; o = va_arg(ap, id)) objects[i_++] = o; va_end(ap); \
-        body; \
-        if (objects != stackbuf) free(objects); \
-    } while (0)
 
 + (instancetype)arrayWithObjects:(id)first, ...
 {
@@ -448,6 +439,9 @@ FINCH_IMMORTAL_MEMORY
 @implementation __NSCFArray
 
 FINCH_CF_OBJECT_MEMORY
+
+/* Instances are CF objects: [[obj class] alloc] goes through the placeholder. */
++ (instancetype)allocWithZone:(struct _NSZone *)zone { return (id)mutablePlaceholder; }
 
 - (NSUInteger)count { return (NSUInteger)CFArrayGetCount((CFArrayRef)self); }
 
