@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- syslogd (syslog project), built from Apple's source; the ASL server
+     behind syslog(3), asl(3) and syslog(1). It checks in with
+     launch_msg(LAUNCH_KEY_CHECKIN). Apple's plist, minus the empty Sockets
+     dictionary and the spawn type. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.syslogd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/syslogd</string>
+	</array>
+	<key>KeepAlive</key>
+	<true/>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.system.logger</key>
+		<true/>
+	</dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>ASL_DISABLE</key>
+		<string>1</string>
+	</dict>
+	<key>EnableTransactions</key>
+	<true/>
+</dict>
+</plist>

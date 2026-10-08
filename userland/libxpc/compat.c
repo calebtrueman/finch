@@ -1035,8 +1035,6 @@ int _xpc_domain_routine(int r, xpc_object_t m, xpc_object_t *o) { (void)r; (void
 int _xpc_service_routine(int r, xpc_object_t m, xpc_object_t *o) { (void)r; (void)m; if (o) *o = NULL; return ENOTSUP; }
 void *_launch_msg2(void *req, int fd, void *b) { (void)req; (void)fd; (void)b; errno = ENOTSUP; return NULL; }
 int launch_activate_socket(const char *n, int **f, size_t *c) { (void)n; *f = NULL; *c = 0; return ENOENT; }
-void launch_data_free(launch_data_t data) { (void)data; }
-int launch_data_get_errno(launch_data_t data) { (void)data; return ENOTSUP; }
 
 #pragma mark - OS version queries
 
@@ -1233,17 +1231,6 @@ reboot3(uint64_t howto, ...)
 typedef uint64_t vproc_flags_t;
 void *_vprocmgr_detach_from_console(vproc_flags_t flags);
 void *_vprocmgr_detach_from_console(vproc_flags_t flags) { (void)flags; return NULL; }
-
-#pragma mark - launch_data accessors (unreachable: _launch_msg2 never returns data)
-
-size_t launch_data_array_get_count(launch_data_t d) { (void)d; return 0; }
-launch_data_t launch_data_array_get_index(launch_data_t d, size_t i) { (void)d; (void)i; return NULL; }
-void launch_data_dict_iterate(launch_data_t d, launch_data_dict_iterator_t it, void *ctx) { (void)d; (void)it; (void)ctx; }
-bool launch_data_get_bool(launch_data_t d) { (void)d; return false; }
-long long launch_data_get_integer(launch_data_t d) { (void)d; return 0; }
-double launch_data_get_real(launch_data_t d) { (void)d; return 0; }
-const char *launch_data_get_string(launch_data_t d) { (void)d; return NULL; }
-launch_data_type_t launch_data_get_type(launch_data_t d) { (void)d; return (launch_data_type_t)0; }
 
 #pragma mark - Remote XPC and file transfers (FINCH-NOT-YET)
 

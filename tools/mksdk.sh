@@ -149,6 +149,8 @@ copy_headers "${SRC}/libpthread/private" "${INC}"
 
 # Libinfo: membershipPriv.h and other *Priv / *_private headers.
 (cd "${SRC}/Libinfo" && find . \( -name '*Priv*.h' -o -name '*_private.h' \) -exec cp {} "${INC}/" \;)
+# ... and configuration_profile.h (libsystem_info SPI; syslogd uses it).
+cp "${SRC}/Libinfo/gen.subproj/configuration_profile.h" "${INC}/"
 
 # libutil, libmd: flat headers.
 cp "${SRC}"/libutil/*.h "${INC}/"

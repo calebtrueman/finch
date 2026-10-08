@@ -89,6 +89,8 @@ Apple's is closed. Developed in the emulated M4 first. The map is
     - [ ] LaunchAgents and per-user domains, Sockets/timers/WatchPaths,
           shutdown
     - [ ] Run Apple's open-source daemons under it (notifyd, syslogd, configd, ...)
+      - [x] notifyd; syslogd (checks in with `launch_msg`, which Finch's libxpc
+            answers from finch-init's job; 2026-10-07)
   - [x] libmalloc no longer depends on libcorecrypto
   - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
         trial, secinit, sanitizers, libRosetta: Finch's own (`userland/libsystem`)

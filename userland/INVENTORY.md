@@ -26,6 +26,7 @@ the image rebuilds the cache.
 | Daemon | Apple project | Status |
 |---|---|---|
 | `notifyd` (com.apple.notifyd) | Libnotify-348.100.7 | **Built by Finch**, started on demand. Without LaunchEvents, its event publisher has no subscribers. |
+| `syslogd` (com.apple.syslogd) | syslog-406 | **Built by Finch**, kept alive. As on macOS, syslog(3) and asl(3) go to os_log, so its store stays mostly empty until Finch has a log daemon. |
 
 ## libSystem (`/usr/lib/libSystem.B.dylib` + `/usr/lib/system/*`)
 

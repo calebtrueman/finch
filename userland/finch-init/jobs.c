@@ -550,6 +550,20 @@ control_hook(xpc_object_t request, xpc_object_t reply, const audit_token_t *toke
 		xpc_release(a);
 		return 0;
 	}
+	if (strcmp(op, "checkin") == 0) {
+		/* The caller's own job (launch_msg(LAUNCH_KEY_CHECKIN) in libxpc):
+		 * its label and declared services, which it then checks in itself. */
+		pid_t pid = (pid_t)token->val[5];
+		for (struct job *k = jobs; k != NULL; k = k->next) {
+			if (k->pid == pid && !k->unloading) {
+				xpc_object_t d = job_describe(k);
+				xpc_dictionary_set_value(reply, "job", d);
+				xpc_release(d);
+				return 0;
+			}
+		}
+		return ESRCH;
+	}
 	if (strcmp(op, "print") == 0) {
 		if (j == NULL) return ESRCH;
 		xpc_object_t d = job_describe(j);
