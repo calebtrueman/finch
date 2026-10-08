@@ -7,8 +7,10 @@
 Finch runs nothing closed (docs/design/COREFOUNDATION.md). Every Mach-O that
 the image gets from Finch (build/root, and the overlay manifest
 tools/vm/overlay.txt) is checked: each library it links (weak links too, as
-dyld loads those when present) must also come from Finch. Prints each closed
-library with how many Finch binaries link it; -v lists them. Exit 1 if any.
+dyld loads those when present, except weak links to libraries macOS itself
+doesn't ship, such as libobjc's to libobjc-env) must also come from Finch.
+Prints each closed library with how many Finch binaries link it; -v lists
+them. Exit 1 if any.
 check-boot-path.py asks the narrower question of what the boot loads.
 """
 import os
@@ -44,13 +46,19 @@ def provided(path, files):
 
 
 def linked(host_file):
-    """The install names a Mach-O links, or None if it isn't one."""
+    """[(install name, weak)] a Mach-O links, or None if it isn't one."""
     out = subprocess.run(['otool', '-L', host_file], capture_output=True, text=True)
     if out.returncode != 0 or 'is not an object file' in out.stdout:
         return None
     lines = out.stdout.splitlines()[1:]
     own = subprocess.run(['otool', '-D', host_file], capture_output=True, text=True).stdout.splitlines()[1:]
-    return [l.split()[0] for l in lines if l.strip() and l.split()[0] not in own]
+    return [(l.split()[0], l.rstrip().endswith(', weak)')) for l in lines
+            if l.strip() and l.split()[0] not in own]
+
+
+def macos_ships(path):
+    """Does the build host's macOS have `path` (on disk or in its shared cache)?"""
+    return subprocess.run(['dyld_info', '-exports', path], capture_output=True).returncode == 0
 
 
 def main():
@@ -64,9 +72,11 @@ def main():
             magic = f.read(4)
         if magic not in (b'\xcf\xfa\xed\xfe', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca'):
             continue
-        for dep in linked(host) or []:
+        for dep, weak in linked(host) or []:
             if dep.startswith('@') or provided(dep, files):
                 continue
+            if weak and not macos_ships(dep):
+                continue                       # absent on macOS too: nothing loads
             users[dep].append(image)
     for dep, who in sorted(users.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         print(f'{len(who):4d}  {dep}')

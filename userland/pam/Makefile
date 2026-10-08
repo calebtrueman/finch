@@ -21,8 +21,11 @@ $(MOD): $(SRC)
 	    -L$(ROOT)/usr/lib -lpam
 	codesign -f -s - -i org.openpam.pam_unix $@
 
-$(ROOT)/private/etc/pam.d/%: pam.d/%
+# Always reinstalled: pam_modules installs Apple's stacks over these (they name
+# closed modules), and theirs can be newer than Finch's sources.
+$(ROOT)/private/etc/pam.d/%: pam.d/% FORCE
 	@mkdir -p $(dir $@)
 	install -m 644 $< $@
 
-.PHONY: all
+FORCE:
+.PHONY: all FORCE

@@ -81,6 +81,7 @@ steps=(
     "xz|userland/xz/build.sh"
     "libxo|userland/libxo/build.sh"
     "libsbuf|userland/libsbuf/build.sh"
+    "OpenDirectory|make -s -C userland/OpenDirectory"
     # The Swift runtime (libobjc links it, as Apple's does)
     "swift|userland/swift/build.sh"
     "pam_modules|oss pam_modules rootok uwtmp self env group nologin sacl launchd"

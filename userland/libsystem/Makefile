@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Finch's replacements for closed libSystem libraries (docs/design/PHASE1-EXIT.md).
-LIBS := featureflags coreservices darwindirectory eligibility symptoms trial secinit sanitizers rosetta quarantine cache containermanager networkextension sandbox
+LIBS := featureflags coreservices darwindirectory eligibility symptoms trial secinit sanitizers rosetta quarantine cache containermanager networkextension sandbox endpointsecuritysystem
 TESTED := featureflags coreservices quarantine cache containermanager networkextension sandbox
 
 all:
