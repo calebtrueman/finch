@@ -1,0 +1,7 @@
+_compression_decode_buffer
+_compression_decode_scratch_buffer_size
+_compression_encode_buffer
+_compression_encode_scratch_buffer_size
+_compression_stream_destroy
+_compression_stream_init
+_compression_stream_process

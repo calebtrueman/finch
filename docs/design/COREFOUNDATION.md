@@ -150,3 +150,13 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
   phases unsandboxed, as Apple's builds do), and liblzma, libxo, libsbuf from
   upstream. `tools/check-closed.py` is down to 5: Foundation, OpenDirectory,
   EndpointSecuritySystem, libcompression, libobjc-env.
+- 2026-10-08: OpenDirectory (CFOpenDirectory's C API over the local node) and
+  libEndpointSecuritySystem are Finch's. So is libcompression
+  (`userland/libcompression`): Apple's public API over LZFSE, LZ4, Brotli,
+  zlib and liblzma, in the same formats. `finch-compression-test`, run on the
+  host against Apple's library, checks that each decodes what the other
+  encodes, as buffers and as streams fed in uneven pieces. It also matches
+  Apple's truncation behaviour (a short decode returns what fits, except
+  for LZMA and Brotli, which return 0). Not done: LZBITMAP (Apple's
+  undocumented format) and the private `compression_stream_*` calls.
+  `tools/check-closed.py` is down to 1: Foundation.

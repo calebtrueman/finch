@@ -34,6 +34,7 @@ build/userland/finch-cf-test /usr/local/bin/finch-cf-test
 build/userland/finch-swift-hello /usr/local/bin/finch-swift-hello
 build/userland/finch-dlopen /usr/local/bin/finch-dlopen
 build/userland/finch-pam-test /usr/local/bin/finch-pam-test
+build/userland/finch-compression-test /usr/local/bin/finch-compression-test
 build/userland/finch-log-test /usr/local/bin/finch-log-test
 build/userland/finch-hardened-test /usr/local/bin/finch-hardened-test
 build/userland/finch-debuggee /usr/local/bin/finch-debuggee

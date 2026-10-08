@@ -81,6 +81,8 @@ steps=(
     "xz|userland/xz/build.sh"
     "libxo|userland/libxo/build.sh"
     "libsbuf|userland/libsbuf/build.sh"
+    # Closed on macOS; Finch's, over open codecs (needs zlib and xz first).
+    "libcompression|userland/libcompression/build.sh"
     "OpenDirectory|make -s -C userland/OpenDirectory"
     # The Swift runtime (libobjc links it, as Apple's does)
     "swift|userland/swift/build.sh"

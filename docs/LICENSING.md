@@ -28,6 +28,8 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | CF-Lite, libdispatch, swift-corelibs, Swift, LLVM/clang | Apache 2.0 / APSL | Build directly |
 | WebKit | BSD / LGPL | Build directly |
 | OpenSSL 3.5.9 | Apache 2.0 | Built and linked statically into Finch's libcorecrypto |
+| LZFSE 1.0, LZ4 1.10.0 (lib), Brotli 1.1.0 | BSD-3 / BSD-2 / MIT | Built and linked statically into Finch's libcompression |
+| XZ Utils 5.4.3 (liblzma), libxo, libsbuf | 0BSD / BSD | Build directly |
 | m1n1 | MIT | Import |
 | Mesa (incl. asahi driver) | MIT | Import |
 | Asahi **documentation** (wiki, register notes) | Docs | Use as reference |
