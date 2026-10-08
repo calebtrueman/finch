@@ -89,7 +89,7 @@ srcs+=" $(ls "${HERE}"/*.c "${HERE}"/*.m 2>/dev/null || true)"
 
 CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
     -DCF_BUILDING_CF -DDEPLOYMENT_RUNTIME_SWIFT=0 -DINCLUDE_OBJC=1 -DHAVE_STRUCT_TIMESPEC -DU_DISABLE_RENAMING=1
-    -I"${OBJ}/hdr" -I"${CF}/include" -I"${CF}/internalInclude"
+    -I"${OBJ}/hdr" -I"${CF}/include" -I"${CF}/internalInclude" -I"${HERE}" -fno-objc-arc
     -include "${CF}/internalInclude/CoreFoundation_Prefix.h" -include "${HERE}/finch_prefix.h"
     -I"${OBJ}/icu" -I"${ICU}/common" -I"${ICU}/i18n" -I"${ICU}/io"
     -idirafter "${SDK}/override" -idirafter "${SDK}/include" -idirafter "${SDK}/availability"
@@ -103,8 +103,8 @@ mkdir -p "${OBJ}/o"
 failed=0
 compile() {   # compile <source>: object into ${OBJ}/o, errors into <object>.log
     local o="${OBJ}/o/$(basename "${1%.*}").o"
-    [[ "$o" -nt "$1" && "$o" -nt "${HERE}/finch_prefix.h" ]] && return 0
-    "${CC}" "${CFLAGS[@]}" -c "$1" -o "$o" 2> "$o.log" || { echo "  failed: $(basename "$1") ($(grep -c 'error:' "$o.log") errors, ${o#"${FINCH_ROOT}/"}.log)"; return 1; }
+    [[ "$o" -nt "$1" && "$o" -nt "${HERE}/finch_prefix.h" && "$o" -nt "${HERE}/CFObjCDispatch_Finch.h" && "$o" -nt "${HERE}/CFObjCMessages_Finch.h" ]] && return 0
+    "${CC}" -x objective-c "${CFLAGS[@]}" -c "$1" -o "$o" 2> "$o.log" || { echo "  failed: $(basename "$1") ($(grep -c 'error:' "$o.log") errors, ${o#"${FINCH_ROOT}/"}.log)"; return 1; }
 }
 export -f compile; export CC OBJ HERE FINCH_ROOT
 export CFLAGS_STR="$(printf '%q ' "${CFLAGS[@]}")"

@@ -1,0 +1,158 @@
+CoreFoundation compiled as Objective-C dispatches to Objective-C objects
+passed to CF functions, as Apple's does: CFInternal.h takes the dispatch
+macros from userland/CoreFoundation/CFObjCDispatch_Finch.h; the generic
+calls (CFRetain, CFRelease, CFGetRetainCount, CFCopyDescription,
+CFGetAllocator) and CFArrayGetValueAtIndex get their ObjC paths back;
+retyping an instance (CFDictionary, CFSet, stack keys) and static instances
+set the ObjC class; and two declarations that clash with ObjC are skipped.
+_CFArrayIsMutable is for __NSCFArray (NSArray_Finch.m).
+
+
+diff --git a/Sources/CoreFoundation/CFArray.c b/Sources/CoreFoundation/CFArray.c
+index cc03d66..a75a45e 100644
+--- a/Sources/CoreFoundation/CFArray.c
++++ b/Sources/CoreFoundation/CFArray.c
+@@ -508,6 +508,7 @@ Boolean CFArrayContainsValue(CFArrayRef array, CFRange range, const void *value)
+ 
+ const void *CFArrayGetValueAtIndex(CFArrayRef array, CFIndex idx) {
+     CF_SWIFT_FUNCDISPATCHV(CFArrayGetTypeID(), const void *, (CFSwiftRef)array, NSArray.objectAtIndex, idx);
++    CF_OBJC_FUNCDISPATCHV(CFArrayGetTypeID(), const void *, (NSArray *)array, objectAtIndex:(NSUInteger)idx);  // Finch: as Apple's
+     
+     
+ #if !CF_ARRAY_ALWAYS_BRIDGE
+@@ -1037,3 +1038,9 @@ void CFArrayAppendArray(CFMutableArrayRef array, CFArrayRef otherArray, CFRange
+ }
+ 
+ 
++
++// Finch: for __NSCFArray, which raises on mutating an immutable array as
++// Apple's does (userland/CoreFoundation/NSArray_Finch.m).
++CF_PRIVATE Boolean _CFArrayIsMutable(CFArrayRef array) {
++    return __CFArrayGetType(array) != __kCFArrayImmutable;
++}
+diff --git a/Sources/CoreFoundation/CFRunLoop.c b/Sources/CoreFoundation/CFRunLoop.c
+index 3a6a0aa..732a613 100644
+--- a/Sources/CoreFoundation/CFRunLoop.c
++++ b/Sources/CoreFoundation/CFRunLoop.c
+@@ -97,7 +97,9 @@ extern _CFThreadRef pthread_main_thread_np(void);
+ typedef struct voucher_s *voucher_t;
+ 
+ extern voucher_t _Nullable voucher_copy(void);
++#if !__OBJC__
+ extern void os_release(void *object);
++#endif
+ 
+ extern mach_port_t _dispatch_get_main_queue_port_4CF(void);
+ 
+diff --git a/Sources/CoreFoundation/CFRuntime.c b/Sources/CoreFoundation/CFRuntime.c
+index 9163064..8ad22ac 100644
+--- a/Sources/CoreFoundation/CFRuntime.c
++++ b/Sources/CoreFoundation/CFRuntime.c
+@@ -602,7 +602,7 @@ void _CFRuntimeInitStaticInstance(void *ptr, CFTypeID typeID) {
+         memory->_cfinfoa = (uint32_t)(typeIDMasked | usesDefaultAllocatorMasked);
+     }
+ #endif
+-    memory->_cfisa = 0;
++    memory->_cfisa = __CFISAForTypeID(typeID);  // Finch: static instances have their class too
+     if (NULL != cfClass->init) {
+        (cfClass->init)(memory);
+     }
+@@ -635,6 +635,10 @@ CF_PRIVATE void _CFRuntimeSetInstanceTypeIDAndIsa(CFTypeRef cf, CFTypeID newType
+     if (_CFTypeGetClass(cf) != __CFISAForTypeID(newTypeID)) {
+         ((CFSwiftRef)cf)->isa = (uintptr_t)__CFISAForTypeID(newTypeID);
+     }
++#elif TARGET_OS_MAC
++    // Finch: the ObjC class follows the type (CFDictionary and CFSet are
++    // made as CFBasicHash and retyped; stack keys are typed this way too).
++    ((CFRuntimeBase *)cf)->_cfisa = __CFISAForTypeID(newTypeID);
+ #endif
+ }
+ 
+@@ -735,9 +739,11 @@ CF_INLINE Boolean CFTYPE_IS_SWIFT(const void *obj) {
+ #endif
+ 
+ 
++#ifndef CFTYPE_IS_OBJC  // Finch: CFObjCDispatch_Finch.h defines these for ObjC
+ #define CFTYPE_IS_OBJC(obj) (false)
+ #define CFTYPE_OBJC_FUNCDISPATCH0(rettype, obj, sel) do {} while (0)
+ #define CFTYPE_OBJC_FUNCDISPATCH1(rettype, obj, sel, a1) do {} while (0)
++#endif
+ 
+ 
+ CFTypeID CFGetTypeID(CFTypeRef cf) {
+@@ -797,6 +803,7 @@ CFTypeRef _CFNonObjCRetain(CFTypeRef cf) {
+ 
+ CFTypeRef CFRetain(CFTypeRef cf) {
+     if (NULL == cf) { CRSetCrashLogMessage("*** CFRetain() called with NULL ***"); HALT; }
++    if (CFTYPE_IS_OBJC(cf)) return __CFFinchObjCRetain(cf);
+     __CFGenericAssertIsCF(cf);
+     return _CFRetain(cf, false);
+ }
+@@ -815,6 +822,7 @@ void _CFNonObjCRelease(CFTypeRef cf) {
+ 
+ void CFRelease(CFTypeRef cf) {
+     if (NULL == cf) { CRSetCrashLogMessage("*** CFRelease() called with NULL ***"); HALT; }
++    if (CFTYPE_IS_OBJC(cf)) { __CFFinchObjCRelease(cf); return; }
+     __CFGenericAssertIsCF(cf);
+     _CFRelease(cf);
+ }
+@@ -899,6 +907,7 @@ CF_PRIVATE void __CFRuntimeSetRC(CFTypeRef cf, uint32_t rc) {
+ 
+ CFIndex CFGetRetainCount(CFTypeRef cf) {
+     if (NULL == cf) { CRSetCrashLogMessage("*** CFGetRetainCount() called with NULL ***"); HALT; }
++    CFTYPE_OBJC_FUNCDISPATCH0(CFIndex, cf, retainCount);
+     __CFInfoType info = atomic_load(&(((CFRuntimeBase *)cf)->_cfinfoa));
+     if (info & RC_CUSTOM_RC_BIT) { // custom ref counting for object
+         CFTypeID typeID = __CFTypeIDFromInfo(info);
+@@ -991,7 +1000,7 @@ CFHashCode CFHash(CFTypeRef cf) {
+ // definition: produces a normally non-NULL debugging description of the object
+ CFStringRef CFCopyDescription(CFTypeRef cf) {
+     if (NULL == cf) return NULL;
+-    // CFTYPE_OBJC_FUNCDISPATCH0(CFStringRef, cf, _copyDescription);  // XXX returns 0 refcounted item under GC
++    if (CFTYPE_IS_OBJC(cf)) return __CFFinchObjCCopyDescription(cf);
+     __CFGenericAssertIsCF(cf);
+     if (NULL != __CFRuntimeClassTable[__CFGenericTypeID_inline(cf)]->copyDebugDesc) {
+ 	CFStringRef result = __CFRuntimeClassTable[__CFGenericTypeID_inline(cf)]->copyDebugDesc(cf);
+@@ -1014,6 +1023,7 @@ extern CFAllocatorRef __CFAllocatorGetAllocator(CFTypeRef);
+ 
+ CFAllocatorRef CFGetAllocator(CFTypeRef cf) {
+     if (NULL == cf) return kCFAllocatorSystemDefault;
++    if (CFTYPE_IS_OBJC(cf)) return kCFAllocatorSystemDefault;
+     if (_kCFRuntimeIDCFAllocator == __CFGenericTypeID_inline(cf)) {
+ 	return __CFAllocatorGetAllocator(cf);
+     }
+diff --git a/Sources/CoreFoundation/CFURLAccess.c b/Sources/CoreFoundation/CFURLAccess.c
+index b81736c..993dd13 100644
+--- a/Sources/CoreFoundation/CFURLAccess.c
++++ b/Sources/CoreFoundation/CFURLAccess.c
+@@ -57,7 +57,9 @@ DEFINE_WEAK_CFNETWORK_FUNC_FAIL(Boolean, _CFURLDestroyResource, (CFURLRef A, SIn
+ 
+ #endif
+ 
++#if !__OBJC__
+ typedef struct __NSString__ *NSString;
++#endif
+ 
+ /*
+     Pre-10.6 property keys
+diff --git a/Sources/CoreFoundation/internalInclude/CFInternal.h b/Sources/CoreFoundation/internalInclude/CFInternal.h
+index a348793..4339c75 100644
+--- a/Sources/CoreFoundation/internalInclude/CFInternal.h
++++ b/Sources/CoreFoundation/internalInclude/CFInternal.h
+@@ -952,10 +952,16 @@ CF_INLINE uintptr_t __CFISAForTypeID(CFTypeID typeID) {
+     }
+ }
+ 
++#if __OBJC__ && !DEPLOYMENT_RUNTIME_SWIFT
++// Finch: CF compiled as Objective-C dispatches to ObjC objects passed to
++// CF functions, as Apple's does (userland/CoreFoundation/CFObjCDispatch_Finch.h).
++#include "CFObjCDispatch_Finch.h"
++#else
+ #define CF_OBJC_FUNCDISPATCHV(typeID, obj, ...) do { } while (0)
+ #define CF_OBJC_RETAINED_FUNCDISPATCHV(typeID, obj, ...) do { } while (0)
+ #define CF_OBJC_CALLV(obj, ...) (0)
+ #define CF_IS_OBJC(typeID, obj) (0)
++#endif
+ #define _CFTypeGetClass(obj) ((uintptr_t)((CFRuntimeBase *)obj)->_cfisa)
+ 
+ /* See comments in CFBase.c

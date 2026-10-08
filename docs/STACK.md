@@ -5,9 +5,10 @@ What runs on Finch today and where each piece comes from, bottom to top.
 These diagrams are updated in every commit that changes the stack, and
 `tools/render-stack.sh` checks that they render.
 
-**As of 2026-10-08:** libcompression is Finch's. Foundation is the only closed
-library Finch's binaries still link (`tools/check-closed.py`), and Finch's own
-Foundation is next.
+**As of 2026-10-08:** CoreFoundation dispatches to Objective-C objects as
+Apple's does, and hosts NSException and the NSArray cluster. Foundation is the
+only closed library Finch's binaries still link (`tools/check-closed.py`), and
+Finch's own is in progress (`docs/design/FOUNDATION.md`).
 
 ```mermaid
 block-beta
@@ -30,7 +31,7 @@ block-beta
         columns 4
         t5["Foundation layer"]
         foundation["Foundation (next)"]
-        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC,<br/>CFFileDescriptor, CF/XPC"]
+        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, NSArray,<br/>NSException, CFFileDescriptor"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         space5[" "]
         icu["libicucore<br/>ICU-76142.4.7"]

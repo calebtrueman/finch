@@ -34,6 +34,24 @@
 #import <objc/NSObject.h>
 #import <objc/runtime.h>
 
+/* Type tests Apple's CoreFoundation adds to NSObject, which each class
+ * answers for itself (os_log's %@ formatting asks them, for one). */
+@implementation NSObject (FinchCFTypeTests)
+- (BOOL)isNSObject__ { return YES; }
+- (BOOL)isNSString__ { return NO; }
+- (BOOL)isNSCFConstantString__ { return NO; }
+- (BOOL)isNSNumber__ { return NO; }
+- (BOOL)isNSValue__ { return NO; }
+- (BOOL)isNSArray__ { return NO; }
+- (BOOL)isNSDictionary__ { return NO; }
+- (BOOL)isNSSet__ { return NO; }
+- (BOOL)isNSOrderedSet__ { return NO; }
+- (BOOL)isNSData__ { return NO; }
+- (BOOL)isNSDate__ { return NO; }
+- (BOOL)isNSTimeZone__ { return NO; }
+- (BOOL)isNSURL__ { return NO; }
+@end
+
 @interface __NSCFType : NSObject
 @end
 
@@ -62,12 +80,55 @@
 
 @interface __NSCFString : __NSCFType
 @end
+/* NSString's primitives and fast paths over CFString. The rest of NSString
+ * is Foundation's, on these (docs/design/FOUNDATION.md). */
 @implementation __NSCFString
+- (BOOL)isNSString__ { return YES; }
+- (NSUInteger)length { return (NSUInteger)CFStringGetLength((CFStringRef)self); }
+- (unichar)characterAtIndex:(NSUInteger)idx
+{
+    return CFStringGetCharacterAtIndex((CFStringRef)self, (CFIndex)idx);
+}
+- (void)getCharacters:(unichar *)buffer range:(NSRange)range
+{
+    CFStringGetCharacters((CFStringRef)self, CFRangeMake((CFIndex)range.location, (CFIndex)range.length), buffer);
+}
+- (const UniChar *)_fastCharacterContents { return CFStringGetCharactersPtr((CFStringRef)self); }
+- (const char *)_fastCStringContents:(BOOL)nullTerminated
+{
+    return CFStringGetCStringPtr((CFStringRef)self, kCFStringEncodingASCII);
+}
+- (CFStringEncoding)_fastestEncodingInCFStringEncoding { return CFStringGetFastestEncoding((CFStringRef)self); }
+- (CFStringEncoding)_smallestEncodingInCFStringEncoding { return CFStringGetSmallestEncoding((CFStringRef)self); }
+- (BOOL)_getCString:(char *)buffer maxLength:(NSUInteger)max encoding:(CFStringEncoding)encoding
+{
+    return CFStringGetCString((CFStringRef)self, buffer, (CFIndex)max + 1, encoding);
+}
+- (const char *)UTF8String
+{
+    const char *fast = CFStringGetCStringPtr((CFStringRef)self, kCFStringEncodingUTF8);
+    if (fast) return fast;
+    CFIndex n = CFStringGetMaximumSizeForEncoding(CFStringGetLength((CFStringRef)self), kCFStringEncodingUTF8) + 1;
+    CFMutableDataRef d = CFDataCreateMutable(NULL, n);
+    CFDataSetLength(d, n);
+    char *p = (char *)CFDataGetMutableBytePtr(d);
+    if (!CFStringGetCString((CFStringRef)self, p, n, kCFStringEncodingUTF8)) p[0] = 0;
+    [(id)d autorelease];
+    return p;
+}
+- (id)description { return self; }
+- (id)copyWithZone:(struct _NSZone *)zone { return (id)CFStringCreateCopy(NULL, (CFStringRef)self); }
+- (id)mutableCopyWithZone:(struct _NSZone *)zone
+{
+    return (id)CFStringCreateMutableCopy(NULL, 0, (CFStringRef)self);
+}
+- (BOOL)isEqualToString:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
 @end
 
 @interface __NSCFConstantString : __NSCFString
 @end
 @implementation __NSCFConstantString
+- (BOOL)isNSCFConstantString__ { return YES; }
 /* Constant strings live for the life of the image. */
 - (instancetype)retain { return self; }
 - (oneway void)release { }
@@ -77,11 +138,13 @@
 @interface __NSCFNumber : __NSCFType
 @end
 @implementation __NSCFNumber
+- (BOOL)isNSNumber__ { return YES; }
 @end
 
 @interface __NSCFBoolean : __NSCFType
 @end
 @implementation __NSCFBoolean
+- (BOOL)isNSNumber__ { return YES; }
 - (instancetype)retain { return self; }
 - (oneway void)release { }
 - (NSUInteger)retainCount { return NSUIntegerMax; }
@@ -124,4 +187,10 @@ __CFFinchInitializeObjC(void)
     set_class(_kCFRuntimeIDCFNumber, [__NSCFNumber class]);
     set_class(_kCFRuntimeIDCFBoolean, [__NSCFBoolean class]);
     set_class(_kCFRuntimeIDCFNull, [NSNull class]);
+
+    /* The classes CF hosts for Foundation (NS*_Finch.m). */
+    extern Class __CFFinchInitializeArrayClasses(void);
+    extern void __CFFinchInstallExceptionHandler(void);
+    set_class(_kCFRuntimeIDCFArray, __CFFinchInitializeArrayClasses());
+    __CFFinchInstallExceptionHandler();
 }
