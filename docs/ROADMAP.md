@@ -1,9 +1,11 @@
 # Roadmap
 
-Strategy: **ship of Theseus.** Get a complete, booting system as early as possible by
-borrowing Apple's proprietary parts from the user's macOS install. Then replace those
-parts one by one, using the originals as the reference for correct behavior. Every phase
-ends with something that boots.
+Strategy: **ship of Theseus.** Get a complete, booting system as early as possible, then
+replace Apple's proprietary parts one by one, using the originals as the reference for
+correct behavior. Every phase ends with something that boots. Since 2026-10-08, nothing
+closed is borrowed above the kernel: each closed library or framework is built from
+Apple's open source or written by Finch when something needs it. Apple's kexts (and, in
+the Tier 2 VM, its kernel) stay borrowed until Phase 3 replaces them.
 
 ## Phase 0: Our kernel boots
 Build XNU from source and boot it on real Apple Silicon with Apple's own kexts.
@@ -122,17 +124,24 @@ Apple's is closed. Developed in the emulated M4 first. The map is
 **Reached 2026-10-07** (`docs/design/PHASE1-EXIT.md`). The unchecked items above
 continue alongside Phase 2.
 
-## Phase 2: First pixels and first app
-Runs in Tier 2 (`docs/design/TIER2-VZ.md`): `tools/vz/finch-vz` installs and runs a
-macOS 26.6.2 guest, and Finch's kernel builds for the VM platform
-(`MACHINE_CONFIG=VMAPPLE`). Booting it there waits on the user: Setup Assistant in
-the guest, and a decision on patched VM boot stages.
-- [ ] Framebuffer console via the iBoot-initialized display (simple framebuffer)
-- [ ] Minimal Finch window server and compositor (software rendering)
-- [ ] BORROWED AppKit/CoreGraphics running against Finch's window server via a shim
+## Phase 2: Open graphics stack and first app
+Nothing closed is borrowed (2026-10-08). Unmodified Mac apps need Foundation,
+CoreGraphics and AppKit, so Finch builds open ones before running any app
+(work that Phase 4 had). Most of it is built and tested on the host (against
+Apple's, for behaviour) and in Tier 1. The display is Tier 2's
+(`docs/design/TIER2-VZ.md`): a Virtualization.framework guest that boots
+normally on its own kernel, until Finch's kernel runs on bare metal.
+- [ ] Prerequisites from Phase 1: CoreFoundation's ObjC bridge and collection
+      classes, IOKit (IOKitUser), the open libraries (`tools/check-closed.py`)
+- [ ] Foundation (from swift-corelibs-foundation and Finch code), ABI-compatible
+      with Apple's
+- [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
+- [ ] Finch window server and compositor (software rendering), on the Tier 2 display
+- [ ] AppKit
 - [ ] TextEdit or Calculator launches and is usable
 
-**Exit:** an unmodified Mac app draws a window on Finch.
+**Exit:** an unmodified Mac app draws a window on Finch's own frameworks and
+window server.
 
 ## Phase 3: Open drivers
 Replace BORROWED kexts with Finch kexts on the M4 (Mac16,1, T8132), the only machine
@@ -160,11 +169,9 @@ macOS on the M4 itself (m1n1 hypervisor).
 installed.
 
 ## Phase 4: Open frameworks
-Replace BORROWED frameworks, ordered by app coverage.
-- [ ] Foundation (from swift-corelibs + gaps)
-- [ ] CoreGraphics / CoreText / ImageIO
+The rest of the frameworks, ordered by app coverage (Foundation, CoreGraphics
+and AppKit come in Phase 2).
 - [ ] QuartzCore (CoreAnimation)
-- [ ] AppKit
 - [ ] Metal → Mesa
 - [ ] SwiftUI
 - [ ] AVFoundation / CoreAudio / CoreMedia
