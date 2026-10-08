@@ -392,6 +392,7 @@ FINCH_CF_OBJECT_MEMORY
 - (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
 
 static BOOL is_mutable(id self) { return CFBasicHashIsMutable((CFBasicHashRef)self); }
+- (Class)classForCoder { return is_mutable(self) ? [NSMutableSet class] : [NSSet class]; }
 
 - (id)copyWithZone:(struct _NSZone *)zone
 {

@@ -470,6 +470,92 @@ function_compare(const void *a, const void *b, void *context)
 
 @implementation NSData (FinchFoundation)
 
+/* MARK: Base64 (RFC 4648), with Apple's line options */
+
+static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static NSMutableData *
+base64_encode(NSData *data, NSDataBase64EncodingOptions opts)
+{
+    const uint8_t *in = [data bytes];
+    NSUInteger n = [data length];
+    NSUInteger line = (opts & NSDataBase64Encoding64CharacterLineLength) ? 64 : (opts & NSDataBase64Encoding76CharacterLineLength) ? 76 : 0;
+    BOOL cr = (opts & NSDataBase64EncodingEndLineWithCarriageReturn) != 0, lf = (opts & NSDataBase64EncodingEndLineWithLineFeed) != 0;
+    if (line && !cr && !lf) cr = lf = YES;
+    NSMutableData *out = [NSMutableData dataWithCapacity:(n + 2) / 3 * 4 + 16];
+    NSUInteger col = 0;
+    for (NSUInteger i = 0; i < n; i += 3) {
+        uint32_t v = (uint32_t)in[i] << 16 | (i + 1 < n ? (uint32_t)in[i + 1] << 8 : 0) | (i + 2 < n ? in[i + 2] : 0);
+        char q[4] = { b64[v >> 18 & 63], b64[v >> 12 & 63], i + 1 < n ? b64[v >> 6 & 63] : '=', i + 2 < n ? b64[v & 63] : '=' };
+        if (line && col == line) {
+            if (cr) [out appendBytes:"\r" length:1];
+            if (lf) [out appendBytes:"\n" length:1];
+            col = 0;
+        }
+        [out appendBytes:q length:4];
+        col += 4;
+    }
+    return out;
+}
+
+static NSData *
+base64_decode(const uint8_t *in, NSUInteger n, NSDataBase64DecodingOptions opts)
+{
+    NSMutableData *out = [NSMutableData dataWithCapacity:n / 4 * 3];
+    uint32_t acc = 0;
+    int bits = 0, pad = 0;
+    NSUInteger count = 0;
+    for (NSUInteger i = 0; i < n; i++) {
+        uint8_t c = in[i];
+        int v;
+        if (c >= 'A' && c <= 'Z') v = c - 'A';
+        else if (c >= 'a' && c <= 'z') v = c - 'a' + 26;
+        else if (c >= '0' && c <= '9') v = c - '0' + 52;
+        else if (c == '+') v = 62;
+        else if (c == '/') v = 63;
+        else if (c == '=') { pad++; count++; continue; }
+        else if (opts & NSDataBase64DecodingIgnoreUnknownCharacters) continue;
+        else return nil;
+        if (pad) return nil;
+        acc = acc << 6 | (uint32_t)v;
+        bits += 6;
+        count++;
+        if (bits >= 8) {
+            bits -= 8;
+            uint8_t b = (uint8_t)(acc >> bits);
+            [out appendBytes:&b length:1];
+        }
+    }
+    if (count % 4 || pad > 2) return nil;
+    return out;
+}
+
+- (instancetype)initWithBase64EncodedString:(NSString *)base64String options:(NSDataBase64DecodingOptions)options
+{
+    NSData *utf8 = [base64String dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *d = utf8 ? base64_decode([utf8 bytes], [utf8 length], options) : nil;
+    if (!d) { [self release]; return nil; }
+    return [self initWithData:d];
+}
+
+- (instancetype)initWithBase64EncodedData:(NSData *)base64Data options:(NSDataBase64DecodingOptions)options
+{
+    NSData *d = base64_decode([base64Data bytes], [base64Data length], options);
+    if (!d) { [self release]; return nil; }
+    return [self initWithData:d];
+}
+
+- (NSString *)base64EncodedStringWithOptions:(NSDataBase64EncodingOptions)options
+{
+    NSData *d = base64_encode(self, options);
+    return [[[NSString alloc] initWithData:d encoding:NSASCIIStringEncoding] autorelease];
+}
+
+- (NSData *)base64EncodedDataWithOptions:(NSDataBase64EncodingOptions)options
+{
+    return [NSData dataWithData:base64_encode(self, options)];
+}
+
 + (instancetype)dataWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)readOptionsMask error:(NSError **)errorPtr
 {
     return [[[self alloc] initWithContentsOfFile:path options:readOptionsMask error:errorPtr] autorelease];

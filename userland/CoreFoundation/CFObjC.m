@@ -88,6 +88,7 @@ CF_EXPORT Boolean __CFStringIsMutable(CFStringRef str);
 @end
 @implementation __NSCFString
 FINCH_CF_OBJECT_MEMORY
+- (Class)classForCoder { return objc_getClass(__CFStringIsMutable((CFStringRef)self) ? "NSMutableString" : "NSString"); }
 - (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
 - (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
 - (BOOL)isEqualToString:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
@@ -257,6 +258,10 @@ CF_PRIVATE Boolean _CFCharacterSetIsMutable(CFCharacterSetRef cset);   /* CFChar
 @end
 @implementation __NSCFCharacterSet
 FINCH_CF_OBJECT_MEMORY
+- (Class)classForCoder
+{
+    return objc_getClass(_CFCharacterSetIsMutable((CFCharacterSetRef)self) ? "NSMutableCharacterSet" : "NSCharacterSet");
+}
 - (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
 - (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
 - (BOOL)characterIsMember:(unichar)c { return CFCharacterSetIsCharacterMember((CFCharacterSetRef)self, c); }

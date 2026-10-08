@@ -64,6 +64,7 @@
 }
 
 - (id)copyWithZone:(NSZone *)zone { return [self retain]; }
+- (Class)classForCoder { return [NSUUID class]; }
 + (BOOL)supportsSecureCoding { return YES; }
 - (void)encodeWithCoder:(NSCoder *)coder
 {

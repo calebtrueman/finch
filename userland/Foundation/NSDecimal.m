@@ -18,6 +18,7 @@
  */
 #import <Foundation/Foundation.h>
 #include <math.h>
+#import <objc/runtime.h>
 
 #include "Foundation_Finch.h"
 
@@ -789,6 +790,40 @@ CONSTANT(minimumDecimalNumber,
 
 - (id)copyWithZone:(NSZone *)zone { return [self retain]; }
 
+/* Apple archives NSDecimalNumber under NSDecimalNumberPlaceholder. */
++ (BOOL)supportsSecureCoding { return YES; }
+- (Class)classForCoder { return objc_getClass("NSDecimalNumberPlaceholder"); }
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+    NSDecimal d = [self decimalValue];
+    [coder encodeInt:d._exponent forKey:@"NS.exponent"];
+    [coder encodeInt:(int)d._length forKey:@"NS.length"];
+    [coder encodeBool:d._isNegative forKey:@"NS.negative"];
+    [coder encodeBool:d._isCompact forKey:@"NS.compact"];
+    [coder encodeInt:1 forKey:@"NS.mantissa.bo"];
+    uint8_t bytes[16];
+    for (int i = 0; i < 8; i++) { bytes[2 * i] = (uint8_t)d._mantissa[i]; bytes[2 * i + 1] = (uint8_t)(d._mantissa[i] >> 8); }
+    [coder encodeBytes:bytes length:sizeof(bytes) forKey:@"NS.mantissa"];
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    NSDecimal d;
+    memset(&d, 0, sizeof(d));
+    d._exponent = [coder decodeIntForKey:@"NS.exponent"];
+    d._length = (unsigned)[coder decodeIntForKey:@"NS.length"] & 0xF;
+    d._isNegative = [coder decodeBoolForKey:@"NS.negative"];
+    d._isCompact = [coder decodeBoolForKey:@"NS.compact"];
+    BOOL big = [coder containsValueForKey:@"NS.mantissa.bo"] && [coder decodeIntForKey:@"NS.mantissa.bo"] != 1;
+    NSUInteger n = 0;
+    const uint8_t *b = [coder decodeBytesForKey:@"NS.mantissa" returnedLength:&n];
+    for (NSUInteger i = 0; i < 8 && 2 * i + 1 < n; i++)
+        d._mantissa[i] = big ? (unsigned short)(b[2 * i] << 8 | b[2 * i + 1]) : (unsigned short)(b[2 * i] | b[2 * i + 1] << 8);
+    if (d._length > 8) d._length = 8;
+    return [self initWithDecimal:d];
+}
+
 typedef NSCalculationError (*BinaryOp)(NSDecimal *, const NSDecimal *, const NSDecimal *, NSRoundingMode);
 
 /* An operation's result under a behavior: its errors to the behavior,
@@ -864,6 +899,14 @@ binary(NSDecimalNumber *self, SEL _cmd, NSDecimalNumber *other, id<NSDecimalNumb
     return [NSDecimalNumber decimalNumberWithDecimal:r];
 }
 
+@end
+
+/* The name Apple's archives give NSDecimalNumber; decoding it gives an
+ * NSDecimalNumber. */
+@interface NSDecimalNumberPlaceholder : NSDecimalNumber
+@end
+@implementation NSDecimalNumberPlaceholder
++ (Class)classForKeyedUnarchiver { return [NSDecimalNumber class]; }
 @end
 
 /* MARK: - NSNumber's decimal value */

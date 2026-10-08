@@ -315,6 +315,8 @@ is_mutable(id self)
     return _CFDataIsMutable((CFDataRef)self);
 }
 
+- (Class)classForCoder { return is_mutable(self) ? [NSMutableData class] : [NSData class]; }
+
 - (id)copyWithZone:(struct _NSZone *)zone
 {
     if (!is_mutable(self)) return [self retain];

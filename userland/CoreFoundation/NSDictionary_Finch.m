@@ -480,6 +480,8 @@ is_mutable(id self)
     return CFBasicHashIsMutable((CFBasicHashRef)self);
 }
 
+- (Class)classForCoder { return is_mutable(self) ? [NSMutableDictionary class] : [NSDictionary class]; }
+
 - (id)copyWithZone:(struct _NSZone *)zone
 {
     if (!is_mutable(self)) return [self retain];

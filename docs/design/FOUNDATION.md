@@ -221,4 +221,18 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   is a `q`; CF's small-integer cache made it an `i`), and unsigned values
   above `LLONG_MAX` are `Q`. `finch-data-test` is identical to Apple's on
   the host and in the VM.
+- 2026-10-08: archiving. `NSCoder` (the unkeyed API from its primitives,
+  secure decoding, geometry keys), `NSKeyedArchiver` and `NSKeyedUnarchiver`
+  writing and reading Apple's archive format: objects numbered as Apple's
+  archiver numbers them (contents before their class entry, strings shared
+  by value, conditional objects numbered when first referred to), plist
+  values in place, the unkeyed API under `$0`, `$1`..., C arrays as
+  `_NSKeyedCoderOldStyleArray`, structs refused. Every Foundation and CF
+  class Finch has codes itself under Apple's keys (`NSCodingClasses.m`), and
+  CF's concrete classes name their mutable or immutable class for coding.
+  NSObject gets the coding hooks, `NSAllocateObject`'s family is in, and
+  NSData gets base64. `finch-archive-test` is identical to Apple's on the
+  host and in the VM, including decoding an archive Apple's Foundation made.
+  Modern compiled nibs are `NIBArchive` files, not keyed archives; AppKit
+  will bring that decoder.
 

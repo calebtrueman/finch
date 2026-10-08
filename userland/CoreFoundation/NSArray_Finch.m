@@ -483,6 +483,8 @@ FINCH_CF_OBJECT_MEMORY
 - (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
 - (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
 
+- (Class)classForCoder { return _CFArrayIsMutable((CFArrayRef)self) ? [NSMutableArray class] : [NSArray class]; }
+
 - (id)copyWithZone:(struct _NSZone *)zone
 {
     if (!_CFArrayIsMutable((CFArrayRef)self)) return [self retain];

@@ -79,10 +79,13 @@
 
 - (NSString *)description
 {
-    NSString *d = [_userInfo objectForKey:NSLocalizedDescriptionKey];
+    /* Apple's: POSIX errors by strerror even over the user info, then the
+     * user info's description or failure reason, else "(null)". */
+    NSString *d = nil;
+    if ([_domain isEqualToString:NSPOSIXErrorDomain] && _code > 0 && _code < 1000) d = [NSString stringWithUTF8String:strerror((int)_code)];
+    if (!d) d = [_userInfo objectForKey:NSLocalizedDescriptionKey];
     if (!d) d = [self localizedFailureReason];
-    NSMutableString *s = [NSMutableString stringWithFormat:@"Error Domain=%@ Code=%ld", _domain, (long)_code];
-    if (d) [s appendFormat:@" \"%@\"", d];
+    NSMutableString *s = [NSMutableString stringWithFormat:@"Error Domain=%@ Code=%ld \"%@\"", _domain, (long)_code, d ? d : @"(null)"];
     if ([_userInfo count]) {
         [s appendString:@" UserInfo={"];
         NSUInteger i = 0;
@@ -103,8 +106,6 @@
 
 - (NSUInteger)hash { return [_domain hash] ^ (NSUInteger)_code; }
 - (id)copyWithZone:(NSZone *)zone { return [self retain]; }
-- (instancetype)initWithCoder:(NSCoder *)coder { [self release]; return nil; }
-- (void)encodeWithCoder:(NSCoder *)coder { }
 + (BOOL)supportsSecureCoding { return YES; }
 
 @end

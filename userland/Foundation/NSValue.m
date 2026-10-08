@@ -107,8 +107,6 @@ static NSPlaceholderNumber *numberPlaceholder;
 - (const char *)objCType { FinchAbstract(self, _cmd); }
 
 - (instancetype)initWithBytes:(const void *)value objCType:(const char *)type { return [self init]; }
-- (instancetype)initWithCoder:(NSCoder *)coder { [self release]; return nil; }
-- (void)encodeWithCoder:(NSCoder *)coder { }
 + (BOOL)supportsSecureCoding { return YES; }
 - (id)copyWithZone:(NSZone *)zone { return [self retain]; }
 - (BOOL)isNSValue__ { return YES; }

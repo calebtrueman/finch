@@ -59,18 +59,22 @@ enum {
     return self;
 }
 
+/* Apple's keys: NSKey, NSAscending, NSSelector, NSReverseNullOrder. */
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
-    NSString *sel = [coder decodeObjectOfClass:[NSString class] forKey:@"Selector"];
-    return [self initWithKey:[coder decodeObjectOfClass:[NSString class] forKey:@"Key"] ascending:[coder decodeBoolForKey:@"Ascending"]
+    NSString *sel = [coder decodeObjectOfClass:[NSString class] forKey:@"NSSelector"];
+    return [self initWithKey:[coder decodeObjectOfClass:[NSString class] forKey:@"NSKey"] ascending:[coder decodeBoolForKey:@"NSAscending"]
         selector:sel ? NSSelectorFromString(sel) : NULL];
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-    if (_key) [coder encodeObject:_key forKey:@"Key"];
-    [coder encodeBool:[self ascending] forKey:@"Ascending"];
-    if (_selector) [coder encodeObject:NSStringFromSelector(_selector) forKey:@"Selector"];
+    if (_selectorOrBlock)
+        FinchRaise(NSInvalidArgumentException, "*** -[NSSortDescriptor encodeWithCoder:]: sort descriptors with comparators cannot be encoded");
+    [coder encodeObject:_key forKey:@"NSKey"];
+    [coder encodeBool:[self ascending] forKey:@"NSAscending"];
+    [coder encodeObject:NSStringFromSelector(_selector) forKey:@"NSSelector"];
+    [coder encodeBool:NO forKey:@"NSReverseNullOrder"];
 }
 
 + (BOOL)supportsSecureCoding { return YES; }

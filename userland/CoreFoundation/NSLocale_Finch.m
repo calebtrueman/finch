@@ -277,6 +277,34 @@ enum {
 
 @implementation NSDateComponents
 
+/* Apple's: each field that is set on its own line, in this order, and no
+ * closing brace. */
+- (id)description
+{
+    CFMutableStringRef s = CFStringCreateMutable(NULL, 0);
+    CFStringAppendFormat(s, NULL, CFSTR("<%s: %p> {"), object_getClassName(self), self);
+    if (_calendar) CFStringAppendFormat(s, NULL, CFSTR("\n    Calendar: %@"), _calendar);
+    if (_timeZone) CFStringAppendFormat(s, NULL, CFSTR("\n    TimeZone: %@"), _timeZone);
+#define FIELD(ivar, label) if (ivar != NSDateComponentUndefined) CFStringAppendFormat(s, NULL, CFSTR("\n    " label ": %ld"), (long)ivar);
+    FIELD(_era, "Era")
+    FIELD(_year, "Calendar Year")
+    FIELD(_month, "Month")
+    if (_leapMonthSet) CFStringAppendFormat(s, NULL, CFSTR("\n    Leap Month: %d"), _leapMonth ? 1 : 0);
+    FIELD(_day, "Day")
+    FIELD(_hour, "Hour")
+    FIELD(_minute, "Minute")
+    FIELD(_second, "Second")
+    FIELD(_nanosecond, "Nanosecond")
+    FIELD(_quarter, "Quarter")
+    FIELD(_yearForWeekOfYear, "Year for Week of Year")
+    FIELD(_weekOfYear, "Week of Year")
+    FIELD(_weekOfMonth, "Week of Month")
+    FIELD(_weekday, "Weekday")
+    FIELD(_weekdayOrdinal, "Weekday Ordinal")
+#undef FIELD
+    return [(id)s autorelease];
+}
+
 - (instancetype)init
 {
     if ((self = [super init])) {

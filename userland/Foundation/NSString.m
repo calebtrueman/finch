@@ -98,13 +98,6 @@ cf_copy_of(NSString *s)
 
 - (instancetype)init { return [super init]; }
 
-- (instancetype)initWithCoder:(NSCoder *)coder
-{
-    [self release];
-    return nil;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder { }
 + (BOOL)supportsSecureCoding { return YES; }
 
 - (id)copyWithZone:(NSZone *)zone { return (id)cf_copy_of(self); }

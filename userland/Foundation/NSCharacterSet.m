@@ -75,8 +75,6 @@ PREDEFINED(newlineCharacterSet, kCFCharacterSetNewline)
     return d ? [self characterSetWithBitmapRepresentation:d] : nil;
 }
 
-- (instancetype)initWithCoder:(NSCoder *)coder { [self release]; return nil; }
-- (void)encodeWithCoder:(NSCoder *)coder { }
 + (BOOL)supportsSecureCoding { return YES; }
 
 - (BOOL)characterIsMember:(unichar)c { FinchAbstract(self, _cmd); }

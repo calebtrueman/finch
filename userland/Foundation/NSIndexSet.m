@@ -48,8 +48,6 @@
 
 - (id)copyWithZone:(NSZone *)zone { return [[NSIndexSet alloc] initWithIndexSet:self]; }
 - (id)mutableCopyWithZone:(NSZone *)zone { return [[NSMutableIndexSet alloc] initWithIndexSet:self]; }
-- (instancetype)initWithCoder:(NSCoder *)c { [self release]; return nil; }
-- (void)encodeWithCoder:(NSCoder *)c { }
 + (BOOL)supportsSecureCoding { return YES; }
 
 - (NSUInteger)count

@@ -34,6 +34,16 @@ CFStringRef FinchCreateWithFormat(CFDictionaryRef options, CFStringRef format, v
 __attribute__((visibility("hidden")))
 NSUInteger FinchScanDecimal(NSString *s, NSUInteger start, NSString *separator, NSDecimal *out);
 
+/* Coding hooks (NSCoder.m, NSKeyedArchiver.m). NSKeyedArchiver stores a
+ * plist value or an array of object references in place, as Apple's
+ * private methods do ("NS.string" = 'abc', "NS.objects" = [@2, @3]); other
+ * coders fall back to -encodeObject:forKey:. */
+@interface NSCoder (FinchKeyedPrivate)
+- (void)_finchEncodePlist:(id)value forKey:(NSString *)key;
+- (void)_finchEncodeArrayOfObjects:(NSArray *)objects forKey:(NSString *)key;
+- (NSArray *)_finchDecodeArrayOfObjectsForKey:(NSString *)key;
+@end
+
 /* Objects that are never freed implement -dealloc without calling super. */
 #define FINCH_NO_SUPER_DEALLOC \
     _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wobjc-missing-super-calls\"") \
