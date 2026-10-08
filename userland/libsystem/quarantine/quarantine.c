@@ -29,12 +29,16 @@
  */
 
 #include <errno.h>
+#include <pthread.h>
+#include <spawn.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/attr.h>
+#include <sys/mount.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
@@ -449,59 +453,325 @@ int qtn_spawnattrs_set_tracking_data(void *attr, const void *data, size_t len);
 int qtn_spawnattrs_get_tracking_data(void *a, void *d, size_t *len) { (void)a; (void)d; if (len) *len = 0; return ENOENT; }
 int qtn_spawnattrs_set_tracking_data(void *a, const void *d, size_t len) { (void)a; (void)d; (void)len; return ENOTSUP; }
 
-#pragma mark - Responsibility (kernel policy: every process is responsible for itself)
+#pragma mark - Responsibility
 
-int responsibility_init(void);
-pid_t responsibility_get_responsible_for_pid(pid_t pid);
-pid_t responsibility_get_pid_responsible_for_pid(pid_t pid);
-uint64_t responsibility_get_uniqueid_responsible_for_pid(pid_t pid);
-int responsibility_get_responsible_audit_token_for_audit_token(const void *token, void *out);
-int responsibility_spawnattrs_setdisclaim(void *attr, int disclaim);
-int responsibility_spawnattrs_getdisclaim(void *attr, int *disclaim);
+/*
+ * Which process is "responsible" for another (for TCC prompts and the like) is
+ * tracked by the Quarantine kernel extension. These are the same calls Apple's
+ * library makes, through the MAC policy syscall, with the same argument blocks
+ * (read from macOS 26.4's libquarantine). Kernel blocks hold 64-bit slots.
+ */
+extern int __sandbox_ms(const char *policy, int call, void *arg);
 
-int responsibility_init(void) { return 0; }
-pid_t responsibility_get_responsible_for_pid(pid_t pid) { return pid; }
-pid_t responsibility_get_pid_responsible_for_pid(pid_t pid) { return pid; }
-uint64_t responsibility_get_uniqueid_responsible_for_pid(pid_t pid) { (void)pid; return 0; }
+#define QTN_POLICY "Quarantine"
+#define QTN_RESPONSIBILITY_GET 180
+#define QTN_RESPONSIBILITY_SET 181
+#define QTN_RESPONSIBILITY_GET_AUDIT 182
+#define QTN_RESPONSIBILITY_SET_AUDITTOKEN_FOR_SELF 183
+#define QTN_RESPONSIBILITY_SET_AUDITTOKEN_FOR_CALLER 184
+#define QTN_RESPONSIBILITY_SET_CALLER_FOR_CALLER 185
+#define QTN_RESPONSIBILITY_SET_HOSTED_PATH 186
+#define QTN_RESPONSIBILITY_SET_HOSTED_TEAM_ID 187
 
-/* audit_token_t is 32 bytes. */
-int
-responsibility_get_responsible_audit_token_for_audit_token(const void *token, void *out)
+/* audit_token_t fields used: val[5] is the pid, val[7] the pid version. */
+#define TOKEN_PID(t) (((const uint32_t *)(t))[5])
+#define TOKEN_PIDVERSION(t) (((const uint32_t *)(t))[7])
+
+static int
+responsibility_get(pid_t pid, pid_t *rpid, uint64_t *runiqueid, size_t *pathlen, char *path)
 {
-	memcpy(out, token, 32);
+	uint64_t out_pid = 0, out_uniqueid = 0;
+	/* The length slot starts out holding the caller's pointer, as Apple's does. */
+	uint64_t len_slot = (uint64_t)(uintptr_t)pathlen;
+	uint64_t arg[5] = { (uint64_t)(int64_t)pid, (uint64_t)(uintptr_t)&out_pid,
+		(uint64_t)(uintptr_t)&out_uniqueid, pathlen ? (uint64_t)(uintptr_t)&len_slot : 0,
+		(uint64_t)(uintptr_t)path };
+	int rc = __sandbox_ms(QTN_POLICY, QTN_RESPONSIBILITY_GET, arg);
+
+	if (rc == 0) {
+		if (rpid)
+			*rpid = (pid_t)out_pid;
+		if (runiqueid)
+			*runiqueid = out_uniqueid;
+		if (pathlen)
+			*pathlen = (size_t)len_slot;
+	}
+	return rc;
+}
+
+int
+responsibility_get_responsible_for_pid(pid_t pid, pid_t *rpid, uint64_t *runiqueid,
+    size_t *pathlen, char *path)
+{
+	if (pathlen && *pathlen == 0) {
+		errno = ERANGE;
+		return -1;
+	}
+	return responsibility_get(pid, rpid, runiqueid, pathlen, path);
+}
+
+pid_t
+responsibility_get_pid_responsible_for_pid(pid_t pid)
+{
+	pid_t rpid = 0;
+
+	return responsibility_get(pid, &rpid, NULL, NULL, NULL) == 0 ? rpid : -1;
+}
+
+uint64_t
+responsibility_get_uniqueid_responsible_for_pid(pid_t pid)
+{
+	uint64_t uniqueid = 0;
+
+	return responsibility_get(pid, NULL, &uniqueid, NULL, NULL) == 0 ? uniqueid : UINT64_MAX;
+}
+
+int
+responsibility_get_responsible_audit_token_for_audit_token(const void *token, void *out,
+    uint64_t *x, void *y)
+{
+	uint8_t copy[32];
+	uint64_t slot = (uint64_t)(uintptr_t)x;
+	/* 0xe0 bytes, as Apple's: the attribution fields stay zero for this query. */
+	uint64_t arg[28] = { 0 };
+	int rc;
+
+	memcpy(copy, token, sizeof(copy));
+	arg[0] = TOKEN_PID(copy);
+	arg[1] = TOKEN_PIDVERSION(copy);
+	arg[2] = (uint64_t)(uintptr_t)out;
+	arg[3] = (uint64_t)(uintptr_t)&slot;
+	arg[4] = (uint64_t)(uintptr_t)y;
+	rc = __sandbox_ms(QTN_POLICY, QTN_RESPONSIBILITY_GET_AUDIT, arg);
+	if (x && rc == 0)
+		*x = slot;
+	return rc;
+}
+
+int
+responsibility_init(int value)
+{
+	int64_t arg[2] = { 0, value };
+
+	return __sandbox_ms(QTN_POLICY, QTN_RESPONSIBILITY_SET, arg);
+}
+
+int
+responsibility_set_pid_responsible_for_pid(pid_t pid, pid_t rpid)
+{
+	int64_t arg[2] = { pid, rpid };
+
+	return __sandbox_ms(QTN_POLICY, QTN_RESPONSIBILITY_SET, arg);
+}
+
+static int
+set_audittoken(const void *token, int call)
+{
+	uint8_t copy[32];
+	uint64_t arg[2];
+
+	memcpy(copy, token, sizeof(copy));
+	arg[0] = TOKEN_PID(copy);
+	arg[1] = TOKEN_PIDVERSION(copy);
+	return __sandbox_ms(QTN_POLICY, call, arg);
+}
+
+int
+responsibility_set_audittoken_responsible_for_self(const void *token)
+{
+	return set_audittoken(token, QTN_RESPONSIBILITY_SET_AUDITTOKEN_FOR_SELF);
+}
+
+int
+responsibility_set_audittoken_responsible_for_caller(const void *token)
+{
+	return set_audittoken(token, QTN_RESPONSIBILITY_SET_AUDITTOKEN_FOR_CALLER);
+}
+
+int
+responsibility_set_caller_responsible_for_self(void)
+{
+	return __sandbox_ms(QTN_POLICY, QTN_RESPONSIBILITY_SET_CALLER_FOR_CALLER, NULL);
+}
+
+int
+responsibility_set_hosted_path(const char *path)
+{
+	uint64_t arg[1] = { (uint64_t)(uintptr_t)path };
+
+	return __sandbox_ms(QTN_POLICY, QTN_RESPONSIBILITY_SET_HOSTED_PATH, arg);
+}
+
+int
+responsibility_set_hosted_team_id(const char *team_id)
+{
+	uint64_t arg[1] = { (uint64_t)(uintptr_t)team_id };
+
+	return __sandbox_ms(QTN_POLICY, QTN_RESPONSIBILITY_SET_HOSTED_TEAM_ID, arg);
+}
+
+/*
+ * Spawn attributes: a 24-byte "Quarantine" MAC policy blob, {version 1, size
+ * 24, flags} with bit 0 of flags meaning "disclaim responsibility".
+ */
+int posix_spawnattr_getmacpolicyinfo_np(const posix_spawnattr_t *, const char *, void **, size_t *);
+int posix_spawnattr_setmacpolicyinfo_np(posix_spawnattr_t *, const char *, void *, size_t);
+
+struct qtn_spawn_blob {
+	uint32_t version, size, flags, reserved;
+	uint64_t tracking;
+};
+
+static pthread_key_t spawn_blob_key;
+static pthread_once_t spawn_blob_once = PTHREAD_ONCE_INIT;
+
+static void
+spawn_blob_key_init(void)
+{
+	pthread_key_create(&spawn_blob_key, free);
+}
+
+/* The blob already in attr, or this thread's fresh one. */
+static int
+spawn_blob(posix_spawnattr_t *attr, struct qtn_spawn_blob **out)
+{
+	void *data = NULL;
+	size_t size = sizeof(struct qtn_spawn_blob);
+	int rc;
+
+	pthread_once(&spawn_blob_once, spawn_blob_key_init);
+	rc = posix_spawnattr_getmacpolicyinfo_np(attr, QTN_POLICY, &data, &size);
+	if (rc == ESRCH) {
+		struct qtn_spawn_blob *b = pthread_getspecific(spawn_blob_key);
+
+		if (b == NULL) {
+			if ((b = calloc(1, sizeof(*b))) == NULL)
+				return ENOMEM;
+			pthread_setspecific(spawn_blob_key, b);
+		}
+		memset(b, 0, sizeof(*b));
+		b->version = 1;
+		b->size = sizeof(*b);
+		*out = b;
+		return 0;
+	}
+	if (rc != 0)
+		return rc;
+	if (size != sizeof(struct qtn_spawn_blob))
+		return EINVAL;
+	*out = data;
 	return 0;
 }
 
-int responsibility_spawnattrs_setdisclaim(void *a, int d) { (void)a; (void)d; return 0; }
-int responsibility_spawnattrs_getdisclaim(void *a, int *d) { (void)a; if (d) *d = 0; return 0; }
+int
+responsibility_spawnattrs_setdisclaim(posix_spawnattr_t *attr, int disclaim)
+{
+	struct qtn_spawn_blob *b = NULL;
+	int rc = spawn_blob(attr, &b);
 
-/* The rest of the responsibility SPI: not available (0 / NULL / ENOTSUP). */
-#define NOT_AVAILABLE(name) long name(void); long name(void) { return 0; }
-NOT_AVAILABLE(responsibility_get_attribution_for_audittoken)
-NOT_AVAILABLE(responsibility_identity_get_binary_entitlement_data)
-NOT_AVAILABLE(responsibility_identity_get_binary_is_platform)
-NOT_AVAILABLE(responsibility_identity_get_binary_offset)
-NOT_AVAILABLE(responsibility_identity_get_binary_path)
-NOT_AVAILABLE(responsibility_identity_get_binary_signing_id)
-NOT_AVAILABLE(responsibility_identity_get_binary_team_id)
-NOT_AVAILABLE(responsibility_identity_get_csflags)
-NOT_AVAILABLE(responsibility_identity_get_hosted_path)
-NOT_AVAILABLE(responsibility_identity_get_hosted_team_id)
-NOT_AVAILABLE(responsibility_identity_get_persistent_identifier)
-NOT_AVAILABLE(responsibility_identity_get_platform)
-NOT_AVAILABLE(responsibility_identity_get_sdk)
-NOT_AVAILABLE(responsibility_identity_get_user_uuid)
-NOT_AVAILABLE(responsibility_identity_release)
-NOT_AVAILABLE(responsibility_set_hosted_path)
-NOT_AVAILABLE(responsibility_set_hosted_team_id)
+	if (rc != 0)
+		return rc;
+	b->flags = (b->flags & ~1u) | (uint32_t)disclaim;
+	return posix_spawnattr_setmacpolicyinfo_np(attr, QTN_POLICY, b, sizeof(*b));
+}
 
-int responsibility_identity_open_binary_fd(void);
-int responsibility_set_audittoken_responsible_for_caller(void);
-int responsibility_set_audittoken_responsible_for_self(void);
-int responsibility_set_caller_responsible_for_self(void);
-int responsibility_set_pid_responsible_for_pid(void);
-int responsibility_identity_open_binary_fd(void) { errno = ENOTSUP; return -1; }
-int responsibility_set_audittoken_responsible_for_caller(void) { return ENOTSUP; }
-int responsibility_set_audittoken_responsible_for_self(void) { return ENOTSUP; }
-int responsibility_set_caller_responsible_for_self(void) { return ENOTSUP; }
-int responsibility_set_pid_responsible_for_pid(void) { return ENOTSUP; }
+int
+responsibility_spawnattrs_getdisclaim(const posix_spawnattr_t *attr, char *disclaim)
+{
+	void *data = NULL;
+	size_t size = 0;
+	int rc = posix_spawnattr_getmacpolicyinfo_np(attr, QTN_POLICY, &data, &size);
+
+	if (rc != 0)
+		return rc;
+	if (size != sizeof(struct qtn_spawn_blob))
+		return EINVAL;
+	if (disclaim)
+		*disclaim = ((struct qtn_spawn_blob *)data)->flags & 1;
+	return 0;
+}
+
+/*
+ * Responsibility identities: what responsibility_get_attribution_for_audittoken
+ * returns. The accessors read Apple's layout; building one needs the
+ * Quarantine kext's attribution reply (call 182 with its full argument block),
+ * which Finch doesn't decode yet, so attribution fails with ENOTSUP.
+ */
+struct responsibility_identity {
+	uint64_t reserved[2];
+	const char *binary_path;          /* 0x10 */
+	const char *hosted_path;          /* 0x18 */
+	const char *hosted_team_id;       /* 0x20 */
+	const char *signing_id;           /* 0x28 */
+	const char *team_id;              /* 0x30 */
+	const void *entitlement_data;     /* 0x38 */
+	const void *persistent_id;        /* 0x40 */
+	uint64_t binary_offset;           /* 0x48 */
+	uint64_t entitlement_length;      /* 0x50 */
+	uint64_t csflags;                 /* 0x58 */
+	uint64_t fileid;                  /* 0x60 */
+	uint32_t binary_flags;            /* 0x68 */
+	uint32_t reserved2;
+	uint32_t fsid;                    /* 0x70 */
+	uint32_t platform;                /* 0x74 */
+	uint32_t sdk;                     /* 0x78 */
+	uint8_t has_fileid;               /* 0x7c */
+};
+
+void *
+responsibility_get_attribution_for_audittoken(const void *token, int x)
+{
+	(void)token;
+	(void)x;
+	errno = ENOTSUP;
+	return NULL;
+}
+
+const void *
+responsibility_identity_get_binary_entitlement_data(const struct responsibility_identity *i,
+    uint64_t *length)
+{
+	if (length)
+		*length = i->entitlement_length;
+	return i->entitlement_data;
+}
+
+bool responsibility_identity_get_binary_is_platform(const struct responsibility_identity *i) { return i->binary_flags & 1; }
+uint64_t responsibility_identity_get_binary_offset(const struct responsibility_identity *i) { return i->binary_offset; }
+const char *responsibility_identity_get_binary_path(const struct responsibility_identity *i) { return i->binary_path; }
+const char *responsibility_identity_get_binary_signing_id(const struct responsibility_identity *i) { return i->signing_id; }
+const char *responsibility_identity_get_binary_team_id(const struct responsibility_identity *i) { return i->team_id; }
+uint64_t responsibility_identity_get_csflags(const struct responsibility_identity *i) { return i->csflags; }
+const char *responsibility_identity_get_hosted_path(const struct responsibility_identity *i) { return i->hosted_path; }
+const char *responsibility_identity_get_hosted_team_id(const struct responsibility_identity *i) { return i->hosted_team_id; }
+uint32_t responsibility_identity_get_platform(const struct responsibility_identity *i) { return i->platform; }
+uint32_t responsibility_identity_get_sdk(const struct responsibility_identity *i) { return i->sdk; }
+void responsibility_identity_get_user_uuid(const struct responsibility_identity *i) { (void)i; }
+
+const void *
+responsibility_identity_get_persistent_identifier(const struct responsibility_identity *i, int which)
+{
+	return which ? NULL : i->persistent_id;
+}
+
+int openbyid_np(fsid_t *fsid, fsobj_id_t *objid, int flags);
+
+int
+responsibility_identity_open_binary_fd(const struct responsibility_identity *i, int flags)
+{
+	fsid_t fsid = { { (int32_t)i->fsid, 0 } };
+	fsobj_id_t objid;
+
+	if (!i->has_fileid) {
+		errno = ENOTSUP;
+		return -1;
+	}
+	memcpy(&objid, &i->fileid, sizeof(objid));
+	return openbyid_np(&fsid, &objid, flags);
+}
+
+void
+responsibility_identity_release(struct responsibility_identity *i)
+{
+	free(i);
+}

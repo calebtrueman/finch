@@ -10,7 +10,10 @@
  *   qtn-compare <finch libquarantine.dylib>
  */
 #include <dlfcn.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <mach/mach.h>
+#include <spawn.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -163,6 +166,78 @@ main(int argc, char **argv)
 		EXPECT(A.init_fd(na3, u) == F.init_fd(nb3, u), "init_with_fd on unquarantined file");
 		close(u);
 		close(fa); close(fb); unlink(pa); unlink(pb);
+	}
+
+	/*
+	 * Responsibility: both libraries ask the same Quarantine kext, so every
+	 * answer, error and output must match. (responsibility_get_attribution_for_
+	 * audittoken isn't compared: Finch's reports ENOTSUP for now.)
+	 */
+	{
+		void *ha = dlopen("/usr/lib/system/libquarantine.dylib", RTLD_NOW);
+		void *hb = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+		pid_t (*pid_a)(pid_t) = dlsym(ha, "responsibility_get_pid_responsible_for_pid");
+		pid_t (*pid_b)(pid_t) = dlsym(hb, "responsibility_get_pid_responsible_for_pid");
+		uint64_t (*uid_a)(pid_t) = dlsym(ha, "responsibility_get_uniqueid_responsible_for_pid");
+		uint64_t (*uid_b)(pid_t) = dlsym(hb, "responsibility_get_uniqueid_responsible_for_pid");
+		int (*get_a)(pid_t, pid_t *, uint64_t *, size_t *, char *) = dlsym(ha, "responsibility_get_responsible_for_pid");
+		int (*get_b)(pid_t, pid_t *, uint64_t *, size_t *, char *) = dlsym(hb, "responsibility_get_responsible_for_pid");
+		int (*tok_a)(const void *, void *, uint64_t *, void *) = dlsym(ha, "responsibility_get_responsible_audit_token_for_audit_token");
+		int (*tok_b)(const void *, void *, uint64_t *, void *) = dlsym(hb, "responsibility_get_responsible_audit_token_for_audit_token");
+		int (*setd_a)(posix_spawnattr_t *, int) = dlsym(ha, "responsibility_spawnattrs_setdisclaim");
+		int (*setd_b)(posix_spawnattr_t *, int) = dlsym(hb, "responsibility_spawnattrs_setdisclaim");
+		int (*getd_a)(posix_spawnattr_t *, char *) = dlsym(ha, "responsibility_spawnattrs_getdisclaim");
+		int (*getd_b)(posix_spawnattr_t *, char *) = dlsym(hb, "responsibility_spawnattrs_getdisclaim");
+		pid_t pids[] = { getpid(), getppid(), 1, 0, -1, 99999, 2147483647 };
+		int ea, eb;
+
+		for (size_t i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
+			pid_t p = pids[i];
+			errno = 0; pid_t ra = pid_a(p); ea = errno;
+			errno = 0; pid_t rb = pid_b(p); eb = errno;
+			EXPECT(ra == rb && (ra != -1 || ea == eb), "pid_responsible_for_pid(%d): %d/%d", p, ra, rb);
+			errno = 0; uint64_t ua = uid_a(p); ea = errno;
+			errno = 0; uint64_t ub = uid_b(p); eb = errno;
+			EXPECT(ua == ub && (ua != UINT64_MAX || ea == eb), "uniqueid_responsible_for_pid(%d)", p);
+			for (size_t len = 0; len <= 4096; len = len ? len * 4 : 1) {
+				char pa[4096], pb[4096];
+				pid_t xa = -7, xb = -7;
+				uint64_t ia = 7, ib = 7;
+				size_t la = len, lb = len;
+				memset(pa, 'x', sizeof(pa)); memset(pb, 'x', sizeof(pb));
+				errno = 0; int ga = get_a(p, &xa, &ia, &la, pa); ea = errno;
+				errno = 0; int gb = get_b(p, &xb, &ib, &lb, pb); eb = errno;
+				EXPECT(ga == gb && xa == xb && ia == ib && la == lb && (ga == 0 || ea == eb) &&
+				    memcmp(pa, pb, len) == 0, "responsible_for_pid(%d, len %zu): %d/%d", p, len, ga, gb);
+			}
+			errno = 0; int na = get_a(p, NULL, NULL, NULL, NULL); ea = errno;
+			errno = 0; int nb = get_b(p, NULL, NULL, NULL, NULL); eb = errno;
+			EXPECT(na == nb && (na == 0 || ea == eb), "responsible_for_pid(%d, NULLs)", p);
+		}
+
+		audit_token_t self;
+		mach_msg_type_number_t count = TASK_AUDIT_TOKEN_COUNT;
+		task_info(mach_task_self(), TASK_AUDIT_TOKEN, (task_info_t)&self, &count);
+		audit_token_t oa, ob;
+		uint64_t xa = 3, xb = 3;
+		memset(&oa, 0xa5, sizeof(oa)); memset(&ob, 0xa5, sizeof(ob));
+		errno = 0; int ta = tok_a(&self, &oa, &xa, NULL); ea = errno;
+		errno = 0; int tb = tok_b(&self, &ob, &xb, NULL); eb = errno;
+		EXPECT(ta == tb && xa == xb && memcmp(&oa, &ob, sizeof(oa)) == 0 && (ta == 0 || ea == eb),
+		    "audit_token_for_audit_token: %d/%d", ta, tb);
+
+		/* Spawn attributes, each library reading what the other wrote. */
+		for (int d = 0; d < 2; d++) {
+			posix_spawnattr_t a1, a2;
+			char va = 9, vb = 9;
+			posix_spawnattr_init(&a1); posix_spawnattr_init(&a2);
+			EXPECT(getd_a(&a1, &va) == getd_b(&a2, &vb) && va == vb, "getdisclaim on fresh attrs");
+			EXPECT(setd_a(&a1, d) == setd_b(&a2, d), "setdisclaim(%d)", d);
+			va = vb = 9;
+			EXPECT(getd_b(&a1, &vb) == getd_a(&a2, &va) && va == vb && va == d, "getdisclaim across");
+			EXPECT(setd_b(&a1, !d) == 0 && getd_a(&a1, &va) == 0 && va == !d, "re-set disclaim");
+			posix_spawnattr_destroy(&a1); posix_spawnattr_destroy(&a2);
+		}
 	}
 
 	printf("%s: %d checks, %d differ\n", bad ? "FAILED" : "PASSED", checks, bad);
