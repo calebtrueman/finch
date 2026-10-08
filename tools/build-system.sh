@@ -65,6 +65,10 @@ steps=(
     "libmd|oss libmd libmd"
     "OpenBSM|oss OpenBSM bsm.0"
     "ncurses|oss ncurses libncurses"
+    "OpenPAM|oss OpenPAM OpenPAM"
+    # (the other pam_modules need closed frameworks: OpenDirectory, Heimdal, LocalAuthentication)
+    "pam_modules|oss pam_modules rootok uwtmp self env group nologin sacl"
+    "pam|make -s -C userland/pam"
     "libsystem-finch|make -s -C userland/libsystem"
     "libm|make -s -C userland/libm"
     "corecrypto|make -s -C userland/corecrypto install"

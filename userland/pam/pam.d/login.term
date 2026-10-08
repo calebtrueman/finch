@@ -1,0 +1,7 @@
+# login.term (login -t): auth account password session (Finch)
+# SPDX-License-Identifier: MIT OR Apache-2.0
+auth       required       pam_unix.so
+account    required       pam_nologin.so
+account    required       pam_unix.so
+password   required       pam_unix.so
+session    required       pam_uwtmp.so

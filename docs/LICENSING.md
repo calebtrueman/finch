@@ -44,7 +44,7 @@ MIT, BSD) is installed at `/usr/share/finch/licenses/<project>/`. The component
 that embeds the code installs it. For example, `make -C userland/corecrypto
 install` installs OpenSSL's `LICENSE.txt` and `AUTHORS.md`. For projects built with
 `tools/build-oss.sh`, `userland/oss/<project>.notices` lists the source files to
-install (OpenBSM's `LICENSE`, ncurses' `COPYING`). libm's build
+install (OpenBSM's and OpenPAM's `LICENSE`, ncurses' `COPYING`). libm's build
 installs CORE-MATH's and FreeBSD msun's notices. Where every source file
 carries its own notice (CORE-MATH's per-file authors, msun's mix of BSD and Sun
 fdlibm notices), `tools/collect-notices.py` collects them from exactly the

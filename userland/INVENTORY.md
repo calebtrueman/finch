@@ -103,8 +103,10 @@ exactly them to fail.
 | gencat | adv_cmds | `msgcat.h` |
 | zprint, zlog | system_cmds | CoreSymbolication (closed) |
 
-su and login build, but link Apple's `libpam.2.dylib` (OpenPAM is the open
-replacement); login weak-links libEndpointSecuritySystem, which the image doesn't have.
+su and login build and use Finch's PAM: libpam from Apple's OpenPAM, the pam_modules
+that don't need closed frameworks (rootok, uwtmp, self, env, group, nologin, sacl),
+OpenPAM's pam_unix in place of pam_opendirectory, and Finch's `/etc/pam.d` stacks
+(`userland/pam`). login weak-links libEndpointSecuritySystem, which the image doesn't have.
 gcore works on processes it may read (in the VM, `finch-debuggee`); it relies on
 libdyld's introspection, which needed two dyld patches (`userland/patches/dyld`):
 falling back from the absent Dyld.framework, and the AA01 compact-info archive that

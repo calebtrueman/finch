@@ -1,0 +1,4 @@
+# chkpasswd: auth account (Finch)
+# SPDX-License-Identifier: MIT OR Apache-2.0
+auth       required       pam_unix.so
+account    required       pam_unix.so

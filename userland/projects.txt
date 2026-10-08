@@ -46,3 +46,7 @@ objc4           objc4-951.7
 cctools         cctools-1035.1.102
 OpenBSM         OpenBSM-21
 ncurses         ncurses-79
+
+# PAM (su, login)
+OpenPAM         OpenPAM-35
+pam_modules     pam_modules-217.100.6

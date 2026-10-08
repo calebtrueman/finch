@@ -57,6 +57,10 @@ expect tools/vm/smoke.exp
 `tools/vm/run.sh` uses `build/vm/ramdisk.dmg` when it exists. Otherwise it uses darwin-vm's
 base ramdisk.
 
+`mkramdisk.sh` runs without sudo, so files it adds belong to `_unknown` (uid 99) in the VM,
+not root. Everything runs as root there, so this rarely matters. The exception is setuid
+tools used by another user, e.g. `su` run from `nobody` reports "not running setuid".
+
 ## Apple open-source commands
 
 ```sh
