@@ -1,34 +1,35 @@
-# Hardened processes on Finch: open issue
+# Hardened processes on Finch
 
 Apple daemons increasingly carry `com.apple.developer.hardened-process` (or
 `com.apple.security.hardened-process`). At exec, XNU turns that entitlement into a set of
 mitigations: guard objects, IPC containment, platform restrictions, and the
-hardened heap when `.hardened-heap` is also present (`bsd/kern/kern_exec.c`,
-`exec_security_mitigation_entitlement`).
+hardened heap with `.hardened-heap` (`bsd/kern/kern_exec.c`,
+`exec_security_mitigation_entitlement`). Finch supports them: binaries keep the
+entitlements their projects declare (`tools/build-oss.sh`), and
+`finch-hardened-test` (`userland/tests`) runs in the VM signed with them.
 
-**Symptom (2026-10-07):** once `tools/build-oss.sh` started keeping each target's
-declared entitlements, Finch's notifyd (Libnotify-348.100.7) gained
-`hardened-process`, `hardened-process.hardened-heap`,
-`com.apple.private.xpc.launchd.ios-system-session` and `seatbelt-profiles`. It then
-died at once with SIGBUS, in a respawn loop. Bisected in the VM:
+## The libplatform `__TPRO_CONST` bug (fixed 2026-10-07)
 
-| notifyd's entitlements | Result |
-|---|---|
-| all four | SIGBUS |
-| without `.hardened-heap` | SIGBUS |
-| none | runs |
-| without `hardened-process` (and its heap variant) | **runs** |
+**Symptom.** Once `build-oss.sh` kept declared entitlements, Finch's notifyd died at
+start with SIGBUS, in a respawn loop. Bisected in the VM, `hardened-process` was the
+cause; a trivial program with it died the same way, before `main`.
 
-So the hardened-process mitigations are the cause. Apple's notifyd runs with them on
-Apple's libraries, so on Finch one of the Finch-built or Finch-written libraries under
-notifyd trips a mitigation. Finch's libxpc Mach-port handling is the first suspect
-(guard objects); the hardened heap in Finch's libmalloc build is the second. The VM
-gives no crash report yet: AMFI denies the core dump.
+**Fault.** `finch-excwatch` (`userland/devtools`, allowed to handle a hardened
+process's exceptions) reported `EXC_BAD_ACCESS` / `KERN_PROTECTION_FAILURE`. The pc,
+resolved against the shared cache map, was in libsystem_platform's
+`__os_security_config_init`, writing its own `__TPRO_CONST` section. Without the dyld
+shared cache, the same program ran.
 
-**For now:** `build-oss.sh` signs every product with its declared entitlements except
-the `*.hardened-process*` family. Anything else (`ps`'s task-port read entitlement,
-notifyd's seatbelt profile) is kept.
+**Cause.** The published libplatform source tags `__security_config` with
+`section("__TPRO_CONST,__data")`. Apple's shipped libsystem_platform has no
+`__TPRO_CONST` segment: the variable is in `__DATA_DIRTY`. Finch rebuilds libplatform
+from a reconstructed recipe, which kept the source's section. The dyld shared cache
+maps `__TPRO_CONST` as TPRO memory for hardened processes, so libSystem's
+initializer wrote to a read-only page.
 
-**Next:** get the faulting address and thread state, for example by letting finch-init
-report the exit's `si_addr`, or by catching the exception under the VM debugger
-(`docs/DEV_VM.md`). Then fix the library that trips the mitigation and drop the filter.
+**Fix.** `userland/oss/libplatform.build.sh` links with
+`-rename_section,__TPRO_CONST,__data,__DATA_DIRTY,__data`, as Apple ships it.
+
+**Tools this left behind.** `finch-excwatch` reports a process's first exception,
+registers and shared-cache slide in the VM. `finch-hardened-test` steps through
+malloc, dispatch, os_log and XPC as a hardened process.

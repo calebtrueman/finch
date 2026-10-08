@@ -167,24 +167,10 @@ status=$?
 # keeping the entitlements Xcode embedded from each target's CODE_SIGN_ENTITLEMENTS
 # (ps reads other tasks, notifyd and the configd daemons need theirs).
 rm -rf "${stage}/AppleInternal" "${stage}/usr/local/share/"*tests* 2>/dev/null
-# Hardened-process mitigations (com.apple.{developer,security}.hardened-process*)
-# crash Finch's notifyd today (docs/design/HARDENED-PROCESS.md), so they're left
-# out until Finch supports them; every other entitlement is kept.
+# Sign every Mach-O ad hoc, keeping the entitlements Xcode embedded.
 sign_keeping_entitlements() {   # sign_keeping_entitlements <mach-o>
-    local f="$1" ent="${obj}/.entitlements.plist"
-    if codesign -d --entitlements - --xml "$f" > "${ent}" 2>/dev/null && [[ -s "${ent}" ]]; then
-        python3 -I - "${ent}" <<'EOT'
-import plistlib, sys
-p = sys.argv[1]
-d = plistlib.load(open(p, 'rb'))
-for k in [k for k in d if '.hardened-process' in k]:
-    del d[k]
-plistlib.dump(d, open(p, 'wb'))
-EOT
-        codesign -f -s - --preserve-metadata=identifier --entitlements "${ent}" "$f" 2>/dev/null \
-            && return
-    fi
-    codesign -f -s - --preserve-metadata=identifier "$f" 2>/dev/null || codesign -f -s - "$f" 2>/dev/null
+    codesign -f -s - --preserve-metadata=entitlements,identifier "$1" 2>/dev/null \
+        || codesign -f -s - "$1" 2>/dev/null
 }
 installed=0
 while IFS= read -r -d '' f; do

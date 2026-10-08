@@ -75,5 +75,10 @@ ${CC} -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib 
     -compatibility_version 1 -current_version 375.100.10 \
     -umbrella System -L"${SDKROOT}/usr/lib/system" -lsystem_kernel \
     -Wl,-alias_list,xcodeconfig/libplatform.aliases -Wl,-simulator_support \
+    -Wl,-rename_section,__TPRO_CONST,__data,__DATA_DIRTY,__data \
     "${objs[@]}" -o "${STAGE}/usr/lib/system/libsystem_platform.dylib"
+# As Apple ships it: __security_config (tagged __TPRO_CONST in the published
+# source) in __DATA_DIRTY. In __TPRO_CONST, the dyld shared cache maps it TPRO
+# for hardened processes, and libplatform's write at startup faults
+# (docs/design/HARDENED-PROCESS.md).
 echo "linked libsystem_platform.dylib from ${#objs[@]} objects"

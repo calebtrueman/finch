@@ -5,7 +5,7 @@ CC      := xcrun -sdk macosx clang
 CFLAGS  := -arch arm64e -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror
 CXX     := xcrun -sdk macosx clang++
 
-all: $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test
+all: $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test
 
 $(OUT)/finch-libsystem-test: libsystem-test.c
 	@mkdir -p $(OUT)
@@ -42,8 +42,13 @@ $(OUT)/finch-log-test: log-test.c
 	$(CC) $(CFLAGS) -fblocks -o $@ $<
 	codesign -f -s - -i org.finch.test.log $@
 
+$(OUT)/finch-hardened-test: hardened-test.c hardened.entitlements
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fblocks -o $@ $<
+	codesign -f -s - -i org.finch.test.hardened --entitlements hardened.entitlements $@
+
 clean:
-	rm -f $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test
+	rm -f $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test
 
 .PHONY: all clean
 
