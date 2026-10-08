@@ -31,7 +31,7 @@ block-beta
     block:L5
         columns 4
         t5["Foundation layer"]
-        foundation["Foundation<br/>strings, numbers, threads, files,<br/>bundles, formatters, queues"]
+        foundation["Foundation<br/>strings, numbers, threads, files,<br/>bundles, formatters, queues,<br/>KVC/KVO, index sets, geometry"]
         cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>NSData, NSDate, NSURL, locales,<br/>calendars, defaults, run loops"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         space5[" "]

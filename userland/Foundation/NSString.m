@@ -251,7 +251,7 @@ cf_copy_of(NSString *s)
         [self release];
         FinchRaise(NSInvalidArgumentException, "*** -[%s %s]: nil argument", object_getClassName(self), sel_getName(_cmd));
     }
-    CFStringRef s = CFStringCreateWithFormatAndArguments(NULL, FinchFormatOptions(locale), (CFStringRef)format, argList);
+    CFStringRef s = FinchCreateWithFormat(FinchFormatOptions(locale), (CFStringRef)format, argList);
     id r = [self initWithString:(NSString *)s];
     CFRelease(s);
     return r;
@@ -403,7 +403,7 @@ cf_copy_of(NSString *s)
 {
     va_list ap;
     va_start(ap, format);
-    CFStringRef s = CFStringCreateWithFormatAndArguments(NULL, NULL, (CFStringRef)format, ap);
+    CFStringRef s = FinchCreateWithFormat(NULL, (CFStringRef)format, ap);
     va_end(ap);
     NSString *r = [self stringByAppendingString:(NSString *)s];
     CFRelease(s);
@@ -802,7 +802,7 @@ cf_apply(NSMutableString *self, void (^op)(CFMutableStringRef))
 {
     va_list ap;
     va_start(ap, format);
-    CFStringRef s = CFStringCreateWithFormatAndArguments(NULL, NULL, (CFStringRef)format, ap);
+    CFStringRef s = FinchCreateWithFormat(NULL, (CFStringRef)format, ap);
     va_end(ap);
     [self appendString:(NSString *)s];
     CFRelease(s);
@@ -895,7 +895,7 @@ cf_apply(NSMutableString *self, void (^op)(CFMutableStringRef))
     - (instancetype)initWithFormat:(NSString *)format locale:(id)locale arguments:(va_list)argList \
     { \
         if (!format) FinchRaise(NSInvalidArgumentException, "*** -[%s %s]: nil argument", object_getClassName(self), sel_getName(_cmd)); \
-        return finish_##MUTABLE(CFStringCreateWithFormatAndArguments(NULL, FinchFormatOptions(locale), (CFStringRef)format, argList)); \
+        return finish_##MUTABLE(FinchCreateWithFormat(FinchFormatOptions(locale), (CFStringRef)format, argList)); \
     }
 
 @implementation NSPlaceholderString

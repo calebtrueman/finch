@@ -9,6 +9,7 @@
  * (recorded; Finch doesn't nap or terminate idle processes).
  */
 #import <Foundation/Foundation.h>
+#include <mach-o/dyld.h>
 #include <crt_externs.h>
 #include <mach/mach_time.h>
 #include <sys/sysctl.h>
@@ -85,7 +86,11 @@ sysctl_number(const char *name)
         char **argv = *_NSGetArgv();
         NSMutableArray *a = [NSMutableArray arrayWithCapacity:(NSUInteger)argc];
         for (int i = 0; i < argc; i++) {
-            NSString *s = [NSString stringWithUTF8String:argv[i]];
+            /* Apple's first argument is the executable's full path. */
+            char path[PATH_MAX];
+            uint32_t size = sizeof(path);
+            const char *arg = i == 0 && argv[0][0] != '/' && _NSGetExecutablePath(path, &size) == 0 ? path : argv[i];
+            NSString *s = [NSString stringWithUTF8String:arg];
             [a addObject:s ? s : @""];
         }
         _arguments = [a copy];

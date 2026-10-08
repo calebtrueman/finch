@@ -56,6 +56,20 @@ __attribute__((objc_exception))   /* exports OBJC_EHTYPE_$_NSException, for @cat
     return self;
 }
 
+/* %@ as Foundation formats it: the object's -description. */
+static CFStringRef
+copy_description(void *object, const void *options)
+{
+    NSString *d = [(id)object description];
+    return d ? CFRetain((CFStringRef)d) : CFSTR("(null)");
+}
+
+static CFStringRef
+create_reason(CFStringRef format, va_list args)
+{
+    return _CFStringCreateWithFormatAndArgumentsAux2(NULL, copy_description, NULL, NULL, format, args);
+}
+
 + (void)raise:(NSString *)n format:(NSString *)format, ...
 {
     va_list args;
@@ -66,7 +80,7 @@ __attribute__((objc_exception))   /* exports OBJC_EHTYPE_$_NSException, for @cat
 
 + (void)raise:(NSString *)n format:(NSString *)format arguments:(va_list)args
 {
-    CFStringRef r = CFStringCreateWithFormatAndArguments(NULL, NULL, (CFStringRef)format, args);
+    CFStringRef r = create_reason((CFStringRef)format, args);
     NSException *e = [self exceptionWithName:n reason:(NSString *)r userInfo:nil];
     CFRelease(r);
     [e raise];
@@ -107,7 +121,7 @@ __CFFinchRaise(NSString *n, const char *format, ...)
     va_list args;
     va_start(args, format);
     CFStringRef f = CFStringCreateWithCString(NULL, format, kCFStringEncodingUTF8);
-    CFStringRef r = CFStringCreateWithFormatAndArguments(NULL, NULL, f, args);
+    CFStringRef r = create_reason(f, args);
     va_end(args);
     CFRelease(f);
     NSException *e = [[NSException alloc] initWithName:n reason:(NSString *)r userInfo:nil];

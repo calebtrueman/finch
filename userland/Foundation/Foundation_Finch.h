@@ -24,6 +24,11 @@ void FinchAbstract(id self, SEL _cmd);
 __attribute__((visibility("hidden")))
 CFDictionaryRef FinchFormatOptions(id locale);
 
+/* CFStringCreateWithFormatAndArguments with %@ as Foundation's: the
+ * object's -description (a CFBoolean is "1", not CF's "true"). */
+__attribute__((visibility("hidden")))
+CFStringRef FinchCreateWithFormat(CFDictionaryRef options, CFStringRef format, va_list args);
+
 /* Objects that are never freed implement -dealloc without calling super. */
 #define FINCH_NO_SUPER_DEALLOC \
     _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wobjc-missing-super-calls\"") \

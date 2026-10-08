@@ -40,6 +40,9 @@ NSErrorUserInfoKey const NSFilePathErrorKey = @"NSFilePath";
 NSErrorUserInfoKey const NSUnderlyingErrorKey = @"NSUnderlyingError";
 NSErrorUserInfoKey const NSLocalizedDescriptionKey = @"NSLocalizedDescription";
 
+CF_EXPORT CFStringRef _CFStringCreateWithFormatAndArgumentsAux2(CFAllocatorRef, CFStringRef (*)(void *, const void *),
+    CFStringRef (*)(void *, const void *, const void *, bool, bool *), CFDictionaryRef, CFStringRef, va_list);
+
 /* MARK: - Helpers (Foundation_Finch.h) */
 
 void
@@ -48,7 +51,7 @@ FinchRaise(NSString *name, const char *format, ...)
     va_list ap;
     va_start(ap, format);
     CFStringRef f = CFStringCreateWithCString(NULL, format, kCFStringEncodingUTF8);
-    CFStringRef r = CFStringCreateWithFormatAndArguments(NULL, NULL, f, ap);
+    CFStringRef r = FinchCreateWithFormat(NULL, f, ap);
     va_end(ap);
     CFRelease(f);
     NSException *e = [NSException exceptionWithName:name reason:(NSString *)r userInfo:nil];
@@ -69,6 +72,19 @@ CFDictionaryRef
 FinchFormatOptions(id locale)
 {
     return NULL;
+}
+
+static CFStringRef
+copy_description(void *object, const void *options)
+{
+    NSString *d = [(id)object description];
+    return d ? CFRetain((CFStringRef)d) : CFSTR("(null)");
+}
+
+CFStringRef
+FinchCreateWithFormat(CFDictionaryRef options, CFStringRef format, va_list args)
+{
+    return _CFStringCreateWithFormatAndArgumentsAux2(NULL, copy_description, NULL, options, format, args);
 }
 
 /* MARK: - Functions */
@@ -113,6 +129,38 @@ NSString *
 NSStringFromRange(NSRange range)
 {
     return [NSString stringWithFormat:@"{%lu, %lu}", (unsigned long)range.location, (unsigned long)range.length];
+}
+
+NSRange
+NSUnionRange(NSRange a, NSRange b)
+{
+    NSUInteger start = MIN(a.location, b.location), end = MAX(NSMaxRange(a), NSMaxRange(b));
+    return NSMakeRange(start, end - start);
+}
+
+NSRange
+NSIntersectionRange(NSRange a, NSRange b)
+{
+    NSUInteger start = MAX(a.location, b.location), end = MIN(NSMaxRange(a), NSMaxRange(b));
+    return end > start ? NSMakeRange(start, end - start) : NSMakeRange(0, 0);
+}
+
+/* "{3, 4}" or any text with two numbers in it, as Apple's. */
+NSRange
+NSRangeFromString(NSString *s)
+{
+    NSUInteger v[2] = { 0, 0 }, n = 0, len = [s length];
+    for (NSUInteger i = 0; i < len && n < 2;) {
+        unichar c = [s characterAtIndex:i];
+        if (c >= '0' && c <= '9') {
+            NSUInteger x = 0;
+            while (i < len && (c = [s characterAtIndex:i]) >= '0' && c <= '9') { x = x * 10 + (c - '0'); i++; }
+            v[n++] = x;
+        } else {
+            i++;
+        }
+    }
+    return NSMakeRange(v[0], v[1]);
 }
 
 NSString *
@@ -163,7 +211,7 @@ NSOpenStepRootDirectory(void)
 void
 NSLogv(NSString *format, va_list args)
 {
-    CFStringRef msg = CFStringCreateWithFormatAndArguments(NULL, NULL, (CFStringRef)format, args);
+    CFStringRef msg = FinchCreateWithFormat(NULL, (CFStringRef)format, args);
     const char *utf8 = [(NSString *)msg UTF8String];
     os_log(OS_LOG_DEFAULT, "%{public}s", utf8);
     char when[64];

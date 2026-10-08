@@ -193,4 +193,19 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   `NSDateFormatter` and `NSNumberFormatter` over CF's formatters. The image gets
   the time-zone database, built from IANA's tzdata 2026c (`userland/tzdata`).
   `finch-intl-test` is identical to Apple's on the host and in the VM.
+- 2026-10-08: key-value coding and observing. In Foundation: KVC (Apple's
+  accessor and instance-variable search, boxing of scalars and structs, key
+  paths, the collection operators, `-mutableArrayValueForKey:`, dictionaries'
+  KVC), KVO by isa-swizzling into `NSKVONotifying_<Class>` (setters for every
+  argument type, the new/old/initial/prior options, dependent keys,
+  key-path observers that follow intermediate objects, and to-many changes
+  through the mutable proxy), `NSIndexSet`/`NSMutableIndexSet` with
+  NSArray's index-set methods, and the geometry functions and NSValue boxes
+  (`NSStringFromRect` and so on). NSValue strips field names from type
+  encodings and describes NSRange and the geometry types as Apple's does.
+  `%@` in Foundation's (and NSException's) formats now uses `-description`,
+  as Apple's does (a CFBoolean is `1`, not CF's `true`), and
+  `NSProcessInfo.arguments[0]` is the full executable path. `finch-kvc-test`
+  is identical to Apple's on the host and in the VM; `@sum` and `@avg`
+  return NSNumbers until NSDecimalNumber exists.
 

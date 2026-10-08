@@ -144,21 +144,33 @@ static NSPlaceholderNumber *numberPlaceholder;
     return h;
 }
 
-/* "<01000000 02000000>": the bytes, four to a group, as Apple's. */
+/* Apple's: the geometry types and NSRange by name, anything else as its
+ * bytes ("{length = 4, bytes = 0x05000000}"). */
 - (NSString *)description
 {
+    const char *t = [self objCType];
     NSUInteger size;
-    NSGetSizeAndAlignment([self objCType], &size, NULL);
-    unsigned char *b = calloc(1, size + 1);
+    NSGetSizeAndAlignment(t, &size, NULL);
+    unsigned char *b = calloc(1, size + 16);
     [self getValue:b size:size];
-    NSMutableString *s = [NSMutableString stringWithString:@"<"];
-    for (NSUInteger i = 0; i < size; i++) {
-        if (i && i % 4 == 0) [s appendString:@" "];
-        [s appendFormat:@"%02x", b[i]];
+    NSString *d;
+    if (!strcmp(t, "{_NSRange=QQ}")) {
+        NSRange r = *(NSRange *)b;
+        d = [NSString stringWithFormat:@"NSRange: {%lu, %lu}", (unsigned long)r.location, (unsigned long)r.length];
+    } else if (!strcmp(t, "{CGPoint=dd}")) {
+        d = [@"NSPoint: " stringByAppendingString:NSStringFromPoint(*(NSPoint *)b)];
+    } else if (!strcmp(t, "{CGSize=dd}")) {
+        d = [@"NSSize: " stringByAppendingString:NSStringFromSize(*(NSSize *)b)];
+    } else if (!strcmp(t, "{CGRect={CGPoint=dd}{CGSize=dd}}")) {
+        d = [@"NSRect: " stringByAppendingString:NSStringFromRect(*(NSRect *)b)];
+    } else if (!strcmp(t, "{NSEdgeInsets=dddd}")) {
+        double *e = (double *)b;
+        d = [NSString stringWithFormat:@"NSEdgeInsets: {%g, %g, %g, %g}", e[0], e[1], e[2], e[3]];
+    } else {
+        d = [[NSData dataWithBytes:b length:size] description];
     }
-    [s appendString:@">"];
     free(b);
-    return s;
+    return d;
 }
 
 @end
@@ -185,8 +197,29 @@ static NSPlaceholderNumber *numberPlaceholder;
 
 @implementation NSConcreteValue
 
-- (instancetype)initWithBytes:(const void *)value objCType:(const char *)type
+/* The encoding without field names: {_NSRange="location"Q"length"Q} is
+ * {_NSRange=QQ}, as Apple's NSValue keeps it. */
+static char *
+strip_names(const char *type)
 {
+    char *out = malloc(strlen(type) + 1), *o = out;
+    for (const char *t = type; *t; t++) {
+        if (*t == '"') {
+            const char *end = strchr(t + 1, '"');
+            if (!end) break;
+            t = end;
+            continue;
+        }
+        *o++ = *t;
+    }
+    *o = 0;
+    return out;
+}
+
+- (instancetype)initWithBytes:(const void *)value objCType:(const char *)rawType
+{
+    char *stripped = strip_names(rawType);
+    const char *type = stripped;
     if ((self = [super init])) {
         NSUInteger size, tl = strlen(type) + 1;
         NSGetSizeAndAlignment(type, &size, NULL);
@@ -195,6 +228,7 @@ static NSPlaceholderNumber *numberPlaceholder;
         memcpy(typeInfo, type, tl);
         memcpy((char *)typeInfo + tl, value, size);
     }
+    free(stripped);
     return self;
 }
 
