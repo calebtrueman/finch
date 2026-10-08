@@ -19,7 +19,7 @@ project="${1:?usage: build-oss.sh <project> [target...]}"
 shift
 SRC="${FINCH_ROOT}/build/src/${project}"
 SDK="${FINCH_ROOT}/build/sdk"
-ROOT="${FINCH_ROOT}/build/root"
+ROOT="${FINCH_OSS_ROOT:-${FINCH_ROOT}/build/root}"   # FINCH_OSS_ROOT: install elsewhere (e.g. to survey a build)
 LOG="${FINCH_ROOT}/build/logs/${project}.log"
 
 [[ -d "${SRC}" ]] || { echo "error: ${SRC} missing (tools/fetch-src.sh ${project})" >&2; exit 1; }

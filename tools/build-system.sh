@@ -67,6 +67,8 @@ steps=(
     "ncurses|oss ncurses libncurses"
     "OpenPAM|oss OpenPAM OpenPAM"
     # (the other pam_modules need closed frameworks: OpenDirectory, Heimdal, LocalAuthentication)
+    # ICU (libicucore + data), for CoreFoundation (docs/design/COREFOUNDATION.md)
+    "ICU|oss ICU"
     "pam_modules|oss pam_modules rootok uwtmp self env group nologin sacl launchd"
     "pam|make -s -C userland/pam"
     "libsystem-finch|make -s -C userland/libsystem"

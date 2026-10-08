@@ -97,8 +97,13 @@ Apple's is closed. Developed in the emulated M4 first. The map is
       - [x] finch-logd and `log show`/`log stream`: os_log over libdispatch's open-source
             firehose server (`docs/design/LOGD.md`, 2026-10-08)
       - [x] aslmanager (on demand), newsyslog, dynamic_pager (2026-10-08)
-      - [ ] cron, configd, mDNSResponder, diskarbitrationd: open source, but they link
-            closed frameworks (CoreFoundation, IOKit, …); see `userland/INVENTORY.md`
+      - [ ] cron, configd, mDNSResponder, diskarbitrationd. They link closed frameworks,
+            which Finch builds or writes first (nothing closed is borrowed):
+            `docs/design/COREFOUNDATION.md`
+        - [ ] libicucore (ICU-76142.4.7)
+        - [ ] CoreFoundation (swift-corelibs base; C API, then the ObjC collection classes)
+        - [ ] IOKit.framework (IOKitUser)
+        - [ ] cron; DiskArbitration; SystemConfiguration and configd; mDNSPosix
   - [x] libmalloc no longer depends on libcorecrypto
   - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
         trial, secinit, sanitizers, libRosetta: Finch's own (`userland/libsystem`)

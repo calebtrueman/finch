@@ -50,3 +50,8 @@ ncurses         ncurses-79
 # PAM (su, login)
 OpenPAM         OpenPAM-35
 pam_modules     pam_modules-217.100.6
+
+# Daemons (and what they need)
+cron            cron-52
+DiskArbitration DiskArbitration-535.100.31
+ICU             ICU-76142.4.7
