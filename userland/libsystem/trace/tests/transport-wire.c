@@ -2,6 +2,7 @@
 /* The receiver is captured here: no host port or logging service is changed. */
 #include "../transport.c"
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 static const struct trace_hooks *saved_hooks;
 static uint8_t metadata[2048], packet[8192];
@@ -213,6 +214,16 @@ int main(void)
 	assert(flushes == 1);   /* info messages wait for their chunk */
 	char *text = finch_log_compose_wire("%s", packet + 6, packet_size - 6, NULL, 0);
 	assert(!strcmp(text, "number 42"));
+	free(text);
+	/* A format in the shared cache from a caller outside it (os_log_with_args
+	 * substitutes libsystem_trace's "%s" for the syslog(3) shim's runtime
+	 * formats) can't be named by an offset from the caller's image: it's sent
+	 * as text. */
+	p.format = strerror(EPERM);   /* libsystem_c's table, in the shared cache */
+	finch_trace_log_send(&log, 0, &p, data, 8, false);
+	assert((uint32_t)(packet_id >> 32) == 0x80000000);
+	text = finch_log_compose_wire("%s", packet + 6, packet_size - 6, NULL, 0);
+	assert(!strcmp(text, "Operation not permitted"));
 	free(text);
 	char *large = malloc(5001);
 	memset(large, 'x', 5000);

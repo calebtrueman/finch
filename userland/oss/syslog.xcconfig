@@ -2,3 +2,9 @@
 // libsystem_asl as Apple ships it: version 406, no generated version symbols.
 VERSIONING_SYSTEM =
 DYLIB_CURRENT_VERSION = 406
+// newsyslog builds clang modules, which fail over the xnu private headers
+// (an availability macro they use isn't defined there), and its install
+// script writes outside the sandbox Xcode gives user scripts.
+CLANG_ENABLE_MODULES = NO
+CLANG_ENABLE_EXPLICIT_MODULES = NO
+ENABLE_USER_SCRIPT_SANDBOXING = NO

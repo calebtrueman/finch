@@ -56,7 +56,7 @@ steps=(
     "keymgr|oss keymgr libkeymgr.dylib"
     "removefile|oss removefile removefile"
     "copyfile|oss copyfile copyfile"
-    "syslog|oss syslog libsystem_asl syslogd util aslmanager"
+    "syslog|oss syslog libsystem_asl syslogd util aslmanager newsyslog"
     "configd|oss configd libsystem_configuration"
     "dnssd|oss mDNSResponder"
     "libmacho|oss cctools"

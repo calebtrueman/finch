@@ -30,6 +30,10 @@ clients find them by the usual names.
 |---|---|---|
 | `com.apple.notifyd` | notifyd (Libnotify, built from source) | On demand, by the first notify client |
 | `com.apple.syslogd` | syslogd (syslog, built from source) | At boot; kept alive |
+| `com.apple.logd` | finch-logd (Finch's; `docs/design/LOGD.md`) | At boot; kept alive |
+| `com.apple.aslmanager` | aslmanager (syslog) | On demand, by syslogd |
+| `com.apple.newsyslog` | newsyslog (syslog) | Every hour at :30 |
+| `com.apple.dynamic_pager` | dynamic_pager (system_cmds) | At boot; again only if it fails |
 
 ## Supported keys
 

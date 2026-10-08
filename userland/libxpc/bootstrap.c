@@ -249,13 +249,16 @@ typedef void *vproc_t;
 typedef void *vproc_err_t;
 #define VPROC_GSK_MGR_UID 3
 #define VPROC_GSK_MGR_PID 4
+#define VPROC_GSK_IS_MANAGED 5
 vproc_err_t vproc_swap_integer(vproc_t vp, int key, int64_t *inval, int64_t *outval);
 vproc_err_t _vproc_post_fork_ping(void);
 vproc_err_t _vprocmgr_switch_to_session(const char *target_session, uint64_t flags);
 vproc_err_t _vprocmgr_move_subset_to_user(uid_t target_user, const char *session_type, uint64_t flags);
 
-/* Reads the uid (MGR_UID) or pid (MGR_PID) of the caller's domain manager.
- * Other keys, and setting values, aren't supported. NULL on success. */
+/* Reads the uid (MGR_UID) or pid (MGR_PID) of the caller's domain manager,
+ * or whether the caller is a job finch-init started (IS_MANAGED: aslmanager
+ * and other daemons serve their Mach services only then). Other keys, and
+ * setting values, aren't supported. NULL on success. */
 vproc_err_t
 vproc_swap_integer(vproc_t vp, int key, int64_t *inval, int64_t *outval)
 {
@@ -270,6 +273,21 @@ vproc_swap_integer(vproc_t vp, int key, int64_t *inval, int64_t *outval)
 	}
 	if (key == VPROC_GSK_MGR_PID) {
 		*outval = 1;   /* finch-init manages every domain */
+		return NULL;
+	}
+	if (key == VPROC_GSK_IS_MANAGED) {
+		/* finch-init describes the caller's job, if it is one. */
+		xpc_object_t req = xpc_dictionary_create(NULL, NULL, 0), reply;
+		kern_return_t kr;
+		xpc_dictionary_set_string(req, "op", "checkin");
+		reply = _bootstrap_control(bootstrap_port, req, &kr);
+		xpc_release(req);
+		*outval = reply != NULL;
+		if (reply != NULL) {
+			xpc_release(reply);
+		} else if (kr != BOOTSTRAP_UNKNOWN_SERVICE) {
+			return failed;   /* no answer, rather than "not a job" (ESRCH) */
+		}
 		return NULL;
 	}
 	if (key == VPROC_GSK_MGR_UID) {

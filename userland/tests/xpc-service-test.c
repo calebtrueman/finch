@@ -10,6 +10,9 @@
  *   finch-xpc-service-test ondemand    a LaunchDaemon started on demand
  *   finch-xpc-service-test useragent   run in a user's domain (su): a LaunchAgent
  *                                      started on demand, as that user
+ *   finch-xpc-service-test ping NAME   send an empty message to a Mach service
+ *                                      and wait for its reply (e.g. a daemon
+ *                                      started on demand)
  */
 
 #include <dispatch/dispatch.h>
@@ -89,6 +92,26 @@ static int64_t
 ask_pid(xpc_connection_t c, bool and_exit)
 {
 	return ask_pid_uid(c, and_exit, NULL);
+}
+
+/* Message `service` and wait (up to 30 s) for any reply. */
+static int
+ping_main(const char *service)
+{
+	xpc_connection_t c = xpc_connection_create_mach_service(service, NULL, 0);
+	xpc_connection_set_event_handler(c, ^(xpc_object_t e) { (void)e; });
+	xpc_connection_resume(c);
+	xpc_object_t m = xpc_dictionary_create(NULL, NULL, 0);
+	dispatch_semaphore_t done = dispatch_semaphore_create(0);
+	__block bool replied = false;
+
+	xpc_connection_send_message_with_reply(c, m, NULL, ^(xpc_object_t r) {
+		replied = xpc_get_type(r) == XPC_TYPE_DICTIONARY;
+		dispatch_semaphore_signal(done);
+	});
+	bool answered = dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC)) == 0;
+	printf("%s: %s\n", service, answered && replied ? "replied" : answered ? "no reply (connection error)" : "TIMED OUT");
+	return !(answered && replied);
 }
 
 /* In a user's domain (entered through pam_launchd, e.g. with su): the user's
@@ -204,6 +227,9 @@ main(int argc, char **argv)
 	}
 	if (argc > 1 && strcmp(argv[1], "useragent") == 0) {
 		return useragent_main();
+	}
+	if (argc > 2 && strcmp(argv[1], "ping") == 0) {
+		return ping_main(argv[2]);
 	}
 	setvbuf(stdout, NULL, _IONBF, 0);
 	printf("bootstrap look_up before the service exists: %s\n",

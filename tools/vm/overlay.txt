@@ -14,6 +14,10 @@ userland/tests/launchd/org.finch.test.keepalive.plist /System/Library/Finch/Laun
 userland/LaunchDaemons/com.apple.notifyd.plist /System/Library/Finch/LaunchDaemons/com.apple.notifyd.plist
 userland/LaunchDaemons/com.apple.syslogd.plist /System/Library/Finch/LaunchDaemons/com.apple.syslogd.plist
 userland/LaunchDaemons/com.apple.logd.plist /System/Library/Finch/LaunchDaemons/com.apple.logd.plist
+userland/LaunchDaemons/com.apple.aslmanager.plist /System/Library/Finch/LaunchDaemons/com.apple.aslmanager.plist
+userland/LaunchDaemons/com.apple.newsyslog.plist /System/Library/Finch/LaunchDaemons/com.apple.newsyslog.plist
+userland/LaunchDaemons/com.apple.dynamic_pager.plist /System/Library/Finch/LaunchDaemons/com.apple.dynamic_pager.plist
+build/src/syslog/newsyslog/newsyslog.conf /etc/newsyslog.conf
 build/userland/launchctl /bin/launchctl
 userland/tests/launchd/org.finch.test.unprivileged.plist /System/Library/Finch/LaunchDaemons/org.finch.test.unprivileged.plist
 userland/tests/launchd/org.finch.test.socket.plist /System/Library/Finch/LaunchDaemons/org.finch.test.socket.plist

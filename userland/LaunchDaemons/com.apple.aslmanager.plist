@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- aslmanager (syslog, built from source): prunes the ASL store. Started on
+     demand when syslogd messages com.apple.aslmanager, as on macOS. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.aslmanager</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/aslmanager</string>
+	</array>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.aslmanager</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

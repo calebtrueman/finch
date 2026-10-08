@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- dynamic_pager (system_cmds, built from source): empties and prepares the
+     directory the kernel creates swap files in (vm.swapfileprefix,
+     /System/Volumes/VM), then exits. Restarted only if it fails, as on macOS.
+     The dev VM's read-only ramdisk has no such volume, so there it only exits. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.dynamic_pager</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/sbin/dynamic_pager</string>
+	</array>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+</dict>
+</plist>

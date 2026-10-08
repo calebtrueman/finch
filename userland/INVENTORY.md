@@ -26,7 +26,12 @@ the image rebuilds the cache.
 | Daemon | Apple project | Status |
 |---|---|---|
 | `notifyd` (com.apple.notifyd) | Libnotify-348.100.7 | **Built by Finch**, started on demand. Without LaunchEvents, its event publisher has no subscribers. |
-| `syslogd` (com.apple.syslogd) | syslog-406 | **Built by Finch**, kept alive. As on macOS, syslog(3) and asl(3) go to os_log, so its store stays mostly empty until Finch has a log daemon. |
+| `syslogd` (com.apple.syslogd) | syslog-406 | **Built by Finch**, kept alive. As on macOS, syslog(3) and asl(3) go to os_log (finch-logd), so its ASL store stays mostly empty. |
+| `aslmanager` (com.apple.aslmanager) | syslog-406 | **Built by Finch**, started on demand by syslogd's trigger (`VPROC_GSK_IS_MANAGED` tells it it's a job) |
+| `newsyslog` (com.apple.newsyslog) | syslog-406 | **Built by Finch**, every hour at :30; Apple's `/etc/newsyslog.conf` |
+| `dynamic_pager` (com.apple.dynamic_pager) | system_cmds-1042.100.6.0.1 | **Built by Finch**, runs once at boot |
+| `logd` (com.apple.logd) | closed | **Replaced by `finch-logd`** (`userland/logd`, on libdispatch's open firehose server; `docs/design/LOGD.md`), with Finch's `log(1)` |
+| `cron`, `configd`, `mDNSResponder`, `diskarbitrationd` | cron-52, configd-1405.100.8, mDNSResponder-2881.100.56.0.1, DiskArbitration | OPEN, but they link closed frameworks (CoreFoundation, IOKit, and for cron BackgroundTaskManagement and CoreAnalytics). Not run yet. |
 
 ## libSystem (`/usr/lib/libSystem.B.dylib` + `/usr/lib/system/*`)
 

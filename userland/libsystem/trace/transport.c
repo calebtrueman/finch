@@ -490,8 +490,12 @@ void finch_trace_log_send(struct finch_log *l, uint8_t type, const struct finch_
 	uint32_t code = (uint32_t)format_offset;
 	char *dynamic = NULL;
 	Dl_info format_info = {0};
+	/* The format is named by its offset from the prefix's base: the caller's
+	 * image, or the shared cache when the caller is in it. A format anywhere
+	 * else is sent as text. */
 	bool literal = p->format && prefix.base && dladdr(p->format, &format_info) &&
-	    ((uintptr_t)format_info.dli_fbase == prefix.base || in_cache(format_info.dli_fbase));
+	    ((uintptr_t)format_info.dli_fbase == prefix.base ||
+	        (prefix.base == cache_base && in_cache(format_info.dli_fbase)));
 	if (!literal) {
 		dynamic =
 		    finch_log_compose(p->format ? p->format : "", data, size, p->error, NULL, 0);

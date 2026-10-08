@@ -38,7 +38,8 @@ typedef enum {
 } vproc_gsk_t;
 
 /* Reads (outval) and/or sets (inval) a launchd value. Finch's libxpc reads
- * VPROC_GSK_MGR_UID and VPROC_GSK_MGR_PID; other keys report an error. */
+ * VPROC_GSK_MGR_UID, VPROC_GSK_MGR_PID and VPROC_GSK_IS_MANAGED; other keys
+ * report an error. */
 vproc_err_t vproc_swap_integer(vproc_t vp, vproc_gsk_t key, int64_t *inval, int64_t *outval);
 
 /* Returns NULL on success (as every vproc call does). */

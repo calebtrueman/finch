@@ -96,6 +96,9 @@ Apple's is closed. Developed in the emulated M4 first. The map is
             answers from finch-init's job; 2026-10-07)
       - [x] finch-logd and `log show`/`log stream`: os_log over libdispatch's open-source
             firehose server (`docs/design/LOGD.md`, 2026-10-08)
+      - [x] aslmanager (on demand), newsyslog, dynamic_pager (2026-10-08)
+      - [ ] cron, configd, mDNSResponder, diskarbitrationd: open source, but they link
+            closed frameworks (CoreFoundation, IOKit, …); see `userland/INVENTORY.md`
   - [x] libmalloc no longer depends on libcorecrypto
   - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
         trial, secinit, sanitizers, libRosetta: Finch's own (`userland/libsystem`)
