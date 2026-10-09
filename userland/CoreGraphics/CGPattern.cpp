@@ -168,9 +168,11 @@ CGPatternDrawCells(CGContextRef c, CGColorRef color, const SkPath &path, const S
     long j1 = (long)ceil((CGRectGetMaxY(area) - y0) / p->ystep) + 1;
     if ((i1 - i0) * (j1 - j0) > 100000)
         return;
-    SkPaint cell;
-    cell.setAlphaf(paint.getAlphaf());
-    cell.setBlendMode(paint.getBlendMode_or(SkBlendMode::kSrcOver));
+    /* Cells are drawn source-over into one layer, which then takes the paint's alpha and blend mode:
+     * drawn one by one with a mode like copy, each cell's layer would erase the others. */
+    SkPaint cell, layer;
+    layer.setAlphaf(paint.getAlphaf());
+    layer.setBlendMode(paint.getBlendMode_or(SkBlendMode::kSrcOver));
     if (!p->colored) {
         CGColorSpaceRef base = CGColorGetColorSpace(color)->base_space;
         SkColor4f col = {0, 0, 0, 1};
@@ -183,16 +185,20 @@ CGPatternDrawCells(CGContextRef c, CGColorRef color, const SkPath &path, const S
         }
         cell.setColorFilter(SkColorFilters::Blend(col, c->skspace ? *c->skspace : nullptr, SkBlendMode::kSrcIn));
     }
-    bool plain = p->colored && cell.getAlphaf() == 1 && cell.asBlendMode() == SkBlendMode::kSrcOver;
+    bool needs_layer = layer.getAlphaf() != 1 || layer.asBlendMode() != SkBlendMode::kSrcOver;
     canvas->save();
     canvas->clipPath(path, paint.isAntiAlias());
+    if (needs_layer)
+        canvas->saveLayer(nullptr, &layer);
     SkMatrix base = CGSkMatrix(t);
     for (long j = j0; j <= j1; j++)
         for (long i = i0; i <= i1; i++) {
             SkMatrix m = base;
             m.preTranslate((float)(i * p->xstep), (float)(j * p->ystep));
-            canvas->drawPicture(picture.get(), &m, plain ? nullptr : &cell);
+            canvas->drawPicture(picture.get(), &m, p->colored ? nullptr : &cell);
         }
+    if (needs_layer)
+        canvas->restore();
     canvas->restore();
 }
 

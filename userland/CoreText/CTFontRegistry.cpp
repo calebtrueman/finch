@@ -19,6 +19,7 @@
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static std::map<std::string, CGFontRef> *registered;  /* PostScript name -> font */
+static std::map<std::string, std::string> *registered_full, *registered_family; /* name -> PostScript name */
 static std::vector<CTInstalledFont> *installed;
 
 static std::string
@@ -26,6 +27,34 @@ utf8(CFStringRef s)
 {
     char buf[512];
     return s && CFStringGetCString(s, buf, sizeof buf, kCFStringEncodingUTF8) ? buf : "";
+}
+
+/* A string from a font's name table (Windows or Unicode first, then Mac Roman). */
+static std::string
+name_from_table(const uint8_t *t, size_t len, uint16_t want)
+{
+    if (len < 6)
+        return "";
+    uint16_t records = ct_be16(t + 2), storage = ct_be16(t + 4);
+    std::string mac;
+    for (uint16_t r = 0; r < records && 6 + 12 * (size_t)(r + 1) <= len; r++) {
+        const uint8_t *e = t + 6 + 12 * r;
+        if (ct_be16(e + 6) != want)
+            continue;
+        size_t length = ct_be16(e + 8), offset = ct_be16(e + 10);
+        if (storage + offset + length > len)
+            continue;
+        const uint8_t *s = t + storage + offset;
+        if (ct_be16(e) == 3 || ct_be16(e) == 0) {
+            std::string out;
+            for (size_t k = 0; k + 1 < length; k += 2)
+                out += s[k] ? '?' : (char)s[k + 1];
+            return out;
+        }
+        if (ct_be16(e) == 1 && mac.empty())
+            mac.assign((const char *)s, length);
+    }
+    return mac;
 }
 
 /* A name-table string of face 0 of a font file's bytes. */
@@ -43,27 +72,7 @@ name_from_bytes(const uint8_t *d, size_t n, uint16_t want)
         size_t off = ct_be32(rec + 8), len = ct_be32(rec + 12);
         if (off + len > n || len < 6)
             return "";
-        const uint8_t *t = d + off;
-        uint16_t records = ct_be16(t + 2), storage = ct_be16(t + 4);
-        std::string mac;
-        for (uint16_t r = 0; r < records && 6 + 12 * (size_t)(r + 1) <= len; r++) {
-            const uint8_t *e = t + 6 + 12 * r;
-            if (ct_be16(e + 6) != want)
-                continue;
-            size_t length = ct_be16(e + 8), offset = ct_be16(e + 10);
-            if (storage + offset + length > len)
-                continue;
-            const uint8_t *s = t + storage + offset;
-            if (ct_be16(e) == 3 || ct_be16(e) == 0) {
-                std::string out;
-                for (size_t k = 0; k + 1 < length; k += 2)
-                    out += s[k] ? '?' : (char)s[k + 1];
-                return out;
-            }
-            if (ct_be16(e) == 1 && mac.empty())
-                mac.assign((const char *)s, length);
-        }
-        return mac;
+        return name_from_table(d + off, len, want);
     }
     return "";
 }
@@ -140,11 +149,27 @@ CTFontRegistryAddGraphicsFont(CGFontRef font)
         CFRelease(ps);
     if (name.empty())
         return;
+    /* Its full and family names too, as installed fonts are found by them. */
+    std::string full, family;
+    if (CFDataRef t = CGFontCopyTableForTag(font, 'name')) {
+        full = name_from_table(CFDataGetBytePtr(t), (size_t)CFDataGetLength(t), 4);
+        family = name_from_table(CFDataGetBytePtr(t), (size_t)CFDataGetLength(t), 16);
+        if (family.empty())
+            family = name_from_table(CFDataGetBytePtr(t), (size_t)CFDataGetLength(t), 1);
+        CFRelease(t);
+    }
     pthread_mutex_lock(&lock);
-    if (!registered)
+    if (!registered) {
         registered = new std::map<std::string, CGFontRef>();
+        registered_full = new std::map<std::string, std::string>();
+        registered_family = new std::map<std::string, std::string>();
+    }
     if (!registered->count(name))
         (*registered)[name] = (CGFontRef)CFRetain(font);
+    if (!full.empty() && !registered_full->count(full))
+        (*registered_full)[full] = name;
+    if (!family.empty() && !registered_family->count(family))
+        (*registered_family)[family] = name;
     pthread_mutex_unlock(&lock);
 }
 
@@ -199,6 +224,13 @@ copy_named(const std::string &n)
     CGFontRef found = NULL;
     if (registered) {
         auto it = registered->find(n);
+        if (it == registered->end()) {
+            for (auto *names : {registered_full, registered_family}) {
+                auto by = names->find(n);
+                if (by != names->end() && (it = registered->find(by->second)) != registered->end())
+                    break;
+            }
+        }
         if (it != registered->end())
             found = (CGFontRef)CFRetain(it->second);
     }

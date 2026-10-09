@@ -1,0 +1,17 @@
+_CFRuntimeBridgeTypeToClass stores the class signed, as the class table is read
+(arm64e), so frameworks can bridge their CF types to classes of their own
+(UIFoundation: CTFont to NSCTFont, CTFontDescriptor to NSCTFontDescriptor).
+
+diff --git a/Sources/CoreFoundation/CFRuntime.c b/Sources/CoreFoundation/CFRuntime.c
+--- a/Sources/CoreFoundation/CFRuntime.c
++++ b/Sources/CoreFoundation/CFRuntime.c
+@@ -333,7 +333,8 @@
+ 
+ void _CFRuntimeBridgeTypeToClass(CFTypeID cf_typeID, const void *cls_ref) {
+     os_unfair_lock_lock(&__CFBigRuntimeFunnel);
+-    __CFRuntimeObjCClassTable[cf_typeID] = (uintptr_t)cls_ref;
++    // Finch: signed as _GetCFRuntimeObjcClassAtIndex authenticates it (arm64e).
++    _SetCFRuntimeObjcClass((uintptr_t)cls_ref, cf_typeID);
+     os_unfair_lock_unlock(&__CFBigRuntimeFunnel);
+ }
+ 

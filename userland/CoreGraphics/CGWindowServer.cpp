@@ -70,9 +70,9 @@ send_request(uint32_t type, uint32_t window, const void *body, size_t size, bool
     return s;
 }
 
-/* Read more bytes (and any passed fd) into the inbox. */
+/* Read more bytes (and any passed fd) into the inbox; without `wait`, only what has already arrived. */
 static bool
-receive(int *passed_fd)
+receive(int *passed_fd, bool wait = true)
 {
     uint8_t buf[65536];
     struct msghdr msg = {};
@@ -84,7 +84,7 @@ receive(int *passed_fd)
     msg.msg_controllen = sizeof control;
     ssize_t n;
     do
-        n = recvmsg(ws_fd, &msg, 0);
+        n = recvmsg(ws_fd, &msg, wait ? 0 : MSG_DONTWAIT);
     while (n < 0 && errno == EINTR);
     if (n <= 0)
         return false;
@@ -143,14 +143,22 @@ drain(uint32_t want, std::vector<uint8_t> *reply)
     return got;
 }
 
+static CFRunLoopSourceRef pending_source;  /* delivers events read while waiting for a reply */
+
 static bool
 wait_reply(uint32_t s, std::vector<uint8_t> *reply, int *fd)
 {
     if (fd)
         *fd = -1;
     for (;;) {
-        if (drain(s, reply))
+        if (drain(s, reply)) {
+            /* Events that came in ahead of the reply won't wake the socket's source again. */
+            if (pending_source && !pending->empty()) {
+                CFRunLoopSourceSignal(pending_source);
+                CFRunLoopWakeUp(CFRunLoopGetMain());
+            }
             return true;
+        }
         if (!receive(fd))
             return false;
     }
@@ -441,17 +449,31 @@ FWSNextEvent(FWSEvent *out, bool wait)
 
 /* Deliver events on the main run loop as they arrive. */
 static void
-readable(CFFileDescriptorRef fdref, CFOptionFlags flags, void *info)
+deliver_pending(void *info)
 {
-    pthread_mutex_lock(&lock);
-    if (ws_fd >= 0 && receive(NULL))
-        drain(0, NULL);
-    pthread_mutex_unlock(&lock);
     FWSEvent e;
     while (FWSNextEvent(&e, false))
         if (event_callback)
             event_callback(&e, event_info);
-    CFFileDescriptorEnableCallBacks(fdref, kCFFileDescriptorReadCallBack);
+}
+
+static void
+readable(CFFileDescriptorRef fdref, CFOptionFlags flags, void *info)
+{
+    pthread_mutex_lock(&lock);
+    /* A request made since the source fired may have read what woke it: don't block. */
+    bool open = ws_fd >= 0;
+    if (open) {
+        char c;
+        ssize_t n = recv(ws_fd, &c, 1, MSG_PEEK | MSG_DONTWAIT);
+        open = n != 0;  /* 0: the server has gone */
+        if (n > 0 && receive(NULL, false))
+            drain(0, NULL);
+    }
+    pthread_mutex_unlock(&lock);
+    deliver_pending(NULL);
+    if (open)
+        CFFileDescriptorEnableCallBacks(fdref, kCFFileDescriptorReadCallBack);
 }
 
 FWS_EXPORT bool
@@ -468,6 +490,10 @@ FWSSetEventHandler(void (*callback)(const FWSEvent *, void *), void *info)
         CFRunLoopAddSource(CFRunLoopGetMain(), rls, kCFRunLoopCommonModes);
         CFRelease(rls);
         CFFileDescriptorEnableCallBacks(source, kCFFileDescriptorReadCallBack);
+        CFRunLoopSourceContext ctx = {};
+        ctx.perform = deliver_pending;
+        pending_source = CFRunLoopSourceCreate(NULL, 0, &ctx);
+        CFRunLoopAddSource(CFRunLoopGetMain(), pending_source, kCFRunLoopCommonModes);
     }
     return true;
 }
