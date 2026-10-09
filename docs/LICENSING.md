@@ -27,14 +27,20 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | XNU, most Darwin userland | APSL 2.0 | Build and modify. Modifications to APSL files stay APSL and must be published. |
 | CF-Lite, libdispatch, swift-corelibs, Swift, LLVM/clang | Apache 2.0 / APSL | Build directly |
 | WebKit | BSD / LGPL | Build directly |
-| OpenSSL 3.5.9 | Apache 2.0 | Built and linked statically into Finch's libcorecrypto |
+| OpenSSL 3.5.9 | Apache 2.0 | Built and linked statically into Finch's libcorecrypto and Security.framework |
+| swift-foundation, swift-experimental-string-processing (`swift-6.3.1-RELEASE`), swift-collections 1.1.6 | Apache 2.0, with Swift's Runtime Library Exception where stated | Foundation's Swift value types and private collections; Swift's string and regex libraries. Source notices ship with the image. |
+| Swift Darwin overlays (`swift-5.4-RELEASE`, `swift-5.2.5-RELEASE`) | Apache 2.0 with Runtime Library Exception | Historical open Foundation, CoreFoundation, IOKit, simd and Darwin sources, adapted for the current SDK. Imported files retain their notices. |
+| objc4-951.7 and libdispatch-1542.100.32 Swift overlays | objc4 project APSL 2.0; Dispatch Swift sources Apache 2.0 with Runtime Library Exception | Built from their pinned source trees. The overlay build installs the project licences and the compiled files' copyright notices in `objc4-swift-overlay` and `libdispatch-swift-overlay`; the Dispatch folder also keeps Swift's licence and exception. |
+| configd-1405.100.8 | APSL 2.0 | SystemConfiguration's key helpers and generated schema constants. The build collects the source notices. |
 | LZFSE 1.0, LZ4 1.10.0 (lib), Brotli 1.1.0 | BSD-3 / BSD-2 / MIT | Built and linked statically into Finch's libcompression |
 | XZ Utils 5.4.3 (liblzma), libxo, libsbuf | 0BSD / BSD | Build directly |
 | libxml2 (Apple's libxml2-39.10) | MIT | Build directly (Foundation's NSXMLParser links it) |
 | Skia (chrome/m155) | BSD-3 | Built and linked statically into Finch's CoreGraphics |
 | FreeType | FTL or GPL-2.0 | Taken under the FTL (BSD-style, with a credit clause), linked statically with Skia |
 | HarfBuzz, libpng, libjpeg-turbo, libwebp, wuffs, zlib (Chromium's), skcms | MIT / libpng / BSD-3 + IJG / BSD-3 / Apache 2.0 / Zlib / BSD-3 | Built with Skia, linked statically |
-| Inter 4.1, Liberation 2.1.5, Noto Sans / Serif 2.015, Noto Sans Symbols 2.003 / Symbols 2 2.008 / Arabic 2.013 / Hebrew 3.001, Noto Sans CJK 2.004, Noto Color Emoji 2.051 | OFL-1.1 | Shipped unmodified (`userland/fonts/build.sh`, pinned by SHA-256) in place of Apple's fonts, which can't be redistributed. The OFL allows bundling with any software; the fonts may not be sold on their own, and a modified font must drop its Reserved Font Name. Finch doesn't modify them. |
+| Open Runde 1.0.1, Fragment Mono 1.21, Inter 4.1, Liberation 2.1.5, Noto Sans / Serif 2.015, Noto Sans Symbols 2.003 / Symbols 2 2.008 / Arabic 2.013 / Hebrew 3.001, Noto Sans CJK 2.004, Noto Color Emoji 2.051 | OFL-1.1 | Shipped unmodified (`userland/fonts/build.sh`, pinned by SHA-256) in place of Apple's fonts, which can't be redistributed. The OFL allows bundling with any software; the fonts may not be sold on their own, and a modified font must drop its Reserved Font Name. Finch doesn't modify them. |
+| XCharter 1.26 | Bitstream free font licence | Four unchanged OpenType faces, with the full font licence from the package README. |
+| TeX Gyre Pagella 2.501 | GUST Font License | Four unchanged OpenType faces, with `GUST-FONT-LICENSE.txt` and `README-TeX-Gyre-Pagella.txt`. |
 | DejaVu Sans Mono 2.37 | Bitstream Vera licence (DejaVu's changes public domain) | Shipped unmodified, as above. Permissive; a modified font must be renamed away from "Bitstream" and "Vera". |
 | m1n1 | MIT | Import |
 | Mesa (incl. asahi driver) | MIT | Import |

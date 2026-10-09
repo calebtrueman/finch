@@ -83,10 +83,13 @@ def main():
     args = ap.parse_args()
 
     libs = {}
+    weak = set()
     for line in run("dyld_info", "-arch", "arm64e", "-linked_dylibs", args.binary).splitlines():
         m = re.match(r"\s+((?:weak-link|upward|re-export|reexport)\s+)*(/\S+)", line)
         if m:
             libs[os.path.basename(m.group(2))] = m.group(2)
+            if m.group(1) and "weak" in m.group(1):
+                weak.add(m.group(2))
     imports = collections.defaultdict(list)
     for line in run("dyld_info", "-arch", "arm64e", "-imports", args.binary).splitlines():
         m = re.match(r"\s+0x[0-9A-Fa-f]+\s+(\S+)\s+(\[weak-import\]\s+)?\(from ([^)]+)\)", line)
@@ -107,8 +110,12 @@ def main():
             if args.all:
                 for s, w in absent:
                     print(f"    {s}{'  [weak]' if w else ''}")
+    imported = {install for _, install, _ in missing_libs}
+    for install in libs.values():
+        if install not in imported and not image_path(args.root, install) and install not in weak:
+            missing_libs.append((os.path.basename(install), install, 0))
     for short, install, n in missing_libs:
-        print(f"no image: {install or short} ({n} imports)")
+        print(f"no image: {install or short} ({n} imports){'  [weak]' if install in weak else ''}")
     print(f"{total} missing symbols, {len(missing_libs)} missing libraries")
     return 1 if total or missing_libs else 0
 

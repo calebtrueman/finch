@@ -5,7 +5,69 @@ CC      := xcrun -sdk macosx clang
 CFLAGS  := -arch arm64e -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror
 CXX     := xcrun -sdk macosx clang++
 
-all: $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test $(OUT)/finch-debuggee $(OUT)/finch-introspect-test $(OUT)/finch-socket-test $(OUT)/finch-cf-test $(OUT)/finch-swift-hello $(OUT)/finch-dlopen $(OUT)/finch-pam-test $(OUT)/finch-compression-test $(OUT)/finch-bridge-test $(OUT)/finch-forward-test $(OUT)/finch-foundation-test $(OUT)/finch-runtime-test $(OUT)/finch-files-test $(OUT)/finch-intl-test $(OUT)/finch-kvc-test $(OUT)/finch-data-test $(OUT)/finch-archive-test $(OUT)/finch-collections-test $(OUT)/finch-misc-test $(OUT)/finch-streams-test $(OUT)/finch-predicate-test $(OUT)/finch-documents-test $(OUT)/finch-cg-test $(OUT)/finch-cg-draw-test $(OUT)/finch-ct-test $(OUT)/finch-ctfonts-test $(OUT)/finch-ws-test $(OUT)/finch-appkit-core-test $(OUT)/finch-appkit-window-test $(OUT)/finch-nib-test $(OUT)/finch-appkit-document-test $(OUT)/finch-uti-test $(OUT)/finch-quartzcore-test $(OUT)/finch-calayer-test $(OUT)/finch-cfnotify-test $(OUT)/finch-l10n-test $(OUT)/finch-appkit-containers-test $(OUT)/finch-app-test $(OUT)/apps/Hello.app/Contents/MacOS/Hello $(OUT)/finch-measurement-test $(OUT)/finch-xmlparser-test $(OUT)/finch-imageio-test $(OUT)/finch-cgpdf-test $(OUT)/finch-uifoundation-test $(OUT)/finch-appkit-draw-test $(OUT)/finch-appkit-menu-test $(OUT)/finch-appkit-menu-window-test $(OUT)/finch-appkit-controls-test $(OUT)/finch-appkit-controls-window-test $(OUT)/finch-appkit-text-test $(OUT)/finch-appkit-text-window-test $(OUT)/finch-textkit2-test $(OUT)/finch-appkit-bindings-test $(OUT)/finch-appkit-layout-test $(OUT)/finch-appkit-panels-test $(OUT)/finch-appkit-panels-window-test $(OUT)/finch-imagekit-test $(OUT)/apps/FinchXPCTest.app/Contents/MacOS/finch-nsxpc-test
+all: $(OUT)/finch-appkit-containers2-test $(OUT)/finch-appkit-misc2-test $(OUT)/finch-swift-runtime-test $(OUT)/finch-coreservices-test $(OUT)/finch-security-core-test $(OUT)/finch-sysconfig-core-test $(OUT)/finch-appkit-gestures-test $(OUT)/finch-appkit-controls2-test $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test $(OUT)/finch-debuggee $(OUT)/finch-introspect-test $(OUT)/finch-socket-test $(OUT)/finch-cf-test $(OUT)/finch-swift-hello $(OUT)/finch-dlopen $(OUT)/finch-pam-test $(OUT)/finch-compression-test $(OUT)/finch-bridge-test $(OUT)/finch-forward-test $(OUT)/finch-foundation-test $(OUT)/finch-runtime-test $(OUT)/finch-files-test $(OUT)/finch-intl-test $(OUT)/finch-kvc-test $(OUT)/finch-data-test $(OUT)/finch-archive-test $(OUT)/finch-collections-test $(OUT)/finch-misc-test $(OUT)/finch-streams-test $(OUT)/finch-predicate-test $(OUT)/finch-documents-test $(OUT)/finch-cg-test $(OUT)/finch-cg-draw-test $(OUT)/finch-ct-test $(OUT)/finch-ctfonts-test $(OUT)/finch-font-replacements-test $(OUT)/finch-ws-test $(OUT)/finch-appkit-core-test $(OUT)/finch-appkit-window-test $(OUT)/finch-nib-test $(OUT)/finch-appkit-document-test $(OUT)/finch-uti-test $(OUT)/finch-quartzcore-test $(OUT)/finch-calayer-test $(OUT)/finch-cfnotify-test $(OUT)/finch-l10n-test $(OUT)/finch-appkit-containers-test $(OUT)/finch-app-test $(OUT)/apps/Hello.app/Contents/MacOS/Hello $(OUT)/finch-measurement-test $(OUT)/finch-xmlparser-test $(OUT)/finch-imageio-test $(OUT)/finch-cgpdf-test $(OUT)/finch-uifoundation-test $(OUT)/finch-appkit-draw-test $(OUT)/finch-appkit-menu-test $(OUT)/finch-appkit-menu-window-test $(OUT)/finch-appkit-controls-test $(OUT)/finch-appkit-controls-window-test $(OUT)/finch-appkit-text-test $(OUT)/finch-appkit-text-window-test $(OUT)/finch-textkit2-test $(OUT)/finch-appkit-bindings-test $(OUT)/finch-appkit-layout-test $(OUT)/finch-appkit-panels-test $(OUT)/finch-appkit-panels-window-test $(OUT)/apps/FinchXPCTest.app/Contents/MacOS/finch-nsxpc-test $(OUT)/finch-imagekit-test $(OUT)/apps/AssetsTest.app/Contents/MacOS/finch-assets-test $(OUT)/finch-appkit-tables-test $(OUT)/finch-appkit-tables-window-test $(OUT)/finch-swift-overlay-test
+
+all: $(OUT)/finch-appkit-containers2-render-test $(OUT)/finch-appkit-controls2-render-test $(OUT)/finch-appkit-color-browser-render-test
+
+# Local application lookup, Apple event values and filesystem services.
+$(OUT)/finch-coreservices-test: coreservices-test.m coreservices-uttypes.inc
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -o $@ $< -framework CoreServices -framework Foundation
+
+# Finch's supported keys, certificates and explicit unavailable-service errors.
+$(OUT)/finch-security-core-test: security-core-test.c security-test-certs.inc
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -Wno-deprecated-declarations -o $@ $< -framework Security -framework CoreFoundation
+
+# Local network state and preferences, without a running configd service.
+$(OUT)/finch-sysconfig-core-test: sysconfig-core-test.c
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -Wno-deprecated-declarations -o $@ $< -framework SystemConfiguration -framework CoreFoundation
+
+# Mouse gestures delivered through the view tree (Finch-only).
+$(OUT)/finch-appkit-gestures-test: appkit-gestures-test.m
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fno-objc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit
+
+# Animation grouping, Touch Bar state, visual effects and small controls.
+$(OUT)/finch-appkit-misc2-test: appkit-misc2-test.m
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fno-objc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit -framework QuartzCore
+
+# Search, combo, token, date and path controls, compared with Apple's.
+$(OUT)/finch-appkit-controls2-test: appkit-controls2-test.m $(OUT)/appkit-controls2-test.nib
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit
+
+$(OUT)/appkit-controls2-test.nib: appkit-controls2-test.xib
+	@mkdir -p $(OUT)
+	xcrun ibtool --compile $@ $<
+
+# Grids, pages, drawers, popovers, rule editors, browser and color panel.
+$(OUT)/finch-appkit-containers2-test: appkit-containers2-test.m appkit-color-browser-test.inc $(OUT)/appkit-containers2-test.nib $(OUT)/appkit-color-browser-test.nib
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fno-objc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit
+
+$(OUT)/appkit-containers2-test.nib: appkit-containers2-test.xib
+	@mkdir -p $(OUT)
+	xcrun ibtool --compile $@ $<
+
+$(OUT)/appkit-color-browser-test.nib: appkit-color-browser-test.xib
+	@mkdir -p $(OUT)
+	xcrun ibtool --compile $@ $<
+
+# Finch's drawn controls and containers, with clicks and keys.
+$(OUT)/finch-appkit-controls2-render-test: appkit-controls2-render-test.m
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit
+
+$(OUT)/finch-appkit-containers2-render-test: appkit-containers2-render-test.m
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fno-objc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics
+
+$(OUT)/finch-appkit-color-browser-render-test: appkit-color-browser-render-test.m appkit-color-browser-test.inc
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fno-objc-arc -Wno-unused-parameter -Wno-unused-function -Wno-deprecated-declarations -o $@ $< -framework AppKit
 
 $(OUT)/finch-libsystem-test: libsystem-test.c
 	@mkdir -p $(OUT)
@@ -32,6 +94,24 @@ $(OUT)/finch-swift-hello: swift-hello.swift
 	@mkdir -p $(OUT)
 	xcrun -sdk macosx swiftc -target arm64e-apple-macos26.0 -O -o $@ $<
 	codesign -f -s - -i org.finch.test.swift $@
+
+$(OUT)/finch-swift-runtime-test: swift-runtime-test.swift
+	@mkdir -p $(OUT)
+	xcrun -sdk macosx swiftc -target arm64e-apple-macos26.0 -parse-as-library -O -o $@ $<
+	codesign -f -s - -i org.finch.test.swift-runtime $@
+
+# The Swift overlays (Foundation's and AppKit's Swift halves, /usr/lib/swift's
+# overlay libraries): same output against Apple's and Finch's. On the host:
+#   DYLD_FRAMEWORK_PATH=build/root/System/Library/Frameworks:build/root/System/Library/PrivateFrameworks \
+#   DYLD_LIBRARY_PATH=build/root/usr/lib/swift build/userland/finch-swift-overlay-test
+# It doesn't link the overlays it doesn't use (import AppKit would weakly link
+# Metal's, Spatial's, ...): on the host those would come from Apple's
+# cache and bring Apple's frameworks with them.
+$(OUT)/finch-swift-overlay-test: swift-overlay-test.swift
+	@mkdir -p $(OUT)
+	xcrun -sdk macosx swiftc -target arm64e-apple-macos26.0 -O -o $@ $< \
+	    $(foreach l,Metal Spatial OSLog UniformTypeIdentifiers CoreImage QuartzCore simd,-Xfrontend -disable-autolink-library -Xfrontend swift$(l))
+	codesign -f -s - -i org.finch.test.swift-overlay $@
 
 # CoreFoundation (Finch's in the VM, Apple's on the host: diff the two runs).
 $(OUT)/finch-cf-test: cf-test.c
@@ -165,6 +245,11 @@ $(OUT)/finch-ctfonts-test: ctfonts-test.c
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -o $@ $< -framework CoreText -framework CoreGraphics -framework CoreFoundation
 
+# Finch-only: replacement fonts, real glyph data, system weights and missing-style fallbacks.
+$(OUT)/finch-font-replacements-test: font-replacements-test.m
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fobjc-arc -o $@ $< -framework AppKit -framework CoreText -framework CoreGraphics
+
 # The window server and CoreGraphics' client for it (Finch-only: compare with ws-test.expected).
 $(OUT)/finch-ws-test: ws-test.c
 	@mkdir -p $(OUT)
@@ -218,6 +303,20 @@ $(OUT)/finch-appkit-panels-window-test: appkit-panels-window-test.m
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit -framework UniformTypeIdentifiers -framework ImageIO ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics
 
+# Tables, outline views, collection views and their bindings without a screen, and a nib of them (diff
+# Apple's run and Finch's but the first line; on the host, Finch's with DYLD_FRAMEWORK_PATH, including
+# PrivateFrameworks, and FINCH_FONT_DIRS).
+$(OUT)/finch-appkit-tables-test: appkit-tables-test.m appkit-tables-test.xib
+	@mkdir -p $(OUT)
+	xcrun ibtool --compile $(OUT)/appkit-tables-test.nib appkit-tables-test.xib
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit
+
+# Tables, outlines and collection views on the window server: clicks, keys, sorting, resizing, editing,
+# drawing (Finch-only: compare with appkit-tables-window-test.expected).
+$(OUT)/finch-appkit-tables-window-test: appkit-tables-window-test.m
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ $< -framework AppKit -framework ImageIO ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics
+
 # Cocoa bindings, the controllers and NSFontManager without a screen, and a nib of bound controls (diff
 # Apple's run and Finch's but the first line; on the host, Finch's with DYLD_FRAMEWORK_PATH and FINCH_FONT_DIRS).
 $(OUT)/finch-appkit-bindings-test: appkit-bindings-test.m appkit-bindings-test.xib
@@ -270,10 +369,33 @@ $(OUT)/finch-uti-test: uti-test.m uti-constants.inc
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -fobjc-arc -I. -o $@ $< -framework Foundation -framework UniformTypeIdentifiers
 
+# Asset catalogs through CoreUI and AppKit, run as AssetsTest.app with actool's catalogs of
+# assets-test.xcassets (for macOS 26, 10.9 and 10.11) and a nib using them (diff Apple's run and
+# Finch's but the first line; on the host, run the executable directly with DYLD_FRAMEWORK_PATH
+# including PrivateFrameworks, and FINCH_FONT_DIRS). In the VM: finch-assets-test (assets-test.sh).
+ASSETS_APP := $(OUT)/apps/AssetsTest.app/Contents
+$(ASSETS_APP)/MacOS/finch-assets-test: assets-test.m apps/AssetsTest/Info.plist apps/AssetsTest/Extra-Info.plist apps/AssetsTest/AssetsTest.xib $(shell find assets-test.xcassets -type f)
+	rm -rf $(OUT)/apps/AssetsTest.app $(OUT)/assets-actool
+	mkdir -p $(ASSETS_APP)/MacOS $(ASSETS_APP)/Resources/Extra.bundle/Contents/Resources
+	for t in 26.0 10.9 10.11; do \
+		mkdir -p $(OUT)/assets-actool/$$t && \
+		xcrun actool --compile $(OUT)/assets-actool/$$t --platform macosx --minimum-deployment-target $$t \
+			--output-format human-readable-text assets-test.xcassets >/dev/null 2>&1 || exit 1; \
+	done
+	cp $(OUT)/assets-actool/26.0/Assets.car $(ASSETS_APP)/Resources/Assets.car
+	cp $(OUT)/assets-actool/10.9/Assets.car $(ASSETS_APP)/Resources/Assets-10.9.car
+	cp $(OUT)/assets-actool/10.11/Assets.car $(ASSETS_APP)/Resources/Assets-10.11.car
+	cp $(OUT)/assets-actool/26.0/Assets.car $(ASSETS_APP)/Resources/Extra.bundle/Contents/Resources/Assets.car
+	cp apps/AssetsTest/Extra-Info.plist $(ASSETS_APP)/Resources/Extra.bundle/Contents/Info.plist
+	cp apps/AssetsTest/Info.plist $(ASSETS_APP)/Info.plist
+	xcrun ibtool --compile $(ASSETS_APP)/Resources/AssetsTest.nib apps/AssetsTest/AssetsTest.xib
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -Wno-deprecated-declarations -o $@ assets-test.m -framework AppKit
+	codesign -f -s - -i org.finch.test.assets $@
+
 # Runs an app on a headless window server and drives it (Finch-only); hello-test.sh drives Hello.app.
 $(OUT)/finch-app-test: app-test.c
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -o $@ $< ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics -framework CoreFoundation
+	$(CC) $(CFLAGS) -o $@ $< ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics -framework CoreFoundation -framework ImageIO
 
 $(OUT)/apps/Hello.app/Contents/MacOS/Hello: apps/Hello/main.m apps/Hello/AppDelegate.m apps/Hello/MainMenu.xib apps/Hello/Info.plist
 	apps/Hello/build.sh
@@ -293,21 +415,6 @@ $(OUT)/finch-cfnotify-test: cfnotify-test.m
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -fobjc-arc -o $@ $< -framework Foundation
 
-# NSXPCConnection: finch-nsxpc-test inside FinchXPCTest.app with its XPC service
-# (Contents/XPCServices/org.finch.test.nsxpc.xpc). Run the app's executable: on
-# macOS launchd starts the bundled service; in the VM, finch-init does
-# (launchd/org.finch.test.nsxpc.plist). Diff Apple's run and Finch's.
-NSXPC_APP := $(OUT)/apps/FinchXPCTest.app
-NSXPC_SVC := $(NSXPC_APP)/Contents/XPCServices/org.finch.test.nsxpc.xpc
-$(NSXPC_APP)/Contents/MacOS/finch-nsxpc-test: nsxpc-test.m nsxpc-service.m nsxpc-test.h apps/FinchXPCTest/Info.plist apps/FinchXPCTest/Service-Info.plist
-	@mkdir -p $(NSXPC_APP)/Contents/MacOS $(NSXPC_SVC)/Contents/MacOS
-	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -o $(NSXPC_SVC)/Contents/MacOS/org.finch.test.nsxpc nsxpc-service.m -framework Foundation
-	cp apps/FinchXPCTest/Service-Info.plist $(NSXPC_SVC)/Contents/Info.plist
-	codesign -f -s - -i org.finch.test.nsxpc $(NSXPC_SVC)
-	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -o $@ nsxpc-test.m -framework Foundation
-	cp apps/FinchXPCTest/Info.plist $(NSXPC_APP)/Contents/Info.plist
-	codesign -f -s - -i org.finch.test.nsxpc-client $(NSXPC_APP)
-
 # Core Animation's layers, animations and transactions (diff Apple's run and Finch's).
 $(OUT)/finch-calayer-test: calayer-test.m
 	@mkdir -p $(OUT)
@@ -324,6 +431,21 @@ $(OUT)/finch-imagekit-test: imagekit-test.m
 $(OUT)/finch-appkit-containers-test: appkit-containers-test.m
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -o $@ $< -framework AppKit
+
+# NSXPCConnection: finch-nsxpc-test inside FinchXPCTest.app with its XPC service
+# (Contents/XPCServices/org.finch.test.nsxpc.xpc). Run the app's executable: on
+# macOS launchd starts the bundled service; in the VM, finch-init does
+# (launchd/org.finch.test.nsxpc.plist). Diff Apple's run and Finch's.
+NSXPC_APP := $(OUT)/apps/FinchXPCTest.app
+NSXPC_SVC := $(NSXPC_APP)/Contents/XPCServices/org.finch.test.nsxpc.xpc
+$(NSXPC_APP)/Contents/MacOS/finch-nsxpc-test: nsxpc-test.m nsxpc-service.m nsxpc-test.h apps/FinchXPCTest/Info.plist apps/FinchXPCTest/Service-Info.plist
+	@mkdir -p $(NSXPC_APP)/Contents/MacOS $(NSXPC_SVC)/Contents/MacOS
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -o $(NSXPC_SVC)/Contents/MacOS/org.finch.test.nsxpc nsxpc-service.m -framework Foundation
+	cp apps/FinchXPCTest/Service-Info.plist $(NSXPC_SVC)/Contents/Info.plist
+	codesign -f -s - -i org.finch.test.nsxpc $(NSXPC_SVC)
+	$(CC) $(CFLAGS) -fobjc-arc -Wno-unused-parameter -o $@ nsxpc-test.m -framework Foundation
+	cp apps/FinchXPCTest/Info.plist $(NSXPC_APP)/Contents/Info.plist
+	codesign -f -s - -i org.finch.test.nsxpc-client $(NSXPC_APP)
 
 $(OUT)/finch-xpc-service-test: xpc-service-test.c
 	@mkdir -p $(OUT)
@@ -376,8 +498,13 @@ $(OUT)/finch-socket-test: socket-test.c
 	codesign -f -s - -i org.finch.test.socket $@
 
 clean:
-	rm -rf $(OUT)/apps/Hello.app $(OUT)/apps/FinchXPCTest.app
-	rm -rf $(OUT)/finch-appkit-containers-test $(OUT)/finch-quartzcore-test $(OUT)/finch-calayer-test $(OUT)/finch-cfnotify-test $(OUT)/finch-l10n-test $(OUT)/finch-app-test $(OUT)/finch-uti-test $(OUT)/finch-appkit-controls-test $(OUT)/controls-test.nib $(OUT)/finch-appkit-controls-window-test $(OUT)/finch-appkit-menu-test $(OUT)/menu-test.nib $(OUT)/finch-appkit-menu-window-test $(OUT)/finch-appkit-document-test $(OUT)/doc-test.nib $(OUT)/vc-test.nib $(OUT)/finch-nib-test $(OUT)/nib-test.nib $(OUT)/finch-appkit-draw-test $(OUT)/finch-appkit-window-test $(OUT)/finch-appkit-core-test $(OUT)/finch-uifoundation-test $(OUT)/finch-cgpdf-test $(OUT)/finch-ws-test $(OUT)/finch-ct-test $(OUT)/finch-imageio-test $(OUT)/finch-xmlparser-test $(OUT)/finch-measurement-test $(OUT)/finch-cg-draw-test $(OUT)/finch-cg-test $(OUT)/finch-documents-test $(OUT)/finch-predicate-test $(OUT)/finch-streams-test $(OUT)/finch-misc-test $(OUT)/finch-collections-test $(OUT)/finch-archive-test $(OUT)/finch-data-test $(OUT)/finch-kvc-test $(OUT)/finch-intl-test $(OUT)/finch-files-test $(OUT)/finch-runtime-test $(OUT)/finch-foundation-test $(OUT)/finch-forward-test $(OUT)/finch-bridge-test $(OUT)/finch-compression-test $(OUT)/finch-pam-test $(OUT)/finch-dlopen $(OUT)/finch-swift-hello $(OUT)/finch-cf-test $(OUT)/finch-socket-test $(OUT)/finch-introspect-test $(OUT)/finch-debuggee $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test $(OUT)/finch-appkit-text-test $(OUT)/appkit-text-test.nib $(OUT)/finch-appkit-text-window-test $(OUT)/finch-textkit2-test $(OUT)/finch-appkit-bindings-test $(OUT)/appkit-bindings-test.nib $(OUT)/finch-appkit-layout-test $(OUT)/layout-test.nib $(OUT)/layout-test.storyboardc $(OUT)/finch-appkit-panels-test $(OUT)/finch-appkit-panels-window-test $(OUT)/finch-imagekit-test
+	rm -f $(OUT)/finch-appkit-containers2-render-test $(OUT)/finch-appkit-controls2-render-test $(OUT)/finch-appkit-color-browser-render-test
+	rm -rf $(OUT)/finch-appkit-containers2-test $(OUT)/appkit-containers2-test.nib $(OUT)/appkit-color-browser-test.nib $(OUT)/appkit-controls2-test.nib
+	rm -f $(OUT)/finch-appkit-misc2-test
+	rm -f $(OUT)/finch-swift-runtime-test
+	rm -f $(OUT)/finch-coreservices-test $(OUT)/finch-security-core-test $(OUT)/finch-sysconfig-core-test $(OUT)/finch-appkit-gestures-test $(OUT)/finch-appkit-controls2-test
+	rm -rf $(OUT)/apps/Hello.app $(OUT)/apps/FinchXPCTest.app $(OUT)/apps/AssetsTest.app $(OUT)/assets-actool
+	rm -rf $(OUT)/finch-imagekit-test $(OUT)/finch-appkit-containers-test $(OUT)/finch-quartzcore-test $(OUT)/finch-calayer-test $(OUT)/finch-cfnotify-test $(OUT)/finch-l10n-test $(OUT)/finch-app-test $(OUT)/finch-uti-test $(OUT)/finch-appkit-controls-test $(OUT)/controls-test.nib $(OUT)/finch-appkit-controls-window-test $(OUT)/finch-appkit-menu-test $(OUT)/menu-test.nib $(OUT)/finch-appkit-menu-window-test $(OUT)/finch-appkit-document-test $(OUT)/doc-test.nib $(OUT)/vc-test.nib $(OUT)/finch-nib-test $(OUT)/nib-test.nib $(OUT)/finch-appkit-draw-test $(OUT)/finch-appkit-window-test $(OUT)/finch-appkit-core-test $(OUT)/finch-uifoundation-test $(OUT)/finch-cgpdf-test $(OUT)/finch-ws-test $(OUT)/finch-ct-test $(OUT)/finch-imageio-test $(OUT)/finch-xmlparser-test $(OUT)/finch-measurement-test $(OUT)/finch-cg-draw-test $(OUT)/finch-cg-test $(OUT)/finch-documents-test $(OUT)/finch-predicate-test $(OUT)/finch-streams-test $(OUT)/finch-misc-test $(OUT)/finch-collections-test $(OUT)/finch-archive-test $(OUT)/finch-data-test $(OUT)/finch-kvc-test $(OUT)/finch-intl-test $(OUT)/finch-files-test $(OUT)/finch-runtime-test $(OUT)/finch-foundation-test $(OUT)/finch-forward-test $(OUT)/finch-bridge-test $(OUT)/finch-compression-test $(OUT)/finch-pam-test $(OUT)/finch-dlopen $(OUT)/finch-swift-hello $(OUT)/finch-cf-test $(OUT)/finch-socket-test $(OUT)/finch-introspect-test $(OUT)/finch-debuggee $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test $(OUT)/finch-appkit-text-test $(OUT)/appkit-text-test.nib $(OUT)/finch-appkit-text-window-test $(OUT)/finch-textkit2-test $(OUT)/finch-appkit-bindings-test $(OUT)/appkit-bindings-test.nib $(OUT)/finch-appkit-layout-test $(OUT)/layout-test.nib $(OUT)/layout-test.storyboardc $(OUT)/finch-appkit-panels-test $(OUT)/finch-appkit-panels-window-test $(OUT)/finch-swift-overlay-test
 
 .PHONY: all clean
 

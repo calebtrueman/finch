@@ -64,3 +64,15 @@ AvailabilityVersions AvailabilityVersions-157.2
 
 # Foundation's NSXMLParser
 libxml2         libxml2-39.10
+
+# Security.framework (libDER, certificate parsing; docs/design/SECURITY.md)
+Security        Security-61901.101.4
+
+# Swift sources (github.com/swiftlang, fetched by userland/swift/build.sh,
+# userland/swift/overlays.sh and userland/Foundation/swift/overlay.sh, not
+# tools/fetch-src.sh; listed here so the pins live in one place):
+#   swift                                 swift-6.3.1-RELEASE (runtimes)
+#   swift-experimental-string-processing  swift-6.3.1-RELEASE
+#   swift-foundation                      swift-6.3.1-RELEASE
+#   swift-collections                     1.1.6
+#   swift (stdlib/public/Darwin overlays) swift-5.4-RELEASE, swift-5.2.5-RELEASE

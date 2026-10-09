@@ -17,5 +17,5 @@ SERVER=$!
 trap 'kill ${SERVER} 2>/dev/null; rm -f "${SOCK}"' EXIT
 sleep 0.5
 "${FINCH_ROOT}/tools/vz/finch-viewer" "127.0.0.1:${PORT}" &
-FINCH_WINDOWSERVER_SOCKET="${SOCK}" DYLD_FRAMEWORK_PATH="${R}/Frameworks:${R}/PrivateFrameworks" \
+FINCH_WINDOWSERVER_SOCKET="${SOCK}" DYLD_FRAMEWORK_PATH="${R}/Frameworks:${R}/PrivateFrameworks:${R}/Frameworks/CoreServices.framework/Frameworks" \
     FINCH_FONT_DIRS="${R}/Fonts" "${APP}/Contents/MacOS/${EXE}"

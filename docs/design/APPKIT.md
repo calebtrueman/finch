@@ -129,8 +129,9 @@ draws (`userland/tests/app-test.c`).
   drawing handlers, `+imageNamed:` for named images and bundle files).
   `finch-appkit-draw-test` (state, conversions, path elements, archives, formats, and
   23 drawing scenes against Apple's renders) prints identical output against Apple's
-  AppKit and Finch's on the host, and Finch's in the VM. Not yet: dark-appearance
-  system colours, asset-catalog colours and images, Apple's system images,
+  AppKit and Finch's on the host, and Finch's in the VM. Asset-catalog colours and
+  images followed on October 9 (see [Asset catalogs](ASSETS.md)). Not yet: dark-appearance
+  system colours, Apple's system images,
   `NSPDFImageRep`/`NSCIImageRep`/`NSEPSImageRep`, TIFF (until ImageIO writes it),
   glyph paths beyond CoreText's outlines, pasteboard reading and writing for colours
   and images.
@@ -172,7 +173,7 @@ draws (`userland/tests/app-test.c`).
   (labels and fields, the factories, placeholders, bezels, editing with action on Return
   and end editing, Tab to the next key view), `NSSecureTextField` (bullets; the field
   editor still shows the text while editing), `NSSlider`, `NSStepper`,
-  `NSProgressIndicator`, `NSSegmentedControl`, `NSColorWell` (no colour panel yet),
+  `NSProgressIndicator`, `NSSegmentedControl`, `NSColorWell` (the colour panel followed on October 9),
   `NSImageView`/`NSImageCell`, `NSBox`, `NSLevelIndicator`, and the nib classes
   `NSCustomResource`, `NSButtonImageSource` and `NSSegmentItem`. Each decodes Apple's
   nib keys; the cell and button flag bits, learned from ibtool's output, are in
@@ -185,9 +186,9 @@ draws (`userland/tests/app-test.c`).
   on a headless server and samples what they draw. The window now offers key
   equivalents without Command (Return, Escape) when nothing else takes the key, lets a
   text field hand first responder on to its field editor, and doesn't give the focus to
-  a clicked button or slider. Not yet: `NSMatrix`, `NSForm`, `NSSearchField`,
-  `NSComboBox`, `NSTokenField`, `NSDatePicker`, `NSPathControl`, `NSSwitch`, the colour
-  panel, image dragging into image views, periodic events for continuous buttons.
+  a clicked button or slider. The remaining controls and colour panel followed on October 9
+  (see their entries below). Not yet: image dragging into image views and periodic events
+  for continuous buttons.
 - 2026-10-08: text editing and scrolling. `NSClipView` (the document view, flipped as
   it is; `-scrollToPoint:` goes where asked while `-setBoundsOrigin:` is held to the
   document and its content insets by `-constrainBoundsRect:`; follows the document's
@@ -221,8 +222,8 @@ draws (`userland/tests/app-test.c`).
   view geometry, magnification, a nib) prints the same as Apple's AppKit on the host and
   in the VM; `finch-appkit-text-window-test` clicks, types, uses arrows and the
   equivalents, and scrolls a text view on a headless server, sampling what it draws.
-  The font panel and TextKit 2 were added on October 9 (see their entries below).
-  Still missing here: rich-text pasteboard types (RTF), the colour panel, spelling,
+  The font panel, colour panel and TextKit 2 were added on October 9 (see their entries below).
+  Still missing here: rich-text pasteboard types (RTF), spelling,
   find, rulers, smart insert/delete and substitutions, multiple selections, a
   pasteboard server.
 - 2026-10-08: menus. `NSMenu` and `NSMenuItem` (all of the public API; `NSMenu.m`,
@@ -304,7 +305,7 @@ draws (`userland/tests/app-test.c`).
   events (opened files reach a launched app only as arguments), activating or hiding other apps,
   a file viewer (`activateFileViewerSelectingURLs:` uses an app that opens folders, if any), file
   tags, custom icons, column and icon views, sidebar and search in the panels, sheet animation,
-  `NSHelpManager`.
+  the Help Viewer and help-book search (`NSHelpManager` text storage is covered below).
 - 2026-10-09: Cocoa bindings and controllers, the font manager. `NSKeyValueBinding.m`: every
   binding, option and info-key name with Apple's value; the markers (`NSBindingSelectionMarker`,
   `NSMultipleValuesMarker`...) and default placeholders by class and binding; NSObject's
@@ -341,9 +342,9 @@ draws (`userland/tests/app-test.c`).
   (names, NSObject and control bindings both ways, options, pop-ups, editing and commits, text
   views, both controllers, the defaults controller on a private suite, a nib of bound controls,
   NSFontManager on Liberation Sans and Inter) prints the same against Apple's AppKit and Finch's on
-  the host; the October 9 follow-up below records the VM result. Not yet: `NSTreeController`,
-  `NSDictionaryController`, table/outline/collection view bindings, Core Data (managed object
-  contexts, fetching), validation alerts, display patterns,
+  the host; the October 9 follow-up below records the VM result. Table and column bindings
+  are covered in the tables entry below. Not yet: `NSTreeController`, `NSDictionaryController`,
+  outline/collection view bindings, Core Data (managed object contexts, fetching), validation alerts, display patterns,
   font bindings beyond `font` (fontBold, fontSize...), the font panel's collections and effects,
   font collections kept on disk; Apple's `convertWeight:` quirks with italics and light faces are
   not copied.
@@ -403,8 +404,9 @@ draws (`userland/tests/app-test.c`).
   is Finch's guess, Apple's integralization of ties (exact .5 edges) and its per-view standard
   spacing for nib `NSSpace` (Finch uses 20 to the superview, 8 between siblings), right-to-left
   user interfaces, baseline alignment across a vertical stack, stack views' visibility priorities
-  and delegate, NSPopover (popover segues show windows), storyboard references and embed segues,
-  the creator blocks of `instantiateController...`.
+  and delegate, storyboard references and embed segues,
+  the creator blocks of `instantiateController...`. `NSPopover` and real storyboard popover
+  presentation were added later on October 9 (see the container entry below).
 - 2026-10-09: TextKit 2, in UIFoundation where Apple has it: `NSTextRange` and
   `NSCountableTextLocation`, `NSTextElement`/`NSTextParagraph`, `NSTextContentManager` and
   `NSTextContentStorage` (paragraphs made lazily, asking the delegate, kept across edits that don't
@@ -445,14 +447,239 @@ draws (`userland/tests/app-test.c`).
   `NSFontEffectsBox` lets nibs that name the font panel's effects bar, including Stickies',
   load it as a plain `NSBox`; it does not add the effects controls. The
   `finch-appkit-bindings-test` comparison also matched Apple's in the VM.
+- 2026-10-09: tables, outlines and collections. `NSTableView` (`NSTableView.m`): columns, Apple's
+  geometry (rows of `rowHeight` plus the intercell height, columns padded by half the intercell width with
+  6 at the outer edges of full-width, inset and source-list tables, inset and source-list tables inset 10
+  at the sides, 5 above and 10 below the rows; group rows 28, 19 or 25 tall), the frame fitting the
+  columns and rows and at least the clip view less its insets, column autoresizing in all six styles when
+  the clip view changes width (only if the columns filled the table or no longer fit, each column held to
+  its limits), `sizeToFit`/`sizeLastColumnToFit`, hidden and moved columns; the selection as measured
+  (programmatic selection ignores the delegate and the multiple-selection flag, a set past the last row is
+  ignored, `selectAll:`/`deselectAll:` ask `selectionShouldChangeInTableView:`, the selected row is the last
+  selected, row and column selection exclude each other, inserted rows move it silently, removed selected
+  rows deselect with a notification, a view-based table's `reloadData` clears it); `beginUpdates`
+  insertion, removal and moves (only inside it for cell-based tables, raising Apple's exception);
+  `noteNumberOfRowsChanged`, `noteHeightOfRowsWithIndexesChanged:`; sort descriptors (the data source told
+  of changes, a header click sorts by the column's prototype or reverses it), indicator images, the
+  highlighted column; prepared cells; cell-based drawing (background, alternating rows, selection, grid,
+  the columns' cells) and editing through the field editor (double click, Return, Tab to the next
+  editable column); view-based tables: row views and cell views for the visible rows (every row outside a
+  window), made in Apple's order (row view, then each column's view, then its object value, then
+  `didAddRowView:`), a reuse queue, prototypes archived in nibs (`NSTableViewArchivedReusableViewsKey`, a
+  nested nib each) and `registerNib:forIdentifier:`; clicks (Command and Shift), drags, arrow keys, the
+  action and double action. `NSTableColumn` (`NSTableColumn.m`, with `NSTableHeaderCell`),
+  `NSTableHeaderView` (`NSTableHeaderView.m`: titles, the sort indicator, sorting and column selection by
+  click, resizing by the trailing edge), `_NSCornerView` (no corner with overlay scrollers, as Apple's),
+  `NSTableRowView` and `NSTableCellView` (`NSTableRowView.m`). In a scroll view the header goes in a clip
+  view of its own across the top, and the content clip view's top inset grows by its height (content at
+  the top stays at the top): two hooks in `NSScrollView.m`'s `-tile` and `-reflectScrolledClipView:`.
+  `NSScrollView` also adjusts its content insets as Apple's does under a full-size content window's title
+  bar and toolbar: in the window's layout pass, after its frame or window changes or
+  `automaticallyAdjustsContentInsets` is turned on, it takes a top inset of how far it runs above the
+  window's `contentLayoutRect` (and no others); insets set by hand stand until the next such change, and
+  the clip view's insets are the scroll view's plus a table's header.
+  `NSOutlineView` (`NSOutlineView.m`): the rows of the expanded tree (children asked for as items expand
+  and kept until reloaded), levels, parents and child indexes, 13 per level of indentation, the disclosure
+  triangle 13 wide before the indented cell, the outline column growing and shrinking with the deepest
+  visible level, expanding and collapsing with Apple's order of questions and notifications (collapsed
+  children remembered and expanded again with their parent), selected items kept selected as rows move,
+  hidden ones deselected with a notification, insertion, removal, moves and reloading of items.
+  `NSCollectionView` (`NSCollectionView.m`): sections and items from the data source, items from
+  registered classes and nibs for the visible elements (frames rounded to the backing pixels), a reuse
+  queue, supplementary views, selection as measured (programmatic selection ignores `selectable` and tells
+  the delegate nothing, `selectAll:`/`deselectAll:` tell it, reloading clears it), clicks; the older API
+  (content, item prototype, a grid of the prototype's size, `selectionIndexes`). Layouts
+  (`NSCollectionViewLayout.m`): attributes, `NSCollectionViewFlowLayout` (uniform items in a grid spread to
+  the edges with the same spacing on every line, items of different sizes in lines spread to the edges but
+  the last, centred across the line, headers and footers, insets, both directions, delegate metrics) and
+  `NSCollectionViewGridLayout` (columns at the minimum width, items stretched to the maximum size and to the
+  visible height, a fixed number of rows scrolling sideways). Bindings: a column's `value` to
+  `arrangedObjects.key` binds the table's content, selection indexes and sort descriptors to the same
+  controller and gives the column a sort prototype; the table's own content, selectionIndexes,
+  sortDescriptors and rowHeight bindings; cell views show their row's object for `objectValue.key`
+  bindings (`NSKeyValueBinding.m`'s machinery, no change to it). Nib keys for all of them (`NSTvFlags` bits
+  worked out from ibtool's output). `finch-appkit-tables-test` (columns, geometry in every style, selection,
+  edits, autoresizing, scroll views, view-based realization and reuse, outlines, flow and grid layouts in a
+  window's layout pass, the older collection view, bindings, a nib with cell- and view-based tables, an
+  outline, a collection view and bound columns, scroll views under full-size content windows' bars)
+  prints the same against Apple's AppKit and Finch's on the
+  host and in the VM; `finch-appkit-tables-window-test` clicks, Shift- and Command-clicks, arrows, sorts, resizes,
+  edits, expands and selects through the window server and samples the drawing (compare with
+  `appkit-tables-window-test.expected`). Not yet: drag and drop (sources, destinations, gaps, reordering
+  rows and columns by dragging), type select, column autosave, floating group rows, automatic row heights,
+  hidden rows, `NSTreeController` and outline bindings, table animations, Apple's half-point
+  rounding of uniformly autoresized columns and of grid items, the grid layout's switch to sideways
+  scrolling when rows overflow, collection view drag and drop and section collapsing.
 - 2026-10-09: full-size content windows (`NSWindowStyleMaskFullSizeContentView`, as Image Capture's):
   the content fills the frame and Finch's title bar and toolbar row are drawn over it by an overlay
   view (`FinchTitlebarView`), honouring `titlebarAppearsTransparent` and `titleVisibility`;
   `contentLayoutRect` leaves the title bar and toolbar out, as Apple's does. Window templates attach
   the toolbar archived under `NSViewClass`; a toolbar uses the nib's items for the identifiers its
   delegate names, and asks a delegate set after it was first shown. Image Capture now shows
-  its title bar and toolbar; the toolbar is empty without a device, as on macOS. Still missing:
-  Apple's unified toolbar style (title and items in one 52-point row) and scroll views
-  automatically leaving space below these bars. This change also added
+  its title bar and toolbar; the toolbar is empty without a device, as on macOS. Scroll views'
+  automatic space below these bars is covered in the tables entry above. Still missing:
+  Apple's unified toolbar style (title and items in one 52-point row). This change also added
   `finch-app-test`'s `screenshot:PATH` step; the AppKit comparison tests and window-server
   tests still matched.
+
+- 2026-10-09: the colour panel and column browser. `NSColorPanel` (`NSColorPanel.m`) has a
+  shared panel, target/action and colour-change notifications, alpha and continuous changes,
+  an accessory view, attached colour lists, and Finch-drawn wheel, RGB sliders and palette.
+  Setting the same colour again does not send another change. Active `NSColorWell`s follow
+  panel changes; opening another well without exclusive activation keeps the panel's colour,
+  and closing the panel deactivates its wells. The list of active wells does not keep them
+  alive. `NSColorPicker` provides the base picker API. Other colour-space modes use the RGB
+  controls for now. Not yet: external picker plug-ins, an eyedropper, colour dragging, or a
+  separate CMYK, grayscale and HSB slider interface.
+  `NSBrowser` and `NSBrowserCell` (`NSBrowser.m`, `NSBrowserCell.m`) support item delegates
+  and both older cell delegates: the browser makes rows for a passive delegate, or asks an
+  active delegate to fill its `NSMatrix`. They load and reload columns, preserve selected
+  items on reload, track leaf rows, support a custom root, string and index paths, multiple
+  selection, column titles, width limits and saved widths, horizontal scrolling, arrow keys,
+  basic type select, column resizing and variable row heights. Item delegates have no matrix,
+  as on macOS. Nibs decode the browser and cell settings with Apple's keys. Finch draws the
+  columns, selected rows and leaf indicators itself. Not yet: drag and drop, cell editing,
+  preview and header view controllers, full type select, or exact Apple font and drawing sizes.
+  The standalone `appkit-color-browser-test.m` comparison matched all 22 lines against Apple's
+  AppKit and Finch's on the host, including an ibtool-compiled nib. Its reusable sections are
+  also part of `finch-appkit-containers2-test`. Browser content-width conversion depends on
+  the host's scrollbar preference; the combined test checks the sum of the two widths rather
+  than one preference's split. `appkit-color-browser-render-test.m` uses view hit tests and
+  mouse events to select `/Folder/B`, then writes browser, wheel, palette and RGB-panel PNGs.
+  It passed on the host; the browser, wheel and palette images were visually checked.
+- 2026-10-09: animation and Touch Bar state. `NSAnimationContext` (`NSAnimationContext.m`)
+  keeps the same current-context object through nested groups, saves and restores the outer
+  duration, timing, implicit-animation flag and completion handler, and queues completion
+  callbacks after a group closes. A changes block that throws still closes its group. Views,
+  windows and constraints have cached animator proxies and animation dictionaries; proxies
+  hold weak targets. The proxy applies final values at once, so it does not yet draw the
+  intermediate frames of a view or window animation. `NSAnimation` has timed progress, curves,
+  progress marks and delegate calls; `NSViewAnimation` changes frames and handles basic
+  fade-in/fade-out visibility. Not yet: linked start/stop triggers, `NSAnimation` archives,
+  full alpha fades, or separate-thread blocking behavior.
+  `NSTouchBar` and its items (`NSTouchBar.m`) keep their identifiers, settings, templates and
+  delegate-made items. Responders make a bar when first asked and keep it. Standard space
+  items, custom views, groups, popovers, buttons, sliders, colour pickers and steppers expose
+  their state. Bar archives keep the template set, identifiers and customization arrays;
+  item archives keep the identifier and visibility priority, using keys checked against host
+  archives. The bar delegate and action targets are weak. There is no Touch Bar hardware display,
+  system customization palette or popover presentation; some item archives and the scrubber
+  and candidate-list interfaces remain incomplete.
+  `finch-appkit-misc2-test` matched all 26 lines against Apple's AppKit and Finch's on the
+  host. It covers nested context identity and restored settings, deferred completion,
+  zero-duration animator changes, four curve values, Touch Bar lookup, defaults and saved
+  settings, plus the gesture, accessory, material and help checks below. This test does not
+  establish timed animation drawing or Touch Bar presentation.
+- 2026-10-09: gestures, help text, visual effects and slider accessories.
+  `NSGestureRecognizer` (`NSGestureRecognizer.m`) attaches to a view, moves between views,
+  and holds weak targets and delegates. Recognizers on the clicked view and its ancestors
+  receive the event.
+  Click, pan and press recognizers handle mouse events; magnification and rotation recognizers
+  accept the corresponding events. Views expose their recognizer lists, and window event
+  delivery forwards events to them. Recognition is basic: full conflict handling between
+  recognizers, dependencies between them and trackpad gesture recognition are not complete.
+  `NSHelpManager` attaches, returns and removes attributed help text and keeps the context-help
+  mode flag. It does not open Help Viewer, search help books or register them.
+  `NSVisualEffectView` keeps its material, blending mode, state, mask and emphasis settings,
+  decodes and saves those settings, and draws a solid background. It has no background blur;
+  its default `allowsVibrancy` is false, as measured on the host. `NSSliderAccessory` keeps its
+  image, enabled state and behavior. Explicit handler and target/action behaviors work;
+  automatic step/reset behavior has no link to a slider yet. The 26-line host comparison
+  above checks gesture defaults and attachment/removal, an accessory handler call, visual
+  effect defaults, and help text storage/removal. No VM result is recorded for these new
+  colour/browser, animation, Touch Bar and gesture checks here.
+- 2026-10-09: named assets. `NSAssetCatalog`, `NSImage` and `NSColor` use Finch's CoreUI
+  reader for compiled `Assets.car` catalogs, bundle lookups, and the tested appearance and
+  scale variants. `AssetsTest.app`, built from Finch's fixtures with `actool`, matched all
+  486 result lines against Apple on the host after excluding the framework-path line.
+  The comparison covers named lookups, sizes, colour values and decoded pixels. Reads of
+  five installed apps' catalogs also matched `assetutil` for the names, properties and sizes
+  of 70 colour and 141 image renditions. This does not establish every bitmap codec or
+  private CoreUI drawing call; raw JPEG and HEIF pixel comparisons were not part of that
+  installed-app check. See [Asset catalogs](ASSETS.md) for the reader, fixtures and limits.
+- 2026-10-09: more controls and cells. `NSSearchField`, `NSSearchFieldCell` and
+  `NSSearchToolbarItem` add search and cancel buttons, recents and search actions.
+  `NSComboBox` and its cell hold an item list or ask a data source, keep the selection and
+  provide completion. `NSTokenField` and its cell edit represented objects as tokens, ask
+  delegates for display text and completions, and handle typing and deletion. `NSDatePicker`
+  and its cell keep dates and ranges, expose the styles and elements, and provide field,
+  calendar and clock editing. `NSPathControl`, its cell, component cells and path items keep
+  URL components and clicked items in both styles. `NSSwitch`, `NSComboButton`, `NSMatrix`,
+  `NSForm` and `NSFormCell` add switch actions, a button with a menu, cell grids and labelled
+  fields. These controls draw in Finch's own style and support the tested editing, actions,
+  delegate calls, bindings, archives, accessibility answers and nib settings.
+  `finch-appkit-controls2-test` matched all 730 body lines against Apple's AppKit on the host,
+  excluding the first line that names the loaded framework. It includes an ibtool-compiled
+  nib; text widths that depend on the font are not compared. Apple's search button is as wide
+  as its image rendered for the main screen (15 points on a 2x screen, 16 on a 1x one, which
+  also moves small and mini fields' text); Finch follows its main screen's scale, and the test
+  prints the geometry as on a 2x screen so the host's displays don't change it. The Finch-only
+  `appkit-controls2-render-test.m` checks token typing and deletion, switch and combo actions,
+  the lifetime of a clicked path item, date arrow keys, opening the calendar, changing months,
+  choosing a date and clicking the clock. Its PNG was visually checked. These are actual
+  input and drawing checks, not only stored-property tests.
+  Not yet: an end-to-end path drag through the shared view drag-session code. Path source
+  and drop delegate methods exist, but that complete flow is unverified. The combo dropdown
+  uses `NSMenu`; visible-item and scroller settings are kept but do not provide a separate
+  scrolling combo list. Token completion calls its delegate automatically, while the
+  suggestion menu opens through the Complete command.
+- 2026-10-09: more containers. `NSPopover` (`NSPopover.m`) presents a child window with a
+  pointer to its anchor, supports all four edges and content-size changes, and asks its
+  delegate about closing. Application-defined, transient and semitransient behaviors use
+  event monitors for dismissal: transient popovers close on clicks outside them, semitransient
+  ones only on clicks in their anchor's window (as `NSPopover.h` describes), both on Escape. A
+  content view controller's `preferredContentSize`, when set, sizes the popover each time it is
+  shown, as Apple's does. View controllers present and dismiss real popovers;
+  storyboard popover segues preserve their anchor, edge and behavior. `NSDrawer` uses child
+  windows with edge placement, size limits, delegate calls and nib settings. Both transitions
+  happen at once; popover detachment and animated presentation are not implemented.
+  `NSGridView`, `NSGridRow`, `NSGridColumn` and `NSGridCell` use layout guides and constraints
+  for content sizing, placement, spacing, padding, merged cells, hidden rows and columns,
+  custom placement constraints and row/column changes. They decode nibs, but do not try to
+  reproduce Apple's private constraint objects. `NSPageController` keeps selected objects,
+  asks its delegate for controllers, switches views and keeps navigation history. Page
+  swipes and animated transitions are not implemented.
+  `NSRuleEditor` supports rows and nested groups, selection, delegate choices, row controls
+  and predicates. `NSPredicateEditor` and `NSPredicateEditorRowTemplate` add common typed
+  comparisons and compound predicates, matching and copying templates, and row editing.
+  The full Cocoa bindings row model and all specialized predicate templates are not covered.
+  `finch-appkit-containers2-test --windows` matched all 78 body lines against Apple's AppKit
+  on the host, excluding the framework-path line; neither run wrote to stderr. It covers
+  grids, rule trees, predicates and templates, page selection and history, popover geometry,
+  close veto and notification order, drawers, the colour/browser sections above, and two
+  compiled nibs. The native popover comparison used macOS WindowServer access so its screen
+  placement was real. The ordinary run without `--windows` has 64 body lines; it finds the
+  nibs next to the executable or in `/usr/local/share/finch`.
+  The Finch-only container render test ran a 1000-by-800 headless window server at scale 2,
+  wrote grid, predicate-editor and popover PNGs, and clicked the row-add button. It also sent
+  mouse events and Escape through `NSApplication` to test each popover behavior and dismissal
+  after clicks in its parent or another window. The three images were opened and checked;
+  grid text, predicate controls and the popover pointer were readable. In the VM,
+  `finch-appkit-containers2-test` (with its two nibs from `/usr/local/share/finch`) prints the
+  same 64 body lines as Apple's AppKit on the host (checksum 652695619).
+- 2026-10-09: remaining planned work from this AppKit pass. The earlier plan also named
+  `NSSharingService`, `NSSharingServicePicker` and `NSSound`. They have no implementation
+  here yet. The inherited work included a host sound-defaults probe and a class/import
+  survey, but no sound or sharing-service source. `NSSharingServicePickerTouchBarItem`
+  only keeps its item settings; it does not supply a working share sheet or sharing service.
+  Sound loading and playback, sharing-service discovery and execution, and their UI still
+  need separate work. The completed controls, containers and support classes above do not
+  mean that every item in that earlier plan, or AppKit as a whole, is finished.
+- 2026-10-09: AppKit's Swift overlay. Apple compiles AppKit's Swift half
+  (module AppKit) into AppKit.framework, and Swift apps import it from there
+  (TextEdit imports `CGRect.fill(using:)` and `CGRect.frame(withWidth:using:)`).
+  `AppKitOverlay.swift` is Swift's historical open overlay
+  (`stdlib/public/Darwin/AppKit` at `swift-5.2.5-RELEASE`, Apache 2.0 with the
+  Runtime Library Exception): `NSApplicationMain(_:_:)`, the rect fill, frame and
+  clip extensions, `NSEvent.SpecialKey`, `IndexPath(item:section:)`, the colour
+  and image literals, `NSSound.beep()`, `_AppKitKitNumericRawRepresentable`
+  (window levels, layout priorities) and the AppKit error codes. `build.sh`
+  compiles it like Apple's overlays: resilient, `-import-underlying-module`,
+  linking only the Swift libraries it uses (`swiftCore`, `swiftCoreFoundation`,
+  `swiftObjectiveC`), so it never pulls Metal's or Core Image's overlays in.
+  TextEdit's imports now all resolve against `build/root`
+  (`tools/check-imports.py`). Apple's overlay has 4,660 Swift exports; Finch's
+  has 293 (`tools/check-swift-parity.sh`). Apps also import diffable data
+  sources, `NSView.Invalidating`, text suggestions, `NSMenuItem.sectionHeader`,
+  `NSCursor.frameResize` and the AppKit attribute scope
+  (`AttributeScopes.AppKitAttributes`), which come later.

@@ -71,14 +71,15 @@ steps=(
     "ICU|oss ICU"
     "tzdata|userland/tzdata/build.sh"
     "CoreFoundation|userland/CoreFoundation/build.sh"
+    "SystemConfiguration|userland/SystemConfiguration/build.sh"
     # libxml2, for Foundation's NSXMLParser
     "libxml2|oss libxml2"
     # Auto Layout's private framework, which Foundation re-exports (docs/design/APPKIT.md)
     "CoreAutoLayout|userland/CoreAutoLayout/build.sh"
     # Finch's Foundation (CF links it upward; docs/design/FOUNDATION.md)
     "Foundation|userland/Foundation/build.sh"
-    "CoreServices|userland/CoreServices/build.sh"
     "UniformTypeIdentifiers|userland/UniformTypeIdentifiers/build.sh"
+    "CoreServices|userland/CoreServices/build.sh"
     "IOKit|userland/IOKit/build.sh"
     # Finch's CoreGraphics over Skia (docs/design/COREGRAPHICS.md)
     "skia|userland/skia/build.sh"
@@ -92,6 +93,7 @@ steps=(
     # AppKit and the frameworks around it (docs/design/APPKIT.md)
     "ApplicationServices|userland/ApplicationServices/build.sh"
     "UIFoundation|userland/UIFoundation/build.sh"
+    "CoreUI|userland/CoreUI/build.sh"
     "AppKit|userland/AppKit/build.sh"
     "RecapPerformanceTesting|userland/RecapPerformanceTesting/build.sh"
     "Cocoa|userland/Cocoa/build.sh"
@@ -115,11 +117,13 @@ steps=(
     "OpenDirectory|make -s -C userland/OpenDirectory"
     # The Swift runtime (libobjc links it, as Apple's does)
     "swift|userland/swift/build.sh"
+    "swift-overlays|userland/swift/overlays.sh"
     "pam_modules|oss pam_modules rootok uwtmp self env group nologin sacl launchd"
     "pam|make -s -C userland/pam"
     "libsystem-finch|make -s -C userland/libsystem"
     "libm|make -s -C userland/libm"
     "corecrypto|make -s -C userland/corecrypto install"
+    "Security|userland/Security/build.sh"
     "trace|make -s -C userland/libsystem/trace install"
     "Libsystem|oss Libsystem Libsystem"
     "llvm-runtimes|tools/build-llvm-runtimes.sh"

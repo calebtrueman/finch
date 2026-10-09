@@ -127,7 +127,10 @@ Apple's is closed. Developed in the emulated M4 first. The map is
               `tools/check-closed.py` finds no closed library in anything Finch builds.
         - [x] IOKit.framework from IOKitUser: IOKitLib, power management, power sources
               (`userland/IOKit`; nvram, iostat and shutdown run on it, 2026-10-08)
-        - [ ] cron; DiskArbitration; SystemConfiguration and configd; mDNSPosix
+        - [x] SystemConfiguration's local preference and network-state reads, schema keys,
+              and synchronous route checks (2026-10-09). Writes, subscriptions and configd
+              remain unfinished; see [Security and SystemConfiguration](design/SECURITY.md).
+        - [ ] cron; DiskArbitration; configd; mDNSPosix
   - [x] libmalloc no longer depends on libcorecrypto
   - [x] libsystem_featureflags, coreservices, darwindirectory, eligibility, symptoms,
         trial, secinit, sanitizers, libRosetta: Finch's own (`userland/libsystem`)
@@ -190,6 +193,19 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         plist (finch-init doesn't look in apps' `Contents/XPCServices` yet).
   - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it):
         the URL loading system, a system-wide distributed notification center.
+  - [x] Swift Foundation and AppKit overlays, the Darwin overlay libraries, and Swift's
+        runtime built from pinned open source (2026-10-09). The combined host build
+        matches Apple's 78-line overlay check and 12-line runtime check, including
+        generic classes, protocol calls, tasks, regexes and backtraces. Export coverage
+        is still partial; see [Foundation](design/FOUNDATION.md#the-swift-overlays).
+- [x] CoreServices' local app lookup and launch, type and filesystem APIs, Apple event
+      values and local dispatch, and Foundation's event/activity wrappers (2026-10-09).
+      The host check matches Apple's 1,366 body lines. Interprocess Apple events,
+      Handoff and DictionaryServices remain unfinished; see [CoreServices](design/CORESERVICES.md).
+- [x] Security's supported RSA/EC keys, certificate reads and caller-supplied trust roots
+      (2026-10-09). Keychain, authorization and code-signing services return errors until
+      implemented. Tests check signing, tampering, encryption and refused trust/rights;
+      see [Security](design/SECURITY.md).
 - [ ] CoreGraphics, CoreText, ImageIO over open renderers (`docs/design/COREGRAPHICS.md`)
   - [x] Skia (chrome/m155) builds for arm64e with FreeType and the open codecs, and
         without Apple's graphics frameworks (`userland/skia`, 2026-10-08)
@@ -216,7 +232,8 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's.
         Fonts, lines, runs, typesetting and frames are done: `finch-ct-test` is
         identical to Apple's on the host and in the VM (2026-10-08). The open
-        fonts (`userland/fonts`: Inter, Liberation, DejaVu Sans Mono, Noto; 59 MB)
+        fonts (`userland/fonts`: Inter, Open Runde, Fragment Mono,
+        XCharter, Pagella, Inter, Liberation, DejaVu Sans Mono, Noto; about 67 MB)
         ship with Apple's font names aliased onto them, the UI fonts, the
         default font and a fallback cascade for other scripts and emoji
         (`finch-ctfonts-test`, Finch-only, 2026-10-08). Next: justification as
@@ -244,7 +261,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         `finch-textkit2-test` matches Apple's on the host and in the VM (2026-10-09); document formats to come.
   - [x] Drawing: colours, colour spaces, Bézier paths, gradients, images, graphics contexts.
         `finch-appkit-draw-test` matches Apple's on the host and in the VM (2026-10-08);
-        dark-appearance colours and asset catalogs to come.
+        dark-appearance colours to come. Asset catalogs now use Finch's CoreUI reader:
+        486 host comparison lines match Apple, plus catalog metadata checked in five
+        shipped apps (2026-10-09; [assets](design/ASSETS.md)).
   - [x] Applications, windows, views, events and the responder chain, on the window server:
         `finch-appkit-core-test` matches Apple's on the host and in the VM; `finch-appkit-window-test`
         drives a window through the server (drawing, clicks, keys, dragging, closing) (2026-10-08)
@@ -275,13 +294,32 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         pop-up buttons, text views and views; `NSObjectController`, `NSArrayController`,
         `NSUserDefaultsController`; nib binding connectors; `NSFontManager` and a Finch-look
         `NSFontPanel`. `finch-appkit-bindings-test` matches Apple's on the host and in the VM (2026-10-09);
-        `NSTreeController`, table and outline view bindings, Core Data controllers to come
+        `NSTreeController`, outline view bindings, Core Data controllers to come (table bindings: below)
   - [x] Auto Layout and storyboards: `NSLayoutConstraint`, the visual format language, anchors and
         guides in a private CoreAutoLayout that Foundation re-exports, solved by Finch's own Cassowary
         simplex; views' constraint API, autoresizing masks as constraints, intrinsic sizes, fitting
         sizes, windows sized by their constraints; `NSStackView`; constraint nibs; `NSStoryboard`,
         segues and `NSMainStoryboardFile`. `finch-appkit-layout-test` matches Apple's on the host
         and in the VM (2026-10-09); popovers, storyboard references and right-to-left layout to come
+  - [x] Tables, outlines and collections: `NSTableView` (cell- and view-based, Apple's geometry in every
+        style, selection, sorting, editing, column resizing and autoresizing, row views and cell views
+        with nib prototypes), `NSTableColumn`, the header and corner views, `NSOutlineView`,
+        `NSCollectionView` with flow and grid layouts (and the older content/prototype API), table
+        bindings (content, selection indexes, sort descriptors, column values) and their nib keys;
+        scroll views' automatic insets under full-size content windows' bars.
+        `finch-appkit-tables-test` matches Apple's on the host and in the VM; `finch-appkit-tables-window-test` clicks,
+        types, sorts, resizes, edits and expands through the server (2026-10-09); drag and drop, type
+        select and `NSTreeController` to come
+  - [x] Search, combo, token, date and path controls, switches, combo buttons, matrices
+        and forms: 730 comparison lines match Apple, with drawing and typing/click checks
+        (2026-10-09). Path drag sessions and some completion/dropdown details remain.
+  - [x] Grids, page controllers, popovers, drawers, rule/predicate editors, the colour panel
+        and browser: 77 comparison lines match Apple, with saved-interface, drawing and
+        window-event checks (2026-10-09). See AppKit's status for each remaining limit.
+  - [x] Animation grouping, Touch Bar state, basic mouse gestures, slider accessories,
+        visual-effect views and context-help storage (2026-10-09). Animators still jump
+        to final values, visual effects have no blur, and Touch Bar hardware and Help
+        Viewer remain unfinished; 26 small-feature comparison lines match Apple.
 - [ ] Unmodified Mac apps: first launch reached; TextEdit or Calculator usable next
   - [x] A Cocoa app bundle built the usual way (`userland/tests/apps/Hello`: NSApplicationMain,
         a MainMenu nib from ibtool, outlets and actions) launches on Finch's frameworks and window
@@ -293,7 +331,11 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         (host, Finch's headless window server, 2026-10-09). `finch-imagekit-test` matches
         Apple's on the host and in the VM.
   - [ ] Cameras and scanners: device modules and Phase 3 USB support.
-  - [x] App test tools: `finch-app-test` accepts `screenshot:PATH` to save a screen PNG;
+  - [x] Apple's unmodified TextEdit launches in the Finch VM (copied from the Mac at image
+        build time with `FINCH_HOST_APPS=TextEdit tools/vm/mkramdisk.sh`; nothing of Apple's
+        is committed), opens an untitled document and takes typing (2026-10-09). Next:
+        RTF reading and writing, NSRulerView, NSFileCoordinator, NSTextFinder.
+  - [x] App test tools: `finch-app-test` accepts `screenshot:PATH` to save a screen PNG and `screenshot64` to print one over the VM console; `tools/host-tests.sh` runs the host comparison suite;
         `tools/check-imports.py` finds libraries such as libxpc through the VM overlay list,
         including builds outside `build/root` (2026-10-09).
 

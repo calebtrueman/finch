@@ -87,6 +87,89 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
 
 ## Status
 
+- 2026-10-09: the Swift overlays now build and run with Finch's own Swift
+  runtime. `userland/Foundation/swift/overlay.sh` compiles FoundationEssentials
+  and FoundationInternationalization from `swift-foundation` at
+  `swift-6.3.1-RELEASE`, with `swift-collections` 1.1.6 linked privately.
+  Historical Swift 5.4 Darwin sources supply bridges and extensions that the
+  newer Foundation source does not carry. Finch supplies the remaining glue.
+  `Foundation/build.sh` links these objects into Foundation itself, matching
+  the library path apps use. Source licenses and notices ship in the image.
+  The string bridge now handles Swift strings through CF copying, substring
+  and byte conversion. NSError uses registered value providers for Swift
+  localized errors, and NSIndexSet supplies the range access used by Swift.
+  `finch-swift-overlay-test` matches Apple's 78 lines on the host, with the
+  loaded library paths checked separately. It covers collection and string
+  bridges, Data, URL, dates, calendars, indexes, measurements, errors, Codable,
+  logging and the tested AppKit Swift extensions. The Foundation, bridging,
+  KVC, data, collections and archive comparisons also still match.
+
+### The Swift overlays
+
+`userland/swift/overlays.sh` builds the Darwin overlay libraries after the
+runtime and Foundation. ObjectiveC and Dispatch use the pinned objc4 and
+libdispatch sources. CoreFoundation, IOKit, simd and Darwin use the pinned
+Swift 5.4 and 5.2.5 open sources plus Finch's additions. Finch supplies XPC,
+UniformTypeIdentifiers, OSLog, QuartzCore and CoreImage overlays, and the
+newer logging and locking parts of `os`. The build leaves an overlay out if
+its Foundation imports are still missing.
+
+`tools/check-swift-parity.sh` compares exported Swift names. On 2026-10-09,
+CoreFoundation, ObjectiveC, IOKit, simd and Darwin have all the checked names.
+Foundation supplies 12,536 of Apple's 13,546 names, plus 799 names from its
+open-source build. AppKit supplies 293 of Apple's 4,660 Swift names. Dispatch,
+`os`, XPC, QuartzCore and the core runtime still have missing names. These
+counts are a link check, not a claim that every method behaves like Apple's.
+
+How Foundation's Swift half is put together (`userland/Foundation/swift`):
+swift-foundation is compiled the way Apple compiles it into Foundation.framework
+(module `Foundation`, `-import-underlying-module`, `FOUNDATION_FRAMEWORK`), so
+its declarations and mangled names are Apple's. The private modules that mode
+imports (`_ForSwiftFoundation`, `Foundation_Private`, `CoreFoundation_Private`,
+`DarwinPrivate`, `QuarantinePrivate`, ...) are Finch's headers in `shims/`,
+declaring only what the sources call; `NSForSwiftFoundation.m` implements the
+Objective-C side (the `_NSCalendarBridge`, `_NSLocaleBridge` and
+`_NSTimeZoneBridge` superclasses of swift-foundation's Swift NSCalendar,
+NSLocale and NSTimeZone, the private NSFileManager, NSURL, NSLocale and
+NSBundle methods, `NSPersonNameComponents`, `NSFileSecurity`, the Markdown and
+inflection attribute names). Where Apple's NSURL, NSURLComponents, NSUUID and
+NSProcessInfo are Swift subclasses, Finch keeps its Objective-C classes and
+bridges through them (`swift-foundation.exclude`; `Finch/URL+NSURL.swift`,
+`Darwin/UUID+NSUUID.swift`). Six small changes to swift-foundation are in
+`userland/patches/swift-foundation`. `Darwin/` is the swift-5.4 Darwin overlay,
+less what swift-foundation now carries: collection and NSError bridging,
+NSString API, IndexSet, CharacterSet, Notification, Measurement and the NS*
+extensions. `Finch/` is Finch's own Swift for what Apple keeps in Foundation's
+private half: `String(localized:)`, `String.LocalizationValue`,
+`LocalizedStringResource` and `AttributedString(localized:)` over bundle string
+tables; `AttributedString(markdown:)` with a small Markdown parser;
+`Morphology`, `InflectionRule`, `TermOfAddress` and `PresentationIntent` (carried,
+not applied); and the linked-on-or-after switches (all current behaviour).
+
+Of the 1,429 Foundation Swift symbols the apps in `/System/Applications` import,
+85 are still missing. Most need Combine (the run loop scheduler, notification,
+timer and KVO publishers) or CFNetwork (`URLSession`); the others are
+`URLRequest`, `NSUndoManager`'s macOS 26 messages and
+`MeasurementFormatUnitUsage`. Predicate archiving and conversion to
+`NSPredicate` need reflection and NSExpression SPI Finch lacks, and
+`Measurement.FormatStyle` has no usage option yet.
+
+The current compiler also needs pointer signing that the open Swift runtime
+does not yet apply in every place. `userland/swift/patches` handles metadata,
+protocol tables, copied Objective-C class data and class pointers. The build
+applies these patches before Swift's source-copy step. It authenticates and
+re-signs pointers; it does not turn the checks off. `finch-swift-runtime-test`
+covers generic classes, protocol tables, regexes, locks, actors, tasks and
+backtraces. Its output matches Apple's on the host.
+
+Finch's Runtime module uses `dladdr` for backtrace names. It does not load
+CoreSymbolication or CrashReporterSupport. Source lines and inline frames are
+not available through this path. Its path formatter keeps only the file name.
+Foundation's attributed-string lookup uses `RTLD_NOLOAD` when checking for
+optional attribute providers; it does not load a missing UI framework.
+
+### Earlier checks
+
 - 2026-10-08: CF compiles as Objective-C with Apple's dispatch (patch 0003,
   `CFObjCDispatch_Finch.h`, `CFObjCMessages_Finch.h`). It hosts `NSException`
   (with the standard names and Apple's uncaught-exception report), `NSArray`,

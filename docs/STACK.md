@@ -15,9 +15,11 @@ clips, shadows and transparency layers as Apple's do, PDF contexts write
 through Skia's PDF backend, and Finch's own parser reads and draws PDF. Finch's ImageIO reads
 PNG, JPEG, GIF, BMP, ICO and WebP and writes PNG and JPEG over the open
 codecs Skia builds, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does,
-in open fonts Finch ships in place of Apple's (Inter for the system font,
-Liberation for Helvetica, Arial, Times and Courier, DejaVu Sans Mono for
-Menlo, Noto for other scripts and emoji), which Apple's font names resolve to.
+in open fonts Finch ships in place of Apple's (Inter for the system
+font, Open Runde for rounded text, Fragment Mono for SF Mono, XCharter for
+Charter, and TeX Gyre Pagella for Palatino). Liberation stays for Helvetica,
+Arial, Times and Courier; DejaVu for Menlo; Noto for other scripts and emoji.
+DejaVu bold fills SF Mono's bold styles, which Fragment Mono lacks.
 Finch's window server composites windows that apps draw with CoreGraphics
 into shared memory, and routes input to them (`docs/design/WINDOWSERVER.md`).
 Finch's AppKit (`docs/design/APPKIT.md`), split as Apple's is with a private
@@ -35,6 +37,16 @@ language using `AppleLanguages` and Apple's ICU matching. QuartzCore has layers
 drawn through CoreGraphics, animation objects and transactions. The layer test
 matches Apple's on the host and in the VM; on-screen animation playback still
 needs a render server.
+
+CoreServices now includes local app lookup and launching, Apple event values
+and local handlers, and filesystem helpers (`docs/design/CORESERVICES.md`).
+CoreUI reads compiled asset catalogs for AppKit's named colors and images
+(`docs/design/ASSETS.md`). Foundation also contains its Swift value types and
+bridges, built from pinned Swift Foundation and Swift Collections sources.
+The Darwin Swift overlays and AppKit's first Swift extensions build alongside it.
+Security supplies keys, certificates and caller-root trust checks over OpenSSL.
+SystemConfiguration reads local preferences and network state. Keychain,
+authorization and configd services remain unfinished (`docs/design/SECURITY.md`).
 
 Image Capture's frameworks are Finch's own
 (`docs/design/IMAGECAPTURE.md`): ImageCaptureCore's browser finds no cameras or
@@ -57,7 +69,7 @@ block-beta
     block:L6
         columns 4
         t6["App frameworks"]
-        appkit["AppKit<br/>apps, windows, views, events,<br/>title bars, nib-loaded toolbars,<br/>drawing, nibs, storyboards,<br/>Auto Layout, stack views, text views and<br/>scrolling, menus and a menu bar,<br/>alerts, sheets, open and save panels,<br/>NSWorkspace (on the window server);<br/>Cocoa bindings and controllers,<br/>the font manager and panel;<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1 and 2; Cocoa and<br/>ApplicationServices umbrellas"]
+        appkit["AppKit<br/>apps, windows, views, events,<br/>title bars, nib-loaded toolbars,<br/>drawing, nibs, storyboards,<br/>Auto Layout, stack views, text views and<br/>scrolling, tables, outlines and<br/>collection views, menus and a menu bar,<br/>alerts, sheets, open and save panels,<br/>NSWorkspace (on the window server);<br/>Cocoa bindings and controllers,<br/>font and color panels, search/token/date controls,<br/>grids, popovers, drawers and rule editors;<br/>animation groups and Touch Bar state;<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1 and 2; Cocoa and<br/>ApplicationServices umbrellas"]
         cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>PDF writing (SkPDF), PDF reading<br/>and drawing (own parser);<br/>window server client, displays"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
@@ -65,9 +77,9 @@ block-beta
         quartzcore["QuartzCore<br/>layers drawn through CoreGraphics,<br/>animation objects, transactions;<br/>animation playback still to come"]
         imagecap["ImageCaptureCore (device<br/>browser, finds no devices yet),<br/>ICADevices; Quartz umbrella<br/>with ImageKit's device views"]
         space6b[" "]
-        coreservices["CoreServices<br/>umbrella"]
+        coreservices["CoreServices<br/>app lookup and launch,<br/>local Apple events, files"]
         later["Metal, SwiftUI, AV"]
-        space6c[" "]
+        coreui["CoreUI<br/>compiled asset catalogs,<br/>named images and colors"]
     end
     block:L5
         columns 4
@@ -75,14 +87,15 @@ block-beta
         foundation["Foundation<br/>strings, numbers, decimals, threads,<br/>files, bundles, formatters, queues,<br/>KVC/KVO, JSON, archiving, regexes,<br/>attributed strings, map/hash tables,<br/>undo, proxies, transforms,<br/>file handles, pipes, tasks,<br/>predicates, progress, file wrappers,<br/>units and measurements, XML parsing,<br/>URL resource values, NSXPCConnection"]
         uti["UniformTypeIdentifiers<br/>UTType, declared and<br/>dynamic types"]
         cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>ordered sets, NSCache, NSData, NSDate,<br/>NSURL, locales, calendars, defaults,<br/>run loops, attributed strings,<br/>streams, Mach ports, notifications;<br/>bundle languages and .loctable files"]
-        space5[" "]
+        security["Security<br/>keys, certificates, caller-root trust<br/>(OpenSSL); services to come"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         icu["libicucore<br/>ICU-76142.4.7"]
         objc["libobjc (objc4)"]
         autolayout["CoreAutoLayout (private)<br/>constraints, anchors, VFL,<br/>Cassowary solver"]
-        swift["libswiftCore 6.3.1"]
+        swift["Swift 6.3.1 runtimes<br/>Darwin overlays,<br/>Foundation and AppKit Swift"]
         iokit["IOKit.framework<br/>(IOKitUser)"]
         gcore["GCoreFramework<br/>(gcore, on Finch Foundation)"]
+        sysconfig["SystemConfiguration<br/>preferences and network reads;<br/>configd service to come"]
     end
     block:L4
         columns 4
@@ -97,7 +110,7 @@ block-beta
         space4b[" "]
         tz["tzdata 2026c (IANA)"]
         skia["Skia m155 + FreeType, HarfBuzz,<br/>libpng, libjpeg-turbo, libwebp, wuffs<br/>(static, for CoreGraphics<br/>and ImageIO)"]
-        fonts["Open fonts (data, not code)<br/>Inter, Liberation, DejaVu Sans Mono,<br/>Noto Sans/Serif/CJK/Arabic/Hebrew,<br/>Symbols, Color Emoji, in place<br/>of Apple's, which can't ship"]
+        fonts["Open fonts (data, not code)<br/>Inter, Open Runde, Fragment Mono,<br/>XCharter, Pagella, Liberation, DejaVu,<br/>Noto for other scripts and emoji,<br/>in place of Apple's, which can't ship"]
     end
     block:L3
         columns 4
@@ -151,7 +164,7 @@ block-beta
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
     class shell,later,kexts,metal planned
     class apps testapp
-    class uti,appkit,quartzcore,coreservices,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class uti,appkit,quartzcore,coreservices,coreui,security,sysconfig,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia,fonts upstream
     class vz firmware
@@ -194,6 +207,12 @@ flowchart LR
     cgfw["CoreGraphics"]:::finch
     ctfw["CoreText"]:::finch
     imageio["ImageIO"]:::finch
+    coreui["CoreUI"]:::finch
+    coreservices["CoreServices"]:::finch
+    uti["UniformTypeIdentifiers"]:::finch
+    security["Security"]:::finch
+    sysconfig["SystemConfiguration"]:::finch
+    openssl["OpenSSL (static)"]:::upstream
     skialib["Skia, FreeType<br/>(static)"]:::upstream
     cxxlib["libc++"]:::upstream
     cf["CoreFoundation"]:::finch
@@ -201,7 +220,7 @@ flowchart LR
     iokit["IOKit"]:::apple
     od["OpenDirectory"]:::finch
     objc["libobjc"]:::apple
-    swift["libswiftCore"]:::upstream
+    swift["Swift runtimes and overlays"]:::upstream
     icu["libicucore"]:::apple
     xml["libxml2"]:::apple
     comp["libcompression"]:::finch
@@ -223,6 +242,18 @@ flowchart LR
     appkit -->|"re-exports"| uif
     appkit -->|"re-exports"| appservices
     appkit --> cal
+    appkit --> coreui
+    coreui --> ffound
+    coreui --> cgfw
+    coreui --> imageio
+    coreui --> comp
+    coreui --> z
+    coreservices --> ffound
+    coreservices --> uti
+    uti --> ffound
+    security --> cf
+    security --> openssl
+    sysconfig --> cf
     uif --> ffound
     uif --> cgfw
     uif --> ctfw

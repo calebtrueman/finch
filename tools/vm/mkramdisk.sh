@@ -100,6 +100,23 @@ grep -v '^\s*#' "${OVERLAY}" | sed '/^\s*$/d' | while read -r src dst; do
     echo "  ${dst}"
 done
 
+# 2b. Apps from this Mac's own macOS, to try them on Finch's frameworks:
+#     FINCH_HOST_APPS="TextEdit Stickies" copies /System/Applications/<name>.app
+#     (or Utilities/<name>.app) to /Applications in the image. They come from
+#     the user's install at build time and stay in the local image; nothing of
+#     Apple's is added to the repository.
+for app in ${FINCH_HOST_APPS:-}; do
+    src="/System/Applications/${app}.app"
+    [[ -d "${src}" ]] || src="/System/Applications/Utilities/${app}.app"
+    [[ -d "${src}" ]] || die "no ${app}.app in /System/Applications"
+    mkdir -p "${mnt}/Applications"
+    cp -R "${src}" "${mnt}/Applications/" && chmod -R u+w "${mnt}/Applications/${app}.app"
+    while IFS= read -r -d '' f; do
+        is_macho "$f" && add_hashes "$f"
+    done < <(find "${mnt}/Applications/${app}.app" -type f -print0)
+    echo "  /Applications/${app}.app (from this Mac)"
+done
+
 # 3. Every dylib our binaries need must exist in the image. Weak links are
 #    allowed to be absent (libobjc's libobjc-env and libswiftCore, as on macOS).
 missing=$( { find "${ROOT}" -type f -print0 2>/dev/null; } | while IFS= read -r -d '' f; do
