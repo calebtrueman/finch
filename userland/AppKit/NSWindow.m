@@ -50,6 +50,17 @@ titlebar_height(NSWindowStyleMask style)
     return (style & NSWindowStyleMaskUtilityWindow) ? 24 : 32;
 }
 
+/* The title bar and, when shown, the toolbar's row under it (NSToolbar.m). */
+extern const CGFloat FinchToolbarHeight;
+static CGFloat
+chrome_height(NSWindow *w)
+{
+    CGFloat t = titlebar_height([w styleMask]);
+    if (t && [[w toolbar] isVisible])
+        t += FinchToolbarHeight;
+    return t;
+}
+
 static CFMutableArrayRef all_windows;  /* not retaining; in creation order */
 
 #pragma mark - The frame view
@@ -108,8 +119,9 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     CGFloat t = titlebar_height([w styleMask]);
     if (t == 0)
         return;
-    /* the title bar: a band a little lighter than the background, and a hairline under it */
-    NSRect bar = NSMakeRect(0, NSMaxY(b) - t, b.size.width, t);
+    /* the title bar (and toolbar): a band a little lighter than the background, and a hairline under it */
+    CGFloat chrome = chrome_height(w);
+    NSRect bar = NSMakeRect(0, NSMaxY(b) - chrome, b.size.width, chrome);
     BOOL key = [w isKeyWindow];
     CGContextSetRGBFillColor(cg, key ? 0.965 : 0.945, key ? 0.965 : 0.945, key ? 0.965 : 0.945, 1);
     CGContextFillRect(cg, NSRectToCGRect(bar));
@@ -145,7 +157,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
             NSSize size = [title sizeWithAttributes:attrs];
             CGFloat left = NSMaxX(button_rect(2, b, t)) + 12;
             CGFloat x = MAX(left, floor((b.size.width - size.width) / 2));
-            [title drawAtPoint:NSMakePoint(x, NSMinY(bar) + floor((t - size.height) / 2)) withAttributes:attrs];
+            [title drawAtPoint:NSMakePoint(x, NSMaxY(b) - t + floor((t - size.height) / 2)) withAttributes:attrs];
         }
     }
 }
@@ -164,7 +176,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
 
 - (BOOL)_inTitlebar:(NSPoint)p
 {
-    CGFloat t = titlebar_height([[self window] styleMask]);
+    CGFloat t = chrome_height([self window]);
     return t > 0 && p.y >= NSMaxY([self bounds]) - t;
 }
 
@@ -287,14 +299,17 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     return NSWindowDepthTwentyfourBitRGB;
 }
 
+/* The instance methods count the toolbar's row, as Apple's do. */
 - (NSRect)frameRectForContentRect:(NSRect)rect
 {
-    return [[self class] frameRectForContentRect:rect styleMask:_style];
+    rect.size.height += chrome_height(self);
+    return rect;
 }
 
 - (NSRect)contentRectForFrameRect:(NSRect)rect
 {
-    return [[self class] contentRectForFrameRect:rect styleMask:_style];
+    rect.size.height -= chrome_height(self);
+    return rect;
 }
 
 - (instancetype)init
@@ -536,6 +551,8 @@ server_flags(NSWindow *w)
 
 - (void)update
 {
+    if ([_toolbar isVisible])
+        [_toolbar validateVisibleItems];
     [[NSNotificationCenter defaultCenter] postNotificationName:NSWindowDidUpdateNotification object:self];
 }
 
@@ -600,7 +617,7 @@ server_flags(NSWindow *w)
 - (NSRect)_contentFrameInFrameView
 {
     NSRect r = NSMakeRect(0, 0, _frame.size.width, _frame.size.height);
-    r.size.height -= titlebar_height(_style);
+    r.size.height -= chrome_height(self);
     return r;
 }
 
@@ -926,7 +943,60 @@ server_flags(NSWindow *w)
 - (void)setAppearance:(NSAppearance *)appearance { [_appearance autorelease]; _appearance = [appearance retain]; }
 - (NSAppearance *)effectiveAppearance { return _appearance ?: [NSApp effectiveAppearance]; }
 - (NSToolbar *)toolbar { return _toolbar; }
-- (void)setToolbar:(NSToolbar *)toolbar { [_toolbar autorelease]; _toolbar = [toolbar retain]; }
+- (void)setToolbar:(NSToolbar *)toolbar
+{
+    if (toolbar == _toolbar)
+        return;
+    [_toolbar _finchSetWindow:nil];
+    [[_toolbar _finchView] removeFromSuperview];
+    CGFloat before = chrome_height(self);
+    [_toolbar autorelease];
+    _toolbar = [toolbar retain];
+    [toolbar _finchSetWindow:self];
+    [self _finchToolbarChangedFrom:before];
+}
+
+/* Showing or hiding the toolbar grows or shrinks the frame, keeping the content's size and the top edge. */
+- (void)_finchToolbarChanged
+{
+    [self _finchToolbarChangedFrom:-1];
+}
+
+- (void)_finchToolbarChangedFrom:(CGFloat)before
+{
+    NSView *row = [_toolbar _finchView];
+    CGFloat t = titlebar_height(_style);
+    BOOL shown = t && [_toolbar isVisible];
+    if (before < 0)
+        before = t + (shown ? 0 : FinchToolbarHeight);
+    CGFloat after = chrome_height(self);
+    if (after != before) {
+        NSRect f = _frame;
+        f.size.height += after - before;
+        f.origin.y -= after - before;
+        [self setFrame:f display:NO];
+    }
+    if (shown) {
+        [row setFrame:NSMakeRect(0, _frame.size.height - t - FinchToolbarHeight, _frame.size.width, FinchToolbarHeight)];
+        [row setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        if ([row superview] != _frameView)
+            [_frameView addSubview:row];
+    } else {
+        [row removeFromSuperview];
+    }
+    [_contentView setFrame:[self _contentFrameInFrameView]];
+    [_frameView setNeedsDisplay:YES];
+}
+
+- (IBAction)toggleToolbarShown:(id)sender
+{
+    [_toolbar setVisible:![_toolbar isVisible]];
+}
+
+- (IBAction)runToolbarCustomizationPalette:(id)sender
+{
+    [_toolbar runCustomizationPalette:sender];
+}
 - (NSWindowToolbarStyle)toolbarStyle { return NSWindowToolbarStyleAutomatic; }
 - (void)setToolbarStyle:(NSWindowToolbarStyle)style {}
 - (NSTitlebarSeparatorStyle)titlebarSeparatorStyle { return NSTitlebarSeparatorStyleAutomatic; }

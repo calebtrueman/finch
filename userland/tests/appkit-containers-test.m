@@ -5,6 +5,64 @@
  */
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
+
+@interface TBDelegate : NSObject <NSToolbarDelegate>
+@end
+@implementation TBDelegate
+- (NSArray *)toolbarDefaultItemIdentifiers:(NSToolbar *)t
+{
+    return @[ @"a", NSToolbarFlexibleSpaceItemIdentifier, @"b" ];
+}
+- (NSArray *)toolbarAllowedItemIdentifiers:(NSToolbar *)t
+{
+    return @[ @"a", @"b", NSToolbarFlexibleSpaceItemIdentifier, NSToolbarSpaceItemIdentifier ];
+}
+- (NSToolbarItem *)toolbar:(NSToolbar *)t itemForItemIdentifier:(NSToolbarItemIdentifier)i willBeInsertedIntoToolbar:(BOOL)f
+{
+    NSToolbarItem *it = [[NSToolbarItem alloc] initWithItemIdentifier:i];
+    it.label = [i uppercaseString];
+    printf("  delegate item %s insert %d\n", i.UTF8String, f);
+    return it;
+}
+@end
+
+static void
+toolbars(void)
+{
+    printf("== toolbar\n");
+    NSWindow *w = [[NSWindow alloc] initWithContentRect:NSMakeRect(100, 100, 400, 300)
+                                              styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+                                                backing:NSBackingStoreBuffered defer:YES];
+    w.releasedWhenClosed = NO;
+    NSToolbar *t = [[NSToolbar alloc] initWithIdentifier:@"tb"];
+    TBDelegate *d = [TBDelegate new];
+    t.delegate = d;
+    printf("before window: visible %d display %ld size %ld user %d autosave %d baseline %d\n", t.isVisible,
+           (long)t.displayMode, (long)t.sizeMode, t.allowsUserCustomization, t.autosavesConfiguration,
+           t.showsBaselineSeparator);
+    w.toolbar = t;
+    printf("in window: visible %d items:", t.isVisible);
+    for (NSToolbarItem *i in t.items)
+        printf(" %s(%s)", i.itemIdentifier.UTF8String, i.label.UTF8String);
+    printf("\n");
+    t.visible = NO;
+    printf("hidden: visible items %lu\n", (unsigned long)t.visibleItems.count);
+    t.visible = YES;
+    [t insertItemWithItemIdentifier:NSToolbarSpaceItemIdentifier atIndex:1];
+    [t removeItemAtIndex:0];
+    printf("after edits:");
+    for (NSToolbarItem *i in t.items)
+        printf(" %s", i.itemIdentifier.UTF8String);
+    printf("\n");
+    printf("constants: %s %s %s %s %s\n", NSToolbarFlexibleSpaceItemIdentifier.UTF8String,
+           NSToolbarSpaceItemIdentifier.UTF8String, NSToolbarToggleSidebarItemIdentifier.UTF8String,
+           NSToolbarPrintItemIdentifier.UTF8String, NSToolbarSidebarTrackingSeparatorItemIdentifier.UTF8String);
+    NSToolbarItem *x = [[NSToolbarItem alloc] initWithItemIdentifier:@"x"];
+    printf("item defaults: label '%s' palette '%s' enabled %d autovalidates %d priority %ld bordered %d nav %d tag %ld\n",
+           x.label.UTF8String, x.paletteLabel.UTF8String, x.isEnabled, x.autovalidates, (long)x.visibilityPriority,
+           x.isBordered, x.isNavigational, (long)x.tag);
+    [w close];
+}
 static void dump(NSSplitView *s){ printf("  split %s:", NSStringFromRect(s.frame).UTF8String); for (NSView *v in s.arrangedSubviews) printf(" %s%s", NSStringFromRect(v.frame).UTF8String, [s isSubviewCollapsed:v]?"(c)":""); printf("\n"); }
 int main(void){@autoreleasepool{ setvbuf(stdout,NULL,_IOLBF,0); printf("%s\n", class_getImageName([NSSplitView class])); [NSApplication sharedApplication];
  NSSplitView *s=[[NSSplitView alloc] initWithFrame:NSMakeRect(0,0,300,200)];
@@ -25,4 +83,5 @@ int main(void){@autoreleasepool{ setvbuf(stdout,NULL,_IOLBF,0); printf("%s\n", c
  [t selectNextTabViewItem:nil]; printf("after next %s\n", [t.selectedTabViewItem.identifier UTF8String]);
  t.tabViewType=NSNoTabsNoBorder; printf("noTabs content %s\n", NSStringFromRect(t.contentRect).UTF8String);
  t.tabViewType=NSTopTabsBezelBorder; printf("top content %s min %s\n", NSStringFromRect(t.contentRect).UTF8String, NSStringFromSize(t.minimumSize).UTF8String);
+ toolbars();
 }}
