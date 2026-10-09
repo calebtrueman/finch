@@ -76,7 +76,9 @@ static NSMutableArray<NSString *> *log_;
 }
 - (void)windowDidMove:(NSNotification *)n
 {
-    [log_ addObject:@"delegate windowDidMove"];
+    /* a drag moves the window once per drag event that gets through, which depends on timing */
+    if (![log_.lastObject isEqualToString:@"delegate windowDidMove"])
+        [log_ addObject:@"delegate windowDidMove"];
 }
 - (void)windowDidBecomeKey:(NSNotification *)n
 {
