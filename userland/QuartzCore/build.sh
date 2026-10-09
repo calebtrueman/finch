@@ -1,8 +1,9 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # QuartzCore.framework (Core Animation): Finch's own, compiled against the
-# SDK's headers. So far the CATransform3D functions, CACurrentMediaTime and
-# the string constants; layers and animation are next.
+# SDK's headers: the CATransform3D functions, CACurrentMediaTime, the
+# string constants, layers (drawn through CoreGraphics and CoreText),
+# animations (kept, not yet played) and transactions.
 #
 # Linked as Apple ships it: Versions/A, current version 1195.9, compatibility version 1.2.
 #
@@ -32,7 +33,7 @@ mkdir -p "${FW}/Versions/A"
 "${CC}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
     -install_name /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore \
     -current_version 1195.9 -compatibility_version 1.2 "${OBJ}"/*.o -o "${FW}/Versions/A/QuartzCore" \
-    -F"${ROOT}/System/Library/Frameworks" -framework Foundation -framework CoreFoundation -framework CoreGraphics -lobjc
+    -F"${ROOT}/System/Library/Frameworks" -framework Foundation -framework CoreFoundation -framework CoreGraphics -framework CoreText -lobjc
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/QuartzCore "${FW}/QuartzCore"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" A QuartzCore com.apple.QuartzCore QuartzCore 1.11 1195.9 English

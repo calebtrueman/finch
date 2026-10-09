@@ -5,7 +5,7 @@ What runs on Finch today and where each piece comes from, bottom to top.
 These diagrams are updated in every commit that changes the stack, and
 `tools/render-stack.sh` checks that they render.
 
-**As of 2026-10-08:** nothing Finch builds links a closed library
+**As of 2026-10-09:** nothing Finch builds links a closed library
 (`tools/check-closed.py`). Finch's own Foundation covers about 130 of Apple's
 classes, on a CoreFoundation that dispatches to Objective-C objects as Apple's
 does (`docs/design/FOUNDATION.md`); its NSXMLParser runs on Apple's libxml2,
@@ -42,7 +42,7 @@ block-beta
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
         ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]
-        later["QuartzCore (begun: transforms),<br/>CoreServices (umbrella);<br/>Metal, SwiftUI, AV"]
+        later["QuartzCore (layers drawn through<br/>CoreGraphics, animations kept,<br/>not yet played), CoreServices<br/>(umbrella); Metal, SwiftUI, AV"]
         space6b[" "]
     end
     block:L5

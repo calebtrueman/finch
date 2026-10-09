@@ -97,3 +97,11 @@ __attribute__((visibility("default"))) NSString *const kCAValueFunctionTranslate
 __attribute__((visibility("default"))) NSString *const kCAValueFunctionTranslateX = @"translateX";
 __attribute__((visibility("default"))) NSString *const kCAValueFunctionTranslateY = @"translateY";
 __attribute__((visibility("default"))) NSString *const kCAValueFunctionTranslateZ = @"translateZ";
+__attribute__((visibility("default"))) NSString *const kCATransactionAnimationDuration = @"animationDuration";
+__attribute__((visibility("default"))) NSString *const kCATransactionAnimationTimingFunction = @"animationTimingFunction";
+__attribute__((visibility("default"))) NSString *const kCATransactionCompletionBlock = @"completionBlock";
+__attribute__((visibility("default"))) NSString *const kCATransactionDisableActions = @"disableActions";
+
+/* "no preference": all zeros */
+#import <QuartzCore/CAFrameRateRange.h>
+__attribute__((visibility("default"))) const CAFrameRateRange CAFrameRateRangeDefault = {0, 0, 0};
