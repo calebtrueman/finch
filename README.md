@@ -26,16 +26,26 @@ VM. Bare metal comes after the GUI stack.
 - **Nothing closed is borrowed** above the kernel (since 2026-10-08). Every library
   Finch builds links only Finch-built code (`tools/check-closed.py`). Closed pieces are
   built from Apple's open source or written by Finch as they come up.
-- **Frameworks:**
+- **Frameworks (Phase 2, in progress):** each is checked by test programs that print the
+  same output against Apple's framework and Finch's.
   - CoreFoundation (swift-corelibs-foundation's CF plus Finch's Objective-C bridge),
-    IOKit, OpenDirectory, libcompression and ICU are built.
-  - Finch's own **Foundation** covers about 100 of Apple's classes: strings,
-    collections, run loops, files, bundles, formatters, KVC/KVO, keyed archiving, JSON,
-    regular expressions, predicates, streams and tasks. Its test output matches Apple's
-    Foundation line for line.
-- **Next:** CoreGraphics on [Skia](docs/design/COREGRAPHICS.md) (it builds), then
-  ImageIO, CoreText, a window server and AppKit, until an unmodified Mac app draws a
-  window.
+    IOKit, OpenDirectory, libcompression and ICU are built from source.
+  - Finch's own **Foundation** (about 130 of Apple's classes, URL resource values,
+    Apple events registration) and **UniformTypeIdentifiers**.
+  - **CoreGraphics** over [Skia](docs/design/COREGRAPHICS.md) (bitmap contexts, paths,
+    images, gradients, patterns, text, PDF writing and reading), **ImageIO** over open
+    codecs, and **CoreText** over HarfBuzz, FreeType and ICU, with open fonts in place of
+    Apple's.
+  - Finch's own **window server** ([design](docs/design/WINDOWSERVER.md)): windows over
+    shared memory, a compositor, input routing, a host viewer.
+  - Finch's own **AppKit** ([design](docs/design/APPKIT.md)) with UIFoundation under it:
+    applications, windows, views, events, drawing, nibs, documents, controls, menus and a
+    menu bar, text views, scrolling, printing to PDF.
+  - **A Cocoa app runs:** `userland/tests/apps/Hello`, built the usual way (a nib from
+    ibtool, `NSApplicationMain`), puts up its menu bar and window on Finch's window server
+    and answers clicks and typing, on the host (`tools/run-app.sh`) and in the VM.
+- **Next:** Swift overlays, Auto Layout, bindings, panels and TextKit 2, until Apple's
+  TextEdit, unmodified, runs on Finch.
 
 ## Principles
 
