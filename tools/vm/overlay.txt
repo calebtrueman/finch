@@ -69,6 +69,9 @@ build/userland/finch-appkit-text-test /usr/local/bin/finch-appkit-text-test
 build/userland/appkit-text-test.nib /usr/local/share/finch/appkit-text-test.nib
 build/userland/finch-appkit-text-window-test /usr/local/bin/finch-appkit-text-window-test
 build/userland/finch-textkit2-test /usr/local/bin/finch-textkit2-test
+build/userland/finch-appkit-panels-test /usr/local/bin/finch-appkit-panels-test
+build/userland/finch-appkit-panels-window-test /usr/local/bin/finch-appkit-panels-window-test
+userland/tests/appkit-panels-window-test.expected /usr/local/share/finch/appkit-panels-window-test.expected
 build/userland/finch-appkit-menu-test /usr/local/bin/finch-appkit-menu-test
 build/userland/menu-test.nib /usr/local/share/finch/menu-test.nib
 build/userland/finch-appkit-menu-window-test /usr/local/bin/finch-appkit-menu-window-test

@@ -251,6 +251,12 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         `NSClipView`, `NSScroller`, an in-process `NSPasteboard`. `finch-appkit-text-test` matches
         Apple's on the host and in the VM; `finch-appkit-text-window-test` types, clicks and scrolls
         through the server (2026-10-08); rich-text pasteboard types, find and spelling to come
+  - [x] Panels, alerts and the workspace: `NSAlert` (modal and as window-modal sheets), Finch's own
+        `NSSavePanel`/`NSOpenPanel` browser, `NSWorkspace` and `NSRunningApplication` without
+        LaunchServices (apps found by their Info.plist, launched by spawning their executable).
+        `finch-appkit-panels-test` matches Apple's on the host and in the VM;
+        `finch-appkit-panels-window-test` answers alerts, browses, chooses, saves and launches an
+        app through the server (2026-10-09); Apple events, column views and sheet animation to come
   - [ ] Bindings and controllers: Cocoa bindings (`NSKeyValueBinding`: bind/unbind/info, markers
         and placeholders, transformers, `NSEditor` commits) for text fields, checkboxes, sliders,
         pop-up buttons, text views and views; `NSObjectController`, `NSArrayController`,

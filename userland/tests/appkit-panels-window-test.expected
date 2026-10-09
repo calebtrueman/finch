@@ -1,0 +1,61 @@
+alert visible 1 key 1 modal 1 level 8
+buttons right to left 1, along the bottom 1
+default button: accent
+other button: light
+cancel title: ink
+icon: accent
+panel background: light
+click Cancel: 1001, alert visible after 0
+Return: 1000
+Escape: 1001
+Command-D: 1002
+message: ink
+implicit OK: 1000, suppression 1
+critical icon: yellow
+critical: 1000
+sheet: attached 1 parent 1 visible 1 key 1 centred 1 under the title bar 1
+sheet default button: accent
+parent button clicks while sheet up 0, sheet still key 1
+sheet ended 1 with 1002, attached after 0, visible 0, parent key 1
+parent button clicks after 1
+presentError: 0
+recovery attempted with option 0
+presentError with recovery: 1
+open panel visible 1 key 1 title 'Open'
+root: Alpha/, Beta/, Gamma.app (off), notes.txt, photo.png (off)
+open button (disabled, nothing selected): other
+folder icon: other
+selected after clicking photo.png 0
+Beta: doc1.txt, image.png (off)
+after Command-Up: Alpha/, Beta/, Gamma.app (off), notes.txt, photo.png (off)
+after Command-Down: doc1.txt, image.png (off)
+selected row: accent
+open button (enabled): accent
+open panel delegate: selectionDidChange; selectionDidChange; didChangeTo <root>/Beta; didChangeTo <root>; selectionDidChange; selectionDidChange; didChangeTo <root>/Beta; selectionDidChange; validate <root>/Beta/doc1.txt
+open: 1 URLs doc1.txt visible after 0
+open URL <root>/Beta/doc1.txt
+folders: .hidden (off), Alpha/, Beta/, Gamma.app (off), notes.txt (off), photo.png (off)
+folders: 1 URLs Alpha,Beta
+cancelled open: 0 URLs 0
+save panel visible 1 first responder is the name field's editor 1, selected {0, 8}
+save list: Alpha/, Beta/, Gamma.app (off), notes.txt, photo.png (off)
+save button: accent
+name field: ink
+typed 'Report'
+save delegate: validate <root>/Report.txt
+save: 1 URL <root>/Report.txt name Report.txt
+asked to replace 1
+replace: 1 URL <root>/notes.txt
+all files: Alpha/, Beta/, Gamma.app, notes.txt, photo.png
+name after click photo.png
+cancelled save: 0
+field shows 'Summary', name 'Summary.txt'
+hidden extension: 1 URL <root>/Summary.txt
+save sheet attached 1
+save sheet ended 0 attached 0
+launched 1 error (null): org.finch.test.launch Launch pid 1 bundle <root>/Launch.app
+it ran with: hello -flag <root>/notes.txt
+running applications has it 1
+terminated 1; notifications: launched org.finch.test.launch, terminated Launch
+openURL with no app for it 0
+app URL for the test bundle id (not in an app folder) (none)

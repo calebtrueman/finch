@@ -256,6 +256,46 @@ window server, Finch-only.
   Not yet: Services, the Help menu's search field, menu item views drawn in menus (they
   take their height only), badges, palette menus, scrolling long menus, tear-offs,
   `NSStatusBar`, Apple's automatic Edit and Window menu items (dictation, emoji, tabs).
+- 2026-10-09: alerts, open and save panels, the workspace. `NSAlert` (`NSAlert.m`) has
+  Apple's state as measured on macOS 26: the implicit "OK" (tag 0) until a button is added,
+  tags from `NSAlertFirstButtonReturn`, key equivalents by title (Return for the first button,
+  Escape for "Cancel", Command-D for "Don't Save"), the suppression checkbox's placeholder title
+  until layout and its shorter title beside two or more buttons, `+alertWithError:` (critical,
+  recovery options as buttons, help anchor), the legacy `+alertWithMessageText:...` (Apple's
+  button order and old return codes), nil texts raising; it is laid out as macOS's classic alert
+  in Finch's own look (icon, bold message, informative text, accessory, checkbox, buttons from
+  the right, help button at the left; a caution sign badged with the app icon when critical) and
+  runs app-modally or as a sheet. Sheets (`FinchSheet.m`, NSWindow's sheet API) have no animation:
+  the sheet is a child window placed over its parent, centred under the title bar, and an event
+  monitor sends clicks and keys meant for the parent to the sheet. `NSApplication`'s
+  `presentError:` family now shows an alert and calls the error's recovery attempter.
+  `NSSavePanel`/`NSOpenPanel` (`NSSavePanel.m`) are Finch's own browser: message, "Save As:"
+  field, back button, path pop-up and New Folder, a list of the folder (Finch-drawn icons; hidden
+  files, packages, `allowedContentTypes` through UniformTypeIdentifiers, files/directories
+  choosability and the delegate's `panel:shouldEnableURL:` decide what is enabled; double click,
+  Command-Up/Down, arrows and type-to-select), the accessory view, Cancel and the prompt, "Hide
+  extension". Choosing appends the first allowed type's extension, asks before replacing, and
+  asks the delegate (`validateURL`, `userEnteredFilename`, `didChangeToDirectoryURL`,
+  `panelSelectionDidChange`); `runModal`, `beginWithCompletionHandler:` and sheets. Their defaults
+  and setters are Apple's (titles, prompts, `~/Documents`, URL as directory plus name until
+  chosen, `allowedFileTypes` and `allowedContentTypes` mirroring each other, an open panel
+  ignoring the name, `tagNames` only with the tag field, a non-file directory URL reading back
+  nil). `NSWorkspace`, `NSWorkspaceOpenConfiguration` and `NSRunningApplication` (`NSWorkspace.m`)
+  work without LaunchServices: apps are found in the application folders by their Info.plist
+  (bundle identifiers, document types ranked as LaunchServices ranks them, URL schemes), launched
+  by spawning the bundle's executable (arguments, environment, files on the command line, the
+  launch and terminate notifications on the workspace's own centre), `recycleURLs:` moves to
+  `~/.Trash`, `duplicateURLs:` names copies as Finder does, types and icons (Finch's generic app,
+  folder, document and volume icons drawn in code), Apple's constants; running applications are
+  this process and processes inside app bundles (`proc_pidpath`), with Apple's answers for an
+  unbundled tool. `finch-appkit-panels-test` prints the same against Apple's AppKit and Finch's on
+  the host and in the VM; `finch-appkit-panels-window-test` answers alerts by click, Return,
+  Escape and Command-D, runs a sheet, browses, chooses and saves with the panels and launches an
+  app bundle on a headless server, matching `appkit-panels-window-test.expected`. Not yet: Apple
+  events (opened files reach a launched app only as arguments), activating or hiding other apps,
+  a file viewer (`activateFileViewerSelectingURLs:` uses an app that opens folders, if any), file
+  tags, custom icons, column and icon views, sidebar and search in the panels, sheet animation,
+  `NSHelpManager`.
 - 2026-10-09: Cocoa bindings and controllers, the font manager. `NSKeyValueBinding.m`: every
   binding, option and info-key name with Apple's value; the markers (`NSBindingSelectionMarker`,
   `NSMultipleValuesMarker`...) and default placeholders by class and binding; NSObject's

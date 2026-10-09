@@ -830,20 +830,37 @@ resolve_target(NSApplication *self, SEL action, id target)
 
 #pragma mark - Errors
 
+/* The error's recovery attempter, given the alert button chosen (NSAlert.m's buttons are the options). */
+static BOOL
+attempt_recovery(NSError *error, NSModalResponse response)
+{
+    id attempter = [error recoveryAttempter];
+    NSInteger option = response - NSAlertFirstButtonReturn;
+    if (!attempter || option < 0 || option >= (NSInteger)[[error localizedRecoveryOptions] count] ||
+        ![attempter respondsToSelector:@selector(attemptRecoveryFromError:optionIndex:)])
+        return NO;
+    return [attempter attemptRecoveryFromError:error optionIndex:(NSUInteger)option];
+}
+
 - (BOOL)presentError:(NSError *)error
 {
     if ([(id)_delegate respondsToSelector:@selector(application:willPresentError:)])
         error = [_delegate application:self willPresentError:error];
-    NSLog(@"%@", [error localizedDescription]);
-    return NO;
+    return attempt_recovery(error, [[NSAlert alertWithError:error] runModal]);
 }
 
 - (void)presentError:(NSError *)error modalForWindow:(NSWindow *)window delegate:(id)delegate
     didPresentSelector:(SEL)didPresentSelector contextInfo:(void *)contextInfo
 {
-    BOOL recovered = [self presentError:error];
-    if (delegate && didPresentSelector)
-        ((void (*)(id, SEL, BOOL, void *))objc_msgSend)(delegate, didPresentSelector, recovered, contextInfo);
+    if ([(id)_delegate respondsToSelector:@selector(application:willPresentError:)])
+        error = [_delegate application:self willPresentError:error];
+    [[NSAlert alertWithError:error] beginSheetModalForWindow:window
+                                           completionHandler:^(NSModalResponse r) {
+                                               BOOL recovered = attempt_recovery(error, r);
+                                               if (delegate && didPresentSelector)
+                                                   ((void (*)(id, SEL, BOOL, void *))objc_msgSend)(
+                                                       delegate, didPresentSelector, recovered, contextInfo);
+                                           }];
 }
 
 @end
