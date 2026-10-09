@@ -54,6 +54,10 @@ ivars are its own.
   which route them to views (hit testing, the first responder).
 - **Nibs**: compiled nibs are keyed archives (`NSKeyedArchiver`), so loading
   one is unarchiving Finch's own classes plus `NSIBObjectData`'s connections.
+- **Layout and bindings**: CoreAutoLayout solves the rules that place and size
+  views; AppKit applies them to windows, views and stack views. Cocoa bindings
+  connect controls to values and controllers. Storyboards load their scenes and
+  connections. The October 9 entries below describe the supported parts and gaps.
 
 ## Testing
 
@@ -63,6 +67,10 @@ diffed. Geometry, state, responder chains and drawing into bitmaps compare
 directly. Controls are drawn in Finch's own look, so their pixels are not
 compared with Apple's. Windows and events are tested against a headless
 window server, Finch-only.
+
+`finch-app-test` can drive an app on a headless window server. Its
+`screenshot:PATH` step saves the whole screen as a PNG for checking what the app
+draws (`userland/tests/app-test.c`).
 
 ## Status
 
@@ -97,8 +105,8 @@ window server, Finch-only.
   exact metrics, UI fonts, paragraph styles, tabs, lists, shadows, string sizes,
   the text system's geometry and editing, 18 drawing scenes against renders from
   Apple's frameworks) prints identical output against Apple's frameworks and
-  Finch's on the host, and Finch's in the VM. Not yet: TextKit 2
-  (`NSTextLayoutManager`, `NSTextContentStorage`, ...), `NSTextBlock`/`NSTextTable`,
+  Finch's on the host, and Finch's in the VM. TextKit 2 was added on October 9
+  (see its entry below). Still missing: `NSTextBlock`/`NSTextTable`,
   `NSGlyphInfo`, `NSTypesetter`, exclusion paths, Apple's tightening before
   truncation, and reading and writing RTF/HTML/document formats.
 - 2026-10-08: the drawing classes. `NSGraphicsContext` (per-thread current context and
@@ -150,8 +158,8 @@ window server, Finch-only.
   opening documents, recents). `NSViewController` joins the responder chain between
   its view and the superview, and the nib decoder allocates `NSClassSwapper`
   classes directly so objects that refer back to them get the real object.
-  `finch-appkit-document-test` matches Apple's on the host. Open and save panels are
-  still to come.
+  `finch-appkit-document-test` matches Apple's on the host. Open and save panels
+  were added on October 9 (see the alerts and panels entry below).
 - 2026-10-08: controls and cells. `NSCell` (types, states and the mixed-state cycle,
   values and their conversions with Apple's string forms, formatters, which setters imply
   which, tracking, editing through the field editor), `NSActionCell`, `NSControl` (its
@@ -212,9 +220,10 @@ window server, Finch-only.
   movement, selection, undo, delegate order, pasteboard, field editor, clip and scroll
   view geometry, magnification, a nib) prints the same as Apple's AppKit on the host and
   in the VM; `finch-appkit-text-window-test` clicks, types, uses arrows and the
-  equivalents, and scrolls a text view on a headless server, sampling what it draws. Not
-  yet: rich-text pasteboard types (RTF), the font and colour panels, spelling, find,
-  rulers, smart insert/delete and substitutions, multiple selections, TextKit 2, a
+  equivalents, and scrolls a text view on a headless server, sampling what it draws.
+  The font panel and TextKit 2 were added on October 9 (see their entries below).
+  Still missing here: rich-text pasteboard types (RTF), the colour panel, spelling,
+  find, rulers, smart insert/delete and substitutions, multiple selections, a
   pasteboard server.
 - 2026-10-08: menus. `NSMenu` and `NSMenuItem` (all of the public API; `NSMenu.m`,
   `NSMenuItem.m`) behave as Apple's, as measured: building and indexes, submenus and
@@ -332,8 +341,9 @@ window server, Finch-only.
   (names, NSObject and control bindings both ways, options, pop-ups, editing and commits, text
   views, both controllers, the defaults controller on a private suite, a nib of bound controls,
   NSFontManager on Liberation Sans and Inter) prints the same against Apple's AppKit and Finch's on
-  the host. Not yet: `NSTreeController`, `NSDictionaryController`, table/outline/collection view
-  bindings, Core Data (managed object contexts, fetching), validation alerts, display patterns,
+  the host; the October 9 follow-up below records the VM result. Not yet: `NSTreeController`,
+  `NSDictionaryController`, table/outline/collection view bindings, Core Data (managed object
+  contexts, fetching), validation alerts, display patterns,
   font bindings beyond `font` (fontBold, fontSize...), the font panel's collections and effects,
   font collections kept on disk; Apple's `convertWeight:` quirks with italics and light faces are
   not copied.
@@ -430,10 +440,19 @@ window server, Finch-only.
   palette label, tool tip, title, image, view, target and action, tag, enabled, autovalidates, bordered,
   navigational, visibility priority, min and max sizes), and Apple's private `NSToolbarFlexibleSpaceItem`,
   `NSToolbarSpaceItem` and `NSToolbarSeparatorItem` that nibs archive for the standard items.
+- 2026-10-09: copying an `NSCustomImageRep` now keeps its drawing handler alive for the
+  copy, so freeing the original and copy no longer releases the same handler twice.
+  `NSFontEffectsBox` lets nibs that name the font panel's effects bar, including Stickies',
+  load it as a plain `NSBox`; it does not add the effects controls. The
+  `finch-appkit-bindings-test` comparison also matched Apple's in the VM.
 - 2026-10-09: full-size content windows (`NSWindowStyleMaskFullSizeContentView`, as Image Capture's):
   the content fills the frame and Finch's title bar and toolbar row are drawn over it by an overlay
   view (`FinchTitlebarView`), honouring `titlebarAppearsTransparent` and `titleVisibility`;
   `contentLayoutRect` leaves the title bar and toolbar out, as Apple's does. Window templates attach
   the toolbar archived under `NSViewClass`; a toolbar uses the nib's items for the identifiers its
-  delegate names, and asks a delegate set after it was first shown. Not yet: Apple's unified
-  toolbar style (title and items in one 52-point row) and scroll views insetting themselves under it.
+  delegate names, and asks a delegate set after it was first shown. Image Capture now shows
+  its title bar and toolbar; the toolbar is empty without a device, as on macOS. Still missing:
+  Apple's unified toolbar style (title and items in one 52-point row) and scroll views
+  automatically leaving space below these bars. This change also added
+  `finch-app-test`'s `screenshot:PATH` step; the AppKit comparison tests and window-server
+  tests still matched.

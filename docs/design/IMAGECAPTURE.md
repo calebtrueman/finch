@@ -66,9 +66,9 @@ after Cocoa.
 
 `finch-imagekit-test` (`userland/tests/imagekit-test.m`) prints the
 constants, classes, `ICDeviceBrowser`'s browsing, and the three views'
-defaults, properties and delegate calls outside and inside a window. It prints
-the same as Apple's frameworks on the host, all but the first line. On the
-host, `DYLD_FRAMEWORK_PATH` must also include
+defaults, properties and delegate calls outside and inside a window. The
+recorded host and VM runs match Apple's host output, all but the first line
+(the loaded library's path). On the host, `DYLD_FRAMEWORK_PATH` must also include
 `build/root/System/Library/Frameworks/Quartz.framework/Frameworks`: dyld looks
 up a nested framework by its own name, so without it the process loads Apple's
 ImageKit (and with it Apple's Quartz world). Run it with no camera or scanner
@@ -77,13 +77,33 @@ attached to the host.
 ## Status
 
 - 2026-10-09: the four frameworks. `finch-imagekit-test` matches Apple's on
-  the host. The unmodified Image Capture app launches on the host on Finch's
-  frameworks and headless window server and shows its window: the device list
-  with "DEVICES", "No Devices", "SHARED" and the no-device pane. To get there
+  the host and in the VM (`38a733e`). The unmodified Image Capture app launches
+  on the host on Finch's frameworks and headless window server. Its window
+  shows the device list with "DEVICES", "No Devices", "SHARED" and the
+  no-device pane. To get there
   AppKit gained `NSSplitViewItem -initWithCoder:` and toolbar items from nibs
   (`NSToolbarItem -initWithCoder:`, Apple's private `NSToolbarFlexibleSpaceItem`,
   `NSToolbarSpaceItem`, `NSToolbarSeparatorItem`).
-- Still to do for the app: its strings come from `.loctable` files, which
-  Finch's `NSBundle` doesn't read yet, so it shows keys such as
-  `kICNoCameraOrScannerSelected`. Its window shows no title bar or toolbar on
-  Finch yet (not looked into).
+- 2026-10-09: CoreFoundation reads `.loctable` files, uses `AppleLanguages`,
+  and matches languages through Apple's ICU (`52f174f`). `NSBundle` uses that
+  support, so Image Capture can show its English strings when English is the
+  user's preferred language. `finch-l10n-test` matched Apple's on the host.
+- 2026-10-09: the app shows its title bar and toolbar (`ff499c9`). AppKit now
+  draws them over full-size content windows, attaches the toolbar stored in
+  the nib, and uses its saved items for the delegate's item identifiers.
+  The toolbar is empty with no device selected, as on macOS. `finch-app-test`
+  also gained `screenshot:PATH` for saving the whole screen as a PNG. The AppKit
+  comparison and window-server tests still matched.
+
+## Still to do
+
+The app's recorded launch and window check ran on the host with Finch's
+frameworks and headless window server. Launching the full app inside the VM
+remains unverified; the VM result above covers the framework comparison test.
+
+Real cameras and scanners still need device modules and an agent. Without
+them, browsing stays empty, and import and scan requests cannot succeed.
+ImageKit's general image browser, image view, picture taker, slideshow and
+filter UI remain unfinished. AppKit also lacks Apple's unified toolbar style
+with the title and items in one row. See `docs/design/APPKIT.md` for the window
+and toolbar details.

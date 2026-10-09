@@ -150,7 +150,14 @@ normally on its own kernel, until Finch's kernel runs on bare metal. The guest
 is set up and reachable with `tools/vz/ssh` (2026-10-08).
 - [x] The open libraries Finch's binaries link: all of them, Foundation included
       (`tools/check-closed.py`, 2026-10-08). IOKit is done.
-- [ ] CoreFoundation's ObjC bridge and the classes it hosts (in progress, above)
+- [ ] CoreFoundation: the ObjC bridge works; remaining hosted classes are listed above
+  - [x] `CFNotificationCenter`: the local center shares observers with Foundation's
+        default `NSNotificationCenter`; posts through either reach both in observer order.
+        The Darwin center uses notify(3). `finch-cfnotify-test` matches Apple's on the host
+        and in the VM (2026-10-09). Distributed notifications still stay within the process.
+  - [x] Bundle localization: `.loctable` files, the `AppleLanguages` preference and
+        Apple's ICU language matching. Image Capture now picks English instead of Korean.
+        `finch-l10n-test` matches Apple's on the host (2026-10-09).
 - [ ] Foundation, Finch's own in Objective-C over Finch's CF, class for class where
       Apple's is (`docs/design/FOUNDATION.md`). Behaviour is checked against Apple's
       on the host; swift-corelibs-foundation is the reference implementation.
@@ -226,9 +233,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
 - [ ] AppKit ([`docs/design/APPKIT.md`](design/APPKIT.md))
   - [x] Framework skeletons as Apple splits them: AppKit re-exporting a private
         UIFoundation, ApplicationServices and Foundation; the Cocoa umbrella
-  - [x] UIFoundation: fonts, paragraph styles, shadows, string drawing, the text system
-        (TextKit 1; TextKit 2 and document formats to come). `finch-uifoundation-test`
-        matches Apple's on the host and in the VM (2026-10-08). TextKit 2 (`NSTextLayoutManager`,
+  - [x] UIFoundation: fonts, paragraph styles, shadows, string drawing, TextKit 1 and 2.
+        `finch-uifoundation-test` matches Apple's on the host and in the VM (2026-10-08).
+        TextKit 2 (`NSTextLayoutManager`,
         `NSTextContentStorage`, layout and line fragments, the viewport, selection navigation) over
         the same layout, and `NSTextView` on TextKit 2 by default with Apple's switch to TextKit 1:
         `finch-textkit2-test` matches Apple's on the host and in the VM (2026-10-09); document formats to come.
@@ -238,6 +245,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] Applications, windows, views, events and the responder chain, on the window server:
         `finch-appkit-core-test` matches Apple's on the host and in the VM; `finch-appkit-window-test`
         drives a window through the server (drawing, clicks, keys, dragging, closing) (2026-10-08)
+  - [x] Title bars and toolbars over full-size content windows, including toolbars loaded
+        from nibs. Image Capture now shows both. Copying a custom image rep keeps its drawing
+        handler; `NSFontEffectsBox` loads as a plain box for nibs such as Stickies' (2026-10-09).
   - [ ] Controls and cells, menus, nib loading. Nibs load (ibtool's NIBArchive format and keyed
         archives; custom objects and views, outlets, actions, windows): `finch-nib-test` matches
         Apple's (2026-10-08); controls and cells (buttons, text fields, sliders, steppers, progress
@@ -269,19 +279,26 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         sizes, windows sized by their constraints; `NSStackView`; constraint nibs; `NSStoryboard`,
         segues and `NSMainStoryboardFile`. `finch-appkit-layout-test` matches Apple's on the host
         and in the VM (2026-10-09); popovers, storyboard references and right-to-left layout to come
-- [ ] TextEdit or Calculator launches and is usable
+- [ ] Unmodified Mac apps: first launch reached; TextEdit or Calculator usable next
   - [x] A Cocoa app bundle built the usual way (`userland/tests/apps/Hello`: NSApplicationMain,
         a MainMenu nib from ibtool, outlets and actions) launches on Finch's frameworks and window
         server, shows its menu bar and window, and responds to clicks and typing
         (`tools/run-app.sh`, 2026-10-09)
-  - [ ] Apple's Image Capture launches on Finch's frameworks (ImageCaptureCore, ICADevices, Quartz
-        with ImageKit's device views; `docs/design/IMAGECAPTURE.md`) and shows its window with an
-        empty device list (host, headless window server, 2026-10-09). `finch-imagekit-test` matches
-        Apple's on the host and in the VM. Its window's title bar and toolbar to come;
-        cameras and scanners need device modules (Phase 3 USB)
+  - [x] Apple's unmodified Image Capture launches on Finch's frameworks (ImageCaptureCore,
+        ICADevices, Quartz with ImageKit's device views; `docs/design/IMAGECAPTURE.md`).
+        It shows English strings, its title bar and an empty toolbar and device list
+        (host, Finch's headless window server, 2026-10-09). `finch-imagekit-test` matches
+        Apple's on the host and in the VM.
+  - [ ] Cameras and scanners: device modules and Phase 3 USB support.
+  - [x] App test tools: `finch-app-test` accepts `screenshot:PATH` to save a screen PNG;
+        `tools/check-imports.py` finds libraries such as libxpc through the VM overlay list,
+        including builds outside `build/root` (2026-10-09).
 
 **Exit:** an unmodified Mac app draws a window on Finch's own frameworks and
 window server.
+
+**App milestone reached on the host, 2026-10-09:** Image Capture draws through Finch's
+frameworks and headless window server. The Tier 2 display and input work above remains.
 
 ## Phase 3: Open drivers
 Replace BORROWED kexts with Finch kexts on the M4 (Mac16,1, T8132), the only machine
@@ -321,7 +338,11 @@ installed.
 ## Phase 4: Open frameworks
 The rest of the frameworks, ordered by app coverage (Foundation, CoreGraphics
 and AppKit come in Phase 2).
-- [ ] QuartzCore (CoreAnimation)
+- [ ] QuartzCore (Core Animation): on-screen animation playback and a render server
+  - [x] Layers and their drawing through CoreGraphics, animation objects and transactions.
+        `finch-calayer-test` matches Apple's on the host and in the VM (2026-10-09).
+        Animations keep their values but do not yet play; without a render server, added
+        animations end on the next run-loop turn, as on Apple's off-screen layers.
 - [ ] PDFKit (Apple's Quartz re-exports it; Finch's Quartz re-exports only QuartzCore and ImageKit
       so far), Quick Look UI, the rest of ImageKit (image browser and view, picture taker, slideshow)
 - [ ] Metal → Mesa

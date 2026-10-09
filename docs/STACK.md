@@ -22,12 +22,27 @@ Finch's window server composites windows that apps draw with CoreGraphics
 into shared memory, and routes input to them (`docs/design/WINDOWSERVER.md`).
 Finch's AppKit (`docs/design/APPKIT.md`), split as Apple's is with a private
 UIFoundation under it, runs windows on that server: views draw, events reach
-them, nibs and storyboards load, and Auto Layout solves constraints with
-Finch's own Cassowary solver, in a private CoreAutoLayout that Foundation
-re-exports, as Apple's does. Image Capture's frameworks are Finch's own
+them, nibs and storyboards load, and full-size content windows show their title
+bars and nib-loaded toolbars. `NSTextView` uses TextKit 2 by default, with TextKit 1
+available. Auto Layout solves constraints with Finch's own Cassowary solver, in
+a private CoreAutoLayout that Foundation re-exports. Cocoa bindings, controllers,
+alerts, sheets, open/save panels and NSWorkspace work. Their comparison tests,
+including TextKit 2 and Auto Layout, match Apple's on the host and in the VM.
+
+CoreFoundation's local notification center shares observers with Foundation's
+default `NSNotificationCenter`. Bundles read `.loctable` files and choose their
+language using `AppleLanguages` and Apple's ICU matching. QuartzCore has layers
+drawn through CoreGraphics, animation objects and transactions. The layer test
+matches Apple's on the host and in the VM; on-screen animation playback still
+needs a render server.
+
+Image Capture's frameworks are Finch's own
 (`docs/design/IMAGECAPTURE.md`): ImageCaptureCore's browser finds no cameras or
 scanners yet, and Quartz re-exports QuartzCore and ImageKit's device views
-(PDFKit and Quick Look come later).
+(PDFKit and Quick Look come later). The unmodified Image Capture app launches
+on the host with Finch's frameworks and headless window server. It shows English
+strings, its title bar, an empty toolbar and an empty device list. The framework
+comparison also passes in the VM; the Tier 2 display and input work remains.
 
 ```mermaid
 block-beta
@@ -35,27 +50,31 @@ block-beta
     block:L7
         columns 4
         t7["Apps and desktop"]
-        apps["Unmodified Mac apps"]
+        apps["Image Capture (unmodified)<br/>launches with Finch frameworks<br/>on the host; no devices yet"]
         desktop["finch-windowserver<br/>windows over shared memory,<br/>Skia compositor, cursor,<br/>input routing (headless, viewer)"]
         shell["Dock / Finder-alikes"]
     end
     block:L6
         columns 4
         t6["App frameworks"]
-        appkit["AppKit<br/>apps, windows, views, events,<br/>drawing, nibs, storyboards,<br/>Auto Layout, stack views, text views and<br/>scrolling, menus and a menu bar,<br/>alerts, open and save panels,<br/>NSWorkspace (on the window server);<br/>Cocoa bindings and controllers,<br/>the font manager and panel;<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1 and 2; Cocoa and<br/>ApplicationServices umbrellas"]
+        appkit["AppKit<br/>apps, windows, views, events,<br/>title bars, nib-loaded toolbars,<br/>drawing, nibs, storyboards,<br/>Auto Layout, stack views, text views and<br/>scrolling, menus and a menu bar,<br/>alerts, sheets, open and save panels,<br/>NSWorkspace (on the window server);<br/>Cocoa bindings and controllers,<br/>the font manager and panel;<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1 and 2; Cocoa and<br/>ApplicationServices umbrellas"]
         cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>PDF writing (SkPDF), PDF reading<br/>and drawing (own parser);<br/>window server client, displays"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
         ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]
-        later["QuartzCore (layers drawn through<br/>CoreGraphics, animations kept,<br/>not yet played), CoreServices<br/>(umbrella); Metal, SwiftUI, AV"]
+        quartzcore["QuartzCore<br/>layers drawn through CoreGraphics,<br/>animation objects, transactions;<br/>animation playback still to come"]
         imagecap["ImageCaptureCore (device<br/>browser, finds no devices yet),<br/>ICADevices; Quartz umbrella<br/>with ImageKit's device views"]
+        space6b[" "]
+        coreservices["CoreServices<br/>umbrella"]
+        later["Metal, SwiftUI, AV"]
+        space6c[" "]
     end
     block:L5
         columns 4
         t5["Foundation layer"]
         foundation["Foundation<br/>strings, numbers, decimals, threads,<br/>files, bundles, formatters, queues,<br/>KVC/KVO, JSON, archiving, regexes,<br/>attributed strings, map/hash tables,<br/>undo, proxies, transforms,<br/>file handles, pipes, tasks,<br/>predicates, progress, file wrappers,<br/>units and measurements, XML parsing,<br/>URL resource values"]
         uti["UniformTypeIdentifiers<br/>UTType, declared and<br/>dynamic types"]
-        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>ordered sets, NSCache, NSData, NSDate,<br/>NSURL, locales, calendars, defaults,<br/>run loops, attributed strings,<br/>streams, Mach ports"]
+        cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>ordered sets, NSCache, NSData, NSDate,<br/>NSURL, locales, calendars, defaults,<br/>run loops, attributed strings,<br/>streams, Mach ports, notifications;<br/>bundle languages and .loctable files"]
         space5[" "]
         od["OpenDirectory<br/>CFOpenDirectory"]
         icu["libicucore<br/>ICU-76142.4.7"]
@@ -127,14 +146,16 @@ block-beta
     classDef upstream fill:#dcfce7,stroke:#15803d,color:#052e12
     classDef planned fill:#f3f4f6,stroke:#9ca3af,color:#6b7280,stroke-dasharray:4 3
     classDef firmware fill:#fee2e2,stroke:#b91c1c,color:#450a0a
+    classDef testapp fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
-    class apps,shell,later,kexts,metal planned
-    class uti,appkit,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class shell,later,kexts,metal planned
+    class apps testapp
+    class uti,appkit,quartzcore,coreservices,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia,fonts upstream
     class vz firmware
-    class space6,space5,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space6,space6b,space6c,space5,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |
@@ -143,12 +164,14 @@ block-beta
 | Yellow | Written by Finch |
 | Green | Third-party upstream, built by Finch |
 | Red | Apple firmware or boot chain, used as shipped (never redistributed) |
+| Purple | Unmodified Mac app, supplied from macOS for testing |
 | Grey, dashed | Planned |
 
 ## How the libraries link
 
-The edges are load-time links (`otool -L`). Foundation's link is the upward
-link Apple's CoreFoundation also has.
+The edges shown are load-time links (`otool -L`); common links to libSystem and
+libobjc are omitted for most frameworks. CoreFoundation's upward link to
+Foundation follows Apple's layout.
 
 ```mermaid
 flowchart LR
@@ -159,6 +182,14 @@ flowchart LR
     classDef closed fill:#ffffff,stroke:#b91c1c,color:#b91c1c,stroke-width:2px
 
     gcore["GCoreFramework"]:::apple
+    appkit["AppKit"]:::finch
+    uif["UIFoundation<br/>TextKit 1 and 2"]:::finch
+    appservices["ApplicationServices"]:::finch
+    quartz["Quartz"]:::finch
+    qc["QuartzCore"]:::finch
+    imagekit["ImageKit"]:::finch
+    imagecapture["ImageCaptureCore"]:::finch
+    icadevices["ICADevices"]:::finch
     ffound["Foundation"]:::finch
     cgfw["CoreGraphics"]:::finch
     ctfw["CoreText"]:::finch
@@ -188,6 +219,27 @@ flowchart LR
 
     gcore --> ffound
     gcore -.->|"linked, unused"| comp
+    appkit -->|"re-exports"| ffound
+    appkit -->|"re-exports"| uif
+    appkit -->|"re-exports"| appservices
+    appkit --> cal
+    uif --> ffound
+    uif --> cgfw
+    uif --> ctfw
+    appservices -->|"re-exports"| cgfw
+    appservices -->|"re-exports"| ctfw
+    appservices -->|"re-exports"| imageio
+    quartz -->|"re-exports"| qc
+    quartz -->|"re-exports"| imagekit
+    qc --> ffound
+    qc --> cgfw
+    qc --> ctfw
+    imagekit --> appkit
+    imagekit --> imagecapture
+    imagecapture --> ffound
+    imagecapture --> cgfw
+    icadevices --> cf
+    icadevices --> cgfw
     ffound -->|"re-exports"| cf
     cf -.->|"upward, as Apple's"| ffound
     ffound -.->|"weak, re-exports its classes"| cal
@@ -222,4 +274,3 @@ flowchart LR
     xpc --> sys
     sys --> kern --> xnu
 ```
-

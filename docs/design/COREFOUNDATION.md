@@ -74,7 +74,8 @@ Configuration notes:
   `CFSTR()` uses Apple's (ObjC) constant-string layout, not Swift's.
 - ICU is Finch's libicucore, with swift-corelibs' `<_foundation_unicode/…>`
   includes mapped to ICU's headers (`U_DISABLE_RENAMING`, as Apple's exports
-  are unversioned).
+  are unversioned). `__HAS_APPLE_ICU__=1` enables Apple's additions, including
+  the language matching used by bundles.
 
 ## CF objects are Objective-C objects
 
@@ -87,15 +88,46 @@ table with them, signed, before it makes any object. Static objects (the
 allocators, `kCFBooleanTrue`, `kCFNull`, the CFNumber constants) start with
 their class.
 
-These subclass NSObject. Apple's `__NSCFString` and `__NSCFBoolean`
-subclass Foundation's `NSMutableString` and `NSNumber`, which Finch doesn't
-have yet.
+Finch now has Foundation and uses the same base classes as Apple:
+`__NSCFString` subclasses `NSMutableString`; `__NSCFNumber` and
+`__NSCFBoolean` subclass `NSNumber`. CF links Foundation upward, using a stub
+at build time to allow Foundation to link back to CF.
 
-**Not yet:** the ObjC-to-CF direction. swift-corelibs compiles `CF_IS_OBJC` and
-the 200-odd `CF_OBJC_FUNCDISPATCHV` sites to nothing outside Apple, so an NSArray
-made in ObjC can't be passed to `CFArrayGetCount`. Then come the collection
-classes (`NSArray`, `NSDictionary`, … and `__NSCFArray`, …), which Apple's CF
-exports and configd imports.
+The ObjC-to-CF direction also works. Finch compiles CF as Objective-C and
+supplies the `CF_IS_OBJC` and `CF_OBJC_FUNCDISPATCHV` definitions that
+swift-corelibs leaves empty outside Apple (`CFObjCDispatch_Finch.h`, patch
+0003). Passing an app's `NSArray` subclass to `CFArrayGetCount`, for example,
+calls its `-count` method. CF also hosts the collection classes and their
+`__NSCF*` implementations. See `docs/design/FOUNDATION.md` for the class split
+and the recorded host and VM comparisons.
+
+## Notifications
+
+`CFNotificationCenter_Finch.m` supplies the three centers that swift-corelibs
+declares but does not implement:
+
+- The local center shares observers with Foundation's default
+  `NSNotificationCenter`. Posting through either reaches both sets of
+  observers in the order they were added. Without Foundation, CF keeps its
+  own observer list.
+- The Darwin center uses `notify(3)` and delivers on the main queue. It carries
+  names only; it drops the posted object and user info, as Apple's does.
+- The distributed center delivers the object and user info on the main queue
+  within the same process. Notifications between processes still need a
+  `distnoted` service.
+
+## Bundle languages and strings
+
+CFBundle reads the user's `AppleLanguages` preference (patch 0006) and uses
+Apple's ICU `ualoc_localizationsToUse` to choose among a bundle's languages.
+This also serves Foundation's `NSBundle`. Before that ICU path was enabled,
+the match could be empty and the first available language won, which made
+Image Capture open in Korean despite the user's English preference.
+
+When no `.strings` or `.stringsdict` table is found, CFBundle also reads
+`<table>.loctable` (patch 0005). This property list holds a table for each
+language. CF chooses the requested language, or the user's preferred one,
+and skips the `LocProvenance` metadata when listing its choices.
 
 ## The Swift runtime
 
@@ -162,6 +194,13 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
   `tools/check-closed.py` is down to 1: Foundation.
 - 2026-10-08: Foundation is Finch's (`docs/design/FOUNDATION.md`), so
   `tools/check-closed.py` finds no closed library in anything Finch builds.
+- 2026-10-09: `CFNotificationCenter`'s local, Darwin and in-process distributed
+  centers are implemented. `finch-cfnotify-test` matched Apple's output on
+  the host and in the VM, including shared local observers with
+  `NSNotificationCenter` (`824a13a`).
+- 2026-10-09: bundle language matching, `AppleLanguages`, and `.loctable`
+  tables are supported. `finch-l10n-test` matched Apple's output on the host;
+  the CF and Foundation comparison tests still matched (`52f174f`).
 
 ## Run-time loads of closed frameworks
 
@@ -174,4 +213,3 @@ MallocStackLogging (`userland/patches/libmalloc/0002`). Each returns nothing,
 so the caller takes the path it takes when the framework is missing, until
 Finch provides its own (SystemConfiguration from configd, networking for
 CFNetwork's stream functions).
-
