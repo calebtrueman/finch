@@ -83,6 +83,8 @@ FINCH_PRIVATE NSColor *FinchAccentColor(void);
 FINCH_PRIVATE NSColor *FinchControlFill(BOOL pressed);
 FINCH_PRIVATE NSColor *FinchControlStroke(void);
 FINCH_PRIVATE NSColor *FinchOnAccentColor(void);
+FINCH_PRIVATE NSColor *FinchControlTextColor(void);
+FINCH_PRIVATE NSColor *FinchControlGlyphColor(void);
 FINCH_PRIVATE NSColor *FinchKnobColor(void);
 FINCH_PRIVATE NSColor *FinchDisabled(NSColor *color, BOOL enabled);
 /* A rounded control body with a hairline border, inset by half a point so the line lands on pixels. */

@@ -220,4 +220,13 @@ without touching the compatibility stack.
     technical face, then the app's menus. On the right, the workbench and the clock.
     An open title is a sage plate with an accent rule.
   - Menus: slate sheets, whose lit row is sage with an accent tick.
+- 2026-10-09: Night and scrollers:
+  - `AppleInterfaceStyle` Dark gives apps DarkAqua, unless they ask for Aqua with
+    `NSRequiresAquaSystemAppearance`, and AppKit draws it in Night's values. Views draw
+    in their effective appearance.
+  - Text with no colour in a text view is textColor, as on macOS, so TextEdit's text
+    reads on iron.
+  - Control text and glyphs come from the theme.
+  - The window server's desktop is carbon under `FINCH_APPEARANCE=Night`.
+  - Scroller knobs are slim graphite bars.
 

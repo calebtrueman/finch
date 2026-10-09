@@ -327,7 +327,7 @@ redisplay(NSLayoutManager *self)
             continue;
         UIFLayoutParams p = {MAX(c.size.width - 2 * cl->padding, 0), c.size.height,
                              NSStringDrawingUsesLineFragmentOrigin | (_usesFontLeading ? NSStringDrawingUsesFontLeading : 0),
-                             start, YES, YES, c.maximumNumberOfLines};
+                             start, YES, YES, c.maximumNumberOfLines, c.textView != nil};
         /* An empty text has the typing font: the end of the text's, or Helvetica 12. */
         NSDictionary *typing = len ? [s attributesAtIndex:len - 1 effectiveRange:NULL] : @{};
         if (!len && [c.textView respondsToSelector:@selector(typingAttributes)])

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /*
- * NSAppearance: the named appearances. Finch draws in the light (Aqua)
- * appearance for now; dark appearances exist as names, so apps that ask
- * for them get an object that says so.
+ * NSAppearance: the named appearances. Dark ones (the system's with
+ * AppleInterfaceStyle Dark, or an app's or view's own) draw in the theme's
+ * Night values (FinchTheme.m); Classic has light values only.
  */
 #import "NSView_Finch.h"
 
@@ -117,7 +117,7 @@ known(NSAppearanceName name)
 
 + (NSAppearance *)currentDrawingAppearance
 {
-    return current ?: [self appearanceNamed:NSAppearanceNameAqua];
+    return current ?: (NSApp ? [NSApp effectiveAppearance] : [self appearanceNamed:NSAppearanceNameAqua]);
 }
 
 - (void)performAsCurrentDrawingAppearance:(void (NS_NOESCAPE ^)(void))block

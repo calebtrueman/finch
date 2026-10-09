@@ -250,6 +250,14 @@ fieldwork(void)
     return on;
 }
 
+/* Night: FINCH_APPEARANCE=Night (the session sets it with AppleInterfaceStyle Dark). */
+static bool
+night(void)
+{
+    const char *a = getenv("FINCH_APPEARANCE");
+    return a && !strcasecmp(a, "Night");
+}
+
 static SkRRect
 window_shape(const SkRect &r, uint32_t flags)
 {
@@ -271,7 +279,8 @@ composite(void)
     c->clipRect(SkRect::Make(damage));
     /* the desktop */
     SkPaint bg;
-    bg.setColor(fieldwork() ? SkColorSetRGB(0xf0, 0xef, 0xe9) : SkColorSetRGB(0x2b, 0x3a, 0x4a));
+    bg.setColor(!fieldwork() ? SkColorSetRGB(0x2b, 0x3a, 0x4a)
+                : night() ? SkColorSetRGB(0x18, 0x1d, 0x1c) : SkColorSetRGB(0xf0, 0xef, 0xe9));
     c->drawPaint(bg);
     for (Window *w : stacking()) {
         if (!w->buffer.ptr)
@@ -318,7 +327,8 @@ composite(void)
             outline.setAntiAlias(true);
             outline.setStyle(SkPaint::kStroke_Style);
             outline.setStrokeWidth(1);
-            outline.setColor(SkColorSetARGB((U8CPU)(0x40 * w->alpha), 0x24, 0x29, 0x25));
+            outline.setColor(night() ? SkColorSetARGB((U8CPU)(0xa0 * w->alpha), 0, 0, 0)
+                                     : SkColorSetARGB((U8CPU)(0x40 * w->alpha), 0x24, 0x29, 0x25));
             SkRRect in = shape;
             in.inset(0.5f, 0.5f);
             c->drawRRect(in, outline);

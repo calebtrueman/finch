@@ -473,7 +473,7 @@ chevron(CGFloat x, CGFloat y, CGFloat dir, NSColor *color)
     if (_arrow != NSPopUpNoArrow) {
         BOOL flipped = [view isFlipped];
         CGFloat x = NSMaxX(body) - 11, mid = NSMidY(body), up = flipped ? -1 : 1;
-        NSColor *c = FinchDisabled([NSColor colorWithSRGBRed:0.3 green:0.3 blue:0.3 alpha:1], enabled);
+        NSColor *c = FinchDisabled(FinchControlGlyphColor(), enabled);
         if (_p.pullsDown)
             chevron(x, mid + 1.5 * up, -up, c);
         else {
@@ -487,7 +487,7 @@ chevron(CGFloat x, CGFloat y, CGFloat dir, NSColor *color)
 {
     NSMutableDictionary *a = [[[self _finchTextAttributes] mutableCopy] autorelease];
     a[NSForegroundColorAttributeName] =
-        FinchDisabled([NSColor colorWithSRGBRed:0.1 green:0.1 blue:0.1 alpha:1], [self _finchDrawsEnabled]);
+        FinchDisabled(FinchControlTextColor(), [self _finchDrawsEnabled]);
     NSAttributedString *t = [[[NSAttributedString alloc] initWithString:[self title] attributes:a] autorelease];
     NSRect tr = NSMakeRect(NSMinX(frame) + 11, NSMinY(frame), MAX(0, frame.size.width - 11 - 24), frame.size.height);
     NSImage *image = [[self menuItem] image];

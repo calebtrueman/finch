@@ -29,7 +29,7 @@ static CGRect
 bounding_rect(NSAttributedString *s, NSDictionary *typing, CGSize size, NSStringDrawingOptions options,
               NSStringDrawingContext *context)
 {
-    UIFLayoutParams p = {size.width, size.height, options, 0, NO, NO, 0};
+    UIFLayoutParams p = {size.width, size.height, options, 0, NO, NO, 0, NO};
     UIFLayout L = UIFLayoutString(s, typing, p);
     CGRect r = UIFLayoutUsedRect(&L, p);
     UIFLayoutFree(&L);
@@ -43,7 +43,7 @@ draw_in_rect(NSAttributedString *s, NSDictionary *typing, CGRect rect, NSStringD
 {
     BOOL flipped = UIFCurrentContextIsFlipped();
     BOOL multi = (options & NSStringDrawingUsesLineFragmentOrigin) != 0;
-    UIFLayoutParams p = {multi ? rect.size.width : 0, multi ? rect.size.height : 0, options, 0, NO, NO, 0};
+    UIFLayoutParams p = {multi ? rect.size.width : 0, multi ? rect.size.height : 0, options, 0, NO, NO, 0, NO};
     UIFLayout L = UIFLayoutString(s, typing, p);
     CGRect used = UIFLayoutUsedRect(&L, p);
     if (multi) {
@@ -70,7 +70,7 @@ static void
 draw_at_point(NSAttributedString *s, NSDictionary *typing, CGPoint point)
 {
     BOOL flipped = UIFCurrentContextIsFlipped();
-    UIFLayoutParams p = {0, 0, NSStringDrawingUsesLineFragmentOrigin, 0, NO, NO, 0};
+    UIFLayoutParams p = {0, 0, NSStringDrawingUsesLineFragmentOrigin, 0, NO, NO, 0, NO};
     UIFLayout L = UIFLayoutString(s, typing, p);
     /* The point is the top-left of the text in a flipped context, its bottom-left otherwise. */
     CGFloat top = flipped ? point.y : point.y + L.height;

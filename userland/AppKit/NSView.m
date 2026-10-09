@@ -361,7 +361,9 @@ did_move_to_window(NSView *view, NSWindow *window)
     for (NSView *v = self; v; v = v->_superview)
         if (v->_appearance)
             return v->_appearance;
-    return [(id)FINCH_CLASS(NSAppearance) currentDrawingAppearance];
+    if (_window)
+        return [_window effectiveAppearance];
+    return [NSApp effectiveAppearance];
 }
 
 - (void)setHidden:(BOOL)hidden
@@ -1224,9 +1226,15 @@ draw_view(NSView *view, CGContextRef cg, NSRect rect, CGAffineTransform base)
                                                           NSPointerFunctionsOpaquePersonality
                                              valueOptions:NSPointerFunctionsStrongMemory] retain];
     [being_drawn setObject:[NSValue valueWithRect:r] forKey:view];
+    /* as Apple's, a view draws in its effective appearance (system colours resolve in it) */
+    Class appearanceClass = FINCH_CLASS(NSAppearance);
+    NSAppearance *savedAppearance = [[appearanceClass currentDrawingAppearance] retain];
+    [appearanceClass setCurrentAppearance:[view effectiveAppearance]];
     @try {
         [view drawRect:r];
     } @finally {
+        [appearanceClass setCurrentAppearance:savedAppearance];
+        [savedAppearance release];
         [being_drawn removeObjectForKey:view];
         [NSGraphicsContext restoreGraphicsState];
         CGContextRestoreGState(cg);

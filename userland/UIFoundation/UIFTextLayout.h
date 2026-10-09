@@ -48,6 +48,7 @@ typedef struct {
     BOOL mayBeEmpty;     /* NO: the first line is kept even when it is too tall */
     BOOL roundLeading;   /* fonts' leading in whole points (NSLayoutManager's) */
     NSUInteger maximumLines; /* 0: no limit */
+    BOOL inTextView;     /* text without a colour is textColor (a text view's), not black */
 } UIFLayoutParams;
 
 UIF_HIDDEN UIFLayout UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p);

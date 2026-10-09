@@ -150,7 +150,7 @@ small_icon(FinchIconKind kind)
                          respectFlipped:YES
                                   hints:nil];
         NSColor *ink = selected && key ? [NSColor whiteColor]
-                       : e->enabled    ? [NSColor colorWithSRGBRed:0.1 green:0.1 blue:0.1 alpha:1]
+                       : e->enabled    ? [NSColor labelColor]
                                        : [NSColor colorWithSRGBRed:0.6 green:0.6 blue:0.6 alpha:1];
         NSDictionary *attrs = @{NSFontAttributeName : font, NSForegroundColorAttributeName : ink};
         [e->name drawInRect:NSMakeRect(30, row.origin.y + 3, row.size.width - 50, 17) withAttributes:attrs];

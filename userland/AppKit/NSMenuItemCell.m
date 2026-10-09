@@ -165,7 +165,7 @@ sized(NSMenuItemCell *self)
     BOOL enabled = [_menuItem isEnabled];
     if ([self isHighlighted] && enabled)
         return [NSColor whiteColor];
-    return enabled ? [NSColor colorWithSRGBRed:0.1 green:0.1 blue:0.1 alpha:1]
+    return enabled ? FinchControlTextColor()
                    : [NSColor colorWithSRGBRed:0.62 green:0.62 blue:0.62 alpha:1];
 }
 

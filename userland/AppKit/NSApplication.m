@@ -665,9 +665,23 @@ wake_event(void)
 
 - (NSAppearance *)appearance { return _appearance; }
 - (void)setAppearance:(NSAppearance *)appearance { [_appearance autorelease]; _appearance = [appearance retain]; }
+/*
+ * As Apple's: the system's appearance (AppleInterfaceStyle Dark in the global domain) unless the
+ * app sets its own or asks for Aqua (NSRequiresAquaSystemAppearance). Fieldwork draws Night for it.
+ */
 - (NSAppearance *)effectiveAppearance
 {
-    return _appearance ?: [NSAppearance appearanceNamed:NSAppearanceNameAqua];
+    if (_appearance)
+        return _appearance;
+    static NSAppearance *system;
+    if (!system) {
+        BOOL dark = [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"]
+                        caseInsensitiveCompare:@"Dark"] == NSOrderedSame;
+        if ([[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSRequiresAquaSystemAppearance"] boolValue])
+            dark = NO;
+        system = [[NSAppearance appearanceNamed:dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua] retain];
+    }
+    return system;
 }
 
 #pragma mark - Modal sessions

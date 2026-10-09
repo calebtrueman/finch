@@ -10,6 +10,7 @@
  * rather than in a cell, so the scroller works whatever NSControl does.
  */
 #import "AppKit_Finch.h"
+#import "FinchTheme.h"
 #import "NSView_Finch.h"
 
 /* NSControl is another file's; until it lands, a bare one keeps the build linking. */
@@ -184,6 +185,13 @@ knob_length(NSScroller *self, NSRect track)
 {
     if (!_tracking)
         return;
+    if (!FinchThemeIsClassic()) {
+        /* Fieldwork: a hairline track down the slot's middle */
+        [[NSColor separatorColor] setFill];
+        NSRectFill(_horizontal ? NSMakeRect(NSMinX(slotRect), floor(NSMidY(slotRect)), NSWidth(slotRect), 1)
+                               : NSMakeRect(floor(NSMidX(slotRect)), NSMinY(slotRect), 1, NSHeight(slotRect)));
+        return;
+    }
     [[NSColor colorWithWhite:0.5 alpha:0.12] setFill];
     CGFloat r = (_horizontal ? NSHeight(slotRect) : NSWidth(slotRect)) / 2;
     [[NSBezierPath bezierPathWithRoundedRect:slotRect xRadius:r yRadius:r] fill];
@@ -199,8 +207,13 @@ knob_length(NSScroller *self, NSRect track)
     knob = _horizontal ? NSInsetRect(knob, 0, shrink) : NSInsetRect(knob, shrink, 0);
     NSColor *c = _knobStyle == NSScrollerKnobStyleLight ? [NSColor colorWithWhite:1 alpha:0.6]
                                                         : [NSColor colorWithWhite:0 alpha:_tracking ? 0.55 : 0.4];
-    [c setFill];
     CGFloat r = (_horizontal ? NSHeight(knob) : NSWidth(knob)) / 2;
+    if (!FinchThemeIsClassic() && _knobStyle != NSScrollerKnobStyleLight) {
+        /* Fieldwork: a slim graphite bar with nearly square ends */
+        c = [[NSColor secondaryLabelColor] colorWithAlphaComponent:_tracking ? 0.85 : 0.6];
+        r = MIN(r, 1.5);
+    }
+    [c setFill];
     [[NSBezierPath bezierPathWithRoundedRect:knob xRadius:r yRadius:r] fill];
 }
 

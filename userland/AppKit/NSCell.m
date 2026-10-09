@@ -30,6 +30,19 @@ FinchControlFill(BOOL pressed)
                    : [NSColor colorWithSRGBRed:0.985 green:0.985 blue:0.99 alpha:1];
 }
 
+/* A control's text (Classic: near black), and its glyphs such as chevrons (Classic: dark grey). */
+NSColor *
+FinchControlTextColor(void)
+{
+    return FinchThemeIsClassic() ? [NSColor colorWithSRGBRed:0.1 green:0.1 blue:0.1 alpha:1] : [NSColor labelColor];
+}
+
+NSColor *
+FinchControlGlyphColor(void)
+{
+    return FinchThemeIsClassic() ? [NSColor colorWithSRGBRed:0.3 green:0.3 blue:0.3 alpha:1] : [NSColor secondaryLabelColor];
+}
+
 /* Text and marks on the accent colour. */
 NSColor *
 FinchOnAccentColor(void)

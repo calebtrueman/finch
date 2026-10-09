@@ -305,6 +305,9 @@ drawn_here(NSDictionary *attrs)
     return d;
 }
 
+/* For the layout being made: what text without a colour draws in (NULL: black). */
+static __thread CGColorRef default_foreground;
+
 /* The attributes CoreText lays out and draws with: fonts (Helvetica 12 where
  * there is none), kerning, ligatures, colours as CGColors. Paragraph styles
  * are applied here, so they are left out. */
@@ -323,7 +326,7 @@ ct_attributes(NSDictionary *attrs)
     if ([lig isKindOfClass:[NSNumber class]])
         a[(id)kCTLigatureAttributeName] = lig;
     CGColorRef fg = UIFCGColor(attrs[NSForegroundColorAttributeName]);
-    a[(id)kCTForegroundColorAttributeName] = (id)(fg ? fg : black());
+    a[(id)kCTForegroundColorAttributeName] = (id)(fg ? fg : default_foreground ? default_foreground : black());
     id stroke = attrs[NSStrokeWidthAttributeName];
     if ([stroke isKindOfClass:[NSNumber class]] && [stroke doubleValue] != 0) {
         a[(id)kCTStrokeWidthAttributeName] = stroke;
@@ -417,7 +420,10 @@ UIFLayout
 UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
 {
     UIFLayout L = {0};
+    /* as Apple's text views: uncoloured text is textColor, in the appearance being drawn */
+    default_foreground = p.inTextView ? UIFCGColor([UIFClass("NSColor") performSelector:@selector(textColor)]) : NULL;
     NSAttributedString *ct = ct_string(s);
+    default_foreground = NULL;
     NSString *str = s.string;
     NSUInteger len = str.length;
     BOOL multi = (p.options & NSStringDrawingUsesLineFragmentOrigin) != 0;
