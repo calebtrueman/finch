@@ -85,6 +85,7 @@ typedef struct {
         NSTextTableBlock *cell;
         NSRange range;
         CGFloat left, width, contentLeft, contentWidth, top;
+        CGFloat contentBottom; /* where its text ends */
     } cells[64];
     size_t cellCount;
 } BlockState;
@@ -98,13 +99,22 @@ area_width(BlockState *bs, CGFloat container)
     return bs->depth ? bs->open[bs->depth - 1].contentWidth : container;
 }
 
-/* The row's cells are as tall as the row. */
+/* The row's cells are as tall as the row; a middle or bottom aligned cell's lines move down into it. */
 static void
 end_row(UIFLayout *L, BlockState *bs)
 {
     for (size_t i = 0; i < bs->cellCount; i++) {
         __typeof__(bs->cells[0]) *c = &bs->cells[i];
         CGFloat bottom = bs->rowBottom;
+        NSTextBlockVerticalAlignment va = c->cell.verticalAlignment;
+        if (va == NSTextBlockMiddleAlignment || va == NSTextBlockBottomAlignment) {
+            CGFloat room = bottom - UIFTextBlockInset(c->cell, NSMaxYEdge, bs->tableContentWidth) - c->contentBottom;
+            CGFloat shift = va == NSTextBlockMiddleAlignment ? floor(room / 2) : room;
+            if (shift > 0)
+                for (size_t k = 0; k < L->count; k++)
+                    if (NSLocationInRange(L->lines[k].range.location, c->range))
+                        L->lines[k].top += shift;
+        }
         CGRect frame = CGRectMake(c->left, c->top, c->width, bottom - c->top);
         CGFloat of = bs->tableContentWidth;
         CGRect content = CGRectMake(c->contentLeft, c->top + UIFTextBlockInset(c->cell, NSMinYEdge, of),
@@ -149,6 +159,7 @@ close_blocks(UIFLayout *L, BlockState *bs, size_t keep, NSUInteger at, CGFloat *
                 c->contentLeft = o->contentLeft;
                 c->contentWidth = o->contentWidth;
                 c->top = o->top;
+                c->contentBottom = *y;
             }
             /* another cell of the same table next: stay in the table */
             id following = bs->depth < next.count ? next[bs->depth] : nil;
