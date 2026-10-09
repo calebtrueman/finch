@@ -21,6 +21,7 @@ NSString *const NSAttachmentEditableDataTypeIdentifierAttributeName = @"NSAttach
 NSString *const NSAuthorDocumentAttribute = @"NSAuthorDocumentAttribute";
 NSString *const NSBackgroundColorAttributeName = @"NSBackgroundColor";
 NSString *const NSBackgroundColorDocumentAttribute = @"BackgroundColor";
+NSString *const NSUsesScreenFontsDocumentAttribute = @"UsesScreenFonts";
 NSString *const NSBackgroundLayoutTrace = @"NSBackgroundLayoutTrace";
 NSString *const NSBaselineOffsetAttributeName = @"NSBaselineOffset";
 NSString *const NSBaseURLDocumentOption = @"BaseURL";

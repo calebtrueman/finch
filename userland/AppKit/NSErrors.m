@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: MIT OR Apache-2.0 */
+/* The exception names in NSErrors.h, with the values macOS gives them (their own names). */
+#import <Foundation/Foundation.h>
+
+__attribute__((visibility("default"))) NSString *const NSTextLineTooLongException = @"NSTextLineTooLongException";
+__attribute__((visibility("default"))) NSString *const NSTextNoSelectionException = @"NSTextNoSelectionException";
+__attribute__((visibility("default"))) NSString *const NSWordTablesWriteException = @"NSWordTablesWriteException";
+__attribute__((visibility("default"))) NSString *const NSWordTablesReadException = @"NSWordTablesReadException";
+__attribute__((visibility("default"))) NSString *const NSTextReadException = @"NSTextReadException";
+__attribute__((visibility("default"))) NSString *const NSTextWriteException = @"NSTextWriteException";
+__attribute__((visibility("default"))) NSString *const NSPasteboardCommunicationException = @"NSPasteboardCommunicationException";
+__attribute__((visibility("default"))) NSString *const NSPrintingCommunicationException = @"NSPrintingCommunicationException";
+__attribute__((visibility("default"))) NSString *const NSAbortModalException = @"NSAbortModalException";
+__attribute__((visibility("default"))) NSString *const NSAbortPrintingException = @"NSAbortPrintingException";
+__attribute__((visibility("default"))) NSString *const NSIllegalSelectorException = @"NSIllegalSelectorException";
+__attribute__((visibility("default"))) NSString *const NSAppKitVirtualMemoryException = @"NSAppKitVirtualMemoryException";
+__attribute__((visibility("default"))) NSString *const NSBadRTFDirectiveException = @"NSBadRTFDirectiveException";
+__attribute__((visibility("default"))) NSString *const NSBadRTFFontTableException = @"NSBadRTFFontTableException";
+__attribute__((visibility("default"))) NSString *const NSBadRTFStyleSheetException = @"NSBadRTFStyleSheetException";
+__attribute__((visibility("default"))) NSString *const NSTypedStreamVersionException = @"NSTypedStreamVersionException";
+__attribute__((visibility("default"))) NSString *const NSTIFFException = @"NSTIFFException";
+__attribute__((visibility("default"))) NSString *const NSPrintPackageException = @"NSPrintPackageException";
+__attribute__((visibility("default"))) NSString *const NSBadRTFColorTableException = @"NSBadRTFColorTableException";
+__attribute__((visibility("default"))) NSString *const NSDraggingException = @"NSDraggingException";
+__attribute__((visibility("default"))) NSString *const NSColorListIOException = @"NSColorListIOException";
+__attribute__((visibility("default"))) NSString *const NSColorListNotEditableException = @"NSColorListNotEditableException";
+__attribute__((visibility("default"))) NSString *const NSBadBitmapParametersException = @"NSBadBitmapParametersException";
+__attribute__((visibility("default"))) NSString *const NSWindowServerCommunicationException = @"NSWindowServerCommunicationException";
+__attribute__((visibility("default"))) NSString *const NSFontUnavailableException = @"NSFontUnavailableException";
+__attribute__((visibility("default"))) NSString *const NSPPDIncludeNotFoundException = @"NSPPDIncludeNotFoundException";
+__attribute__((visibility("default"))) NSString *const NSPPDParseException = @"NSPPDParseException";
+__attribute__((visibility("default"))) NSString *const NSPPDIncludeStackOverflowException = @"NSPPDIncludeStackOverflowException";
+__attribute__((visibility("default"))) NSString *const NSPPDIncludeStackUnderflowException = @"NSPPDIncludeStackUnderflowException";
+__attribute__((visibility("default"))) NSString *const NSRTFPropertyStackOverflowException = @"NSRTFPropertyStackOverflowException";
+__attribute__((visibility("default"))) NSString *const NSAppKitIgnoredException = @"NSAppkitIgnoredException";
+__attribute__((visibility("default"))) NSString *const NSBadComparisonException = @"NSBadComparisonException";
+__attribute__((visibility("default"))) NSString *const NSImageCacheException = @"NSImageCacheException";
+__attribute__((visibility("default"))) NSString *const NSNibLoadingException = @"NSNibLoadingException";
+__attribute__((visibility("default"))) NSString *const NSBrowserIllegalDelegateException = @"NSBrowserIllegalDelegateException";
+__attribute__((visibility("default"))) NSString *const NSAccessibilityException = @"NSAccessibilityException";

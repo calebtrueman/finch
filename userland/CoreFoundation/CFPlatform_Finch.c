@@ -10,6 +10,9 @@
 #include "CFInternal.h"
 
 #include <pthread.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -46,3 +49,30 @@ extern void *objc_autoreleasePoolPush(void);
 extern void objc_autoreleasePoolPop(void *pool);
 CF_EXPORT uintptr_t _CFAutoreleasePoolPush(void) { return (uintptr_t)objc_autoreleasePoolPush(); }
 CF_EXPORT void _CFAutoreleasePoolPop(uintptr_t pool) { objc_autoreleasePoolPop((void *)pool); }
+
+/* CFLogTest(toConsole, format, ...): Apple's CoreFoundation exports it for
+ * apps' automated tests to log through (TextEdit links it). Apple's writes
+ * to a log under the user's Library unless asked for the console; Finch's
+ * appends to ~/Library/Logs/CFLogTest.log, or writes to stderr. */
+CF_EXPORT void CFLogTest(Boolean toConsole, CFStringRef format, ...);
+void CFLogTest(Boolean toConsole, CFStringRef format, ...) {
+    if (!format) return;
+    va_list ap;
+    va_start(ap, format);
+    CFStringRef s = CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, NULL, format, ap);
+    va_end(ap);
+    if (!s) return;
+    char buf[4096];
+    if (CFStringGetCString(s, buf, sizeof buf, kCFStringEncodingUTF8)) {
+        FILE *f = NULL;
+        if (!toConsole) {
+            const char *home = getenv("HOME");
+            char path[1024];
+            if (home && snprintf(path, sizeof path, "%s/Library/Logs/CFLogTest.log", home) < (int)sizeof path)
+                f = fopen(path, "a");
+        }
+        fprintf(f ? f : stderr, "%s\n", buf);
+        if (f) fclose(f);
+    }
+    CFRelease(s);
+}
