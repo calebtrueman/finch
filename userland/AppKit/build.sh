@@ -31,6 +31,7 @@ CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
     -Wno-objc-property-implementation -Wno-protocol -Wno-objc-protocol-method-implementation
     -Wno-deprecated-declarations -Wno-deprecated-implementations -Wno-objc-designated-initializers
     -Wno-objc-missing-super-calls -Wno-sign-compare -Wno-objc-method-access
+    -Wno-objc-protocol-property-synthesis -Wno-nullability -Wno-atomic-property-with-user-defined-accessor
     -I"${HERE}" -I"${FINCH_ROOT}/userland")
 
 log "compiling"

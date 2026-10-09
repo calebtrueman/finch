@@ -36,8 +36,12 @@ CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
 
 log "compiling"
 rm -rf "${OBJ}" && mkdir -p "${OBJ}"
-for f in "${HERE}"/*.m; do
-    "${CC}" "${CFLAGS[@]}" -c "$f" -o "${OBJ}/$(basename "${f%.m}").o"
+for f in "${HERE}"/*.m "${HERE}"/*.mm; do
+    [[ -e "$f" ]] || continue
+    case "$f" in
+    *.mm) "${CC}" -x objective-c++ -std=c++17 "${CFLAGS[@]}" -c "$f" -o "${OBJ}/$(basename "${f%.mm}").o" ;;
+    *)    "${CC}" "${CFLAGS[@]}" -c "$f" -o "${OBJ}/$(basename "${f%.m}").o" ;;
+    esac
 done
 
 log "linking"
@@ -47,7 +51,7 @@ mkdir -p "${FW}/Versions/A"
     -current_version 1018.1 -compatibility_version 1 \
     "${OBJ}"/*.o -o "${FW}/Versions/A/UIFoundation" \
     -F"${ROOT}/System/Library/Frameworks" -framework Foundation -framework CoreFoundation \
-    -framework CoreGraphics -framework CoreText -lobjc
+    -framework CoreGraphics -framework CoreText -lobjc -lc++
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/UIFoundation "${FW}/UIFoundation"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" A UIFoundation com.apple.UIFoundation UIFoundation 1.0 1018.1 English

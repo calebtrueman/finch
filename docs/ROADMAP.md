@@ -226,10 +226,18 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
 - [ ] AppKit ([`docs/design/APPKIT.md`](design/APPKIT.md))
   - [x] Framework skeletons as Apple splits them: AppKit re-exporting a private
         UIFoundation, ApplicationServices and Foundation; the Cocoa umbrella
-  - [ ] UIFoundation: fonts, paragraph styles, shadows, string drawing, the text system
-  - [ ] Drawing: colours, colour spaces, Bézier paths, gradients, images, graphics contexts
-  - [ ] Applications, windows, views, events and the responder chain, on the window server
-  - [ ] Controls and cells, menus, nib loading
+  - [x] UIFoundation: fonts, paragraph styles, shadows, string drawing, the text system
+        (TextKit 1; TextKit 2 and document formats to come). `finch-uifoundation-test`
+        matches Apple's on the host and in the VM (2026-10-08).
+  - [x] Drawing: colours, colour spaces, Bézier paths, gradients, images, graphics contexts.
+        `finch-appkit-draw-test` matches Apple's on the host and in the VM (2026-10-08);
+        dark-appearance colours and asset catalogs to come.
+  - [x] Applications, windows, views, events and the responder chain, on the window server:
+        `finch-appkit-core-test` matches Apple's on the host and in the VM; `finch-appkit-window-test`
+        drives a window through the server (drawing, clicks, keys, dragging, closing) (2026-10-08)
+  - [ ] Controls and cells, menus, nib loading. Nibs load (ibtool's NIBArchive format and keyed
+        archives; custom objects and views, outlets, actions, windows): `finch-nib-test` matches
+        Apple's (2026-10-08)
 - [ ] TextEdit or Calculator launches and is usable
 
 **Exit:** an unmodified Mac app draws a window on Finch's own frameworks and

@@ -20,9 +20,9 @@ Liberation for Helvetica, Arial, Times and Courier, DejaVu Sans Mono for
 Menlo, Noto for other scripts and emoji), which Apple's font names resolve to.
 Finch's window server composites windows that apps draw with CoreGraphics
 into shared memory, and routes input to them (`docs/design/WINDOWSERVER.md`).
-Finch's AppKit has begun (`docs/design/APPKIT.md`), split as Apple's is,
-with a private UIFoundation under it and the Cocoa and ApplicationServices
-umbrellas over it.
+Finch's AppKit (`docs/design/APPKIT.md`), split as Apple's is with a private
+UIFoundation under it, runs windows on that server: views draw, events reach
+them, and nibs load.
 
 ```mermaid
 block-beta
@@ -37,7 +37,7 @@ block-beta
     block:L6
         columns 4
         t6["App frameworks"]
-        appkit["AppKit, UIFoundation (begun);<br/>Cocoa and ApplicationServices<br/>umbrellas"]
+        appkit["AppKit<br/>apps, windows, views, events,<br/>drawing, nibs (on the window server);<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1; Cocoa and<br/>ApplicationServices umbrellas"]
         cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>PDF writing (SkPDF), PDF reading<br/>and drawing (own parser);<br/>window server client, displays"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]

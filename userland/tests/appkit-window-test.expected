@@ -1,0 +1,24 @@
+launch: delegate applicationDidFinishLaunching
+screen {{0, 0}, {800, 600}} visible {{0, 0}, {800, 576}} scale 2
+shown: delegate windowDidBecomeKey
+window {{100, 100}, {300, 232}} number>0 1 key 1 main 1 visible 1 first responder window
+app key 1 main 1 active 1 windows 1
+content (250,400): 255 0 0
+box (125,475): 0 0 255
+title bar (250,280): 246 246 246
+desktop (50,50): 43 58 74
+click box: box mouseDown window {25, 25} local {5, 5} clicks 1; box mouseUp
+first responder is box 1
+keys: box keyDown 0071 code 12; box insertText 'q'; box keyDown f702 code 123; box command moveLeft:; box keyDown 000d code 36; box command insertNewline:
+click content: content mouseDown window {150, 100} local {150, 100} clicks 1; content mouseUp
+content after redraw (250,400): 0 255 0
+box after redraw (125,475): 0 0 255
+after drag: {{150, 80}, {300, 232}}
+drag: delegate windowDidMove
+moved content (300,420): 0 255 0
+old place (120,300): 43 58 74
+after resize: {{150, 180}, {200, 132}} content {{0, 0}, {200, 100}} box {{20, 20}, {50, 50}}
+resized content (300,380): 0 255 0
+close: delegate windowDidMove; delegate windowWillClose
+visible 0 key window 0
+closed (300,380): 43 58 74
