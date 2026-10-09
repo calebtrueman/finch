@@ -221,6 +221,13 @@ cf_copy_of(NSString *s)
     CFRelease(s);
     return r;
 }
+- (instancetype)initWithBytesNoCopy:(void *)bytes length:(NSUInteger)len encoding:(NSStringEncoding)enc
+                       freeWhenDone:(BOOL)freeBuffer
+{
+    id r = [self initWithBytes:bytes length:len encoding:enc];
+    if (freeBuffer) free(bytes);
+    return r;
+}
 - (instancetype)initWithData:(NSData *)data encoding:(NSStringEncoding)encoding
 {
     return [self initWithBytes:[data bytes] length:[data length] encoding:encoding];
@@ -532,6 +539,25 @@ transformed(NSString *self, void (*fn)(CFMutableStringRef, CFLocaleRef), CFLocal
 - (BOOL)getCString:(char *)buffer maxLength:(NSUInteger)maxBufferCount encoding:(NSStringEncoding)encoding
 {
     return CFStringGetCString((CFStringRef)self, buffer, (CFIndex)maxBufferCount, cf_encoding(encoding));
+}
+
+- (BOOL)getBytes:(void *)buffer maxLength:(NSUInteger)maxBufferCount usedLength:(NSUInteger *)usedBufferCount
+        encoding:(NSStringEncoding)encoding options:(NSStringEncodingConversionOptions)options
+           range:(NSRange)range remainingRange:(NSRangePointer)leftover
+{
+    NSUInteger length = [self length];
+    if (range.location > length || range.length > length - range.location)
+        FinchRaise(NSRangeException, "-[%s %s]: Range out of bounds", object_getClassName(self), sel_getName(_cmd));
+    CFStringRef string = cf_copy_of(self);
+    CFIndex used = 0;
+    CFIndex converted = CFStringGetBytes(string, CFRangeMake((CFIndex)range.location, (CFIndex)range.length),
+        cf_encoding(encoding), options & NSStringEncodingConversionAllowLossy ? '?' : 0,
+        (options & NSStringEncodingConversionExternalRepresentation) != 0,
+        maxBufferCount ? buffer : NULL, (CFIndex)maxBufferCount, &used);
+    CFRelease(string);
+    if (usedBufferCount) *usedBufferCount = (NSUInteger)used;
+    if (leftover) *leftover = NSMakeRange(range.location + (NSUInteger)converted, range.length - (NSUInteger)converted);
+    return converted > 0 || range.length == 0;
 }
 
 - (NSUInteger)lengthOfBytesUsingEncoding:(NSStringEncoding)enc

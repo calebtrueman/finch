@@ -14,6 +14,9 @@
 
 #include "Foundation_Finch.h"
 
+typedef id (^FinchErrorValueProvider)(NSError *, NSErrorUserInfoKey);
+static NSMutableDictionary *error_providers;
+
 @implementation NSError {
     void *_reserved;
     NSInteger _code;
@@ -48,6 +51,36 @@
 - (NSErrorDomain)domain { return _domain; }
 - (NSInteger)code { return _code; }
 - (NSDictionary<NSErrorUserInfoKey, id> *)userInfo { return _userInfo ? _userInfo : @{}; }
+
++ (void)setUserInfoValueProviderForDomain:(NSErrorDomain)domain provider:(FinchErrorValueProvider)provider
+{
+    if (!domain) return;
+    @synchronized ([NSError class]) {
+        if (!error_providers) error_providers = [[NSMutableDictionary alloc] init];
+        if (provider) {
+            id copy = [provider copy];
+            [error_providers setObject:copy forKey:domain];
+            [copy release];
+        } else {
+            [error_providers removeObjectForKey:domain];
+        }
+    }
+}
+
++ (FinchErrorValueProvider)userInfoValueProviderForDomain:(NSErrorDomain)domain
+{
+    @synchronized ([NSError class]) {
+        return [[[error_providers objectForKey:domain] retain] autorelease];
+    }
+}
+
+- (id)_finchUserInfoValueForKey:(NSErrorUserInfoKey)key
+{
+    id value = [[self userInfo] objectForKey:key];
+    if (value) return value;
+    FinchErrorValueProvider provider = [NSError userInfoValueProviderForDomain:[self domain]];
+    return provider ? provider(self, key) : nil;
+}
 
 /* Apple's descriptions of the Cocoa errors, with the file ("f.txt"), its
  * folder ("dir") or the invalid value from the user info when there is one. */
@@ -102,7 +135,7 @@ cocoa_description(NSInteger code, NSDictionary *info)
 
 - (NSString *)localizedDescription
 {
-    NSString *d = [[self userInfo] objectForKey:NSLocalizedDescriptionKey];
+    NSString *d = [self _finchUserInfoValueForKey:NSLocalizedDescriptionKey];
     if (d) return d;
     if ([[self domain] isEqualToString:NSCocoaErrorDomain] && (d = cocoa_description([self code], [self userInfo]))) return d;
     NSString *reason = [self localizedFailureReason];
@@ -113,17 +146,17 @@ cocoa_description(NSInteger code, NSDictionary *info)
 
 - (NSString *)localizedFailureReason
 {
-    NSString *r = [[self userInfo] objectForKey:NSLocalizedFailureReasonErrorKey];
+    NSString *r = [self _finchUserInfoValueForKey:NSLocalizedFailureReasonErrorKey];
     if (r) return r;
     if ([[self domain] isEqualToString:NSPOSIXErrorDomain] && [self code] > 0 && [self code] < 1000)
         return [NSString stringWithUTF8String:strerror((int)[self code])];
     return nil;
 }
 
-- (NSString *)localizedRecoverySuggestion { return [[self userInfo] objectForKey:NSLocalizedRecoverySuggestionErrorKey]; }
-- (NSArray<NSString *> *)localizedRecoveryOptions { return [[self userInfo] objectForKey:NSLocalizedRecoveryOptionsErrorKey]; }
-- (id)recoveryAttempter { return [[self userInfo] objectForKey:NSRecoveryAttempterErrorKey]; }
-- (NSString *)helpAnchor { return [[self userInfo] objectForKey:NSHelpAnchorErrorKey]; }
+- (NSString *)localizedRecoverySuggestion { return [self _finchUserInfoValueForKey:NSLocalizedRecoverySuggestionErrorKey]; }
+- (NSArray<NSString *> *)localizedRecoveryOptions { return [self _finchUserInfoValueForKey:NSLocalizedRecoveryOptionsErrorKey]; }
+- (id)recoveryAttempter { return [self _finchUserInfoValueForKey:NSRecoveryAttempterErrorKey]; }
+- (NSString *)helpAnchor { return [self _finchUserInfoValueForKey:NSHelpAnchorErrorKey]; }
 - (NSArray<NSError *> *)underlyingErrors
 {
     NSError *u = [[self userInfo] objectForKey:NSUnderlyingErrorKey];

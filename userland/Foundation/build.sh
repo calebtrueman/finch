@@ -43,12 +43,18 @@ for f in "${HERE}"/*.m; do
     "${CC}" "${CFLAGS[@]}" -c "$f" -o "${OBJ}/$(basename "${f%.m}").o"
 done
 
+# The Swift half (Data, URL, the bridging of the collections, ...), which
+# Apple's Foundation carries too: userland/Foundation/swift/overlay.sh.
+"${HERE}/swift/overlay.sh"
+SWIFTOBJ="${FINCH_ROOT}/build/obj/Foundation-swift"
+
 log "linking"
 mkdir -p "${FW}/Versions/C"
 "${CC}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
     -install_name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation \
     -current_version 4424.1.255 -compatibility_version 300 \
-    "${OBJ}"/*.o -o "${FW}/Versions/C/Foundation" -licucore -lxml2 \
+    "${OBJ}"/*.o "${SWIFTOBJ}/Foundation-swift.o" "${SWIFTOBJ}"/cshims/*.o -o "${FW}/Versions/C/Foundation" -licucore -lxml2 \
+    -L"${SWIFTOBJ}/coll" -Wl,-hidden-lCollectionsInternal -L"${SDKROOT}/usr/lib/swift" \
     -F"${ROOT}/System/Library/Frameworks" -Wl,-reexport_framework,CoreFoundation -Wl,-reexport-lobjc -lSystem \
     -F"${ROOT}/System/Library/PrivateFrameworks" -Wl,-weak_framework,CoreAutoLayout \
     -Wl,-reexported_symbols_list,"${HERE}/CoreAutoLayout.reexports"
@@ -56,4 +62,9 @@ ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/Foundation "${FW}/Foundation"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" C Foundation com.apple.Foundation Foundation 6.9 4424.1.402 en_US
 codesign -f -s - -i com.apple.Foundation "${FW}/Versions/C/Foundation" 2>/dev/null
+NOTICES="${ROOT}/usr/share/finch/licenses"
+mkdir -p "${NOTICES}/swift-foundation" "${NOTICES}/swift-collections" "${NOTICES}/swift-foundation-overlay"
+cp "${FINCH_ROOT}/build/src/swift-foundation/"{LICENSE.md,NOTICE.txt} "${NOTICES}/swift-foundation/"
+cp "${FINCH_ROOT}/build/src/swift-collections/LICENSE.txt" "${NOTICES}/swift-collections/"
+cp "${HERE}/swift/Darwin/LICENSE.txt" "${NOTICES}/swift-foundation-overlay/"
 log "installed ${FW#"${FINCH_ROOT}/"}"

@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Private clang modules the Darwin overlays' sources import (Apple builds
+// them against its internal SDK). Finch declares just what they use.
+module ObjectiveC_Private {
+    explicit module objc_internal {
+        header "objc_internal.h"
+        export *
+    }
+}
+module MachO_Private {
+    explicit module dyld {
+        header "dyld_priv.h"
+        export *
+    }
+}
+module _FinchXPCShims {
+    header "xpc_overlay.h"
+    export *
+}

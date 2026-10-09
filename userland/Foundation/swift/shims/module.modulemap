@@ -1,0 +1,46 @@
+module _SwiftFoundationOverlayShims {
+  header "FoundationOverlayShims.h"
+  export *
+}
+module _SwiftCoreFoundationOverlayShims {
+  header "CoreFoundationOverlayShims.h"
+  export *
+}
+
+// The private modules swift-foundation imports when built into
+// Foundation.framework: Finch declares what they provide.
+module _ForSwiftFoundation { header "_ForSwiftFoundation.h" export * }
+module QuarantinePrivate { header "QuarantinePrivate.h" export * }
+module XPCPrivate { header "XPCPrivate.h" export * }
+module containermanager { header "containermanager.h" export * }
+module Foundation_Private {
+    header "Foundation_Private.h"
+    explicit module NSAttributedString { header "Foundation_Private_Sub.h" export * }
+    explicit module NSExpression { header "Foundation_Private_Sub.h" export * }
+    explicit module NSFileManager { header "Foundation_Private_Sub.h" export * }
+    explicit module NSLocale { header "Foundation_Private_Sub.h" export * }
+    explicit module NSNotification { header "Foundation_Private_Sub.h" export * }
+    explicit module NSPathUtilities { header "Foundation_Private_Sub.h" export * }
+    explicit module NSPredicate { header "Foundation_Private_Sub.h" export * }
+    explicit module NSString { header "Foundation_Private_Sub.h" export * }
+    export *
+}
+module CoreFoundation_Private {
+    header "CoreFoundation_Private.h"
+    explicit module CFLocale { header "CoreFoundation_Private_Sub.h" export * }
+    explicit module CFNotificationCenter { header "CoreFoundation_Private_Sub.h" export * }
+    explicit module CFString { header "CoreFoundation_Private_Sub.h" export * }
+    explicit module CFURL { header "CoreFoundation_Private_Sub.h" export * }
+    explicit module ForFoundationOnly { header "CoreFoundation_Private_Sub.h" export * }
+    export *
+}
+module DarwinPrivate {
+    header "DarwinPrivate.h"
+    explicit module dirhelper { header "DarwinPrivate_Sub.h" export * }
+    explicit module sysdir { header "DarwinPrivate_Sub.h" export * }
+    explicit module sys { explicit module content_protection { header "DarwinPrivate_Sub.h" export * } }
+    export *
+}
+module MachO_Private { explicit module dyld { header "DarwinPrivate_Sub.h" export * } }
+module ObjectiveC_Private { explicit module objc_internal { header "DarwinPrivate_Sub.h" export * } }
+module C { explicit module os { explicit module lock { header "DarwinPrivate_Sub.h" export * } } }

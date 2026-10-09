@@ -115,7 +115,7 @@ compile() {   # compile <source>: object into ${OBJ}/o, errors into <object>.log
 export -f compile; export CC OBJ HERE FINCH_ROOT
 export CFLAGS_STR="$(printf '%q ' "${CFLAGS[@]}")"
 # shellcheck disable=SC2086
-printf '%s\n' ${srcs} | xargs -P "$(sysctl -n hw.ncpu)" -I{} bash -c 'eval "CFLAGS=(${CFLAGS_STR})"; compile "{}"' || failed=1
+printf '%s\n' ${srcs} | xargs -P "$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" -I{} bash -c 'eval "CFLAGS=(${CFLAGS_STR})"; compile "{}"' || failed=1
 [[ ${failed} == 0 ]] || { echo "compile failed" >&2; exit 1; }
 
 log "linking"

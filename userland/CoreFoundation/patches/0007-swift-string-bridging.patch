@@ -1,0 +1,45 @@
+String copying, slicing and byte conversion must read Objective-C strings
+through their methods, including the Swift runtime string subclasses.
+
+--- a/Sources/CoreFoundation/CFString.c
++++ b/Sources/CoreFoundation/CFString.c
+@@ -1729,7 +1729,7 @@
+ 
+ CFStringRef CFStringCreateWithSubstring(CFAllocatorRef alloc, CFStringRef str, CFRange range) {
+     CF_SWIFT_FUNCDISPATCHV(_kCFRuntimeIDCFString, CFStringRef, (CFSwiftRef)str, NSString._createSubstringWithRange, range);
+-//      CF_OBJC_FUNCDISPATCHV(_kCFRuntimeIDCFString, CFStringRef , (NSString *)str, _createSubstringWithRange:NSMakeRange(range.location, range.length));
++    CF_OBJC_FUNCDISPATCHV(_kCFRuntimeIDCFString, CFStringRef, (NSString *)str, _createSubstringWithRange:NSMakeRange(range.location, range.length));
+ 
+     __CFAssertIsString(str);
+     __CFAssertRangeIsInStringBounds(str, range.location, range.length);
+@@ -1799,7 +1799,7 @@
+ 
+ CFStringRef CFStringCreateCopy(CFAllocatorRef alloc, CFStringRef str) {
+     CF_SWIFT_FUNCDISPATCHV(_kCFRuntimeIDCFString, CFStringRef, (CFSwiftRef)str, NSString.copy);
+-//  CF_OBJC_FUNCDISPATCHV(_kCFRuntimeIDCFString, CFStringRef, (NSString *)str, copy);
++    CF_OBJC_FUNCDISPATCHV(_kCFRuntimeIDCFString, CFStringRef, (NSString *)str, copy);
+ 
+     return _CFNonObjCStringCreateCopy(alloc, str);
+ }
+@@ -2182,6 +2182,21 @@
+ 
+ 
+ CFIndex CFStringGetBytes(CFStringRef str, CFRange range, CFStringEncoding encoding, uint8_t lossByte, Boolean isExternalRepresentation, uint8_t * _Nullable buffer, CFIndex maxBufLen, CFIndex *usedBufLen) {
++    /* An Objective-C string need not have CF's object layout. Copy its
++       characters before using CF's byte-storage fast paths. */
++    if (CF_IS_OBJC(_kCFRuntimeIDCFString, str)) {
++        UniChar *characters = range.length ? malloc((size_t)range.length * sizeof(UniChar)) : NULL;
++        if (range.length && !characters) {
++            if (usedBufLen) *usedBufLen = 0;
++            return 0;
++        }
++        CFStringGetCharacters(str, range, characters);
++        CFStringRef copy = CFStringCreateWithCharactersNoCopy(NULL, characters, range.length, kCFAllocatorMalloc);
++        CFIndex converted = CFStringGetBytes(copy, CFRangeMake(0, range.length), encoding, lossByte,
++                                             isExternalRepresentation, buffer, maxBufLen, usedBufLen);
++        CFRelease(copy);
++        return converted;
++    }
+ #if DEPLOYMENT_RUNTIME_SWIFT
+     if (CF_IS_SWIFT(_kCFRuntimeIDCFString, str) && __CFSwiftBridge.NSString.__getBytes != NULL) {
+         return __CFSwiftBridge.NSString.__getBytes(str, encoding, range, buffer, maxBufLen, usedBufLen);

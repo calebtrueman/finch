@@ -1,0 +1,91 @@
+diff --git a/stdlib/public/RuntimeModule/BacktraceFormatter.swift b/stdlib/public/RuntimeModule/BacktraceFormatter.swift
+index 61d448b..1b7bc5e 100644
+--- a/stdlib/public/RuntimeModule/BacktraceFormatter.swift
++++ b/stdlib/public/RuntimeModule/BacktraceFormatter.swift
+@@ -422,7 +422,11 @@ private func untabify(_ s: String, tabWidth: Int = 8) -> String {
+ /// @returns A string containing the sanitized path.
+ @_spi(Formatting)
+ public func sanitizePath(_ path: String) -> String {
+-  #if os(macOS)
++  #if FINCH_RUNTIME
++  // Keep the file name, but do not put a user's directories into crash logs.
++  guard let file = path.split(separator: "/").last else { return path }
++  return path.contains("/") ? "<redacted>/" + file : path
++  #elseif os(macOS)
+   return CRCopySanitizedPath(path,
+                              kCRSanitizePathGlobAllTypes
+                                | kCRSanitizePathKeepFile)
+diff --git a/stdlib/public/RuntimeModule/CoreSymbolication.swift b/stdlib/public/RuntimeModule/CoreSymbolication.swift
+index 94634b6..2a88673 100644
+--- a/stdlib/public/RuntimeModule/CoreSymbolication.swift
++++ b/stdlib/public/RuntimeModule/CoreSymbolication.swift
+@@ -15,7 +15,7 @@
+ //
+ //===----------------------------------------------------------------------===//
+ 
+-#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
++#if (os(iOS) || os(macOS) || os(tvOS) || os(watchOS)) && !FINCH_RUNTIME
+ 
+ import Swift
+ 
+diff --git a/stdlib/public/RuntimeModule/SymbolicatedBacktrace.swift b/stdlib/public/RuntimeModule/SymbolicatedBacktrace.swift
+index 3510469..679e825 100644
+--- a/stdlib/public/RuntimeModule/SymbolicatedBacktrace.swift
++++ b/stdlib/public/RuntimeModule/SymbolicatedBacktrace.swift
+@@ -280,7 +280,7 @@ public struct SymbolicatedBacktrace: CustomStringConvertible {
+     self.frames = frames
+   }
+ 
+-  #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
++  #if (os(macOS) || os(iOS) || os(watchOS) || os(tvOS)) && !FINCH_RUNTIME
+   /// Convert a build ID to a CFUUIDBytes.
+   private static func uuidBytesFromBuildID(_ buildID: [UInt8])
+     -> CFUUIDBytes {
+@@ -397,7 +397,46 @@ public struct SymbolicatedBacktrace: CustomStringConvertible {
+ 
+     var frames: [Frame] = []
+ 
+-    #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
++    #if FINCH_RUNTIME
++    // Finch uses the loaded images' exported symbols. Source lines and inline
++    // frames need a separate debug-info reader; no private framework is loaded.
++    // Saved traces may describe a different process or a now-unloaded image.
++    let currentImages = ImageMap.capture()
++    for frame in backtrace.frames {
++      let address = frame.adjustedProgramCounter
++      guard let value = UInt(address),
++            let pointer = UnsafeRawPointer(bitPattern: value),
++            let imageIndex = theImages.indexOfImage(at: address) else {
++        frames.append(Frame(captured: frame, symbol: nil))
++        continue
++      }
++      let savedImage = theImages[imageIndex]
++      guard let currentIndex = currentImages.indexOfImage(at: address),
++            let savedID = savedImage.uniqueID, !savedID.isEmpty,
++            currentImages[currentIndex].uniqueID == savedID,
++            currentImages[currentIndex].baseAddress == savedImage.baseAddress else {
++        frames.append(Frame(captured: frame, symbol: nil))
++        continue
++      }
++      var info = Dl_info()
++      guard dladdr(pointer, &info) != 0,
++            let base = info.dli_fbase,
++            UInt(bitPattern: base) == UInt(savedImage.baseAddress),
++            let name = info.dli_sname, let start = info.dli_saddr,
++            let original = UInt(frame.originalProgramCounter),
++            original >= UInt(bitPattern: start),
++            let offset = Int(exactly: original - UInt(bitPattern: start)) else {
++        frames.append(Frame(captured: frame, symbol: nil))
++        continue
++      }
++      let symbol = Symbol(imageIndex: imageIndex,
++                          imageName: theImages[imageIndex].name ?? "<unknown>",
++                          rawName: String(cString: name),
++                          offset: offset,
++                          sourceLocation: nil)
++      frames.append(Frame(captured: frame, symbol: symbol))
++    }
++    #elseif os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+     withSymbolicator(images: theImages,
+                      useSymbolCache: options.contains(.useSymbolCache)) {
+       symbolicator in

@@ -1,0 +1,21 @@
+# swift-foundation files Finch's Foundation leaves out (fixed-string matches
+# against the source paths), with the reason.
+# Predicate archiving needs Apple's private ReflectionInternal (PartialType,
+# generic argument reconstruction); PredicateCodableConfiguration.swift
+# compiles to nothing without it.
+Predicate/Archiving/PredicateExpressionConstruction.swift
+Predicate/Archiving/EncodingContainers+PredicateExpression.swift
+Predicate/Archiving/Predicate+Codable.swift
+# Predicate to NSPredicate conversion uses NSExpression SPI Finch lacks yet.
+Predicate/NSPredicateConversion.swift
+# Apple's NSProcessInfo is this Swift subclass; Finch's is Objective-C.
+ProcessInfo/ProcessInfo+ObjC.swift
+# String bridging with tagged-pointer and CF fast paths (private SPI); Finch
+# bridges with Darwin/String.swift (swift-5.4's overlay) instead.
+String/String+Bridging.swift
+# Apple's NSURL is swift-foundation's _NSSwiftURL; Finch's NSURL is CF's.
+URL/URL_ObjC.swift
+# Apple's NSURLComponents is swift-foundation's Swift subclass; Finch's is Objective-C.
+URL/URLComponents_ObjC.swift
+# Apple's NSUUID is its Swift subclass __NSConcreteUUID; Finch bridges through bytes (Darwin/UUID+NSUUID.swift).
+UUID_Wrappers.swift

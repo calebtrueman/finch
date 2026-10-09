@@ -1,0 +1,114 @@
+diff --git a/Sources/FoundationEssentials/AttributedString/AttributeScope.swift b/Sources/FoundationEssentials/AttributedString/AttributeScope.swift
+index 352601b..f44eae4 100644
+--- a/Sources/FoundationEssentials/AttributedString/AttributeScope.swift
++++ b/Sources/FoundationEssentials/AttributedString/AttributeScope.swift
+@@ -37,7 +37,36 @@ extension AttributeScopes : Sendable {}
+ 
+ import Darwin
+ internal import MachO.dyld
+-internal import ReflectionInternal
++// Finch: the stored-property types of a scope come from the Swift runtime's
++// field reflection (what the standard library's _forEachField uses) rather
++// than Apple's private ReflectionInternal.
++fileprivate struct _FinchFieldMetadata {
++    var name: UnsafePointer<CChar>? = nil
++    var freeFunc: (@convention(c) (UnsafePointer<CChar>?) -> Void)? = nil
++    var isStrong = false
++    var isVar = false
++}
++@_silgen_name("swift_reflectionMirror_recursiveCount")
++fileprivate func _finchRecursiveChildCount(_: Any.Type) -> Int
++@_silgen_name("swift_reflectionMirror_recursiveChildMetadata")
++fileprivate func _finchChildMetadata(_: Any.Type, index: Int,
++    fieldMetadata: UnsafeMutablePointer<_FinchFieldMetadata>) -> Any.Type
++
++fileprivate struct Type: Hashable {
++    let swiftType: Any.Type
++    init(_ type: Any.Type) { swiftType = type }
++    static func == (a: Type, b: Type) -> Bool { ObjectIdentifier(a.swiftType) == ObjectIdentifier(b.swiftType) }
++    func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(swiftType)) }
++    struct Field { let type: Type }
++    var fields: [Field] {
++        (0 ..< _finchRecursiveChildCount(swiftType)).map { i in
++            var field = _FinchFieldMetadata()
++            let type = _finchChildMetadata(swiftType, index: i, fieldMetadata: &field)
++            field.freeFunc?(field.name)
++            return Field(type: Type(type))
++        }
++    }
++}
+ 
+ fileprivate struct ScopeDescription : Sendable {
+     var attributes: [String : any AttributedStringKey.Type] = [:]
+diff --git a/Sources/FoundationEssentials/Codable.swift b/Sources/FoundationEssentials/Codable.swift
+index 2d82cf8..2a382d7 100644
+--- a/Sources/FoundationEssentials/Codable.swift
++++ b/Sources/FoundationEssentials/Codable.swift
+@@ -68,7 +68,7 @@ extension DecodingError {
+     }
+ }
+ 
+-#if canImport(Combine)
++#if canImport(Combine) && !FINCH_FOUNDATION // Finch: no Combine yet (closed)
+ // Only support 64bit
+ 
+ import Combine
+diff --git a/Sources/FoundationEssentials/Predicate/PredicateExpression.swift b/Sources/FoundationEssentials/Predicate/PredicateExpression.swift
+index f2d7fad..ab5100a 100644
+--- a/Sources/FoundationEssentials/Predicate/PredicateExpression.swift
++++ b/Sources/FoundationEssentials/Predicate/PredicateExpression.swift
+@@ -112,7 +112,7 @@ extension PredicateExpressions {
+         public init(from decoder: Decoder) throws {
+             let container = try decoder.singleValueContainer()
+             let decodedID = try container.decode(UInt.self)
+-#if FOUNDATION_FRAMEWORK
++#if FOUNDATION_FRAMEWORK && canImport(ReflectionInternal) // Finch: archiving needs ReflectionInternal
+             if let newVariable = _ThreadLocal[.predicateArchivingState]?.createVariable(for: decodedID) {
+                 self = newVariable
+                 return
+@@ -211,7 +211,7 @@ extension PredicateExpressions.KeyPath : Codable where Root : Codable {
+     }
+     
+     public func encode(to encoder: Encoder) throws {
+-#if FOUNDATION_FRAMEWORK
++#if FOUNDATION_FRAMEWORK && canImport(ReflectionInternal) // Finch: archiving needs ReflectionInternal
+         var container = encoder.container(keyedBy: CodingKeys.self)
+         try container.encode(root, forKey: .root)
+         guard let identifier = _ThreadLocal[.predicateArchivingState]?.configuration._identifier(for: keyPath) else {
+@@ -225,7 +225,7 @@ extension PredicateExpressions.KeyPath : Codable where Root : Codable {
+     
+     public init(from decoder: Decoder) throws {
+         let container = try decoder.container(keyedBy: CodingKeys.self)
+-#if FOUNDATION_FRAMEWORK
++#if FOUNDATION_FRAMEWORK && canImport(ReflectionInternal) // Finch: archiving needs ReflectionInternal
+         root = try container.decode(Root.self, forKey: .root)
+         let identifier = try container.decode(String.self, forKey: .identifier)
+         guard let anykp = _ThreadLocal[.predicateArchivingState]?.configuration._keyPath(for: identifier, rootType: Root.Output.self) else {
+diff --git a/Sources/FoundationEssentials/String/UnicodeScalar.swift b/Sources/FoundationEssentials/String/UnicodeScalar.swift
+index 1665b88..279e9e9 100644
+--- a/Sources/FoundationEssentials/String/UnicodeScalar.swift
++++ b/Sources/FoundationEssentials/String/UnicodeScalar.swift
+@@ -65,7 +65,9 @@ extension UnicodeScalar {
+ 
+     var _caseFoldMapping : String {
+ #if FOUNDATION_FRAMEWORK // TODO: Expose Case Mapping Data without @_spi(_Unicode)
+-        return self.properties._caseFolded
++        // Finch: the standard library's case folding is SPI the public SDK
++        // doesn't expose; NSString folds case the same way.
++        return (String(self) as NSString).folding(options: .caseInsensitive, locale: nil)
+ #else
+         fatalError("_caseFoldMapping is not implemented yet")
+ #endif
+diff --git a/Sources/FoundationInternationalization/Formatting/Date/Date+ComponentsFormatStyle+Stub.swift b/Sources/FoundationInternationalization/Formatting/Date/Date+ComponentsFormatStyle+Stub.swift
+index 988b409..16dad7a 100644
+--- a/Sources/FoundationInternationalization/Formatting/Date/Date+ComponentsFormatStyle+Stub.swift
++++ b/Sources/FoundationInternationalization/Formatting/Date/Date+ComponentsFormatStyle+Stub.swift
+@@ -14,7 +14,7 @@
+ import FoundationEssentials
+ #endif
+ 
+-#if !FOUNDATION_FRAMEWORK
++#if !FOUNDATION_FRAMEWORK || FINCH_FOUNDATION // Finch: Apple's full style is in its private half
+ 
+ // stub
+ extension Date {

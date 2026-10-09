@@ -60,6 +60,15 @@
 - (NSUInteger)firstIndex { return _count ? _ranges[0].location : NSNotFound; }
 - (NSUInteger)lastIndex { return _count ? NSMaxRange(_ranges[_count - 1]) - 1 : NSNotFound; }
 
+/* The Swift IndexSet view walks the stored ranges directly. */
+- (NSUInteger)rangeCount { return _count; }
+- (NSRange)rangeAtIndex:(NSUInteger)index
+{
+    if (index >= _count)
+        FinchRaise(NSRangeException, "-[%s %s]: Range index out of bounds", object_getClassName(self), sel_getName(_cmd));
+    return _ranges[index];
+}
+
 /* The index of the range containing or following `value`. */
 static NSUInteger
 range_at_or_after(NSIndexSet *s, NSUInteger value)
@@ -78,6 +87,11 @@ range_at_or_after(NSIndexSet *s, NSUInteger value)
     NSUInteger r = range_at_or_after(self, value);
     if (r == _count) return NSNotFound;
     return value >= _ranges[r].location ? value : _ranges[r].location;
+}
+- (NSUInteger)_indexOfRangeContainingIndex:(NSUInteger)value
+{
+    NSUInteger r = range_at_or_after(self, value);
+    return r < _count && NSLocationInRange(value, _ranges[r]) ? r : NSNotFound;
 }
 - (NSUInteger)indexGreaterThanIndex:(NSUInteger)value { return value == NSNotFound - 1 ? NSNotFound : [self indexGreaterThanOrEqualToIndex:value + 1]; }
 - (NSUInteger)indexLessThanOrEqualToIndex:(NSUInteger)value
