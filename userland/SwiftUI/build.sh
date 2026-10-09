@@ -28,6 +28,11 @@ export OPENSWIFTUI_OPENATTRIBUTESHIMS_ATTRIBUTEGRAPH=0 OPENSWIFTUI_RENDERBOX=0 O
     OPENSWIFTUI_LINK_CORESVG=0 OPENSWIFTUI_LINK_SFSYMBOLS=0 OPENSWIFTUI_LINK_FEATUREFLAGS=0 \
     OPENSWIFTUI_LINK_BACKLIGHTSERVICES=0 OPENSWIFTUI_LINK_GESTURES=0 OPENSWIFTUI_SYMBOL_LOCATOR=0 \
     OPENSWIFTUI_ENABLE_PRIVATE_IMPORTS=0 OPENSWIFTUI_LIBRARY_EVOLUTION=1
+swift package resolve --scratch-path "${PKG}/build"
+# OpenAttributeGraph's debug client talks to a debug server over Network.framework, which
+# Finch doesn't have; nothing in SwiftUI uses it, so it's left out.
+DEBUG_CLIENT="${PKG}/build/checkouts/OpenAttributeGraph/Sources/OpenAttributeGraphShims/DebugClient.swift"
+sed -i '' 's/^#if canImport(Darwin)$/#if canImport(Darwin) \&\& FINCH_DEBUG_CLIENT/' "${DEBUG_CLIENT}"
 swift build -c release --triple arm64e-apple-macosx26.0 --scratch-path "${PKG}/build" --target SwiftUI
 log "built"
 
@@ -47,7 +52,7 @@ link() {   # link NAME VERSION objects... -- extra flags
     xcrun clang++ -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
         -install_name "/System/Library/Frameworks/${name}.framework/Versions/A/${name}" \
         -current_version "${version}" -compatibility_version 1 "${files[@]}" -o "${fw}/Versions/A/${name}" \
-        -L"${SDKROOT}/usr/lib/swift" -F"${FWS}" -F"${ROOT}/System/Library/PrivateFrameworks" ${flags[@]+"${flags[@]}"}
+        -L"${SDKROOT}/usr/lib/swift" -F"${FWS}" -F"${ROOT}/System/Library/PrivateFrameworks" -Wl,-dead_strip_dylibs ${flags[@]+"${flags[@]}"}
     ln -sfn A "${fw}/Versions/Current"
     ln -sfn "Versions/Current/${name}" "${fw}/${name}"
     "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${fw}" A "${name}" "com.apple.${name}" "${name}" 7.4.26 7.4.26 English
@@ -66,14 +71,14 @@ link SwiftUICore 7.4.26 "${core[@]}" "${PKG}/stubs.o" -- -Wl,-not_for_dyld_share
     -lz -framework AppKit -framework QuartzCore -framework CoreText \
     -framework Combine -framework CoreGraphics -framework Foundation -lc++
 mapfile -t ui < <(objs SwiftUI)
-link SwiftUI 7.4.26 "${ui[@]}" -- -Wl,-reexport_framework,SwiftUICore -framework AppKit -framework QuartzCore \
+link SwiftUI 7.4.26 "${ui[@]}" "${PKG}/stubs.o" -- -Wl,-reexport_framework,SwiftUICore -framework AppKit -framework QuartzCore \
     -framework Combine -framework Foundation
 
 # Notices for the open code linked in.
 NOTICES="${ROOT}/usr/share/finch/licenses"
 mkdir -p "${NOTICES}/OpenSwiftUI"
-cp "${SRC}/LICENSE" "${NOTICES}/OpenSwiftUI/"
+install -m 644 "${SRC}/LICENSE" "${NOTICES}/OpenSwiftUI/"
 for d in OpenAttributeGraph OpenObservation OpenRenderBox OpenCoreGraphics; do
     mkdir -p "${NOTICES}/${d}"
-    cp "${PKG}/build/checkouts/${d}/LICENSE"* "${NOTICES}/${d}/"
+    install -m 644 "${PKG}/build/checkouts/${d}/LICENSE"* "${NOTICES}/${d}/"
 done

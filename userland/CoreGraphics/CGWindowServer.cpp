@@ -606,6 +606,91 @@ CGError CGDisplayHideCursor(CGDirectDisplayID display) { FWSSetCursorVisible(fal
 CGError CGDisplayShowCursor(CGDirectDisplayID display) { FWSSetCursorVisible(true); return kCGErrorSuccess; }
 CGError CGAssociateMouseAndMouseCursorPosition(boolean_t connected) { return kCGErrorSuccess; }
 
+#pragma mark - Display modes
+
+/* A display's one mode: its size in points and pixels, and its refresh rate. */
+struct CGDisplayMode {
+    CGRuntimeBase base;
+    size_t width, height, pixelWidth, pixelHeight;
+    double refresh;
+    int32_t ioModeID;
+};
+
+static CFStringRef
+mode_desc(CFTypeRef cf)
+{
+    const CGDisplayMode *m = (const CGDisplayMode *)cf;
+    return CFStringCreateWithFormat(NULL, NULL, CFSTR("<CGDisplayMode %p> [%zux%zu (%zux%zu pixels) @ %gHz]"), cf, m->width,
+                                    m->height, m->pixelWidth, m->pixelHeight, m->refresh);
+}
+
+static Boolean
+mode_equal(CFTypeRef a, CFTypeRef b)
+{
+    const CGDisplayMode *x = (const CGDisplayMode *)a, *y = (const CGDisplayMode *)b;
+    return x->width == y->width && x->height == y->height && x->pixelWidth == y->pixelWidth &&
+           x->pixelHeight == y->pixelHeight && x->refresh == y->refresh;
+}
+
+static const CGRuntimeClass mode_class = {
+    0, "CGDisplayMode", NULL, NULL, NULL, mode_equal, NULL, NULL, mode_desc, NULL, NULL, 0,
+};
+static CFTypeID mode_type;
+
+CFTypeID
+CGDisplayModeGetTypeID(void)
+{
+    return CGTypeRegister(&mode_class, &mode_type);
+}
+
+CGDisplayModeRef
+CGDisplayCopyDisplayMode(CGDirectDisplayID display)
+{
+    FWSDisplayInfo d;
+    if (!FWSGetDisplayInfo(&d) || display != d.display)
+        return NULL;
+    CGDisplayMode *m = (CGDisplayMode *)CGTypeCreateInstance(CGDisplayModeGetTypeID(), sizeof(CGDisplayMode));
+    m->width = (size_t)d.width;
+    m->height = (size_t)d.height;
+    m->pixelWidth = (size_t)(d.width * d.scale);
+    m->pixelHeight = (size_t)(d.height * d.scale);
+    m->refresh = d.refresh;
+    m->ioModeID = 1;
+    return m;
+}
+
+CFArrayRef
+CGDisplayCopyAllDisplayModes(CGDirectDisplayID display, CFDictionaryRef options)
+{
+    CGDisplayModeRef m = CGDisplayCopyDisplayMode(display);
+    if (!m)
+        return NULL;
+    CFArrayRef a = CFArrayCreate(NULL, (const void **)&m, 1, &kCFTypeArrayCallBacks);
+    CFRelease(m);
+    return a;
+}
+
+CGError
+CGDisplaySetDisplayMode(CGDirectDisplayID display, CGDisplayModeRef mode, CFDictionaryRef options)
+{
+    CGDisplayModeRef current = CGDisplayCopyDisplayMode(display);
+    bool same = current && mode && CFEqual(current, mode);
+    if (current)
+        CFRelease(current);
+    return same ? kCGErrorSuccess : kCGErrorIllegalArgument;
+}
+
+CGDisplayModeRef CGDisplayModeRetain(CGDisplayModeRef mode) { return mode ? (CGDisplayModeRef)CFRetain(mode) : NULL; }
+void CGDisplayModeRelease(CGDisplayModeRef mode) { if (mode) CFRelease(mode); }
+size_t CGDisplayModeGetWidth(CGDisplayModeRef mode) { return mode ? mode->width : 0; }
+size_t CGDisplayModeGetHeight(CGDisplayModeRef mode) { return mode ? mode->height : 0; }
+size_t CGDisplayModeGetPixelWidth(CGDisplayModeRef mode) { return mode ? mode->pixelWidth : 0; }
+size_t CGDisplayModeGetPixelHeight(CGDisplayModeRef mode) { return mode ? mode->pixelHeight : 0; }
+double CGDisplayModeGetRefreshRate(CGDisplayModeRef mode) { return mode ? mode->refresh : 0; }
+int32_t CGDisplayModeGetIODisplayModeID(CGDisplayModeRef mode) { return mode ? mode->ioModeID : 0; }
+uint32_t CGDisplayModeGetIOFlags(CGDisplayModeRef mode) { return mode ? 0x7 /* valid, safe, default */ : 0; }
+bool CGDisplayModeIsUsableForDesktopGUI(CGDisplayModeRef mode) { return mode != NULL; }
+
 #pragma mark - The window list
 
 static CFNumberRef

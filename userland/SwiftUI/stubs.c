@@ -5,7 +5,10 @@
  *     making a request): Finch has no assistive clients yet, so none (0);
  *   - the Swift 5.6 and concurrency compatibility libraries' force-load anchors, which
  *     the compiler adds for older deployment targets; SwiftUI targets macOS 26, which
- *     has no need of them.
+ *     has no need of them;
+ *   - the Metal overlay's force-load anchor: a module imports Metal's Swift overlay without
+ *     using it, and Finch has no Metal yet, so the anchor is satisfied here and the
+ *     overlay isn't linked.
  */
 #include <stdint.h>
 
@@ -13,3 +16,4 @@ __attribute__((visibility("hidden"))) uint32_t _AXGetClientForCurrentRequestUntr
 __attribute__((visibility("hidden"))) void _AXSetClientIdentificationOverride(uint32_t client) { (void)client; }
 __attribute__((visibility("hidden"))) char _swift_FORCE_LOAD_$_swiftCompatibility56;
 __attribute__((visibility("hidden"))) char _swift_FORCE_LOAD_$_swiftCompatibilityConcurrency;
+__attribute__((visibility("hidden"))) char _swift_FORCE_LOAD_$_swiftMetal;

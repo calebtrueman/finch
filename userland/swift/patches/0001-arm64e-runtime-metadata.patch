@@ -1,5 +1,5 @@
 diff --git a/include/swift/ABI/Metadata.h b/include/swift/ABI/Metadata.h
-index bede849..1dc0576 100644
+index bede849..d84704e 100644
 --- a/include/swift/ABI/Metadata.h
 +++ b/include/swift/ABI/Metadata.h
 @@ -151,7 +151,9 @@ template <typename Runtime>
@@ -30,7 +30,18 @@ index bede849..1dc0576 100644
    }
  
  public:
-@@ -649,7 +655,9 @@ template<typename Runtime> struct TargetProtocolRequirement;
+@@ -639,7 +645,9 @@ template<typename Runtime> struct TargetMethodDescriptor;
+ template<typename Runtime>
+ using TargetRelativeMethodDescriptorPointer =
+   RelativeIndirectablePointer<const TargetMethodDescriptor<Runtime>,
+-                              /*nullable*/ true>;
++                              /*nullable*/ true, int32_t,
++                              const TargetMethodDescriptor<Runtime> *
++                                  __ptrauth_swift_method_descriptor>;
+ 
+ using RelativeMethodDescriptorPointer =
+   TargetRelativeMethodDescriptorPointer<InProcess>;
+@@ -649,7 +657,9 @@ template<typename Runtime> struct TargetProtocolRequirement;
  template<typename Runtime>
  using TargetRelativeProtocolRequirementPointer =
    RelativeIndirectablePointer<const TargetProtocolRequirement<Runtime>,
@@ -41,7 +52,7 @@ index bede849..1dc0576 100644
  
  using RelativeProtocolRequirementPointer =
    TargetRelativeProtocolRequirementPointer<InProcess>;
-@@ -1858,7 +1866,8 @@ template <typename Runtime>
+@@ -1858,7 +1868,8 @@ template <typename Runtime>
  class TargetWitnessTable {
    /// The protocol conformance descriptor from which this witness table
    /// was generated.
@@ -51,7 +62,7 @@ index bede849..1dc0576 100644
      Description;
  
  public:
-@@ -3709,7 +3718,9 @@ struct TargetGenericValueMetadataPattern final :
+@@ -3709,7 +3720,9 @@ struct TargetGenericValueMetadataPattern final :
  
    /// The value-witness table.  Indirectable so that we can re-use tables
    /// from other libraries if that seems wise.
@@ -104,10 +115,10 @@ index 21a5c92..466828c 100644
  template <typename Runtime, typename Pointee, bool Nullable = true,
            typename Offset = int32_t>
 diff --git a/include/swift/Runtime/Config.h b/include/swift/Runtime/Config.h
-index f0acbb8..9a0c74f 100644
+index f0acbb8..5577180 100644
 --- a/include/swift/Runtime/Config.h
 +++ b/include/swift/Runtime/Config.h
-@@ -280,9 +280,14 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
+@@ -280,9 +280,18 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
    __ptrauth(ptrauth_key_function_pointer, 1, __key)
  #define __ptrauth_swift_runtime_function_entry_strip(__fn) \
    ptrauth_strip(__fn, ptrauth_key_function_pointer)
@@ -119,10 +130,14 @@ index f0acbb8..9a0c74f 100644
              SpecialPointerAuthDiscriminators::TypeDescriptor)
 +#define __ptrauth_swift_protocol_requirement \
 +  __ptrauth(ptrauth_key_process_independent_data, 1, 0x7d4c)
++/* Indirect references to method descriptors (class vtable overrides), as Xcode 26's
++   compiler signs them: key DA, address-discriminated, 0x675a. */
++#define __ptrauth_swift_method_descriptor \
++  __ptrauth(ptrauth_key_process_independent_data, 1, 0x675a)
  #define __ptrauth_swift_protocol_conformance_descriptor \
    __ptrauth(ptrauth_key_process_independent_data, 1, \
              SpecialPointerAuthDiscriminators::ProtocolConformanceDescriptor)
-@@ -358,6 +363,7 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
+@@ -358,6 +367,7 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
                         __builtin_ptrauth_struct_disc(from) + 1)
  #else
  #define SWIFT_PTRAUTH 0
@@ -130,11 +145,12 @@ index f0acbb8..9a0c74f 100644
  #define __ptrauth_swift_function_pointer(__typekey)
  #define __ptrauth_swift_class_method_pointer(__declkey)
  #define __ptrauth_swift_protocol_witness_function_pointer(__declkey)
-@@ -380,6 +386,7 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
+@@ -380,6 +390,8 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
  #define __ptrauth_swift_heap_object_destructor
  #define __ptrauth_swift_type_descriptor
  #define __ptrauth_swift_protocol_conformance_descriptor
 +#define __ptrauth_swift_protocol_requirement
++#define __ptrauth_swift_method_descriptor
  #define __ptrauth_swift_nonunique_extended_existential_type_shape
  #define __ptrauth_swift_dynamic_replacement_key
  #define swift_ptrauth_sign_opaque_read_resume_function(__fn, __buffer) (__fn)

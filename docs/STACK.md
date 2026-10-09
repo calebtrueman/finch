@@ -36,7 +36,8 @@ Aqua-compatible values for apps that need them and for the comparison tests.
 Combine is open code (OpenCombine with Finch's additions) built to Apple's ABI
 (`docs/design/COMBINE.md`). SwiftUI is built from OpenSwiftUI, renamed to Apple's
 modules, and links against Finch's frameworks; running apps on it is the next step
-(`docs/design/SWIFTUI.md`). Foundation carries the URL loading system that Apple keeps in
+(`docs/design/SWIFTUI.md`); the frameworks it links that Apple keeps closed are Finch's own:
+CoreVideo's display link, Accessibility, CoreTransferable and DeveloperToolsSupport. Foundation carries the URL loading system that Apple keeps in
 the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
 
@@ -89,7 +90,7 @@ block-beta
         coreservices["CoreServices<br/>app lookup and launch,<br/>local Apple events, files"]
         later["Metal, AV"]
         coreui["CoreUI<br/>compiled asset catalogs,<br/>named images and colors"]
-        space6c[" "]
+        appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport"]
         swiftui["SwiftUI, SwiftUICore<br/>(OpenSwiftUI, OpenAttributeGraph;<br/>links, apps not yet running)"]
     end
     block:L5
@@ -175,7 +176,7 @@ block-beta
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
     class later,kexts,metal planned
     class apps testapp
-    class shell,uti,appkit,quartzcore,coreservices,coreui,security,sysconfig,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class appsupport,shell,uti,appkit,quartzcore,coreservices,coreui,security,sysconfig,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia,fonts,swiftui upstream
     class vz firmware
@@ -256,6 +257,9 @@ flowchart LR
     swiftuicore --> qc
     swiftuicore --> ctfw
     swiftuicore --> combine
+    swiftuicore --> appsup
+    swiftui --> appsup
+    appsup["CoreVideo, Accessibility,<br/>CoreTransferable,<br/>DeveloperToolsSupport"]:::finch
     ffound --> combine
     ffound --> openssl
     gcore --> ffound

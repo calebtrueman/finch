@@ -21,7 +21,12 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "build", "
 
 
 def run(*args):
-    return subprocess.run(args, capture_output=True, text=True).stdout
+    out = subprocess.run(args, capture_output=True, text=True).stdout
+    # Binaries built for the current arm64e ABI report their slice as "arm64e.v1", which
+    # "-arch arm64e" doesn't select; a single-slice binary is read without the filter.
+    if args[1:3] == ("-arch", "arm64e") and len(out.splitlines()) <= 1:
+        out = subprocess.run(args[:1] + args[3:], capture_output=True, text=True).stdout
+    return out
 
 
 _overlay = None

@@ -7,10 +7,22 @@ symbols are $s7SwiftUI... as apps import them. Its other modules keep their name
 """
 import os
 import re
+import shutil
 import sys
 
 # not file names (OpenSwiftUI+NSView.h) or SPI groups the dependencies declare (@_spi(OpenSwiftUI))
 MODULE = re.compile(r'(?<!@_spi\()\bOpenSwiftUI(Core)?\b(?!\+)')
+
+
+# upstream files that Finch's sources replace (relative to Sources/, after the module renames)
+REPLACED = [
+    'SwiftUI/View/Control/Button/Button.swift',   # an empty placeholder upstream
+]
+
+# (file, upstream declaration, Apple's)
+KINDS = [
+    ('SwiftUI/App/Scene/SceneBuilder.swift', 'public enum SceneBuilder', 'public struct SceneBuilder'),
+]
 
 
 def rename(m):
@@ -36,6 +48,24 @@ def main():
     for old, new in (('OpenSwiftUICore', 'SwiftUICore'), ('OpenSwiftUI', 'SwiftUI')):
         if os.path.isdir(os.path.join(src, old)):
             os.rename(os.path.join(src, old), os.path.join(src, new))
+    # Finch's own sources (userland/SwiftUI/Finch/<module>/), and the upstream files they replace
+    finch = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Finch')
+    for module in os.listdir(finch):
+        if not os.path.isdir(os.path.join(finch, module)):
+            continue
+        dest = os.path.join(src, module, 'Finch')
+        os.makedirs(dest, exist_ok=True)
+        for f in os.listdir(os.path.join(finch, module)):
+            if f.endswith('.swift'):
+                shutil.copy(os.path.join(finch, module, f), dest)
+    for rel in REPLACED:
+        os.remove(os.path.join(src, rel))
+    # kinds Apple's declarations have (the kind is part of every mangled name)
+    for rel, old, new in KINDS:
+        path = os.path.join(src, rel)
+        t = open(path).read()
+        assert old in t, (rel, old)
+        open(path, 'w').write(t.replace(old, new))
     for dirpath, _, files in os.walk(src):
         for f in files:
             if not f.endswith(('.swift', '.modulemap', '.c', '.h', '.m', '.cpp', '.mm')):

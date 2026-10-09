@@ -80,3 +80,22 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
 
   `SwiftUI.framework` and `SwiftUICore.framework` now link against Finch's frameworks alone.
   Next is step 2 of the plan: a minimal app on the host, then in the VM.
+
+- 2026-10-09: the first app. `userland/tests/apps/SwiftUIHello` (a window, text, a counting
+  button, built against Apple's SDK) now finds every symbol it imports in Finch's SwiftUI.
+  Getting there needed:
+  - ABI fixes in `adapt.py` and `userland/SwiftUI/Finch/`: `SceneBuilder` is a struct, as
+    Apple's is (the kind is in every mangled name); `WindowGroup`'s `init(id:title:lazyContent:)`,
+    which Apple's inlinable initializers call; a working `Button` (upstream's is a placeholder).
+  - The frameworks Apple's SwiftUI links, written as Finch's own to Apple's ABI:
+    CoreVideo (the display link), Accessibility (charts, custom content, settings, braille,
+    the attribute scope), CoreTransferable and DeveloperToolsSupport. Network.framework was
+    only used by OpenAttributeGraph's debug client, which is left out.
+  - Finch's Swift runtime now authenticates the signed method descriptor references that
+    Xcode 26's compiler emits for class overrides across images (key DA, 0x675a), which
+    swift-6.3.1's runtime doesn't know (`userland/swift/patches/0001`).
+
+  The app now stops in the attribute graph: OpenAttributeGraph's core (creating attributes,
+  reading and updating values) is still unimplemented upstream; on macOS OpenSwiftUI runs on
+  Apple's AttributeGraph. Next: ByteDance's DanceUIGraph (Apache 2.0, about 37,000 lines, a
+  complete attribute graph), which OpenAttributeGraph already has an adapter for.
