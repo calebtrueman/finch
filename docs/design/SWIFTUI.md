@@ -99,3 +99,25 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   reading and updating values) is still unimplemented upstream; on macOS OpenSwiftUI runs on
   Apple's AttributeGraph. Next: ByteDance's DanceUIGraph (Apache 2.0, about 37,000 lines, a
   complete attribute graph), which OpenAttributeGraph already has an adapter for.
+
+- 2026-10-09: SwiftUIHello draws: its window, title text, the counter and the button, from
+  the app as Xcode builds it, on the host's headless window server with Finch's frameworks.
+  - The attribute graph is Compute (MIT, `OpenSwiftUIProject/Compute` 0.6.0), a
+    reimplementation of AttributeGraph that OpenAttributeGraph adapts to. OpenAttributeGraph's
+    own graph is still empty upstream, and ByteDance's DanceUIGraph (Apache 2.0) builds only
+    with CocoaPods and a full Swift toolchain build. Finch patches Compute for arm64e: Swift
+    closures' function pointers are signed with a type discriminator C++ can't name, so they
+    are re-signed before calls; the contexts of non-escaping closures (on the stack) aren't
+    retained; and Compute's copy of the runtime headers gets Finch's signed-pointer patch.
+  - Compute's one demangler call (`makeSymbolicMangledNameStringRef`) is Finch's
+    (`userland/SwiftUI/demangle.cpp`): the toolchain's libswiftDemangle isn't on a system.
+  - AppKit: layer-backed and layer-hosting views (rendered with the view tree; layer changes
+    redisplay the view), `clipsToBounds`, `alphaValue`, private `-setFlipped:` and
+    `ignoreHitTest`, window sizing from the content view's constraints, layout before display
+    even when nothing is dirty, and `NSWindowController` loading through `-loadWindow` when
+    `-windowNibName` is overridden.
+  - Foundation: `-[NSBundle localizedAttributedStringForKey:value:table:]`, attributed string
+    formatting, empty dictionaries bridging to Swift, locale/time zone/calendar equality with
+    Swift subclasses. UIFoundation: `NSStringDrawingContext`'s private options and results.
+
+  Next: events (the button), window placement, and Text styles; then larger apps.

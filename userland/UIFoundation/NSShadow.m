@@ -112,30 +112,117 @@
 
 #pragma mark - NSStringDrawingContext
 
+/*
+ * Besides the public minimum scale factor and results, Apple's context carries private
+ * options and results that SwiftUI's text uses: a line limit, and the baselines and line
+ * count of the last layout. String drawing reads the options and sets the results
+ * (NSStringDrawing.m).
+ */
 @interface NSStringDrawingContext () {
 @public
     CGFloat _minimumScaleFactor, _actualScaleFactor;
     CGRect _totalBounds;
+    CGFloat _baselineOffset, _firstBaselineOffset, _scaledLineHeight, _scaledBaselineOffset;
+    BOOL _wrapsForTruncationMode, _wantsBaselineOffset, _wantsScaledLineHeight, _wantsScaledBaselineOffset;
+    BOOL _cachesLayout, _wantsNumberOfLineFragments, _hasTruncatedRanges;
+    NSInteger _maximumNumberOfLines, _numberOfLineFragments;
+    NSUInteger _activeRenderers;
+    id _layout;
+    id _linkTextAttributesProvider;
 }
 @end
 
 @implementation NSStringDrawingContext
+
+- (void)dealloc
+{
+    [_layout release];
+    [_linkTextAttributesProvider release];
+    [super dealloc];
+}
 
 - (CGFloat)minimumScaleFactor { return _minimumScaleFactor; }
 - (void)setMinimumScaleFactor:(CGFloat)f { _minimumScaleFactor = f; }
 - (CGFloat)actualScaleFactor { return _actualScaleFactor; }
 - (CGRect)totalBounds { return _totalBounds; }
 
+- (CGFloat)baselineOffset { return _baselineOffset; }
+- (void)setBaselineOffset:(CGFloat)v { _baselineOffset = v; }
+- (CGFloat)firstBaselineOffset { return _firstBaselineOffset; }
+- (void)setFirstBaselineOffset:(CGFloat)v { _firstBaselineOffset = v; }
+- (CGFloat)scaledLineHeight { return _scaledLineHeight; }
+- (void)setScaledLineHeight:(CGFloat)v { _scaledLineHeight = v; }
+- (CGFloat)scaledBaselineOffset { return _scaledBaselineOffset; }
+- (void)setScaledBaselineOffset:(CGFloat)v { _scaledBaselineOffset = v; }
+- (BOOL)wrapsForTruncationMode { return _wrapsForTruncationMode; }
+- (void)setWrapsForTruncationMode:(BOOL)v { _wrapsForTruncationMode = v; }
+- (BOOL)wantsBaselineOffset { return _wantsBaselineOffset; }
+- (void)setWantsBaselineOffset:(BOOL)v { _wantsBaselineOffset = v; }
+- (BOOL)wantsScaledLineHeight { return _wantsScaledLineHeight; }
+- (void)setWantsScaledLineHeight:(BOOL)v { _wantsScaledLineHeight = v; }
+- (BOOL)wantsScaledBaselineOffset { return _wantsScaledBaselineOffset; }
+- (void)setWantsScaledBaselineOffset:(BOOL)v { _wantsScaledBaselineOffset = v; }
+- (BOOL)cachesLayout { return _cachesLayout; }
+- (void)setCachesLayout:(BOOL)v { _cachesLayout = v; }
+- (NSInteger)maximumNumberOfLines { return _maximumNumberOfLines; }
+- (void)setMaximumNumberOfLines:(NSInteger)v { _maximumNumberOfLines = v; }
+- (BOOL)wantsNumberOfLineFragments { return _wantsNumberOfLineFragments; }
+- (void)setWantsNumberOfLineFragments:(BOOL)v { _wantsNumberOfLineFragments = v; }
+- (NSUInteger)activeRenderers { return _activeRenderers; }
+- (void)setActiveRenderers:(NSUInteger)v { _activeRenderers = v; }
+- (id)layout { return _layout; }
+- (void)setLayout:(id)v
+{
+    [_layout autorelease];
+    _layout = [v retain];
+}
+- (NSInteger)numberOfLineFragments { return _numberOfLineFragments; }
+- (BOOL)hasTruncatedRanges { return _hasTruncatedRanges; }
+- (id)linkTextAttributesProvider { return _linkTextAttributesProvider; }
+- (void)setLinkTextAttributesProvider:(id)v
+{
+    [_linkTextAttributesProvider autorelease];
+    _linkTextAttributesProvider = [v copy];
+}
+
 @end
 
-/* Set by string drawing (NSStringDrawing.m). */
+__attribute__((visibility("default"))) void
+_NSStringDrawingContextSetBaselineOffset(NSStringDrawingContext *c, CGFloat offset)
+{
+    if (c)
+        c->_baselineOffset = offset;
+}
+
+__attribute__((visibility("default"))) void
+_NSStringDrawingContextSetFirstBaselineOffset(NSStringDrawingContext *c, CGFloat offset)
+{
+    if (c)
+        c->_firstBaselineOffset = offset;
+}
+
+/* The context's line limit, for a layout's parameters. */
+UIF_HIDDEN NSUInteger
+UIFStringDrawingContextMaximumLines(NSStringDrawingContext *c)
+{
+    return c && c->_maximumNumberOfLines > 0 ? (NSUInteger)c->_maximumNumberOfLines : 0;
+}
+
+/* Set by string drawing (NSStringDrawing.m): the scale, bounds, baselines and line count. */
 UIF_HIDDEN void
-UIFStringDrawingContextSetResult(NSStringDrawingContext *c, CGFloat scale, CGRect bounds)
+UIFStringDrawingContextSetResult(NSStringDrawingContext *c, CGFloat scale, CGRect bounds, CGFloat firstBaseline,
+                                 CGFloat lastBaselineFromBottom, NSInteger lines, BOOL truncated)
 {
     if (!c)
         return;
     c->_actualScaleFactor = scale;
     c->_totalBounds = bounds;
+    c->_firstBaselineOffset = firstBaseline;
+    c->_baselineOffset = lastBaselineFromBottom;
+    c->_scaledBaselineOffset = lastBaselineFromBottom;
+    c->_scaledLineHeight = lines ? bounds.size.height / lines : 0;
+    c->_numberOfLineFragments = lines;
+    c->_hasTruncatedRanges = truncated;
 }
 
 #pragma mark - NSTextAttachment

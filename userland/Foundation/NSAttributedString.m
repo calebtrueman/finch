@@ -56,6 +56,54 @@ check_range(id self, SEL _cmd, NSRange r)
 - (NSString *)string { FinchAbstract(self, _cmd); }
 - (NSDictionary *)attributesAtIndex:(NSUInteger)location effectiveRange:(NSRangePointer)range { FinchAbstract(self, _cmd); }
 
+- (instancetype)initWithFormat:(NSAttributedString *)format options:(NSAttributedStringFormattingOptions)options
+                        locale:(NSLocale *)locale, ...
+{
+    va_list ap;
+    va_start(ap, locale);
+    self = [self initWithFormat:format options:options locale:locale arguments:ap];
+    va_end(ap);
+    return self;
+}
+
+/* Finch has no formatting contexts yet (they choose grammatical forms); the context is unused. */
+- (instancetype)initWithFormat:(NSAttributedString *)format options:(NSAttributedStringFormattingOptions)options
+                        locale:(NSLocale *)locale
+                       context:(NSDictionary *)context, ...
+{
+    va_list ap;
+    va_start(ap, context);
+    self = [self initWithFormat:format options:options locale:locale arguments:ap];
+    va_end(ap);
+    return self;
+}
+
+- (instancetype)initWithFormat:(NSAttributedString *)format options:(NSAttributedStringFormattingOptions)options
+                        locale:(NSLocale *)locale
+                       context:(NSDictionary *)context
+                     arguments:(va_list)arguments
+{
+    return [self initWithFormat:format options:options locale:locale arguments:arguments];
+}
+
++ (instancetype)localizedAttributedStringWithFormat:(NSAttributedString *)format, ...
+{
+    va_list ap;
+    va_start(ap, format);
+    id s = [[[self alloc] initWithFormat:format options:0 locale:[NSLocale currentLocale] arguments:ap] autorelease];
+    va_end(ap);
+    return s;
+}
+
++ (instancetype)localizedAttributedStringWithFormat:(NSAttributedString *)format options:(NSAttributedStringFormattingOptions)options, ...
+{
+    va_list ap;
+    va_start(ap, options);
+    id s = [[[self alloc] initWithFormat:format options:options locale:[NSLocale currentLocale] arguments:ap] autorelease];
+    va_end(ap);
+    return s;
+}
+
 - (instancetype)initWithString:(NSString *)str { return [self init]; }
 - (instancetype)initWithString:(NSString *)str attributes:(NSDictionary *)attrs { return [self init]; }
 - (instancetype)initWithAttributedString:(NSAttributedString *)attrStr { return [self init]; }
@@ -460,6 +508,54 @@ edit_runs(NSMutableAttributedString *self, NSRange range, void (^edit)(NSMutable
     CFAttributedStringReplaceString(m, CFRangeMake(0, 0), (CFStringRef)str);
     if (attrs) CFAttributedStringSetAttributes(m, CFRangeMake(0, (CFIndex)[str length]), (CFDictionaryRef)attrs, true);
     return (id)m;
+}
+
+/*
+ * A format's literal text keeps its attributes; each value takes the attributes at its
+ * specifier. Finch maps the text before the first specifier and after the last; between
+ * them the result takes the attributes at the first specifier.
+ */
+- (instancetype)initWithFormat:(NSAttributedString *)format options:(NSAttributedStringFormattingOptions)options
+                        locale:(NSLocale *)locale arguments:(va_list)arguments
+{
+    NSString *f = [format string];
+    NSString *out = [[[NSString alloc] initWithFormat:f locale:locale arguments:arguments] autorelease];
+    NSRange first = [f rangeOfString:@"%"];
+    while (first.location != NSNotFound && first.location + 1 < [f length] && [f characterAtIndex:first.location + 1] == '%')
+        first = [f rangeOfString:@"%" options:0 range:NSMakeRange(first.location + 2, [f length] - first.location - 2)];
+    CFMutableAttributedStringRef m = CFAttributedStringCreateMutable(NULL, 0);
+    CFAttributedStringReplaceString(m, CFRangeMake(0, 0), (CFStringRef)out);
+    NSUInteger flen = [f length], olen = [out length];
+    if (flen && olen) {
+        NSUInteger prefix = first.location == NSNotFound ? MIN(flen, olen) : MIN(first.location, olen);
+        /* the literal suffix after the last specifier: as long as format and result agree from the end */
+        NSUInteger suffix = 0;
+        while (suffix < flen - prefix && suffix < olen - prefix &&
+               [f characterAtIndex:flen - 1 - suffix] == [out characterAtIndex:olen - 1 - suffix] &&
+               [f characterAtIndex:flen - 1 - suffix] != '%')
+            suffix++;
+        NSDictionary *middle = [format attributesAtIndex:MIN(prefix, flen - 1) effectiveRange:NULL] ?: @{};
+        CFAttributedStringSetAttributes(m, CFRangeMake(0, (CFIndex)olen), (CFDictionaryRef)middle, true);
+        for (NSUInteger i = 0; i < prefix;) {
+            NSRange r;
+            NSDictionary *a = [format attributesAtIndex:i effectiveRange:&r];
+            NSUInteger end = MIN(NSMaxRange(r), prefix);
+            CFAttributedStringSetAttributes(m, CFRangeMake((CFIndex)i, (CFIndex)(end - i)), (CFDictionaryRef)(a ?: @{}), true);
+            i = end;
+        }
+        for (NSUInteger k = 0; k < suffix;) {
+            NSRange r;
+            NSUInteger fi = flen - suffix + k;
+            NSDictionary *a = [format attributesAtIndex:fi effectiveRange:&r];
+            NSUInteger n = MIN(NSMaxRange(r), flen) - fi;
+            CFAttributedStringSetAttributes(m, CFRangeMake((CFIndex)(olen - suffix + k), (CFIndex)n), (CFDictionaryRef)(a ?: @{}), true);
+            k += n;
+        }
+    }
+    if ([self isMutablePlaceholder]) return (id)m;
+    CFAttributedStringRef copy = CFAttributedStringCreateCopy(NULL, m);
+    CFRelease(m);
+    return (id)copy;
 }
 
 - (instancetype)initWithAttributedString:(NSAttributedString *)attrStr

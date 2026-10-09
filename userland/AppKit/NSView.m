@@ -12,12 +12,17 @@
  */
 #import "AppKit_Finch.h"
 #import "NSView_Finch.h"
+#import <objc/runtime.h>
 
 NSNotificationName NSViewFrameDidChangeNotification = @"NSViewFrameDidChangeNotification";
 NSNotificationName NSViewFocusDidChangeNotification = @"NSViewFocusDidChangeNotification";
 NSNotificationName NSViewBoundsDidChangeNotification = @"NSViewBoundsDidChangeNotification";
 NSNotificationName NSViewGlobalFrameDidChangeNotification = @"NSViewGlobalFrameDidChangeNotification";
 NSNotificationName NSViewDidUpdateTrackingAreasNotification = @"NSViewDidUpdateTrackingAreasNotification";
+
+void FinchViewInstallLayerHook(void);
+/* The view a hosted layer belongs to (an associated object on the layer, not retained). */
+static char layer_owner_key;
 
 @implementation NSView {
     NSRect _frame, _bounds;
@@ -47,7 +52,15 @@ NSNotificationName NSViewDidUpdateTrackingAreasNotification = @"NSViewDidUpdateT
         unsigned needsLayout : 1;
         unsigned needsUpdateConstraints : 1;
         unsigned drawing : 1;
+        unsigned flipped : 1;         /* -setFlipped: (private, as Apple's): what -isFlipped returns */
+        unsigned noClipping : 1;      /* clipsToBounds NO */
+        unsigned ignoreHitTest : 1;   /* private, as Apple's: hit testing passes through the view itself */
+        unsigned alphaSet : 1;
+        unsigned layerBacked : 1;     /* the layer was made for the view, or given after it wanted one */
     } _f;
+    CGFloat _alpha;
+    NSView *_mask;
+    NSViewLayerContentsPlacement _layerContentsPlacement;
 }
 
 #pragma mark - Creating
@@ -87,6 +100,8 @@ NSNotificationName NSViewDidUpdateTrackingAreasNotification = @"NSViewDidUpdateT
     [_trackingAreas release];
     [_identifier release];
     [_appearance release];
+    [_mask release];
+    [self setLayer:nil];
     [super dealloc];
 }
 
@@ -310,7 +325,21 @@ did_move_to_window(NSView *view, NSWindow *window)
 
 - (NSInteger)tag { return _tag; }
 - (void)setTag:(NSInteger)tag { _tag = tag; }
-- (BOOL)isFlipped { return NO; }
+- (BOOL)isFlipped { return _f.flipped; }
+- (void)setFlipped:(BOOL)flag { _f.flipped = flag; }
+- (BOOL)ignoreHitTest { return _f.ignoreHitTest; }
+- (void)setIgnoreHitTest:(BOOL)flag { _f.ignoreHitTest = flag; }
+/* A mask view is kept (Finch doesn't mask with it yet). */
+- (NSView *)maskView { return _mask; }
+- (void)setMaskView:(NSView *)v
+{
+    [_mask autorelease];
+    _mask = [v retain];
+}
+- (NSView *)mask { return _mask; }
+- (void)setMask:(NSView *)v { [self setMaskView:v]; }
+- (NSViewLayerContentsPlacement)layerContentsPlacement { return _layerContentsPlacement; }
+- (void)setLayerContentsPlacement:(NSViewLayerContentsPlacement)p { _layerContentsPlacement = p; }
 - (BOOL)isOpaque { return NO; }
 - (BOOL)isHidden { return _f.hidden; }
 - (NSAutoresizingMaskOptions)autoresizingMask { return _autoresizingMask; }
@@ -325,20 +354,61 @@ did_move_to_window(NSView *view, NSWindow *window)
 - (void)setToolTip:(NSString *)toolTip { [_toolTip autorelease]; _toolTip = [toolTip copy]; }
 - (NSUserInterfaceItemIdentifier)identifier { return _identifier; }
 - (void)setIdentifier:(NSUserInterfaceItemIdentifier)identifier { [_identifier autorelease]; _identifier = [identifier copy]; }
+/*
+ * Layers. A view that wants a layer gets a backing layer (-makeBackingLayer) whose delegate
+ * it is; a view given a layer hosts that one. Finch has no render server: when the view
+ * tree draws, a view's layer is rendered (its contents, own drawing and sublayers) in the
+ * view's bounds after the view draws itself and before its subviews, and layer changes
+ * mark the view that shows them for display (FinchCALayerDidChange).
+ */
 - (BOOL)wantsLayer { return _f.wantsLayer; }
-- (void)setWantsLayer:(BOOL)flag { _f.wantsLayer = flag; }
+- (void)setWantsLayer:(BOOL)flag
+{
+    _f.wantsLayer = flag;
+    if (flag && !_layer) {
+        CALayer *layer = [self makeBackingLayer];
+        [layer setDelegate:(id)self];
+        [self setLayer:layer];
+    }
+    _f.layerBacked = flag && _layer;
+    [self setNeedsDisplay:YES];
+}
 - (CALayer *)layer { return _layer; }
-- (void)setLayer:(CALayer *)layer { _layer = layer; }
+- (void)setLayer:(CALayer *)layer
+{
+    if (layer == _layer)
+        return;
+    FinchViewInstallLayerHook();
+    if ([_layer delegate] == (id)self)
+        [_layer setDelegate:nil];
+    if (_layer && objc_getAssociatedObject(_layer, &layer_owner_key) == self)
+        objc_setAssociatedObject(_layer, &layer_owner_key, nil, OBJC_ASSOCIATION_ASSIGN);
+    [_layer release];
+    _layer = [layer retain];
+    /* a layer given to a view that already wants one backs it (it redraws with the view);
+       given to one that doesn't, the view hosts it */
+    _f.layerBacked = layer && _f.wantsLayer;
+    if (layer) {
+        _f.wantsLayer = YES;
+        objc_setAssociatedObject(layer, &layer_owner_key, self, OBJC_ASSOCIATION_ASSIGN);
+    }
+    [self setNeedsDisplay:YES];
+}
 - (BOOL)wantsUpdateLayer { return NO; }
-- (CALayer *)makeBackingLayer { return nil; }
+- (CALayer *)makeBackingLayer { return [FINCH_CLASS(CALayer) layer]; }
 - (NSViewLayerContentsRedrawPolicy)layerContentsRedrawPolicy { return NSViewLayerContentsRedrawDuringViewResize; }
 - (void)setLayerContentsRedrawPolicy:(NSViewLayerContentsRedrawPolicy)policy {}
 - (BOOL)canDrawConcurrently { return NO; }
 - (void)setCanDrawConcurrently:(BOOL)flag {}
 - (BOOL)canDrawSubviewsIntoLayer { return NO; }
 - (void)setCanDrawSubviewsIntoLayer:(BOOL)flag {}
-- (CGFloat)alphaValue { return 1; }
-- (void)setAlphaValue:(CGFloat)alpha {}
+- (CGFloat)alphaValue { return _f.alphaSet ? _alpha : 1; }
+- (void)setAlphaValue:(CGFloat)alpha
+{
+    _alpha = alpha;
+    _f.alphaSet = YES;
+    [self setNeedsDisplay:YES];
+}
 - (NSUserInterfaceLayoutDirection)userInterfaceLayoutDirection { return NSUserInterfaceLayoutDirectionLeftToRight; }
 - (void)setUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)direction {}
 /* Auto Layout is NSViewLayout.m's; the flags live here. */
@@ -773,7 +843,7 @@ convert_size(NSSize size, CGAffineTransform t)
         if (hit)
             return hit;
     }
-    return self;
+    return _f.ignoreHitTest ? nil : self;
 }
 
 - (BOOL)mouse:(NSPoint)point inRect:(NSRect)rect
@@ -867,6 +937,9 @@ convert_size(NSSize size, CGAffineTransform t)
 
 - (void)setNeedsDisplay:(BOOL)flag
 {
+    /* a layer-backed view's layer redraws with it (once: the layer's change comes back here) */
+    if (flag && _layer && _f.layerBacked && ![_layer needsDisplay])
+        [_layer setNeedsDisplay];
     if (flag)
         [self setNeedsDisplayInRect:_bounds];
     else
@@ -908,8 +981,12 @@ convert_size(NSSize size, CGAffineTransform t)
 }
 
 - (BOOL)wantsDefaultClipping { return YES; }
-- (BOOL)clipsToBounds { return YES; }
-- (void)setClipsToBounds:(BOOL)flag {}
+- (BOOL)clipsToBounds { return !_f.noClipping; }
+- (void)setClipsToBounds:(BOOL)flag
+{
+    _f.noClipping = !flag;
+    [self setNeedsDisplay:YES];
+}
 
 - (void)display { [self displayRect:_bounds]; }
 - (void)displayIfNeeded
@@ -1204,19 +1281,75 @@ FinchViewRectBeingDrawn(NSView *view)
     return v ? [v rectValue] : [view bounds];
 }
 
+/* A view's layer, in the view's bounds. */
+static void
+render_layer(NSView *view, CGContextRef cg, NSRect r, CGAffineTransform base)
+{
+    CALayer *layer = [view layer];
+    if (!layer)
+        return;
+    NSRect bounds = [view bounds];
+    if (!CGRectEqualToRect([layer bounds], NSRectToCGRect(bounds)))
+        [layer setBounds:NSRectToCGRect(bounds)];
+    CGFloat scale = [[view window] backingScaleFactor];
+    if (scale > 0 && [layer contentsScale] != scale)
+        [layer setContentsScale:scale];
+    CGContextSaveGState(cg);
+    CGContextConcatCTM(cg, base);
+    CGContextClipToRect(cg, NSRectToCGRect(r));
+    /* in the view's own space, as a window shows it: in a flipped view, the layer's drawing
+       origin is the view's top left, as on macOS */
+    [layer layoutIfNeeded];
+    [layer renderInContext:cg];
+    CGContextRestoreGState(cg);
+}
+
+/* A layer changed: the view whose layer it is (or is under) is redisplayed. */
+static void
+layer_changed(CALayer *layer)
+{
+    /* the view that shows it is recorded on the root of its tree; the view is redrawn, and its
+       layer, which changed itself, isn't told again */
+    CALayer *root = layer;
+    while ([root superlayer])
+        root = [root superlayer];
+    NSView *owner = objc_getAssociatedObject(root, &layer_owner_key);
+    if (owner && [owner layer] == root)
+        [owner setNeedsDisplayInRect:[owner bounds]];
+}
+
+void
+FinchViewInstallLayerHook(void)
+{
+    extern void (*FinchCALayerDidChange)(CALayer *) __attribute__((weak_import));
+    if (&FinchCALayerDidChange && !FinchCALayerDidChange)
+        FinchCALayerDidChange = layer_changed;
+}
+
 static void
 draw_view(NSView *view, CGContextRef cg, NSRect rect, CGAffineTransform base)
 {
     if ([view isHidden])
         return;
-    NSRect bounds = [view bounds];
-    NSRect r = NSIntersectionRect(rect, bounds);
-    if (NSIsEmptyRect(r))
+    CGFloat alpha = [view alphaValue];
+    if (alpha <= 0)
         return;
+    NSRect bounds = [view bounds];
+    /* a view that doesn't clip to its bounds draws its subviews (and itself) beyond them */
+    BOOL clips = [view clipsToBounds];
+    NSRect r = clips ? NSIntersectionRect(rect, bounds) : rect;
+    if (NSIsEmptyRect(r) && clips)
+        return;
+    if (alpha < 1) {
+        CGContextSaveGState(cg);
+        CGContextSetAlpha(cg, alpha);
+        CGContextBeginTransparencyLayer(cg, NULL);
+    }
     [view viewWillDraw];
     CGContextSaveGState(cg);
     CGContextConcatCTM(cg, base);
-    CGContextClipToRect(cg, NSRectToCGRect(bounds));
+    if (clips)
+        CGContextClipToRect(cg, NSRectToCGRect(bounds));
     CGContextClipToRect(cg, NSRectToCGRect(r));
     NSGraphicsContext *gc = [NSGraphicsContext graphicsContextWithCGContext:cg flipped:[view isFlipped]];
     [NSGraphicsContext saveGraphicsState];
@@ -1240,11 +1373,16 @@ draw_view(NSView *view, CGContextRef cg, NSRect rect, CGAffineTransform base)
         CGContextRestoreGState(cg);
     }
     [view setNeedsDisplay:NO];
+    render_layer(view, cg, r, base);
     for (NSView *sub in [view subviews]) {
         NSRect inSub = [sub convertRect:r fromView:view];
         CGAffineTransform t = CGAffineTransformConcat(
             CGAffineTransformConcat(FinchViewToBase(sub), CGAffineTransformInvert(FinchViewToBase(view))), base);
         draw_view(sub, cg, inSub, t);
+    }
+    if (alpha < 1) {
+        CGContextEndTransparencyLayer(cg);
+        CGContextRestoreGState(cg);
     }
 }
 

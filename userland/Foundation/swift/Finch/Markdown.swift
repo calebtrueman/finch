@@ -330,3 +330,12 @@ internal enum _FinchMarkdown {
         return nil
     }
 }
+
+/// For Foundation's Objective-C half (-[NSBundle localizedAttributedStringForKey:value:table:]):
+/// inline Markdown as an NSAttributedString, or nil if it doesn't parse. Returned retained.
+@_cdecl("_FinchAttributedStringFromInlineMarkdown")
+func _FinchAttributedStringFromInlineMarkdown(_ string: NSString) -> Unmanaged<NSAttributedString>? {
+    let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+    guard let parsed = try? AttributedString(markdown: string as String, options: options) else { return nil }
+    return Unmanaged.passRetained(NSAttributedString(parsed))
+}

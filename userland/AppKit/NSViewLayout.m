@@ -1040,10 +1040,12 @@ resize_window_if_needed(FinchLayoutEngine *e)
     CGFloat scale = layout_scale(root);
     double w = pixel_round(FinchLayoutSolverValue(e->solver, e->rootVars.w) + in.left + in.right, scale);
     double h = pixel_round(FinchLayoutSolverValue(e->solver, e->rootVars.h) + in.top + in.bottom, scale);
-    NSSize size = [root frame].size;
+    /* against the window's content size: the content view's own frame may have been set directly */
+    NSWindow *window = [root window];
+    NSSize size = [window contentRectForFrameRect:[window frame]].size;
     if (fabs(w - size.width) < 1e-6 && fabs(h - size.height) < 1e-6)
         return;
-    [[root window] setContentSize:NSMakeSize(w, h)];
+    [window setContentSize:NSMakeSize(w, h)];
     update_root_size(e);
 }
 

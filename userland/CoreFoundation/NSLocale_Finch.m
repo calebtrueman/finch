@@ -124,7 +124,18 @@ DISPLAY(localizedStringForCurrencyCode, kCFLocaleCurrencyCode)
 DISPLAY(localizedStringForCollatorIdentifier, kCFLocaleCollatorIdentifier)
 #undef DISPLAY
 
-- (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
+/* CF compares two CF-backed locales; anything else (a Swift subclass, say) by identifier,
+   since CFEqual on an object that isn't CF's asks it -isEqual: again. */
+- (BOOL)isEqual:(id)other
+{
+    if (other == self)
+        return YES;
+    if (![other isKindOfClass:[NSLocale class]])
+        return NO;
+    if ([self isKindOfClass:[__NSCFLocale class]] && [other isKindOfClass:[__NSCFLocale class]])
+        return CFEqual((CFTypeRef)self, (CFTypeRef)other);
+    return [[self localeIdentifier] isEqual:[other localeIdentifier]];
+}
 - (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
 - (id)description
 {
@@ -224,7 +235,16 @@ static id defaultZone;
     return owned(CFTimeZoneCopyLocalizedName((CFTimeZoneRef)self, (CFTimeZoneNameStyle)style, (CFLocaleRef)locale));
 }
 - (BOOL)isEqualToTimeZone:(id)tz { return tz && CFEqual((CFTypeRef)self, (CFTypeRef)tz); }
-- (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
+- (BOOL)isEqual:(id)other
+{
+    if (other == self)
+        return YES;
+    if (![other isKindOfClass:[NSTimeZone class]])
+        return NO;
+    if ([self isKindOfClass:[__NSCFTimeZone class]] && [other isKindOfClass:[__NSCFTimeZone class]])
+        return CFEqual((CFTypeRef)self, (CFTypeRef)other);
+    return [[self name] isEqual:[other name]] && [[self data] isEqual:[other data]];
+}
 - (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
 - (id)description
 {
@@ -674,7 +694,19 @@ SYMBOLS(PMSymbol, kCFDateFormatterPMSymbol)
 SYMBOLS(eraSymbols, kCFDateFormatterEraSymbols)
 #undef SYMBOLS
 
-- (BOOL)isEqual:(id)other { return other == self || (other && CFEqual((CFTypeRef)self, (CFTypeRef)other)); }
+- (BOOL)isEqual:(id)other
+{
+    if (other == self)
+        return YES;
+    if (![other isKindOfClass:[NSCalendar class]])
+        return NO;
+    if ([self isKindOfClass:[__NSCFCalendar class]] && [other isKindOfClass:[__NSCFCalendar class]])
+        return CFEqual((CFTypeRef)self, (CFTypeRef)other);
+    NSCalendar *o = other;
+    return [[self calendarIdentifier] isEqual:[o calendarIdentifier]] && [[self locale] isEqual:[o locale]] &&
+           [[self timeZone] isEqual:[o timeZone]] && [self firstWeekday] == [o firstWeekday] &&
+           [self minimumDaysInFirstWeek] == [o minimumDaysInFirstWeek];
+}
 - (NSUInteger)hash { return (NSUInteger)CFHash((CFTypeRef)self); }
 
 @end

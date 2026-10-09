@@ -529,7 +529,15 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
 + (instancetype)windowWithContentViewController:(NSViewController *)controller
 {
     NSView *view = [controller view];
-    NSWindow *w = [[self alloc] initWithContentRect:[view frame]
+    /* The view's size, or else the controller's preferred size, or else what the view's
+       content needs (an NSHostingView's, for one, sizes itself only by layout). */
+    NSRect rect = [view frame];
+    if (NSIsEmptyRect(rect))
+        rect.size = [controller preferredContentSize];
+    if (rect.size.width <= 0 || rect.size.height <= 0)
+        rect.size = [view fittingSize];
+    rect.origin = NSZeroPoint;
+    NSWindow *w = [[self alloc] initWithContentRect:rect
                                           styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
                                                     NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable
                                             backing:NSBackingStoreBuffered defer:YES];
@@ -688,8 +696,16 @@ server_flags(NSWindow *w)
 
 - (void)displayIfNeeded
 {
-    if (NSIsEmptyRect(_dirty) || !_w.visible || _w.displaying)
+    if (!_w.visible || _w.displaying)
         return;
+    /* layout first, even with nothing to draw: it can resize the window (and so dirty it) */
+    if (NSIsEmptyRect(_dirty)) {
+        _w.displaying = YES;
+        [_frameView layoutSubtreeIfNeeded];
+        _w.displaying = NO;
+        if (NSIsEmptyRect(_dirty))
+            return;
+    }
     if (![self _finchCGContext])
         return;
     _w.displaying = YES;
@@ -1428,6 +1444,9 @@ server_flags(NSWindow *w)
     }
     BOOL appearing = !_w.visible;
     _w.visible = YES;
+    /* a window is laid out as it appears, which can resize it to fit its content */
+    if (appearing)
+        [_frameView layoutSubtreeIfNeeded];
     if (appearing)
         [self _finchInvalidateRect:NSMakeRect(0, 0, _frame.size.width, _frame.size.height)];
     [self displayIfNeeded];

@@ -118,7 +118,7 @@
 
 - (NSWindow *)window
 {
-    if (!_window && !_c.loading && (_nibName || _nibPath)) {
+    if (!_window && !_c.loading && ([self windowNibName] || [self windowNibPath])) {
         _c.loading = YES;
         [self windowWillLoad];
         if ([_document respondsToSelector:@selector(windowControllerWillLoadNib:)])

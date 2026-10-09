@@ -18,6 +18,17 @@
 - (CGImageRef)CGImageForProposedRect:(CGRect *)rect context:(id)context hints:(NSDictionary *)hints;
 @end
 
+/* Finch has no render server: a framework that shows layers (AppKit) learns of changes that
+   need a redraw through this, and finds the view to redisplay. */
+__attribute__((visibility("default"))) void (*FinchCALayerDidChange)(CALayer *layer);
+
+static void
+changed(CALayer *layer)
+{
+    if (FinchCALayerDidChange)
+        FinchCALayerDidChange(layer);
+}
+
 @interface CALayer (FinchPrivate)
 - (void)_finchRenderInContext:(CGContextRef)cg;
 - (void)_finchDrawContent:(CGContextRef)cg;
@@ -234,7 +245,7 @@
 }
 
 - (CGPoint)position { return _position; }
-- (void)setPosition:(CGPoint)p { _position = p; }
+- (void)setPosition:(CGPoint)p { _position = p; changed(self); }
 - (CGPoint)anchorPoint { return _anchorPoint; }
 - (void)setAnchorPoint:(CGPoint)p { _anchorPoint = p; }
 - (CGFloat)zPosition { return _zPosition; }
@@ -242,11 +253,11 @@
 - (CGFloat)anchorPointZ { return _anchorPointZ; }
 - (void)setAnchorPointZ:(CGFloat)z { _anchorPointZ = z; }
 - (CATransform3D)transform { return _transform; }
-- (void)setTransform:(CATransform3D)t { _transform = t; }
+- (void)setTransform:(CATransform3D)t { _transform = t; changed(self); }
 - (CATransform3D)sublayerTransform { return _sublayerTransform; }
 - (void)setSublayerTransform:(CATransform3D)t { _sublayerTransform = t; }
 - (CGAffineTransform)affineTransform { return CATransform3DGetAffineTransform(_transform); }
-- (void)setAffineTransform:(CGAffineTransform)m { _transform = CATransform3DMakeAffineTransform(m); }
+- (void)setAffineTransform:(CGAffineTransform)m { _transform = CATransform3DMakeAffineTransform(m); changed(self); }
 
 /* From this layer's coordinates to its superlayer's (the affine part of the transform). */
 static CGAffineTransform
@@ -437,6 +448,7 @@ between(CALayer *from, CALayer *to)
     CALayer *s = _superlayer;
     if (!s)
         return;
+    changed(s);
     _superlayer = nil;
     [s->_sublayers removeObjectIdenticalTo:self];
     [s setNeedsLayout];
@@ -453,7 +465,7 @@ between(CALayer *from, CALayer *to)
 - (id<CALayoutManager>)layoutManager { return _layoutManager; }
 - (void)setLayoutManager:(id<CALayoutManager>)m { _layoutManager = m; }
 - (BOOL)needsLayout { return _f.needsLayout; }
-- (void)setNeedsLayout { _f.needsLayout = YES; }
+- (void)setNeedsLayout { _f.needsLayout = YES; changed(self); }
 
 - (void)layoutSublayers
 {
@@ -477,7 +489,7 @@ between(CALayer *from, CALayer *to)
 
 #define FLAG(get, set, field)                 \
     -(BOOL)get { return _f.field; }          \
-    -(void)set:(BOOL)v { _f.field = v; }
+    -(void)set:(BOOL)v { _f.field = v; changed(self); }
 
 FLAG(isHidden, setHidden, hidden)
 FLAG(masksToBounds, setMasksToBounds, masksToBounds)
@@ -501,9 +513,9 @@ FLAG(allowsGroupOpacity, setAllowsGroupOpacity, allowsGroupOpacity)
 }
 
 - (float)opacity { return _opacity; }
-- (void)setOpacity:(float)o { _opacity = o; }
+- (void)setOpacity:(float)o { _opacity = o; changed(self); }
 - (id)contents { return _contents; }
-- (void)setContents:(id)c { [c retain]; [_contents release]; _contents = c; }
+- (void)setContents:(id)c { [c retain]; [_contents release]; _contents = c; changed(self); }
 - (CGRect)contentsRect { return _contentsRect; }
 - (void)setContentsRect:(CGRect)r { _contentsRect = r; }
 - (CGRect)contentsCenter { return _contentsCenter; }
@@ -532,7 +544,7 @@ set_color(CGColorRef *slot, CGColorRef c)
 }
 
 - (CGColorRef)backgroundColor { return _backgroundColor; }
-- (void)setBackgroundColor:(CGColorRef)c { set_color(&_backgroundColor, c); }
+- (void)setBackgroundColor:(CGColorRef)c { set_color(&_backgroundColor, c); changed(self); }
 - (CGColorRef)borderColor { return _borderColor; }
 - (void)setBorderColor:(CGColorRef)c { set_color(&_borderColor, c); }
 - (CGColorRef)shadowColor { return _shadowColor; }
@@ -583,8 +595,8 @@ set_color(CGColorRef *slot, CGColorRef c)
 #pragma mark Drawing
 
 - (BOOL)needsDisplay { return _f.needsDisplay; }
-- (void)setNeedsDisplay { _f.needsDisplay = YES; }
-- (void)setNeedsDisplayInRect:(CGRect)r { _f.needsDisplay = YES; }
+- (void)setNeedsDisplay { _f.needsDisplay = YES; changed(self); }
+- (void)setNeedsDisplayInRect:(CGRect)r { _f.needsDisplay = YES; changed(self); }
 
 - (void)displayIfNeeded
 {
@@ -612,6 +624,11 @@ set_color(CGColorRef *slot, CGColorRef c)
     if (!cg)
         return;
     CGContextScaleCTM(cg, _contentsScale, _contentsScale);
+    /* as Core Animation's: flipped contents are drawn with y down */
+    if ([self contentsAreFlipped]) {
+        CGContextTranslateCTM(cg, 0, _bounds.size.height);
+        CGContextScaleCTM(cg, 1, -1);
+    }
     CGContextTranslateCTM(cg, -_bounds.origin.x, -_bounds.origin.y);
     [self drawInContext:cg];
     CGImageRef image = CGBitmapContextCreateImage(cg);

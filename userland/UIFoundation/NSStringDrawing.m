@@ -9,7 +9,24 @@
  */
 #import "UIFTextLayout.h"
 
-UIF_HIDDEN void UIFStringDrawingContextSetResult(NSStringDrawingContext *c, CGFloat scale, CGRect bounds);
+UIF_HIDDEN void UIFStringDrawingContextSetResult(NSStringDrawingContext *c, CGFloat scale, CGRect bounds, CGFloat firstBaseline,
+                                                 CGFloat lastBaselineFromBottom, NSInteger lines, BOOL truncated);
+UIF_HIDDEN NSUInteger UIFStringDrawingContextMaximumLines(NSStringDrawingContext *c);
+
+/* A layout's results, for the drawing context. */
+static void
+set_result(NSStringDrawingContext *context, UIFLayout *L, CGRect used)
+{
+    if (!context)
+        return;
+    CGFloat first = 0, last = 0;
+    if (L->count) {
+        first = L->lines[0].top + L->lines[0].baseline;
+        UIFLine *ln = &L->lines[L->count - 1];
+        last = used.size.height - (ln->top + ln->baseline);
+    }
+    UIFStringDrawingContextSetResult(context, 1, used, first, last, (NSInteger)L->count, L->truncated);
+}
 
 #pragma mark - The API
 
@@ -29,11 +46,11 @@ static CGRect
 bounding_rect(NSAttributedString *s, NSDictionary *typing, CGSize size, NSStringDrawingOptions options,
               NSStringDrawingContext *context)
 {
-    UIFLayoutParams p = {size.width, size.height, options, 0, NO, NO, 0, NO};
+    UIFLayoutParams p = {size.width, size.height, options, 0, NO, NO, UIFStringDrawingContextMaximumLines(context), NO};
     UIFLayout L = UIFLayoutString(s, typing, p);
     CGRect r = UIFLayoutUsedRect(&L, p);
+    set_result(context, &L, r);
     UIFLayoutFree(&L);
-    UIFStringDrawingContextSetResult(context, 1, r);
     return r;
 }
 
@@ -43,7 +60,8 @@ draw_in_rect(NSAttributedString *s, NSDictionary *typing, CGRect rect, NSStringD
 {
     BOOL flipped = UIFCurrentContextIsFlipped();
     BOOL multi = (options & NSStringDrawingUsesLineFragmentOrigin) != 0;
-    UIFLayoutParams p = {multi ? rect.size.width : 0, multi ? rect.size.height : 0, options, 0, NO, NO, 0, NO};
+    UIFLayoutParams p = {multi ? rect.size.width : 0, multi ? rect.size.height : 0, options, 0, NO, NO,
+                         UIFStringDrawingContextMaximumLines(context), NO};
     UIFLayout L = UIFLayoutString(s, typing, p);
     CGRect used = UIFLayoutUsedRect(&L, p);
     if (multi) {
@@ -62,8 +80,8 @@ draw_in_rect(NSAttributedString *s, NSDictionary *typing, CGRect rect, NSStringD
         CGFloat top = flipped ? rect.origin.y - ln->baseline : rect.origin.y + ln->baseline;
         UIFLayoutDraw(&L, rect.origin.x - ln->x, top, flipped);
     }
+    set_result(context, &L, used);
     UIFLayoutFree(&L);
-    UIFStringDrawingContextSetResult(context, 1, used);
 }
 
 static void

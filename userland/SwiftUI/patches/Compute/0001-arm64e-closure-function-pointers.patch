@@ -1,0 +1,117 @@
+diff --git a/Sources/ComputeCxx/Attribute/AttributeType/AttributeType.h b/Sources/ComputeCxx/Attribute/AttributeType/AttributeType.h
+index 81db7ef..0973614 100644
+--- a/Sources/ComputeCxx/Attribute/AttributeType/AttributeType.h
++++ b/Sources/ComputeCxx/Attribute/AttributeType/AttributeType.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#if __has_include(<ptrauth.h>)
++#include <ptrauth.h>
++#endif
++
+ #include "Attribute/AttributeData/Node/Node.h"
+ #include "Comparison/LayoutDescriptor.h"
+ #include "ComputeCxx/IAGAttribute.h"
+@@ -41,7 +45,17 @@ class AttributeType {
+     const swift::metadata &body_metadata() const { return *_body_metadata; };
+     const swift::metadata &value_metadata() const { return *_value_metadata; };
+ 
+-    void update(void *body, IAGAttribute attribute) const { _update(body, attribute, _update_context); };
++    void update(void *body, IAGAttribute attribute) const {
++#if __has_feature(ptrauth_calls)
++        // The update closure is Swift's, signed with a discriminator of its Swift type; it is
++        // re-signed as a plain function pointer to call it from C++.
++        auto update = (decltype(_update))ptrauth_sign_unauthenticated(ptrauth_strip((void *)_update, ptrauth_key_function_pointer),
++                                                                       ptrauth_key_function_pointer, 0);
++        update(body, attribute, _update_context);
++#else
++        _update(body, attribute, _update_context);
++#endif
++    };
+ 
+     const IAGAttributeVTable &vtable() const { return *_vtable; }
+     IAGAttributeTypeFlags flags() const { return _flags; };
+diff --git a/Sources/ComputeCxx/Closure/ClosureFunction.h b/Sources/ComputeCxx/Closure/ClosureFunction.h
+index 392d171..a3e0e39 100644
+--- a/Sources/ComputeCxx/Closure/ClosureFunction.h
++++ b/Sources/ComputeCxx/Closure/ClosureFunction.h
+@@ -3,6 +3,9 @@
+ #include <concepts>
+ #include <cstddef>
+ #include <utility>
++#if __has_include(<ptrauth.h>)
++#include <ptrauth.h>
++#endif
+ 
+ #include "ComputeCxx/IAGBase.h"
+ #include "Swift/HeapObject.h"
+@@ -79,7 +82,17 @@ class ClosureFunction {
+ 
+     explicit operator bool() { return _function != nullptr; }
+ 
+-    const Result operator()(Args... args) const noexcept { return _function(std::forward<Args>(args)..., _context); }
++    const Result operator()(Args... args) const noexcept {
++#if __has_feature(ptrauth_calls)
++        // Swift signs a closure's function pointer with a discriminator of the closure's
++        // type, which this C++ type can't name; it is re-signed as a plain function pointer.
++        auto function = (Function)ptrauth_sign_unauthenticated(ptrauth_strip((void *)_function, ptrauth_key_function_pointer),
++                                                                ptrauth_key_function_pointer, 0);
++        return function(std::forward<Args>(args)..., _context);
++#else
++        return _function(std::forward<Args>(args)..., _context);
++#endif
++    }
+ };
+ 
+ template <typename Result>
+diff --git a/Sources/ComputeCxx/Swift/HeapObject.cpp b/Sources/ComputeCxx/Swift/HeapObject.cpp
+index 54a0494..a544cc2 100644
+--- a/Sources/ComputeCxx/Swift/HeapObject.cpp
++++ b/Sources/ComputeCxx/Swift/HeapObject.cpp
+@@ -2,16 +2,40 @@
+ 
+ #include <swift/Runtime/HeapObject.h>
+ 
++#if __APPLE__
++#include <pthread.h>
++#endif
++
+ namespace IAG {
+ namespace swift {
+ 
++/// Whether an object is on the current thread's stack: the context of a non-escaping Swift
++/// closure, which the Swift caller owns and which has no reference count to change.
++static bool on_current_stack(const void *object) noexcept {
++#if __APPLE__
++    pthread_t self = pthread_self();
++    auto top = reinterpret_cast<uintptr_t>(pthread_get_stackaddr_np(self));
++    auto size = pthread_get_stacksize_np(self);
++    auto p = reinterpret_cast<uintptr_t>(object);
++    return p < top && p >= top - size;
++#else
++    return false;
++#endif
++}
++
+ IAG_NOINLINE IAG_OPTNONE void *retain(const void *object) noexcept {
+     void *mutable_object = const_cast<void *>(object);
++    if (on_current_stack(object)) {
++        return mutable_object;
++    }
+     return ::swift::swift_retain(reinterpret_cast<::swift::HeapObject *>(mutable_object));
+ }
+ 
+ IAG_NOINLINE IAG_OPTNONE void release(const void *object) noexcept {
+     void *mutable_object = const_cast<void *>(object);
++    if (on_current_stack(object)) {
++        return;
++    }
+     ::swift::swift_release(reinterpret_cast<::swift::HeapObject *>(mutable_object));
+ }
+ 
+diff --git a/Submodules/swift-runtime-headers b/Submodules/swift-runtime-headers
+--- a/Submodules/swift-runtime-headers
++++ b/Submodules/swift-runtime-headers
+@@ -1 +1 @@
+-Subproject commit 626688ce65f43a83d5822532e1c9e85f92e21106
++Subproject commit 626688ce65f43a83d5822532e1c9e85f92e21106-dirty

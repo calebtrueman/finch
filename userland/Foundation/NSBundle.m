@@ -256,6 +256,16 @@ owned_url(CFURLRef u)
     return [[NSBundle bundleWithPath:bundlePath] pathForResource:name ofType:ext];
 }
 
+extern NSAttributedString *_FinchAttributedStringFromInlineMarkdown(NSString *string) NS_RETURNS_RETAINED;
+
+/* The localized string read as inline Markdown, as Apple's does; plain text if it doesn't parse. */
+- (NSAttributedString *)localizedAttributedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)tableName
+{
+    NSString *s = [self localizedStringForKey:key value:value table:tableName];
+    NSAttributedString *a = _FinchAttributedStringFromInlineMarkdown(s);
+    return a ? [a autorelease] : [[[NSAttributedString alloc] initWithString:s] autorelease];
+}
+
 - (NSString *)localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)tableName
 {
     if (!key) return value ? value : @"";

@@ -242,6 +242,11 @@ extension Dictionary : _ObjectiveCBridgeable {
       defer { _fixLifetime(d) }
     
       let numElems = d.count
+      // Finch: an empty dictionary's buffers have no base address to bind
+      if numElems == 0 {
+        result = [:]
+        return
+      }
       
       // String and NSString have different concepts of equality, so
       // string-keyed NSDictionaries may generate key collisions when bridged
@@ -296,6 +301,11 @@ extension Dictionary : _ObjectiveCBridgeable {
     defer { _fixLifetime(x) }
     
     let numElems = x.count
+    // Finch: an empty dictionary's buffers have no base address to bind
+    if numElems == 0 {
+      result = [:]
+      return true
+    }
     var success = true
     
     // String and NSString have different concepts of equality, so

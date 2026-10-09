@@ -35,8 +35,8 @@ AppKit and the window server draw in Fieldwork, Finch's own design language
 Aqua-compatible values for apps that need them and for the comparison tests.
 Combine is open code (OpenCombine with Finch's additions) built to Apple's ABI
 (`docs/design/COMBINE.md`). SwiftUI is built from OpenSwiftUI, renamed to Apple's
-modules, and links against Finch's frameworks; running apps on it is the next step
-(`docs/design/SWIFTUI.md`); the frameworks it links that Apple keeps closed are Finch's own:
+modules, on Compute's attribute graph; an unmodified SwiftUI app built with Xcode draws
+its window on Finch's frameworks (`docs/design/SWIFTUI.md`); the frameworks it links that Apple keeps closed are Finch's own:
 CoreVideo's display link, Accessibility, CoreTransferable and DeveloperToolsSupport. Foundation carries the URL loading system that Apple keeps in
 the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
@@ -44,7 +44,7 @@ Finch app down the left edge that replaces the Dock.
 CoreFoundation's local notification center shares observers with Foundation's
 default `NSNotificationCenter`. Bundles read `.loctable` files and choose their
 language using `AppleLanguages` and Apple's ICU matching. QuartzCore has layers
-drawn through CoreGraphics, animation objects and transactions. The layer test
+drawn through CoreGraphics, and AppKit's views can be layer-backed, animation objects and transactions. The layer test
 matches Apple's on the host and in the VM; on-screen animation playback still
 needs a render server.
 
@@ -91,7 +91,7 @@ block-beta
         later["Metal, AV"]
         coreui["CoreUI<br/>compiled asset catalogs,<br/>named images and colors"]
         appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport"]
-        swiftui["SwiftUI, SwiftUICore<br/>(OpenSwiftUI, OpenAttributeGraph;<br/>links, apps not yet running)"]
+        swiftui["SwiftUI, SwiftUICore<br/>(OpenSwiftUI on Compute's<br/>attribute graph; first app draws)"]
     end
     block:L5
         columns 4
@@ -207,7 +207,7 @@ flowchart LR
     classDef closed fill:#ffffff,stroke:#b91c1c,color:#b91c1c,stroke-width:2px
 
     swiftui["SwiftUI"]:::upstream
-    swiftuicore["SwiftUICore<br/>(OpenSwiftUI, OpenAttributeGraph)"]:::upstream
+    swiftuicore["SwiftUICore<br/>(OpenSwiftUI, Compute)"]:::upstream
     combine["Combine<br/>(OpenCombine + Finch)"]:::upstream
     gcore["GCoreFramework"]:::apple
     appkit["AppKit"]:::finch
