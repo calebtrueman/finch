@@ -162,3 +162,16 @@ draw_at_point(NSAttributedString *s, NSDictionary *typing, CGPoint point)
 }
 
 @end
+
+/* Apple's private string-drawing class settings that apps still call. */
+@implementation NSString (FinchDrawingSettings)
++ (CGFloat)defaultLineHeightForFont:(NSFont *)font
+{
+    NSLayoutManager *lm = [[[NSLayoutManager alloc] init] autorelease];
+    return [lm defaultLineHeightForFont:font];
+}
++ (BOOL)usesScreenFonts { return NO; }
++ (void)setUsesScreenFonts:(BOOL)f {}
++ (float)hyphenationFactor { return 0; }
++ (void)setDefaultAttachmentScaling:(NSUInteger)s {}
+@end

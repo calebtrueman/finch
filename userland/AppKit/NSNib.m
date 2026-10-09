@@ -1070,3 +1070,9 @@ nib_data_at(NSString *path)
 }
 
 @end
+
+/* Every object answers -awakeFromNib (empty), so subclasses can call super, as with Apple's. */
+@implementation NSObject (NSNibAwaking)
+- (void)awakeFromNib {}
+- (void)prepareForInterfaceBuilder {}
+@end

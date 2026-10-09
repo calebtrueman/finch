@@ -130,6 +130,17 @@ static NSUserDefaults *standard;
     [super dealloc];
 }
 
+/* Key-value coding reads and writes defaults, as Apple's does (bindings and
+   apps use valueForKey: on the defaults directly). */
+- (id)valueForKey:(NSString *)key { return [self objectForKey:key]; }
+- (void)setValue:(id)value forKey:(NSString *)key
+{
+    if (value)
+        [self setObject:value forKey:key];
+    else
+        [self removeObjectForKey:key];
+}
+
 - (id)objectForKey:(id)key
 {
     if (!key) return nil;

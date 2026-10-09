@@ -212,3 +212,8 @@ changed(NSTextContainer *self, NSLayoutManager *lm)
 }
 
 @end
+
+/* Only horizontal text is laid out yet; the orientation asked for is kept. */
+@implementation NSTextContainer (FinchOrientation)
+- (void)setLayoutOrientation:(NSTextLayoutOrientation)o {}
+@end

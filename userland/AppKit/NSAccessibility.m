@@ -42,6 +42,8 @@ NSAccessibilityRoleDescription(NSAccessibilityRole role, NSAccessibilitySubrole 
 {
     if (!role)
         return nil;
+    if ([subrole isEqualToString:NSAccessibilitySwitchSubrole])
+        return @"switch";
     /* "AXButton" -> "button" */
     NSString *r = [role hasPrefix:@"AX"] ? [role substringFromIndex:2] : role;
     NSMutableString *out = [NSMutableString string];
@@ -60,7 +62,9 @@ NSAccessibilityRoleDescriptionForUIElement(id element)
     return NSAccessibilityRoleDescription([element respondsToSelector:@selector(accessibilityRole)]
                                               ? [element accessibilityRole]
                                               : nil,
-                                          nil);
+                                          [element respondsToSelector:@selector(accessibilitySubrole)]
+                                              ? [element accessibilitySubrole]
+                                              : nil);
 }
 
 NSString *

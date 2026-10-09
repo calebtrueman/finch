@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /*
  * NSColorWell: a control (without a cell, as Apple's) showing a colour;
- * its value is the colour. Clicking activates it and, when Finch has a
- * colour panel, shows the panel; without one it only toggles active.
+ * its value is the colour. Clicking activates it and opens the shared
+ * colour panel. Active wells follow the panel and send their own actions.
  * Drawn in Finch's own look: a rounded frame around a swatch.
  */
 #import "NSControl_Finch.h"
@@ -155,18 +155,20 @@ well_defaults(NSColorWell *self)
         return;
     _cw.active = YES;
     if (!active_wells)
-        active_wells = (NSMutableArray *)CFBridgingRelease(CFArrayCreateMutable(NULL, 0, NULL));
-    if (active_wells)
-        [active_wells retain];
-    [active_wells addObject:self];
+        active_wells = (NSMutableArray *)CFArrayCreateMutable(NULL, 0, NULL);
     Class panelClass = FINCH_CLASS(NSColorPanel);
     if (panelClass && [panelClass respondsToSelector:@selector(sharedColorPanel)]) {
         id panel = [panelClass sharedColorPanel];
-        if ([panel respondsToSelector:@selector(setColor:)])
+        if (!exclusive && active_wells.count) {
+            [self takeColorFrom:panel];
+            if ([panel respondsToSelector:@selector(_finchSendPanelAction)])
+                [panel _finchSendPanelAction];
+        } else if ([panel respondsToSelector:@selector(setColor:)])
             [panel setColor:_color];
         if ([panel respondsToSelector:@selector(orderFront:)])
             [panel orderFront:self];
     }
+    [active_wells addObject:self];
     [self setNeedsDisplay:YES];
 }
 
@@ -177,6 +179,18 @@ well_defaults(NSColorWell *self)
     _cw.active = NO;
     [active_wells removeObjectIdenticalTo:self];
     [self setNeedsDisplay:YES];
+}
+
++ (void)_finchPanelChanged:(NSColorPanel *)panel
+{
+    for (NSColorWell *well in [[active_wells copy] autorelease])
+        [well changeColor:panel];
+}
+
++ (void)_finchPanelClosed:(NSColorPanel *)panel
+{
+    for (NSColorWell *well in [[active_wells copy] autorelease])
+        [well deactivate];
 }
 
 /* The colour panel's colour changed. */

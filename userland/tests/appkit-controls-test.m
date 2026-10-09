@@ -74,7 +74,7 @@ font_desc(NSFont *f)
 {
     if (!f)
         return @"nil";
-    /* Finch's system font is its own (Inter); compare with what the system font is */
+    /* Finch's system font is its own; compare with what the system font is. */
     if ([f.fontName isEqual:[NSFont systemFontOfSize:f.pointSize].fontName])
         return [NSString stringWithFormat:@"system %g", f.pointSize];
     if ([f.fontName isEqual:[NSFont boldSystemFontOfSize:f.pointSize].fontName])

@@ -474,6 +474,61 @@ take_matching(NSEventMask mask, BOOL dequeue)
     [nc postNotificationName:NSApplicationDidFinishLaunchingNotification
                       object:self
                     userInfo:@{NSApplicationLaunchIsDefaultLaunchKey : @YES}];
+    /* Then, as the "open application" or "open documents" Apple event would on macOS. */
+    [self performSelector:@selector(_finchOpenLaunchDocuments) withObject:nil afterDelay:0];
+}
+
+/*
+ * The files named on the command line (how Finch's NSWorkspace hands them to
+ * an app it launches), else an untitled document: the delegate decides
+ * (application:openURLs:, application:openFiles:, application:openFile:;
+ * applicationShouldOpenUntitledFile:, applicationOpenUntitledFile:), then
+ * the shared document controller, for apps that declare document types.
+ */
+- (void)_finchOpenLaunchDocuments
+{
+    id d = _delegate;
+    BOOL documentApp = [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDocumentTypes"] count] > 0;
+    NSMutableArray<NSURL *> *urls = [NSMutableArray array];
+    NSArray *args = [[NSProcessInfo processInfo] arguments];
+    for (NSUInteger i = 1; i < [args count]; i++) {
+        NSString *a = args[i];
+        if ([a hasPrefix:@"-"]) {
+            i++;  /* -Key value: a defaults argument */
+            continue;
+        }
+        if ([[NSFileManager defaultManager] fileExistsAtPath:a])
+            [urls addObject:[NSURL fileURLWithPath:a]];
+    }
+    if ([urls count]) {
+        if ([d respondsToSelector:@selector(application:openURLs:)]) {
+            [d application:self openURLs:urls];
+        } else if ([d respondsToSelector:@selector(application:openFiles:)]) {
+            [d application:self openFiles:[urls valueForKey:@"path"]];
+        } else if ([d respondsToSelector:@selector(application:openFile:)]) {
+            for (NSURL *u in urls)
+                [d application:self openFile:[u path]];
+        } else if (documentApp) {
+            for (NSURL *u in urls)
+                [[NSDocumentController sharedDocumentController]
+                    openDocumentWithContentsOfURL:u
+                                          display:YES
+                                completionHandler:^(NSDocument *doc, BOOL already, NSError *error) {
+                                    if (error)
+                                        [self presentError:error];
+                                }];
+        }
+        return;
+    }
+    if ([d respondsToSelector:@selector(applicationShouldOpenUntitledFile:)] && ![d applicationShouldOpenUntitledFile:self])
+        return;
+    if ([d respondsToSelector:@selector(applicationOpenUntitledFile:)]) {
+        [d applicationOpenUntitledFile:self];
+    } else if (documentApp) {
+        NSError *error = nil;
+        if (![[NSDocumentController sharedDocumentController] openUntitledDocumentAndDisplay:YES error:&error] && error)
+            [self presentError:error];
+    }
 }
 
 - (void)run
@@ -913,3 +968,70 @@ void
 NSUpdateDynamicServices(void)
 {
 }
+
+/*
+ * Services providers. Finch has no services daemon (pbs) yet, so other apps
+ * can't call a provider; the app's own provider is kept, as Apple's API keeps it.
+ */
+static NSMutableDictionary *service_providers;
+
+void
+NSRegisterServicesProvider(id provider, NSServiceProviderName name)
+{
+    if (!name)
+        return;
+    if (!service_providers)
+        service_providers = [[NSMutableDictionary alloc] init];
+    if (provider)
+        service_providers[name] = provider;
+    else
+        [service_providers removeObjectForKey:name];
+}
+
+void
+NSUnregisterServicesProvider(NSServiceProviderName name)
+{
+    if (name)
+        [service_providers removeObjectForKey:name];
+}
+
+@implementation NSApplication (NSServicesHandling)
+
+static id services_provider;
+
+- (id)servicesProvider { return services_provider; }
+
+- (void)setServicesProvider:(id)provider
+{
+    [provider retain];
+    [services_provider release];
+    services_provider = provider;
+}
+
+@end
+
+/* The Dock menu a nib connects (the dockMenu outlet). Finch has no Dock yet; it's kept. */
+@implementation NSApplication (FinchDockMenu)
+static NSMenu *dock_menu;
+- (NSMenu *)dockMenu { return dock_menu; }
+- (void)setDockMenu:(NSMenu *)menu
+{
+    [menu retain];
+    [dock_menu release];
+    dock_menu = menu;
+}
+@end
+
+@implementation NSApplication (FinchMore)
+- (IBAction)orderFrontFontPanel:(id)sender { [[NSFontManager sharedFontManager] orderFrontFontPanel:sender]; }
+/* Window restoration isn't kept between launches yet. */
+- (BOOL)restoreWindowWithIdentifier:(NSUserInterfaceItemIdentifier)identifier state:(NSCoder *)state
+                  completionHandler:(void (^)(NSWindow *, NSError *))completionHandler
+{
+    return NO;
+}
+- (void)invalidateRestorableState {}
+/* Apple's performance-test hooks. */
+- (void)startedTest:(NSString *)name {}
+- (void)finishedTest:(NSString *)name {}
+@end

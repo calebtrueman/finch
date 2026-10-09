@@ -735,3 +735,8 @@ NSTextAlignmentFromCTTextAlignment(CTTextAlignment a)
     default: return NSTextAlignmentNatural;
     }
 }
+
+/* Apple's private setter (TextEdit calls it); Finch keeps the style's alignment. */
+@implementation NSMutableParagraphStyle (FinchHorizontalAlignment)
+- (void)setHorizontalAlignment:(NSInteger)a {}
+@end

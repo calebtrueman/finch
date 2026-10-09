@@ -467,12 +467,23 @@ FinchViewControllerOf(NSView *view)
 
 - (void)dismissViewController:(NSViewController *)controller
 {
+    extern BOOL FinchDismissPopoverController(NSViewController *);
+    if (FinchDismissPopoverController(controller)) return;
     [[[controller view] window] close];
 }
 
 - (IBAction)dismissController:(id)sender
 {
-    [[[self view] window] close];
+    [self dismissViewController:self];
+}
+
+- (void)presentViewController:(NSViewController *)controller relativeToRect:(NSRect)rect ofView:(NSView *)view
+               preferredEdge:(NSRectEdge)edge behavior:(NSPopoverBehavior)behavior
+{
+    NSPopover *popover = [[[NSPopover alloc] init] autorelease];
+    [popover setContentViewController:controller];
+    [popover setBehavior:behavior];
+    [popover showRelativeToRect:rect ofView:view preferredEdge:edge];
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder

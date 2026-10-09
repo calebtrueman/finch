@@ -296,6 +296,12 @@ pick_member(NSString *family, NSFontTraitMask traits, NSInteger weight, BOOL rai
             }
         }
     }
+    /* The system replacements do not have these styles. Keep emphasis by
+     * choosing a real face from the same fallback families as CoreText. */
+    if (!best && [family isEqualToString:@"San Grotesque"] && wantItalic)
+        return pick_member(@"Inter", traits, weight, raiseBold);
+    if (!best && [family isEqualToString:@"Fragment Mono"] && wantBold)
+        return pick_member(@"DejaVu Sans Mono", traits, weight, raiseBold);
     return best;
 }
 

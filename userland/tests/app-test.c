@@ -19,6 +19,9 @@
  *   sample:X,Y,LABEL  print the screen's colour at X,Y in the current window
  *   windows           print the window list (titles and sizes)
  *   screenshot:PATH   save the screen as a PNG
+ *   screenshot64[:half]  print the screen as a base64 PNG between BEGIN-PNG and
+ *                     END-PNG lines (to get it out of the VM over its console);
+ *                     half scales it down by two
  *   output            print what the app has written since the last time
  */
 #include <CoreGraphics/CoreGraphics.h>
@@ -168,6 +171,43 @@ main(int argc, char **argv)
             printf("%s: %d %d %d\n", label, px[2], px[1], px[0]);
             CFRelease(d);
             CGImageRelease(im);
+        } else if (!strncmp(s, "screenshot64", 12)) {
+            usleep(200000);
+            CGImageRef im = FWSCopyScreenImage();
+            if (!strcmp(s + 12, ":half")) {
+                size_t w = CGImageGetWidth(im) / 2, h = CGImageGetHeight(im) / 2;
+                CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+                CGContextRef cg = CGBitmapContextCreate(NULL, w, h, 8, 0, cs,
+                                                        (CGBitmapInfo)kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+                CGColorSpaceRelease(cs);
+                CGContextSetInterpolationQuality(cg, kCGInterpolationHigh);
+                CGContextDrawImage(cg, CGRectMake(0, 0, (CGFloat)w, (CGFloat)h), im);
+                CGImageRelease(im);
+                im = CGBitmapContextCreateImage(cg);
+                CGContextRelease(cg);
+            }
+            CFMutableDataRef png = CFDataCreateMutable(NULL, 0);
+            CGImageDestinationRef d = CGImageDestinationCreateWithData(png, CFSTR("public.png"), 1, NULL);
+            CGImageDestinationAddImage(d, im, NULL);
+            CGImageDestinationFinalize(d);
+            CFRelease(d);
+            CGImageRelease(im);
+            static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            const uint8_t *p = CFDataGetBytePtr(png);
+            size_t len = (size_t)CFDataGetLength(png), col = 0;
+            printf("BEGIN-PNG\n");
+            for (size_t i = 0; i < len; i += 3) {
+                uint32_t v = (uint32_t)p[i] << 16 | (i + 1 < len ? (uint32_t)p[i + 1] << 8 : 0) | (i + 2 < len ? p[i + 2] : 0);
+                char out[4] = {b64[v >> 18 & 63], b64[v >> 12 & 63], i + 1 < len ? b64[v >> 6 & 63] : '=',
+                               i + 2 < len ? b64[v & 63] : '='};
+                fwrite(out, 1, 4, stdout);
+                if ((col += 4) == 76) {
+                    putchar('\n');
+                    col = 0;
+                }
+            }
+            printf("%sEND-PNG\n", col ? "\n" : "");
+            CFRelease(png);
         } else if (!strncmp(s, "screenshot:", 11)) {
             usleep(200000);
             CGImageRef im = FWSCopyScreenImage();

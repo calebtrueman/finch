@@ -608,3 +608,9 @@ VALUE_SETTER(setAttributedStringValue:, NSAttributedString *, setAttributedStrin
 }
 
 @end
+
+/* As Apple's: a control carries the represented object of its cell. */
+@implementation NSControl (FinchRepresentedObject)
+- (id)representedObject { return [[self cell] representedObject]; }
+- (void)setRepresentedObject:(id)o { [[self cell] setRepresentedObject:o]; }
+@end

@@ -20,7 +20,7 @@ SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 CC="$(xcrun -f clang)"
 log() { echo "==> $*"; }
 
-for dep in Frameworks/Foundation Frameworks/ApplicationServices PrivateFrameworks/UIFoundation PrivateFrameworks/CoreAutoLayout; do
+for dep in Frameworks/Foundation Frameworks/ApplicationServices PrivateFrameworks/UIFoundation PrivateFrameworks/CoreAutoLayout PrivateFrameworks/CoreUI Frameworks/QuartzCore; do
     [[ -f "${ROOT}/System/Library/${dep}.framework/${dep##*/}" ]] || { echo "build ${dep##*/} first" >&2; exit 1; }
 done
 
@@ -39,16 +39,22 @@ rm -rf "${OBJ}" && mkdir -p "${OBJ}"
 for f in "${HERE}"/*.m; do
     "${CC}" "${CFLAGS[@]}" -c "$f" -o "${OBJ}/$(basename "${f%.m}").o"
 done
+# The Swift overlay (module AppKit), compiled into AppKit as Apple's is.
+"$(xcrun -f swiftc)" -c -wmo -module-name AppKit -import-underlying-module -parse-as-library \
+    -enable-library-evolution -module-link-name swiftAppKit -target arm64e-apple-macos26.0 -sdk "${SDKROOT}" \
+    -swift-version 5 -O "${HERE}"/*.swift -o "${OBJ}/AppKit-swift.o" \
+    $(for l in Metal CoreImage QuartzCore UniformTypeIdentifiers XPC os IOKit Dispatch _Builtin_float; do
+        echo -Xfrontend -disable-autolink-library -Xfrontend swift$l; done)   # only the Swift libraries it uses
 
 log "linking"
 mkdir -p "${FW}/Versions/C"
 "${CC}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
     -install_name /System/Library/Frameworks/AppKit.framework/Versions/C/AppKit \
     -current_version 2685.50.120 -compatibility_version 45 \
-    "${OBJ}"/*.o -o "${FW}/Versions/C/AppKit" \
+    "${OBJ}"/*.o -o "${FW}/Versions/C/AppKit" -L"${SDKROOT}/usr/lib/swift" \
     -F"${ROOT}/System/Library/Frameworks" -F"${ROOT}/System/Library/PrivateFrameworks" \
     -Wl,-reexport_framework,Foundation -Wl,-reexport_framework,ApplicationServices \
-    -Wl,-reexport_framework,UIFoundation -framework CoreAutoLayout -framework CoreFoundation -lobjc
+    -Wl,-reexport_framework,UIFoundation -framework CoreAutoLayout -framework CoreUI -framework QuartzCore -framework CoreFoundation -lobjc
 ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/AppKit "${FW}/AppKit"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" C AppKit com.apple.AppKit AppKit 6.9 2685.50.120 English

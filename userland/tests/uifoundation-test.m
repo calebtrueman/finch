@@ -13,7 +13,7 @@
  *
  * Metrics, glyphs and string sizes use a font both systems have (Roboto,
  * from Skia's test fonts) and compare exactly. The system fonts differ (SF
- * on macOS, Inter on Finch), so for them only sizes, weights and descriptor
+ * on macOS, San Grotesque on Finch), so for them only sizes, weights and descriptor
  * keys are compared. Drawing is compared with reference renders made by
  * Apple's frameworks (uifoundation-reference.bin), within a tolerance, as
  * finch-cg-draw-test does.

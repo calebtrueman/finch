@@ -1350,6 +1350,12 @@ end_editing(NSTextView *self, NSInteger movement, BOOL always)
         end_editing(self, NSTextMovementOther, NO);
 }
 
+/* Search fields keep their session open after a Return key search. */
+- (void)_finchContinueSearchEditing
+{
+    _t.editing = YES;
+}
+
 - (NSUndoManager *)undoManager
 {
     if ([_delegate respondsToSelector:@selector(undoManagerForTextView:)])
@@ -2734,4 +2740,70 @@ static const void *field_editor_key = &field_editor_key;
         [self makeFirstResponder:self];
 }
 
+@end
+
+/*
+ * macOS 15's text highlighting: the Highlight menu item (Format and context
+ * menus ask NSTextView for it, as Apple's private API) and its action, which
+ * marks the selection with a highlight in the chosen colour scheme.
+ */
+@implementation NSTextView (FinchHighlight)
+
++ (NSArray<NSMenuItem *> *)_textHighlightMenuItems
+{
+    NSMenuItem *item = [[[NSMenuItem alloc] initWithTitle:@"Highlight" action:@selector(highlight:) keyEquivalent:@""]
+        autorelease];
+    NSMenu *sub = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+    NSArray *schemes = @[
+        @[ @"Accent", NSTextHighlightColorSchemeDefault ], @[], @[ @"Purple", NSTextHighlightColorSchemePurple ],
+        @[ @"Pink", NSTextHighlightColorSchemePink ], @[ @"Orange", NSTextHighlightColorSchemeOrange ],
+        @[ @"Mint", NSTextHighlightColorSchemeMint ], @[ @"Blue", NSTextHighlightColorSchemeBlue ]
+    ];
+    for (NSArray *s in schemes) {
+        if (![s count]) {
+            [sub addItem:[NSMenuItem separatorItem]];
+            continue;
+        }
+        NSMenuItem *i = [[NSMenuItem alloc] initWithTitle:s[0] action:@selector(highlight:) keyEquivalent:@""];
+        [i setRepresentedObject:s[1]];
+        [sub addItem:i];
+        [i release];
+    }
+    [item setSubmenu:sub];
+    return @[ item ];
+}
+
+- (IBAction)highlight:(id)sender
+{
+    NSRange r = [self selectedRange];
+    if (!r.length || ![self shouldChangeTextInRange:r replacementString:nil])
+        return;
+    id scheme = [sender respondsToSelector:@selector(representedObject)] ? [sender representedObject] : nil;
+    NSTextStorage *s = [self textStorage];
+    [s beginEditing];
+    [s addAttribute:NSTextHighlightStyleAttributeName value:NSTextHighlightStyleDefault range:r];
+    [s addAttribute:NSTextHighlightColorSchemeAttributeName value:scheme ?: NSTextHighlightColorSchemeDefault range:r];
+    [s endEditing];
+    [self didChangeText];
+}
+
+@end
+
+/* Vertical text isn't laid out yet: views stay horizontal, as their containers do. */
+@interface NSTextContainer (FinchOrientation)
+- (void)setLayoutOrientation:(NSTextLayoutOrientation)o;
+@end
+
+@implementation NSTextView (FinchLayoutOrientation)
+- (NSTextLayoutOrientation)layoutOrientation { return [[self textContainer] layoutOrientation]; }
+- (void)setLayoutOrientation:(NSTextLayoutOrientation)o { [[self textContainer] setLayoutOrientation:o]; }
+- (IBAction)changeLayoutOrientation:(id)sender
+{
+    [self setLayoutOrientation:(NSTextLayoutOrientation)[sender tag]];
+}
+- (NSRange)documentRange { return NSMakeRange(0, [[self string] length]); }
+- (NSAttributedString *)attributedSubstringFromRange:(NSRange)r
+{
+    return [self attributedSubstringForProposedRange:r actualRange:NULL];
+}
 @end

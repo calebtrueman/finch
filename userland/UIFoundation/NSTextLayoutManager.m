@@ -336,6 +336,9 @@ text_length(NSTextLayoutManager *self)
 - (BOOL)limitsLayoutForSuspiciousContents { return _limits; }
 - (void)setLimitsLayoutForSuspiciousContents:(BOOL)v { _limits = v; }
 - (BOOL)usesHyphenation { return _hyphenation; }
+/* Apple's KVC name for the same setting (TextEdit binds its preference to it). */
+- (BOOL)usesDefaultHyphenation { return [self usesHyphenation]; }
+- (void)setUsesDefaultHyphenation:(BOOL)f { [self setUsesHyphenation:f]; }
 - (void)setUsesHyphenation:(BOOL)v { _hyphenation = v; }
 - (BOOL)resolvesNaturalAlignmentWithBaseWritingDirection { return _resolvesNatural; }
 - (void)setResolvesNaturalAlignmentWithBaseWritingDirection:(BOOL)v { _resolvesNatural = v; }

@@ -163,19 +163,32 @@ str(NSString *s)
 @property BOOL enumerated;
 @end
 
+/* Only devices plugged into this machine count: what's on the network differs from place to place. */
+static unsigned long
+usb_count(ICDeviceBrowser *b)
+{
+    unsigned long n = 0;
+    for (ICDevice *d in b.devices)
+        if ([d.transportType isEqualToString:ICTransportTypeUSB])
+            n++;
+    return n;
+}
+
 @implementation BrowserDelegate
 - (void)deviceBrowser:(ICDeviceBrowser *)b didAddDevice:(ICDevice *)d moreComing:(BOOL)more
 {
-    printf("  added %s more %d\n", d.name.UTF8String, more);
+    if ([d.transportType isEqualToString:ICTransportTypeUSB])
+        printf("  added %s\n", d.name.UTF8String);
 }
 - (void)deviceBrowser:(ICDeviceBrowser *)b didRemoveDevice:(ICDevice *)d moreGoing:(BOOL)more
 {
-    printf("  removed %s more %d\n", d.name.UTF8String, more);
+    if ([d.transportType isEqualToString:ICTransportTypeUSB])
+        printf("  removed %s\n", d.name.UTF8String);
 }
 - (void)deviceBrowserDidEnumerateLocalDevices:(ICDeviceBrowser *)b
 {
     printf("  didEnumerateLocalDevices: browsing %d devices %lu main thread %d\n", b.isBrowsing,
-           (unsigned long)b.devices.count, [NSThread isMainThread]);
+           usb_count(b), [NSThread isMainThread]);
     self.enumerated = YES;
 }
 - (BOOL)respondsToSelector:(SEL)sel
@@ -203,18 +216,27 @@ str(NSString *s)
 {
     printf("  view deviceBrowserDidEnumerateLocalDevices: browser %d same %d browsing %d devices %lu\n",
            [b isKindOfClass:[ICDeviceBrowser class]], b == [v performSelector:@selector(deviceBrowser)],
-           b.isBrowsing, (unsigned long)b.devices.count);
+           b.isBrowsing, usb_count(b));
     self.enumerated = YES;
 }
+/* Device counts change as devices on the network come and go: only plugged-in ones are reported. */
 - (void)deviceBrowserView:(IKDeviceBrowserView *)v numberOfDevicesChanged:(id)n
 {
-    printf("  view numberOfDevicesChanged: %s\n", [[n description] UTF8String]);
+    if ([n isKindOfClass:[ICDeviceBrowser class]] && usb_count(n))
+        printf("  view numberOfDevicesChanged: %lu\n", usb_count(n));
 }
+/* Each question once: the view asks again as devices come and go. */
 - (BOOL)respondsToSelector:(SEL)sel
 {
+    static NSMutableSet *asked;
+    if (!asked)
+        asked = [NSMutableSet set];
     BOOL r = [super respondsToSelector:sel];
-    if ([NSStringFromSelector(sel) hasPrefix:@"deviceBrowserView"])
+    NSString *name = NSStringFromSelector(sel);
+    if ([name hasPrefix:@"deviceBrowserView"] && ![asked containsObject:name]) {
+        [asked addObject:name];
         printf("  asked %s: %d\n", sel_getName(sel), r);
+    }
     return r;
 }
 @end
@@ -225,7 +247,7 @@ browser(void)
     printf("== ICDeviceBrowser\n");
     ICDeviceBrowser *b = [ICDeviceBrowser new];
     printf("init: browsing %d devices %s count %lu mask 0x%lx delegate %d preferred %d\n", b.isBrowsing,
-           b.devices ? "array" : "nil", (unsigned long)b.devices.count, (unsigned long)b.browsedDeviceTypeMask,
+           b.devices ? "array" : "nil", usb_count(b), (unsigned long)b.browsedDeviceTypeMask,
            b.delegate != nil, b.preferredDevice != nil);
     [b start];
     printf("start without delegate: browsing %d\n", b.isBrowsing);
@@ -235,13 +257,13 @@ browser(void)
                               ICDeviceLocationTypeMaskRemote;
     printf("mask 0x%lx\n", (unsigned long)b.browsedDeviceTypeMask);
     [b start];
-    printf("start: browsing %d devices %lu\n", b.isBrowsing, (unsigned long)b.devices.count);
+    printf("start: browsing %d devices %lu\n", b.isBrowsing, usb_count(b));
     printf("enumerated %d\n", wait_for(&d->_enumerated, 10));
     spin(0.5);
-    printf("after: browsing %d devices %lu preferred %d\n", b.isBrowsing, (unsigned long)b.devices.count,
+    printf("after: browsing %d devices %lu preferred %d\n", b.isBrowsing, usb_count(b),
            b.preferredDevice != nil);
     [b stop];
-    printf("stop: browsing %d devices %lu\n", b.isBrowsing, (unsigned long)b.devices.count);
+    printf("stop: browsing %d devices %lu\n", b.isBrowsing, usb_count(b));
     b.browsedDeviceTypeMask = 7;
     printf("mask 7 -> 0x%lx\n", (unsigned long)b.browsedDeviceTypeMask);
     b.browsedDeviceTypeMask = 0;
@@ -278,7 +300,7 @@ device_browser_view(NSView *content, ViewDelegate *d)
     printf("enumerated %d\n", wait_for(&d->_enumerated, 10));
     spin(0.5);
     ICDeviceBrowser *b = [v performSelector:@selector(deviceBrowser)];
-    printf("browser %d browsing %d devices %lu selected %d\n", b != nil, b.isBrowsing, (unsigned long)b.devices.count,
+    printf("browser %d browsing %d devices %lu selected %d\n", b != nil, b.isBrowsing, usb_count(b),
            v.selectedDevice != nil);
     [v removeFromSuperview];
     spin(0.2);

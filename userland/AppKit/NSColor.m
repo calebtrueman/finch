@@ -953,15 +953,20 @@ legacy_white(Kind kind, CGFloat w, CGFloat a)
     return [c autorelease];
 }
 
+NSColor *FinchCatalogColorNamed(NSColorName name, NSBundle *bundle);  /* asset catalogs: NSAssetCatalog.m */
+NSColor *FinchCatalogColorWithCatalogName(NSColorListName catalog, NSColorName name);
+
 + (NSColor *)colorWithCatalogName:(NSColorListName)listName colorName:(NSColorName)colorName
 {
+    if ([listName hasPrefix:@"#$assets"])
+        return FinchCatalogColorWithCatalogName(listName, colorName);
     if (![listName isEqualToString:@"System"])
         return nil;
     return system_color(colorName);
 }
 
-+ (NSColor *)colorNamed:(NSColorName)name bundle:(NSBundle *)bundle { return nil; }
-+ (NSColor *)colorNamed:(NSColorName)name { return nil; }
++ (NSColor *)colorNamed:(NSColorName)name bundle:(NSBundle *)bundle { return FinchCatalogColorNamed(name, bundle); }
++ (NSColor *)colorNamed:(NSColorName)name { return FinchCatalogColorNamed(name, nil); }
 
 + (NSColor *)colorWithName:(NSColorName)colorName dynamicProvider:(NSColor * (^)(NSAppearance *))dynamicProvider
 {

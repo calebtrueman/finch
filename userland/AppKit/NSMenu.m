@@ -32,6 +32,8 @@
  */
 #import "NSMenu_Finch.h"
 
+FINCH_PRIVATE void FinchBindingsMenuItemChosen(NSMenuItem *item);
+
 NSNotificationName NSMenuWillSendActionNotification = @"NSMenuWillSendActionNotification";
 NSNotificationName NSMenuDidSendActionNotification = @"NSMenuDidSendActionNotification";
 NSNotificationName NSMenuDidAddItemNotification = @"NSMenuDidAddItemNotification";
@@ -463,6 +465,7 @@ validate(NSMenuItem *item)
     if (![item isEnabled])
         return NO;
     [item retain];
+    FinchBindingsMenuItemChosen(item);  /* NSKeyValueBinding.m */
     NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
     NSDictionary *info = @{@"MenuItem" : item};
     [nc postNotificationName:NSMenuWillSendActionNotification object:self userInfo:info];

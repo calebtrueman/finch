@@ -17,8 +17,8 @@
  * modal, sheet and popover kinds): -performSegueWithIdentifier:sender:
  * asks -shouldPerformSegueWithIdentifier:sender:, makes the destination
  * from the storyboard, calls -prepareForSegue:sender: and performs the
- * segue: a custom class's -perform, or the kind's presentation (popovers
- * are shown as windows; Finch has no NSPopover yet).
+ * segue: a custom class's -perform, or the kind's presentation. Popover
+ * segues use their saved anchor, preferred edge and popover behavior.
  *
  * This layout was learned by compiling storyboards with ibtool; the code
  * is Finch's.
@@ -300,7 +300,7 @@ show(id destination, id sender)
 }
 @end
 
-/* Popovers, as windows next to their anchor (Finch has no NSPopover yet). */
+/* A popover segue keeps its anchor and behavior from the nib. */
 @interface NSStoryboardPopoverSegueTemplate : NSStoryboardSegueTemplate
 @end
 @implementation NSStoryboardPopoverSegueTemplate {
@@ -322,13 +322,12 @@ show(id destination, id sender)
         show(destination, source);
         return;
     }
-    NSWindow *w = [NSWindow windowWithContentViewController:destination];
     NSView *anchor = [self anchorView];
-    if ([anchor window]) {
-        NSRect r = [[anchor window] convertRectToScreen:[anchor convertRect:[anchor bounds] toView:nil]];
-        [w setFrameTopLeftPoint:NSMakePoint(NSMinX(r), NSMinY(r))];
-    }
-    [w makeKeyAndOrderFront:source];
+    if (!anchor) anchor = [view_controller_of(source) view];
+    NSPopover *popover = [[[NSPopover alloc] init] autorelease];
+    [popover setContentViewController:destination];
+    [popover setBehavior:_behavior];
+    [popover showRelativeToRect:[anchor bounds] ofView:anchor preferredEdge:_edge];
 }
 @end
 

@@ -1615,11 +1615,20 @@ server_flags(NSWindow *w)
             [self makeFirstResponder:view];
         _mouseDownView = view;
         if (type == NSEventTypeLeftMouseDown)
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(mouseDown:)];
             [view mouseDown:event];
+        }
         else if (type == NSEventTypeRightMouseDown)
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(rightMouseDown:)];
             [view rightMouseDown:event];
+        }
         else
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(otherMouseDown:)];
             [view otherMouseDown:event];
+        }
         break;
     }
     case NSEventTypeLeftMouseUp:
@@ -1628,11 +1637,20 @@ server_flags(NSWindow *w)
         NSView *view = _mouseDownView ?: [self _finchViewAt:[event locationInWindow]];
         _mouseDownView = nil;
         if (type == NSEventTypeLeftMouseUp)
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(mouseUp:)];
             [view mouseUp:event];
+        }
         else if (type == NSEventTypeRightMouseUp)
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(rightMouseUp:)];
             [view rightMouseUp:event];
+        }
         else
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(otherMouseUp:)];
             [view otherMouseUp:event];
+        }
         break;
     }
     case NSEventTypeLeftMouseDragged:
@@ -1640,11 +1658,29 @@ server_flags(NSWindow *w)
     case NSEventTypeOtherMouseDragged: {
         NSView *view = _mouseDownView;
         if (type == NSEventTypeLeftMouseDragged)
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(mouseDragged:)];
             [view mouseDragged:event];
+        }
         else if (type == NSEventTypeRightMouseDragged)
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(rightMouseDragged:)];
             [view rightMouseDragged:event];
+        }
         else
+            {
+            [view _finchDeliverGestureEvent:event selector:@selector(otherMouseDragged:)];
             [view otherMouseDragged:event];
+        }
+        break;
+    }
+    case NSEventTypeMagnify:
+    case NSEventTypeRotate: {
+        NSView *view = [self _finchViewAt:event.locationInWindow];
+        SEL selector = type == NSEventTypeMagnify ? @selector(magnifyWithEvent:) : @selector(rotateWithEvent:);
+        [view _finchDeliverGestureEvent:event selector:selector];
+        if (type == NSEventTypeMagnify) [view magnifyWithEvent:event];
+        else [view rotateWithEvent:event];
         break;
     }
     case NSEventTypeMouseMoved: {
@@ -1787,4 +1823,29 @@ FinchWindowServerEvent(const FWSEvent *e)
 - (void)setWorksWhenModal:(BOOL)flag {}
 - (BOOL)canBecomeMainWindow { return NO; }
 
+@end
+
+/* The window's identifier (NSUserInterfaceItemIdentification), document and restoration class. */
+@implementation NSWindow (FinchIdentification)
+static const void *kIdentifier = &kIdentifier, *kRestoration = &kRestoration;
+- (NSUserInterfaceItemIdentifier)identifier { return objc_getAssociatedObject(self, kIdentifier); }
+- (void)setIdentifier:(NSUserInterfaceItemIdentifier)i
+{
+    objc_setAssociatedObject(self, kIdentifier, i, OBJC_ASSOCIATION_COPY);
+}
+- (Class)restorationClass { return objc_getAssociatedObject(self, kRestoration); }
+- (void)setRestorationClass:(Class)c { objc_setAssociatedObject(self, kRestoration, c, OBJC_ASSOCIATION_ASSIGN); }
+- (id)document { return [[self windowController] document]; }
+- (BOOL)validateMenuItem:(NSMenuItem *)item
+{
+    SEL a = [item action];
+    if (a == @selector(performClose:))
+        return [self styleMask] & NSWindowStyleMaskClosable ? YES : [self _finchHasCloseTarget];
+    if (a == @selector(performMiniaturize:))
+        return ([self styleMask] & NSWindowStyleMaskMiniaturizable) != 0;
+    if (a == @selector(performZoom:))
+        return ([self styleMask] & NSWindowStyleMaskResizable) != 0;
+    return [self respondsToSelector:a];
+}
+- (BOOL)_finchHasCloseTarget { return NO; }
 @end

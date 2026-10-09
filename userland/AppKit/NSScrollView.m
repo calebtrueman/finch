@@ -12,6 +12,7 @@
  */
 #import "AppKit_Finch.h"
 #import "NSView_Finch.h"
+#import "NSTableView_Finch.h"
 
 NSNotificationName const NSScrollViewWillStartLiveMagnifyNotification = @"NSScrollViewWillStartLiveMagnifyNotification";
 NSNotificationName const NSScrollViewDidEndLiveMagnifyNotification = @"NSScrollViewDidEndLiveMagnifyNotification";
@@ -49,6 +50,7 @@ static Class ruler_class;
     NSScrollViewFindBarPosition _findBarPosition;
     BOOL _hasV, _hasH, _autohides, _predominantAxis, _allowsMagnification, _hasHRuler, _hasVRuler, _rulersVisible;
     BOOL _adjustsInsets, _findBarVisible, _tiling;
+    BOOL _insetsStale; /* the automatic insets need working out in the next layout pass */
 }
 
 static void
@@ -371,6 +373,7 @@ shows(NSScrollView *self, NSScroller *s, BOOL has)
         [_hScroller setFrame:f];
         [_hScroller setHidden:!_hasH || [_hScroller isHidden]];
     }
+    FinchScrollViewTileHeader(self, inner); /* a table's header (NSTableHeaderView.m) */
     _tiling = NO;
     [self setNeedsDisplay:YES];
 }
@@ -378,6 +381,8 @@ shows(NSScrollView *self, NSScroller *s, BOOL has)
 - (void)setFrameSize:(NSSize)size
 {
     [super setFrameSize:size];
+    _insetsStale = YES;
+    [self setNeedsLayout:YES];
     [self tile];
     [self reflectScrolledClipView:_contentView];
 }
@@ -423,6 +428,7 @@ axis_state(CGFloat docMin, CGFloat docLen, CGFloat visMin, CGFloat visLen, BOOL 
 {
     if (clip != _contentView)
         return;
+    FinchScrollViewReflectHeader(self);
     NSView *doc = [clip documentView];
     NSRect d = doc ? [doc frame] : NSZeroRect, b = [clip bounds];
     BOOL changed = NO;
@@ -536,6 +542,7 @@ page_amount(NSScrollView *self)
 {
     NSEdgeInsets old = _contentInsets;
     _contentInsets = insets;
+    _insetsStale = NO; /* insets set by hand stand until the frame or window changes */
     NSPoint o = [_contentView bounds].origin;
     o.x -= insets.left - old.left;
     if ([_contentView isFlipped])
@@ -544,6 +551,39 @@ page_amount(NSScrollView *self)
         o.y -= insets.bottom - old.bottom;
     [_contentView setContentInsets:insets];
     [_contentView setBoundsOrigin:o];
+    [self tile]; /* a table's header adds to the clip view's inset */
+}
+
+/*
+ * As Apple's, in the window's layout pass a scroll view that adjusts its insets takes a top inset of how
+ * far it runs above the window's contentLayoutRect (under a full-size content window's title bar and
+ * toolbar), and no others.
+ */
+- (void)layout
+{
+    [super layout];
+    NSWindow *w = [self window];
+    if (!_adjustsInsets || !w || !_insetsStale)
+        return;
+    _insetsStale = NO;
+    NSRect f = [self convertRect:[self bounds] toView:nil];
+    CGFloat top = MAX(0, NSMaxY(f) - NSMaxY([w contentLayoutRect]));
+    if (_contentInsets.top != top || _contentInsets.left != 0 || _contentInsets.bottom != 0 || _contentInsets.right != 0)
+        [self setContentInsets:NSEdgeInsetsMake(top, 0, 0, 0)];
+}
+
+- (void)setFrameOrigin:(NSPoint)origin
+{
+    [super setFrameOrigin:origin];
+    _insetsStale = YES;
+    [self setNeedsLayout:YES];
+}
+
+- (void)viewDidMoveToWindow
+{
+    [super viewDidMoveToWindow];
+    _insetsStale = YES;
+    [self setNeedsLayout:YES];
 }
 
 - (BOOL)automaticallyAdjustsContentInsets { return _adjustsInsets; }
@@ -551,6 +591,10 @@ page_amount(NSScrollView *self)
 {
     _adjustsInsets = flag;
     [_contentView setAutomaticallyAdjustsContentInsets:flag];
+    if (flag) {
+        _insetsStale = YES;
+        [self setNeedsLayout:YES];
+    }
 }
 
 #pragma mark - Magnification
@@ -750,4 +794,11 @@ be_float(const uint8_t *p)
     [coder encodeDouble:_maxMagnification forKey:@"NSMaxMagnification"];
 }
 
+@end
+
+/* Apple's scroll views answer a delegate (private); apps set one. */
+@implementation NSScrollView (FinchDelegate)
+static const void *kScrollDelegate = &kScrollDelegate;
+- (id)delegate { return objc_getAssociatedObject(self, kScrollDelegate); }
+- (void)setDelegate:(id)d { objc_setAssociatedObject(self, kScrollDelegate, d, OBJC_ASSOCIATION_ASSIGN); }
 @end

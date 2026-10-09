@@ -9,6 +9,7 @@
  * actions that need one log and do nothing.
  */
 #import "NSView_Finch.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 #pragma mark - Types
 
@@ -866,6 +867,146 @@ type_names(NSDictionary *t)
     if (a == @selector(saveDocument:))
         return YES;
     return YES;
+}
+
+@end
+
+#pragma mark - File access, activities, saving details
+
+@implementation NSDocument (FinchFileAccess)
+
+/* Writing happens on the calling thread (no asynchronous saving yet). */
+- (BOOL)canAsynchronouslyWriteToURL:(NSURL *)url ofType:(NSString *)typeName forSaveOperation:(NSSaveOperationType)op
+{
+    return NO;
+}
+
+/* As Apple's: the blocks run at once when nothing else is using the file. */
+- (void)performSynchronousFileAccessUsingBlock:(void (NS_NOESCAPE ^)(void))block
+{
+    if (block)
+        block();
+}
+
+- (void)performAsynchronousFileAccessUsingBlock:(void (^)(void (^)(void)))block
+{
+    if (block)
+        block(^{
+        });
+}
+
+- (void)performActivityWithSynchronousWaiting:(BOOL)wait usingBlock:(void (^)(void (^)(void)))block
+{
+    if (block)
+        block(^{
+        });
+}
+
+- (void)continueActivityUsingBlock:(void (NS_NOESCAPE ^)(void))block
+{
+    if (block)
+        block();
+}
+
+- (void)continueAsynchronousWorkOnMainThreadUsingBlock:(void (^)(void))block
+{
+    if (block)
+        dispatch_async(dispatch_get_main_queue(), block);
+}
+
+/* Native types for saving in place, every writable type for Save To. */
+- (NSArray<NSString *> *)writableTypesForSaveOperation:(NSSaveOperationType)op
+{
+    NSMutableArray *types = [NSMutableArray array];
+    for (NSString *t in [[self class] writableTypes])
+        if (op == NSSaveToOperation || [[self class] isNativeType:t])
+            [types addObject:t];
+    return types;
+}
+
+/* The type's preferred filename extension (UTType). */
+- (NSString *)fileNameExtensionForType:(NSString *)typeName saveOperation:(NSSaveOperationType)op
+{
+    UTType *t = [UTType typeWithIdentifier:typeName];
+    return [t preferredFilenameExtension];
+}
+
+- (BOOL)duplicateAndReturnError:(NSError **)outError
+{
+    NSError *e = nil;
+    NSDocument *copy = [[NSDocumentController sharedDocumentController] duplicateDocumentWithContentsOfURL:[self fileURL]
+                                                                                                   copying:YES
+                                                                                               displayName:nil
+                                                                                                     error:&e];
+    if (!copy && outError)
+        *outError = e;
+    return copy != nil;
+}
+
+- (IBAction)browseDocumentVersions:(id)sender {}
+
+- (NSPrintOperation *)printOperationWithSettings:(NSDictionary<NSPrintInfoAttributeKey, id> *)settings
+                                           error:(NSError **)outError
+{
+    [NSException raise:NSInternalInconsistencyException
+                format:@"printOperationWithSettings:error: is a subclass responsibility but has not been overridden."];
+    return nil;
+}
+
+/* The document is an editor's owner for bindings (NSEditorRegistration). */
+- (void)presentError:(NSError *)error modalForWindow:(NSWindow *)window delegate:(id)delegate
+    didPresentSelector:(SEL)didPresentSelector contextInfo:(void *)contextInfo
+{
+    [NSApp presentError:[self willPresentError:error] modalForWindow:window delegate:delegate
+        didPresentSelector:didPresentSelector contextInfo:contextInfo];
+}
+
+- (void)objectDidBeginEditing:(id<NSEditor>)editor {}
+- (void)objectDidEndEditing:(id<NSEditor>)editor {}
+
+/* Window restoration: what the document keeps (its URL is enough here). */
+- (void)encodeRestorableStateWithCoder:(NSCoder *)coder {}
+- (void)restoreStateWithCoder:(NSCoder *)coder {}
+- (void)invalidateRestorableState {}
+
+/* As Apple's: Revert needs a saved, edited document; other actions are left to their own checks. */
+- (BOOL)validateMenuItem:(NSMenuItem *)item
+{
+    return [self validateUserInterfaceItem:item];
+}
+
+@end
+
+@implementation NSDocumentController (FinchMore)
+
++ (void)restoreWindowWithIdentifier:(NSUserInterfaceItemIdentifier)identifier state:(NSCoder *)state
+                  completionHandler:(void (^)(NSWindow *, NSError *))completionHandler
+{
+    if (completionHandler)
+        completionHandler(nil, [NSError errorWithDomain:NSCocoaErrorDomain code:NSUserCancelledError userInfo:nil]);
+}
+
+- (void)beginOpenPanel:(NSOpenPanel *)openPanel forTypes:(NSArray<NSString *> *)types
+     completionHandler:(void (^)(NSInteger))completionHandler
+{
+    if ([types count])
+        [openPanel setAllowedFileTypes:types];
+    [openPanel beginWithCompletionHandler:^(NSModalResponse r) {
+        if (completionHandler)
+            completionHandler(r);
+    }];
+}
+
+- (void)presentError:(NSError *)error modalForWindow:(NSWindow *)window delegate:(id)delegate
+    didPresentSelector:(SEL)didPresentSelector contextInfo:(void *)contextInfo
+{
+    [NSApp presentError:[self willPresentError:error] modalForWindow:window delegate:delegate
+        didPresentSelector:didPresentSelector contextInfo:contextInfo];
+}
+
+- (BOOL)validateMenuItem:(NSMenuItem *)item
+{
+    return [self validateUserInterfaceItem:item];
 }
 
 @end

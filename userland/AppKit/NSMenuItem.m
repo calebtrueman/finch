@@ -307,6 +307,8 @@ changed(NSMenuItem *self)
 
 - (BOOL)isSeparatorItem { return _f.separator; }
 - (BOOL)isSectionHeader { return _f.sectionHeader; }
+/* Apple's private setter (TextEdit uses it). */
+- (void)setSectionHeader:(BOOL)f { _f.sectionHeader = f; }
 
 - (void)setTitleWithMnemonic:(NSString *)string
 {
@@ -707,3 +709,9 @@ FinchMenuKeyEquivalentString(NSMenuItem *item)
     [s appendString:shown];
     return s;
 }
+
+/* macOS 26's private menu-item icons ("action images"): as Apple's, the item's image. */
+@implementation NSMenuItem (FinchActionImage)
+- (void)_setActionImage:(NSImage *)image { [self setImage:image]; }
+- (NSImage *)_actionImage { return [self image]; }
+@end

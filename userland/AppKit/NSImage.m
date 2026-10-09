@@ -2,9 +2,10 @@
 /*
  * NSImage: a size and a list of image reps, drawn through the best rep.
  * -lockFocus draws into a bitmap rep at the image's size (Finch's screens are
- * 1x for now). +imageNamed: finds images named with -setName:, then image
- * files in the main bundle; Apple's system images (NSImageNameCaution, ...)
- * are Apple's artwork and aren't included.
+ * 1x for now). +imageNamed: finds images named with -setName:, then the main
+ * bundle's asset catalog (NSAssetCatalog.m), then image files in the main
+ * bundle; Apple's system images (NSImageNameCaution, ...) are Apple's artwork
+ * and aren't included.
  */
 #import "AppKitDrawing.h"
 #import <ImageIO/ImageIO.h>
@@ -285,6 +286,8 @@ names(void)
     return i;
 }
 
+NSImage *FinchCatalogImageNamed(NSString *name, NSBundle *bundle);
+
 + (NSImage *)imageNamed:(NSImageName)name
 {
     if (!name.length)
@@ -295,6 +298,9 @@ names(void)
         if (i)
             return i;
     }
+    NSImage *cat = FinchCatalogImageNamed(name, nil);  /* the app's asset catalog (NSAssetCatalog.m) */
+    if (cat && [cat setName:name])
+        return cat;
     NSBundle *b = [NSBundle mainBundle];
     NSString *path = nil;
     if ([name pathExtension].length)

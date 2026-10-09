@@ -1,0 +1,46 @@
+table frame {{0, 0}, {280, 192}} header {{10, 362}, {280, 28}} rows 8
+header background: light
+header title: ink
+row 0 background: light
+row 1 background: light
+rows alternate: 1
+row 0 text: ink
+grid line: drawn
+click row 2: selection [2]; action row 2 column 0
+first responder is the table 1
+selected row: accent
+selected row text: ink
+shift-click row 4: selection [2 3 4]; action row 4 column 1
+command-click row 3: selection [2 4]; action row 3 column 0
+click row 4: selection [4]; action row 4 column 1
+down arrow: selection [5]
+up arrow twice: selection [4]; selection [3]
+click name header: sort name ascending
+first row Apple
+click name header again: sort name descending
+first row Yuzu
+header after sorting: light
+name width 160
+editing row 1 column 0 editor 1
+edited: selection [1]; action row 1 column 0; set name row 1 'zz'
+editing after return 0 row 1 'zz'
+double click count: selection [5]; action row 5 column 1; double row 5
+view-based rows with views 6
+view-based selected [2] row view selected 1 emphasized 1 text Item 2
+view-based selection: accent
+view-based other row: light
+outline rows 3
+disclosure triangle: drawn
+click triangle of Fruit: expanded Fruit
+outline rows 5 row 1 Apple level 1
+click triangle of Nuts: expanded Nuts
+outline rows 6
+click triangle of Fruit again: collapsed Fruit
+outline rows 4 selected []
+outline selected [0] Fruit
+right arrow: expanded Fruit
+outline rows 6
+collection items 6
+click item 1: collection selected 1
+item 1 selected 1 selection 1
+click between items: collection deselected 1

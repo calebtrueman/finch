@@ -1613,3 +1613,67 @@ FinchBindingsControlEdited(NSControl *control, int phase)
         break;
     }
 }
+
+#pragma mark - Menu items
+
+/*
+ * As Apple's: value shows as the item's state, and choosing the item toggles
+ * the bound value; enabled, hidden, title and image show as themselves.
+ */
+@implementation NSMenuItem (FinchBindings)
+
++ (NSArray *)_finchBuiltinBindings
+{
+    return @[
+        NSFontBinding, NSArgumentBinding, NSFontBoldBinding, NSFontItalicBinding, @"offStateImage", NSTitleBinding,
+        @"onStateImage", NSImageBinding, NSFontFamilyNameBinding, NSTargetBinding, NSEnabledBinding, NSHiddenBinding,
+        NSFontSizeBinding, NSFontNameBinding, @"mixedStateImage", NSValueBinding
+    ];
+}
+
+- (BOOL)_finchHandlesBinding:(NSString *)binding
+{
+    return [binding isEqualToString:NSValueBinding] || [binding isEqualToString:NSEnabledBinding] ||
+           [binding isEqualToString:NSHiddenBinding] || [super _finchHandlesBinding:binding];
+}
+
+- (void)_finchBindingChanged:(_FinchBinding *)b
+{
+    int kind = 0;
+    id v = [b displayValueWithKind:&kind];
+    NSString *name = b->_name;
+    if ([name isEqualToString:NSValueBinding]) {
+        NSControlStateValue state = NSControlStateValueOff;
+        if (kind == MK_MULTIPLE)
+            state = NSControlStateValueMixed;
+        else if (kind == MK_NONE && [v respondsToSelector:@selector(integerValue)])
+            state = [v integerValue] < 0 ? NSControlStateValueMixed
+                    : [v integerValue] > 0 ? NSControlStateValueOn
+                                           : NSControlStateValueOff;
+        [self setState:state];
+    } else if ([name isEqualToString:NSEnabledBinding]) {
+        [self setEnabled:kind == MK_NONE && truthy(v)];
+    } else if ([name isEqualToString:NSHiddenBinding]) {
+        [self setHidden:kind == MK_NONE && truthy(v)];
+    } else if ([name isEqualToString:NSTitleBinding]) {
+        [self setTitle:[v isKindOfClass:[NSString class]] ? v : (v ? [v description] : @"")];
+    } else if ([name isEqualToString:NSImageBinding]) {
+        [self setImage:[v isKindOfClass:[NSImage class]] ? v : nil];
+    } else {
+        [super _finchBindingChanged:b];
+    }
+}
+
+@end
+
+/* NSMenu.m: an item was chosen; a bound value flips, as Apple's does. */
+void
+FinchBindingsMenuItemChosen(NSMenuItem *item)
+{
+    _FinchBinding *b = FinchBindingFor(item, NSValueBinding);
+    if (!b)
+        return;
+    BOOL on = [item state] != NSControlStateValueOn;
+    [item setState:on ? NSControlStateValueOn : NSControlStateValueOff];
+    FinchBindingPush(item, NSValueBinding, @(on));
+}
