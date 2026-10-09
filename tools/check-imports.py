@@ -24,9 +24,29 @@ def run(*args):
     return subprocess.run(args, capture_output=True, text=True).stdout
 
 
+_overlay = None
+
+
+def overlay():
+    """Install paths of images built outside the root (tools/vm/overlay.txt: source, destination)."""
+    global _overlay
+    if _overlay is None:
+        top = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        _overlay = {}
+        with open(os.path.join(top, "tools", "vm", "overlay.txt")) as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) == 2 and not line.startswith("#"):
+                    _overlay[parts[1]] = os.path.join(top, parts[0])
+    return _overlay
+
+
 def image_path(root, install_name):
     p = os.path.join(root, install_name.lstrip("/"))
-    return p if os.path.exists(p) else None
+    if os.path.exists(p):
+        return p
+    p = overlay().get(install_name)
+    return p if p and os.path.exists(p) else None
 
 
 _exports = {}
