@@ -33,7 +33,8 @@ including TextKit 2 and Auto Layout, match Apple's on the host and in the VM.
 AppKit and the window server draw in Fieldwork, Finch's own design language
 (`docs/design/FIELDWORK.md`), from a theme file of tokens; the Classic theme keeps
 Aqua-compatible values for apps that need them and for the comparison tests.
-The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
+Combine is open code (OpenCombine with Finch's additions) built to Apple's ABI
+(`docs/design/COMBINE.md`). The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
 
 CoreFoundation's local notification center shares observers with Foundation's
@@ -97,7 +98,7 @@ block-beta
         icu["libicucore<br/>ICU-76142.4.7"]
         objc["libobjc (objc4)"]
         autolayout["CoreAutoLayout (private)<br/>constraints, anchors, VFL,<br/>Cassowary solver"]
-        swift["Swift 6.3.1 runtimes<br/>Darwin overlays,<br/>Foundation and AppKit Swift"]
+        swift["Swift 6.3.1 runtimes<br/>Darwin overlays,<br/>Foundation and AppKit Swift;<br/>Combine (OpenCombine + Finch)"]
         iokit["IOKit.framework<br/>(IOKitUser)"]
         gcore["GCoreFramework<br/>(gcore, on Finch Foundation)"]
         sysconfig["SystemConfiguration<br/>preferences and network reads;<br/>configd service to come"]

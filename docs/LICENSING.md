@@ -35,6 +35,7 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | LZFSE 1.0, LZ4 1.10.0 (lib), Brotli 1.1.0 | BSD-3 / BSD-2 / MIT | Built and linked statically into Finch's libcompression |
 | XZ Utils 5.4.3 (liblzma), libxo, libsbuf | 0BSD / BSD | Build directly |
 | libxml2 (Apple's libxml2-39.10) | MIT | Build directly (Foundation's NSXMLParser links it) |
+| OpenCombine 0.14.0 | MIT | Adapted and built as Combine.framework (`docs/design/COMBINE.md`) |
 | Skia (chrome/m155) | BSD-3 | Built and linked statically into Finch's CoreGraphics |
 | FreeType | FTL or GPL-2.0 | Taken under the FTL (BSD-style, with a credit clause), linked statically with Skia |
 | HarfBuzz, libpng, libjpeg-turbo, libwebp, wuffs, zlib (Chromium's), skcms | MIT / libpng / BSD-3 + IJG / BSD-3 / Apache 2.0 / Zlib / BSD-3 | Built with Skia, linked statically |

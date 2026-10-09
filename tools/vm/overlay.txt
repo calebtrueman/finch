@@ -158,4 +158,5 @@ build/userland/finch-filecoordinator-test /usr/local/bin/finch-filecoordinator-t
 build/userland/finch-textfinder-test /usr/local/bin/finch-textfinder-test
 build/userland/finch-ruler-test /usr/local/bin/finch-ruler-test
 build/userland/finch-textblock-test /usr/local/bin/finch-textblock-test
+build/userland/finch-combine-test /usr/local/bin/finch-combine-test
 userland/tests/table.rtf /usr/local/share/finch/table.rtf

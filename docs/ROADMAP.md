@@ -395,6 +395,8 @@ and AppKit come in Phase 2).
 - [ ] PDFKit (Apple's Quartz re-exports it; Finch's Quartz re-exports only QuartzCore and ImageKit
       so far), Quick Look UI, the rest of ImageKit (image browser and view, picture taker, slideshow)
 - [ ] Metal → Mesa
+- [x] Combine: OpenCombine (MIT) adapted to Apple's ABI, with Finch's Merge, CombineLatest
+      and collecting by time; every Combine symbol the system apps import (2026-10-09)
 - [ ] SwiftUI
 - [ ] AVFoundation / CoreAudio / CoreMedia
 
