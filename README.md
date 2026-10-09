@@ -12,10 +12,30 @@ built on Darwin/XNU, that aims to run Mac software.</p>
 
 ## Status
 
-Early development (Phase 1 of the [roadmap](docs/ROADMAP.md)). On an emulated M4, Finch
-boots its own XNU build and its own PID 1 (`finch-init`), and runs a userland built from
-Apple's open source, including zsh, bash, about 230 core commands and `libsystem_kernel`.
-Real hardware is next.
+Phase 2 of the [roadmap](docs/ROADMAP.md): the open graphics stack and the first app.
+Finch is tested in emulation (an emulated M4 in QEMU) and in a Virtualization.framework
+VM. Bare metal comes after the GUI stack.
+
+- **Kernel:** Finch builds XNU (`xnu-12377.101.15`) from source and boots it. Apple's
+  kexts are still borrowed until Phase 3's open drivers replace them.
+- **Userland (Phase 1, done 2026-10-07):** the VM boots to a shell with no closed Apple
+  binaries above the kernel. Finch's own PID 1, `finch-init`, is a launchd-compatible
+  service manager and bootstrap server. dyld, libSystem, a Finch-built dyld shared cache,
+  Finch's ABI-compatible libxpc, os_log via `finch-logd`, PAM logins, about 230
+  commands, zsh and bash all run from source.
+- **Nothing closed is borrowed** above the kernel (since 2026-10-08). Every library
+  Finch builds links only Finch-built code (`tools/check-closed.py`). Closed pieces are
+  built from Apple's open source or written by Finch as they come up.
+- **Frameworks:**
+  - CoreFoundation (swift-corelibs-foundation's CF plus Finch's Objective-C bridge),
+    IOKit, OpenDirectory, libcompression and ICU are built.
+  - Finch's own **Foundation** covers about 100 of Apple's classes: strings,
+    collections, run loops, files, bundles, formatters, KVC/KVO, keyed archiving, JSON,
+    regular expressions, predicates, streams and tasks. Its test output matches Apple's
+    Foundation line for line.
+- **Next:** CoreGraphics on [Skia](docs/design/COREGRAPHICS.md) (it builds), then
+  ImageIO, CoreText, a window server and AppKit, until an unmodified Mac app draws a
+  window.
 
 ## Principles
 
@@ -52,23 +72,34 @@ foundation for an open replacement for iOS on iPhone/iPad hardware.
 - [Licensing](docs/LICENSING.md): what we can import, from whom, and how
 - [Hardware](docs/HARDWARE.md): target machines and the dev/test setup
 - [Dev VM](docs/DEV_VM.md): emulated M4 for kernel/userland work
+- [Tier 2 VM](docs/design/TIER2-VZ.md): the Virtualization.framework guest for graphics work
 - [Brand](branding/BRAND.md): logo, colours and usage
-- [XPC design](docs/design/XPC.md): Finch's ABI-compatible libxpc
-- [Services](docs/design/SERVICES.md): finch-init as launchd-compatible service manager
-- [dyld shared cache](docs/design/DYLD_CACHE.md): Finch-built cache, process launch about 50× faster
+
+Design notes, in `docs/design/`:
+
+- [Phase 1 exit](docs/design/PHASE1-EXIT.md): how "no closed binaries above the kernel" is checked
+- [XPC](docs/design/XPC.md): Finch's ABI-compatible libxpc
+- [Services](docs/design/SERVICES.md): finch-init as a launchd-compatible service manager
+- [dyld shared cache](docs/design/DYLD_CACHE.md): a Finch-built cache that makes process launch about 50× faster
+- [Logging](docs/design/LOGD.md): os_log and `log` over libdispatch's firehose
+- [CoreFoundation](docs/design/COREFOUNDATION.md): CF from swift-corelibs, and closed dependencies removed
+- [Foundation](docs/design/FOUNDATION.md): Finch's Foundation and CF's Objective-C half
+- [CoreGraphics](docs/design/COREGRAPHICS.md): CoreGraphics, CoreText and ImageIO over Skia, FreeType and HarfBuzz
+- [POSIX](docs/design/POSIX.md): the conformance target
 
 ## Layout
 
 ```
-boot/          boot chain: m1n1 integration, kernel collection tooling
+boot/          boot chain: kernel collection tooling (m1n1 integration later)
 kernel/        XNU (vendored from apple-oss-distributions) + Finch patches
-drivers/       open kexts replacing Apple's closed platform drivers
-userland/      Darwin userspace built from Apple open source
-frameworks/    Foundation/AppKit/etc. compatibility layer
-desktop/       Finch's window server, compositor, shell
-tools/         build system, image builder, host-side utilities
+userland/      everything above the kernel: Darwin built from Apple's open source,
+               Finch's own libraries and daemons, and the frameworks
+               (CoreFoundation, Foundation, IOKit, ...), each with its build script
+drivers/       open kexts replacing Apple's closed platform drivers (Phase 3)
+desktop/       Finch's window server, compositor, shell (Phase 2)
+tools/         build system, VM tooling, checks (closed-library, API coverage)
 branding/      logo, icons, colours
-third_party/   imported non-Apple projects (Mesa, m1n1, …)
+third_party/   imported non-Apple projects and their patches (darwin-vm, ...)
 docs/          design docs
 ```
 

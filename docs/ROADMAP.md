@@ -178,7 +178,14 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         NSXMLParser (needs libxml2 from Apple's source), units and measurements,
         the URL loading system, NSXPCConnection, a system-wide distributed
         notification center.
-- [ ] CoreGraphics, CoreText, ImageIO (open renderers underneath)
+- [ ] CoreGraphics, CoreText, ImageIO over open renderers (`docs/design/COREGRAPHICS.md`)
+  - [x] Skia (chrome/m155) builds for arm64e with FreeType and the open codecs, and
+        without Apple's graphics frameworks (`userland/skia`, 2026-10-08)
+  - [ ] CoreGraphics' drawing half: geometry, paths, colour spaces, bitmap contexts,
+        images, gradients, then shadings, patterns, layers and PDF writing
+  - [ ] ImageIO over Skia's codecs
+  - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's
+  - [ ] The window-server half of CoreGraphics (windows, events, displays)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
 - [ ] AppKit
 - [ ] TextEdit or Calculator launches and is usable

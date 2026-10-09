@@ -1,0 +1,52 @@
+From: Finch <noreply@finch>
+Subject: [PATCH] Add skia_use_apple_frameworks to drop the CoreGraphics ports
+
+Finch's CoreGraphics is built on Skia, so Skia must not call Apple's
+CoreGraphics, ImageIO or CoreText. With skia_use_apple_frameworks=false a
+macOS build leaves out SkImageGeneratorCG and the src/utils/mac helpers,
+and links no Apple frameworks.
+
+diff --git a/BUILD.gn b/BUILD.gn
+index 228cfcf..2906e0d 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -2148,6 +2148,14 @@ skia_component("skia") {
+   # skia_clipstack_utils_sources
+   sources -= skia_clipstack_utils_sources
+ 
++  if (!skia_use_apple_frameworks) {
++    sources -= [
++      "//src/utils/mac/SkCTFont.cpp",
++      "//src/utils/mac/SkCTFontCreateExactCopy.cpp",
++      "//src/utils/mac/SkCreateCGImageRef.cpp",
++    ]
++  }
++
+   defines = []
+   libs = []
+ 
+@@ -2214,7 +2222,11 @@ skia_component("skia") {
+     }
+   }
+ 
+-  if (is_mac) {
++  if (is_mac && !skia_use_apple_frameworks) {
++    sources += [ "src/ports/SkLog_stdio.cpp" ]
++  }
++
++  if (is_mac && skia_use_apple_frameworks) {
+     public += [ "include/ports/SkCFObject.h" ]
+     sources += [
+       "src/ports/SkImageGeneratorCG.cpp",
+diff --git a/gn/skia.gni b/gn/skia.gni
+index 7d72912..448dab9 100644
+--- a/gn/skia.gni
++++ b/gn/skia.gni
+@@ -57,6 +57,7 @@ declare_args() {
+   skia_use_fixed_gamma_text = is_android
+   skia_use_fontconfig = is_linux
+   skia_use_fontations = false
++  skia_use_apple_frameworks = is_mac || is_ios
+   skia_use_fonthost_mac = is_mac || is_ios
+   skia_use_freetype = is_android || is_linux || is_canvaskit
+   skia_use_lcd_text_3x_filter = false

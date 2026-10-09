@@ -6,10 +6,10 @@ These diagrams are updated in every commit that changes the stack, and
 `tools/render-stack.sh` checks that they render.
 
 **As of 2026-10-08:** nothing Finch builds links a closed library
-(`tools/check-closed.py`). Finch's own Foundation has its core classes, on a
-CoreFoundation that dispatches to Objective-C objects as Apple's does and
-hosts the collections, data, dates, exceptions and message forwarding
-(`docs/design/FOUNDATION.md`).
+(`tools/check-closed.py`). Finch's own Foundation covers about 100 of Apple's
+classes, on a CoreFoundation that dispatches to Objective-C objects as Apple's
+does (`docs/design/FOUNDATION.md`). Skia builds as the renderer for the coming
+CoreGraphics (`docs/design/COREGRAPHICS.md`).
 
 ```mermaid
 block-beta
@@ -55,7 +55,7 @@ block-beta
         ess["libEndpointSecuritySystem"]
         space4b[" "]
         tz["tzdata 2026c (IANA)"]
-        space4c[" "]
+        skia["Skia m155 + FreeType, libpng,<br/>libjpeg-turbo, libwebp, wuffs<br/>(static, for CoreGraphics)"]
         space4d[" "]
     end
     block:L3
@@ -110,9 +110,9 @@ block-beta
     class apps,desktop,shell,appkit,cg,later,kexts,metal planned
     class cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
-    class swift,codecs,cxx,qemu,tz upstream
+    class swift,codecs,cxx,qemu,tz,skia upstream
     class vz firmware
-    class space5,space5b,space5c,space4,space4b,space4c,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space5,space5b,space5c,space4,space4b,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |

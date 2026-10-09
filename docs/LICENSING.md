@@ -30,6 +30,10 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | OpenSSL 3.5.9 | Apache 2.0 | Built and linked statically into Finch's libcorecrypto |
 | LZFSE 1.0, LZ4 1.10.0 (lib), Brotli 1.1.0 | BSD-3 / BSD-2 / MIT | Built and linked statically into Finch's libcompression |
 | XZ Utils 5.4.3 (liblzma), libxo, libsbuf | 0BSD / BSD | Build directly |
+| Skia (chrome/m155) | BSD-3 | Built and linked statically into Finch's CoreGraphics |
+| FreeType | FTL or GPL-2.0 | Taken under the FTL (BSD-style, with a credit clause), linked statically with Skia |
+| HarfBuzz, libpng, libjpeg-turbo, libwebp, wuffs, zlib (Chromium's), skcms | MIT / libpng / BSD-3 + IJG / BSD-3 / Apache 2.0 / Zlib / BSD-3 | Built with Skia, linked statically |
+| Open fonts (Inter, Liberation, Noto, ...) | OFL-1.1 | Shipped in place of Apple's fonts, which can't be redistributed |
 | m1n1 | MIT | Import |
 | Mesa (incl. asahi driver) | MIT | Import |
 | Asahi **documentation** (wiki, register notes) | Docs | Use as reference |
@@ -37,7 +41,7 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | Asahi Linux kernel code, **GPL-only** files | GPL-2.0 | **Reference only, under the clean-room rule** |
 | GNUstep | LGPL | Case by case. Dynamic linking is fine; avoid copying it into APSL/MIT files. |
 | Darling | GPL-3.0 | Ideas and research only. No code. |
-| Apple proprietary binaries (kexts, frameworks, firmware) | Apple EULA | **Never committed, never redistributed.** Loaded from the user's own macOS install at runtime only. |
+| Apple proprietary binaries (kexts, frameworks, firmware) | Apple EULA | **Never committed, never redistributed.** Since 2026-10-08 only the kexts (and firmware) are loaded, from the user's own macOS install at runtime. Closed libraries and frameworks are never loaded. |
 
 ## Notices in the image
 

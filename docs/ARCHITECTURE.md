@@ -7,7 +7,7 @@ and what ultimately replaces it.
 |---|---|
 | **OPEN** | Apple publishes the source and we build it |
 | **IMPORT** | A third-party open project we can use directly |
-| **BORROW** | A proprietary Apple binary loaded from the user's macOS install during bootstrap. Never redistributed. |
+| **BORROW** | A proprietary Apple binary loaded from the user's macOS install during bootstrap. Never redistributed. Since 2026-10-08 only the kexts are borrowed. |
 | **WRITE** | Finch's own implementation |
 
 ```
@@ -16,13 +16,13 @@ and what ultimately replaces it.
 ├────────────────────────────────────────────────────────────────┤
 │ Desktop: Finch window server, compositor, Dock/Finder-alikes   │  WRITE
 ├────────────────────────────────────────────────────────────────┤
-│ App frameworks: AppKit, SwiftUI, CoreGraphics, CoreText,       │  BORROW → WRITE
+│ App frameworks: AppKit, SwiftUI, CoreGraphics, CoreText,       │  WRITE + IMPORT
 │                 CoreAnimation, Metal, AVFoundation …           │
 ├────────────────────────────────────────────────────────────────┤
-│ Foundation layer: CoreFoundation, Foundation, libdispatch,     │  OPEN (partial) + WRITE
+│ Foundation layer: CoreFoundation, Foundation, libdispatch,     │  OPEN + WRITE
 │                   libobjc, Swift runtime, Security, ICU …      │
 ├────────────────────────────────────────────────────────────────┤
-│ Darwin userland: dyld, libSystem, launchd, shells, BSD tools   │  OPEN (mostly)
+│ Darwin userland: dyld, libSystem, launchd, shells, BSD tools   │  OPEN + WRITE
 ├────────────────────────────────────────────────────────────────┤
 │ Platform drivers: AIC, DART, ANS (NVMe), DCP, AGX GPU, SMC,    │  BORROW → WRITE
 │                   PMGR, USB/Thunderbolt, audio, Wi-Fi/BT …     │  (Asahi docs inform)
@@ -75,21 +75,26 @@ Replacement order, roughly by how much it unlocks: AIC → DART → ANS (storage
 framebuffer/DCP → SMC/PMGR → USB → input → audio → Wi-Fi/BT (Broadcom) → AGX GPU.
 
 ### Darwin userland
-Most of it is published: `dyld`, `Libc`, `libpthread`, `libmalloc`, `launchd`,
-`libdispatch`, `objc4`, `CF`, `Security`, `ICU`, `bash`/`zsh`, `file_cmds` and others.
-There are gaps: several private libSystem pieces, some daemons, and anything not posted
-for a given release. We fill those as they surface.
+Most of it is published: `dyld`, `Libc`, `libpthread`, `libmalloc`, `libdispatch`,
+`objc4`, `Libnotify`, `Libinfo`, `bash`/`zsh`, `file_cmds` and others, all built by Finch
+at pinned tags (`userland/projects.txt`). Where Apple doesn't publish, Finch writes its
+own: `finch-init` (PID 1, in place of the closed launchd), libxpc, `finch-logd`,
+libsystem_trace and the private libSystem pieces. Phase 1 finished on 2026-10-07: the
+VM boots with no closed Apple binaries above the kernel (`docs/design/PHASE1-EXIT.md`).
 
 ### Frameworks (the other hard part)
 This layer is what makes Finch "compatible with Mac software." Options per framework:
-1. Apple open source (CF, swift-corelibs-foundation, WebKit, Swift runtime).
-2. Import and harden an existing reimplementation (GNUstep for AppKit/Foundation ideas;
-   Darling's research on Mach-O/ABI compatibility).
-3. Write our own, ABI-compatible with Apple's symbols and Objective-C class layouts.
+1. Apple open source (CF from swift-corelibs-foundation, IOKitUser, ICU, WebKit, the
+   Swift runtime).
+2. Third-party open libraries underneath Apple's API: Skia, FreeType and HarfBuzz under
+   CoreGraphics and CoreText (`docs/design/COREGRAPHICS.md`), and later Mesa under Metal.
+3. Write our own, ABI-compatible with Apple's symbols, class placement and Objective-C
+   class layouts. Foundation is Finch's own (`docs/design/FOUNDATION.md`).
 
-During bootstrap, frameworks are BORROWED from the user's macOS install so we can test
-end-to-end early. They are replaced one at a time, using the borrowed version as the
-behavioral oracle.
+Nothing closed is borrowed, not even temporarily. Each framework is checked against
+Apple's on the host: the same test program runs on Apple's framework and on Finch's,
+and the outputs must match. `tools/check-framework-api.py` measures how much of
+Apple's exported API each Finch framework covers.
 
 Metal is the long pole. The likely route is Metal API → Finch implementation → Mesa
 (asahi / Gallium / NIR) → AGX.
