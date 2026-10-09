@@ -256,6 +256,105 @@ window server, Finch-only.
   Not yet: Services, the Help menu's search field, menu item views drawn in menus (they
   take their height only), badges, palette menus, scrolling long menus, tear-offs,
   `NSStatusBar`, Apple's automatic Edit and Window menu items (dictation, emoji, tabs).
+- 2026-10-09: Cocoa bindings and controllers, the font manager. `NSKeyValueBinding.m`: every
+  binding, option and info-key name with Apple's value; the markers (`NSBindingSelectionMarker`,
+  `NSMultipleValuesMarker`...) and default placeholders by class and binding; NSObject's
+  `bind:toObject:withKeyPath:options:` (a KVO observer of the key path, through to a collection
+  in it; one-way, falling back to KVC as Apple's), `unbind:`, `infoForBinding:` (every option the
+  binding understands, NSNull where unset), `exposedBindings` (Apple's per-class lists, plus
+  `exposeBinding:` and what's bound), `valueClassForBinding:`; value transformers by name or object;
+  NSEditor registration (a binding being edited tells the bound object `objectDidBeginEditing:`, and
+  commits or discards when asked). The controls: text fields (value, with placeholders shown as the
+  placeholder string and `NSConditionallySetsEditable`; textColor), checkboxes and radio buttons
+  (state, multiple values as mixed), sliders (value, min/maxValue), `NSControl`'s enabled
+  (`enabled2`... ANDed) and `NSView`'s hidden (`hidden2`... ORed) and toolTip, editable, font;
+  pop-up buttons (content, contentValues, contentObjects, `NSInsertsNullPlaceholder`,
+  selectedIndex/Object/Value/Tag, an extra item for a selection they don't list); text views
+  (attributedString, pushed on their text notifications). Controls give their value before their
+  action (`-[NSControl sendAction:to:]`, now also called by cells without an action), text fields
+  when editing ends or, with `NSContinuouslyUpdatesValue`, as they change. `NSController.m`:
+  `NSController` (editors, commit, discard), `NSObjectController` (content, the selection proxy
+  `_NSControllerObjectProxy` whose keys can be observed, add/remove, objectClass, prepareContent,
+  canAdd/canRemove, validation, contentObject binding), `NSArrayController` (arrangement by sort
+  descriptors and filter, automatic rearranging, Apple's selection rules for setting content,
+  rearranging, inserting and removing, add/insert/remove and selectNext/Previous with Apple's
+  deferral, contentArray, selectionIndexes, sortDescriptors and filterPredicate bindings, an
+  observable `arrangedObjects` proxy), `NSUserDefaultsController` (the shared one, a values proxy
+  bindable as `values.key`, initial values, applying immediately or saving and reverting); nib keys
+  for all of them, and `NSNibBindingConnector` (NSBinding, NSKeyPath, NSOptions,
+  NSPreviousConnector); the nib decoder reads `NS.boolval` numbers. `NSFontManager.m`: the shared
+  manager over CoreText (fonts, families, members as `[name, face, weight, traits]` with AppKit's
+  0-15 weights and faces from the typographic subfamily, read from the font's own tables), picking
+  a family member by traits and weight, converting to and from traits, sizes, families, faces and
+  weights, the action and its target (`changeFont:`, `currentFontAction`, `addFontTrait:`,
+  `modifyFont:` tags), the Font menu as Apple builds it; `NSFontPanel.m`: a Finch-look panel of
+  family, face and size lists converting fonts as Apple's does. `finch-appkit-bindings-test`
+  (names, NSObject and control bindings both ways, options, pop-ups, editing and commits, text
+  views, both controllers, the defaults controller on a private suite, a nib of bound controls,
+  NSFontManager on Liberation Sans and Inter) prints the same against Apple's AppKit and Finch's on
+  the host. Not yet: `NSTreeController`, `NSDictionaryController`, table/outline/collection view
+  bindings, Core Data (managed object contexts, fetching), validation alerts, display patterns,
+  font bindings beyond `font` (fontBold, fontSize...), the font panel's collections and effects,
+  font collections kept on disk; Apple's `convertWeight:` quirks with italics and light faces are
+  not copied.
+- 2026-10-09: Auto Layout and storyboards. As on macOS, constraints live in a private
+  `CoreAutoLayout.framework` (`userland/CoreAutoLayout`; current version 34) that Foundation
+  weak-links and re-exports symbol by symbol (`userland/Foundation/CoreAutoLayout.reexports`, the
+  classes and functions Apple's Foundation re-exports that Finch has), so apps binding
+  `NSLayoutConstraint` from Foundation find it; it links Foundation upward and builds before it
+  (against the SDK's Foundation stub, same install name). It holds `NSLayoutConstraint`
+  (validation and exceptions with Apple's messages, priorities, identifiers, activation on the
+  nearest common ancestor, nib coding with Apple's keys including `NSSymbolicConstant` NSSpace,
+  and Apple's descriptions: spacing as visual format, `(LTR)`, `NSSpace(20)`,
+  `NSLayoutAnchorConstraintSpace(8)`, names lists), `NSAutoresizingMaskLayoutConstraint`
+  (Apple's per-mask recipe, `h=-&- v=&--` prefixes, private minX/minY attributes),
+  `NSContentSizeLayoutConstraint`, the visual format parser (the whole language, alignment and
+  direction options, Apple's error messages and caret positions), `NSLayoutAnchor` and its
+  x/y/dimension kinds (all `constraint*` methods, system spacing, `_NSDistanceLayoutDimension`
+  offsets), `_NSDictionaryOfVariableBindings`, and Finch's solver: the Cassowary incremental
+  simplex written from the paper (`FinchLayoutSolver.c`), with a lexicographic objective (one row
+  per priority, so 251 beats any number of 250s, and equal priorities settle on the L1 optimum, as
+  Apple's), incremental add/remove, constant changes by the dual simplex (edit variables), and an
+  ambiguity test. AppKit (`NSViewLayout.m`) runs it: one engine per layout root (a window's
+  content view, or the top of a detached tree), variables per view and guide for its alignment
+  rect, measured downward from its superview's top-left; autoresizing masks become constraints
+  only once something under the root uses constraints, kept in step with frames (the classic
+  autoresizing still runs first, as Apple's); intrinsic sizes become hugging/compression
+  constraints with Apple's default priorities (250/750; controls hug 750 vertically, labels 251
+  across); a root would keep its size just under 500, and a window grows or shrinks to what its
+  constraints need, top left fixed; frames go out in `-layout`, top down, each edge rounded to the
+  backing pixels (points outside a window), negative sizes shown empty; unsatisfiable required
+  constraints are left out with Apple's "Unable to simultaneously satisfy constraints" log. Views:
+  the constraint API, anchors, `NSLayoutGuide`, `fittingSize` (a separate solve at priority 50),
+  alignment rects and baselines, content-size priorities and `*ContentSizeConstraintActive`,
+  `updateConstraints`/`layoutSubtreeIfNeeded` passes, `hasAmbiguousLayout` (in windows, as Apple's),
+  constraints dropped when a subtree leaves; `NSWindow`'s `layoutIfNeeded` and
+  `updateConstraintsIfNeeded`. `NSStackView` (`NSStackView.m`) makes Apple's constraints (identifiers
+  and priorities as measured: alignment at 260, gravity packing at 750 and 749.99..., edges at the
+  stack's 249.99998 hugging, the fill, fill-equally, fill-proportionally, equal-spacing and
+  equal-centering distributions through a shared dimension), gravity areas, custom spacing, hidden
+  views detaching, and its nib keys. Storyboards (`NSStoryboard.m`): `.storyboardc` bundles
+  (Info.plist's entry point, main menu and controller nibs; a scene owner with `sceneController`;
+  `NSNibExternalObjectPlaceholder`s for the storyboard and, in a view's own nib, the segue
+  templates), `NSStoryboardSegue` and the show/modal/sheet/popover/custom templates,
+  `performSegueWithIdentifier:sender:` with `shouldPerform...`/`prepareForSegue:`, window
+  controllers from window templates with their content controllers (through
+  `NSIBUserDefinedRuntimeAttributesConnector`), `NSMainStoryboardFile` in `NSApplicationMain`. Hooks
+  in the core, each a line or two: `NSView.m` (an `_finchLayout` ivar; frame, hidden, translates,
+  superview and dealloc notifications; nib constraint keys; `needsLayout`/`needsUpdateConstraints`
+  start YES, as Apple's; the old layout stubs moved out), `NSNib.m` (external placeholders),
+  `NSWindowController.m` (storyboard keys, a storyboard controller's `loadView`),
+  `NSApplication.m` (`NSMainStoryboardFile`). `finch-appkit-layout-test` (descriptions, validation,
+  the visual format language and its errors, anchors, priorities, inequalities, multipliers,
+  rounding, intrinsic sizes, baselines, guides, autoresizing masks, fitting sizes, windows sized by
+  content, stack views in every alignment and distribution, a constraint nib and a storyboard
+  compiled by ibtool) prints the same against Apple's AppKit and Finch's on the host and in the VM.
+  Not yet: `exerciseAmbiguityInLayout` (does nothing), `constraintsAffectingLayoutForOrientation:`
+  is Finch's guess, Apple's integralization of ties (exact .5 edges) and its per-view standard
+  spacing for nib `NSSpace` (Finch uses 20 to the superview, 8 between siblings), right-to-left
+  user interfaces, baseline alignment across a vertical stack, stack views' visibility priorities
+  and delegate, NSPopover (popover segues show windows), storyboard references and embed segues,
+  the creator blocks of `instantiateController...`.
 - 2026-10-09: TextKit 2, in UIFoundation where Apple has it: `NSTextRange` and
   `NSCountableTextLocation`, `NSTextElement`/`NSTextParagraph`, `NSTextContentManager` and
   `NSTextContentStorage` (paragraphs made lazily, asking the delegate, kept across edits that don't

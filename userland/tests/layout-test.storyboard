@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="wc1">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23504"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="app">
+            <objects>
+                <application id="ap1" sceneMemberID="viewController">
+                    <menu key="mainMenu" title="Main Menu" systemMenu="main" id="mm1">
+                        <items>
+                            <menuItem title="LayoutTest" id="mi1">
+                                <menu key="submenu" title="LayoutTest" systemMenu="apple" id="sm1">
+                                    <items>
+                                        <menuItem title="Quit" keyEquivalent="q" id="mq1">
+                                            <connections>
+                                                <action selector="terminate:" target="fr0" id="ac1"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </application>
+                <customObject id="fr0" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+        <scene sceneID="s1">
+            <objects>
+                <windowController storyboardIdentifier="main" id="wc1" customClass="LTWindowController" sceneMemberID="viewController">
+                    <window key="window" title="Layout" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="w1">
+                        <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
+                        <rect key="contentRect" x="196" y="240" width="480" height="270"/>
+                        <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1027"/>
+                        <view key="contentView" id="cv1">
+                            <rect key="frame" x="0.0" y="0.0" width="480" height="270"/>
+                            <autoresizingMask key="autoresizingMask"/>
+                        </view>
+                        <connections>
+                            <outlet property="delegate" destination="wc1" id="d1"/>
+                        </connections>
+                    </window>
+                    <connections>
+                        <segue destination="vc1" kind="relationship" relationship="window.shadowedContentViewController" id="seg1"/>
+                    </connections>
+                </windowController>
+                <customObject id="fr1" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+        <scene sceneID="s2">
+            <objects>
+                <viewController storyboardIdentifier="content" id="vc1" customClass="LTViewController" sceneMemberID="viewController">
+                    <view key="view" identifier="contentRoot" id="v1">
+                        <rect key="frame" x="0.0" y="0.0" width="480" height="270"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <customView identifier="box" translatesAutoresizingMaskIntoConstraints="NO" id="bx1">
+                                <rect key="frame" x="20" y="150" width="200" height="100"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="200" id="cw1"/>
+                                    <constraint firstAttribute="height" constant="100" id="ch1"/>
+                                </constraints>
+                            </customView>
+                            <button identifier="go" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="bt1">
+                                <rect key="frame" x="227" y="185" width="80" height="32"/>
+                                <buttonCell key="cell" type="push" title="Sheet" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="bc1">
+                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                    <font key="font" metaFont="system"/>
+                                </buttonCell>
+                                <connections>
+                                    <segue destination="vc2" kind="sheet" identifier="toSheet" id="seg2"/>
+                                </connections>
+                            </button>
+                        </subviews>
+                        <constraints>
+                            <constraint firstItem="bx1" firstAttribute="leading" secondItem="v1" secondAttribute="leading" constant="20" symbolic="YES" id="k1"/>
+                            <constraint firstItem="bx1" firstAttribute="top" secondItem="v1" secondAttribute="top" constant="20" symbolic="YES" id="k2"/>
+                            <constraint firstItem="bt1" firstAttribute="leading" secondItem="bx1" secondAttribute="trailing" constant="14" id="k3"/>
+                            <constraint firstItem="bt1" firstAttribute="centerY" secondItem="bx1" secondAttribute="centerY" id="k4"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <segue destination="vc3" kind="show" identifier="toShow" id="seg3"/>
+                        <segue destination="vc3" kind="modal" identifier="toModal" id="seg4"/>
+                        <segue destination="vc3" kind="custom" identifier="toCustom" customClass="LTSegue" id="seg5"/>
+                        <segue destination="vc2" kind="popover" identifier="toPopover" popoverAnchorView="bt1" popoverBehavior="t" preferredEdge="maxY" id="seg6"/>
+                    </connections>
+                </viewController>
+                <customObject id="fr2" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+        <scene sceneID="s3">
+            <objects>
+                <viewController storyboardIdentifier="detail" id="vc2" customClass="LTViewController" sceneMemberID="viewController">
+                    <view key="view" identifier="detailRoot" id="v2">
+                        <rect key="frame" x="0.0" y="0.0" width="200" height="120"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                    </view>
+                </viewController>
+                <customObject id="fr3" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+        <scene sceneID="s4">
+            <objects>
+                <windowController storyboardIdentifier="other" id="vc3" sceneMemberID="viewController">
+                    <window key="window" title="Other" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="w3">
+                        <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
+                        <rect key="contentRect" x="196" y="240" width="300" height="200"/>
+                        <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1027"/>
+                        <view key="contentView" id="cv3">
+                            <rect key="frame" x="0.0" y="0.0" width="300" height="200"/>
+                            <autoresizingMask key="autoresizingMask"/>
+                        </view>
+                    </window>
+                </windowController>
+                <customObject id="fr4" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+    </scenes>
+</document>

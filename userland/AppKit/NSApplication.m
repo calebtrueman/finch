@@ -10,6 +10,7 @@
  * are redrawn before the run loop waits, as on macOS.
  */
 #import "NSMenu_Finch.h"
+#import "NSStoryboard_Finch.h"
 
 id NSApp = nil;
 
@@ -865,6 +866,8 @@ NSApplicationMain(int argc, const char *argv[])
         id loaded = nibClass ? [[[nibClass alloc] initWithNibNamed:nib bundle:bundle] autorelease] : nil;
         if (![loaded instantiateWithOwner:app topLevelObjects:NULL])
             NSLog(@"Unable to load nib file: %@, exiting", nib);
+    } else if ([info[@"NSMainStoryboardFile"] length]) {
+        FinchStoryboardLaunch(app, bundle);  /* NSStoryboard.m */
     }
     [pool drain];
     [app run];

@@ -22,7 +22,9 @@ Finch's window server composites windows that apps draw with CoreGraphics
 into shared memory, and routes input to them (`docs/design/WINDOWSERVER.md`).
 Finch's AppKit (`docs/design/APPKIT.md`), split as Apple's is with a private
 UIFoundation under it, runs windows on that server: views draw, events reach
-them, and nibs load.
+them, nibs and storyboards load, and Auto Layout solves constraints with
+Finch's own Cassowary solver, in a private CoreAutoLayout that Foundation
+re-exports, as Apple's does.
 
 ```mermaid
 block-beta
@@ -37,7 +39,7 @@ block-beta
     block:L6
         columns 4
         t6["App frameworks"]
-        appkit["AppKit<br/>apps, windows, views, events,<br/>drawing, nibs, text views and<br/>scrolling, menus and a menu bar<br/>(on the window server);<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1; Cocoa and<br/>ApplicationServices umbrellas"]
+        appkit["AppKit<br/>apps, windows, views, events,<br/>drawing, nibs, storyboards,<br/>Auto Layout, stack views, text views and<br/>scrolling, menus and a menu bar<br/>(on the window server);<br/>Cocoa bindings and controllers,<br/>the font manager and panel;<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1 and 2; Cocoa and<br/>ApplicationServices umbrellas"]
         cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>PDF writing (SkPDF), PDF reading<br/>and drawing (own parser);<br/>window server client, displays"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
@@ -55,7 +57,7 @@ block-beta
         od["OpenDirectory<br/>CFOpenDirectory"]
         icu["libicucore<br/>ICU-76142.4.7"]
         objc["libobjc (objc4)"]
-        space5b[" "]
+        autolayout["CoreAutoLayout (private)<br/>constraints, anchors, VFL,<br/>Cassowary solver"]
         swift["libswiftCore 6.3.1"]
         iokit["IOKit.framework<br/>(IOKitUser)"]
         gcore["GCoreFramework<br/>(gcore, on Finch Foundation)"]
@@ -125,11 +127,11 @@ block-beta
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
     class apps,shell,later,kexts,metal planned
-    class uti,appkit,desktop,cg,imageio,ctio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class uti,appkit,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia,fonts upstream
     class vz firmware
-    class space6,space6b,space5,space5b,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space6,space6b,space5,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |
@@ -161,6 +163,7 @@ flowchart LR
     skialib["Skia, FreeType<br/>(static)"]:::upstream
     cxxlib["libc++"]:::upstream
     cf["CoreFoundation"]:::finch
+    cal["CoreAutoLayout"]:::finch
     iokit["IOKit"]:::apple
     od["OpenDirectory"]:::finch
     objc["libobjc"]:::apple
@@ -184,6 +187,8 @@ flowchart LR
     gcore -.->|"linked, unused"| comp
     ffound -->|"re-exports"| cf
     cf -.->|"upward, as Apple's"| ffound
+    ffound -.->|"weak, re-exports its classes"| cal
+    cal -.->|"upward"| ffound
     cf --> objc --> swift
     cf --> icu
     ffound --> icu

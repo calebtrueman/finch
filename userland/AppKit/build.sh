@@ -20,7 +20,7 @@ SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 CC="$(xcrun -f clang)"
 log() { echo "==> $*"; }
 
-for dep in Frameworks/Foundation Frameworks/ApplicationServices PrivateFrameworks/UIFoundation; do
+for dep in Frameworks/Foundation Frameworks/ApplicationServices PrivateFrameworks/UIFoundation PrivateFrameworks/CoreAutoLayout; do
     [[ -f "${ROOT}/System/Library/${dep}.framework/${dep##*/}" ]] || { echo "build ${dep##*/} first" >&2; exit 1; }
 done
 
@@ -48,7 +48,7 @@ mkdir -p "${FW}/Versions/C"
     "${OBJ}"/*.o -o "${FW}/Versions/C/AppKit" \
     -F"${ROOT}/System/Library/Frameworks" -F"${ROOT}/System/Library/PrivateFrameworks" \
     -Wl,-reexport_framework,Foundation -Wl,-reexport_framework,ApplicationServices \
-    -Wl,-reexport_framework,UIFoundation -framework CoreFoundation -lobjc
+    -Wl,-reexport_framework,UIFoundation -framework CoreAutoLayout -framework CoreFoundation -lobjc
 ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/AppKit "${FW}/AppKit"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" C AppKit com.apple.AppKit AppKit 6.9 2685.50.120 English

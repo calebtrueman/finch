@@ -532,9 +532,8 @@ cell_defaults(NSCell *self)
 - (BOOL)_finchSendAction
 {
     SEL action = [self action];
-    if (!action)
-        return NO;
-    /* As Apple's: a cell without a control sends nothing. */
+    /* As Apple's: a cell without a control sends nothing. The control is asked even without an
+       action, so its bindings get its value (NSKeyValueBinding.m). */
     if ([_controlView isKindOfClass:[NSControl class]])
         return [(NSControl *)_controlView sendAction:action to:[self target]];
     return NO;

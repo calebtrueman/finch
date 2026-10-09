@@ -22,7 +22,7 @@
  *     (int32s), then the name, NUL-terminated
  *   Arrays and sets list their elements under the key
  *   "UINibEncoderEmptyKey"; strings, numbers and data have NS.bytes,
- *   NS.intval or NS.dblval. Geometry is in strings ("{{x, y}, {w, h}}").
+ *   NS.intval, NS.dblval or NS.boolval. Geometry is in strings ("{{x, y}, {w, h}}").
  *
  * This layout was worked out from ibtool's output; the code is Finch's.
  */
@@ -376,13 +376,14 @@ nib_class(FinchNibDecoder *self, NSUInteger clsIndex)
         result = [name isEqualToString:@"NSMutableString"] ? [s mutableCopy] : [s retain];
         [s release];
     } else if ([name isEqualToString:@"NSNumber"]) {
-        NibValue *v = [self nibValueForKey:@"NS.intval"] ?: [self nibValueForKey:@"NS.dblval"];
+        NibValue *v = [self nibValueForKey:@"NS.intval"] ?: [self nibValueForKey:@"NS.dblval"]
+                          ?: [self nibValueForKey:@"NS.boolval"];
         if (!v)
             result = [@0 retain];
         else if (v->type == V_FLOAT || v->type == V_DOUBLE)
             result = [@(v->d) retain];
         else if (v->type == V_TRUE || v->type == V_FALSE)
-            result = [@(v->type == V_TRUE) retain];
+            result = [[NSNumber numberWithBool:v->type == V_TRUE] retain];
         else
             result = [@(v->i) retain];
     } else if ([name isEqualToString:@"NSData"] || [name isEqualToString:@"NSMutableData"]) {
@@ -753,16 +754,57 @@ enum {
 @interface NSNibBindingConnector : NSNibConnector
 @end
 
-@implementation NSNibBindingConnector
+/* A Cocoa binding (NSKeyValueBinding.m): the source binds to the destination's key path.
+   Bindings that need another first (a pop-up's contentValues after its content) name it. */
+@implementation NSNibBindingConnector {
+    NSString *_binding, *_keyPath;
+    NSDictionary *_options;
+    NSNibConnector *_previous;
+    BOOL _established;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    self = [super initWithCoder:coder];
+    _binding = [[coder decodeObjectForKey:@"NSBinding"] copy];
+    _keyPath = [[coder decodeObjectForKey:@"NSKeyPath"] copy];
+    _options = [[coder decodeObjectForKey:@"NSOptions"] copy];
+    _previous = [[coder decodeObjectForKey:@"NSPreviousConnector"] retain];
+    return self;
+}
+
+- (void)dealloc
+{
+    [_binding release];
+    [_keyPath release];
+    [_options release];
+    [_previous release];
+    [super dealloc];
+}
 
 - (void)establishConnection
 {
-    /* Cocoa bindings come with NSKeyValueBinding. */
+    if (_established)
+        return;
+    _established = YES;
+    [_previous establishConnection];
+    id source = [self source];
+    if (!source || !_binding || !_keyPath)
+        return;
+    @try {
+        [source bind:_binding toObject:[self destination] withKeyPath:_keyPath options:_options];
+    } @catch (NSException *e) {
+        NSLog(@"Failed to set up binding %@ of %@ to %@: %@", _binding, source, _keyPath, [e reason]);
+    }
 }
 
 @end
 
 #pragma mark - NSIBObjectData
+
+@interface NSObject (FinchNibExternal)
+- (id)_finchNibRealObject;
+@end
 
 @interface NSIBObjectData : NSObject <NSCoding>
 - (BOOL)instantiateWithOwner:(id)owner topLevelObjects:(NSArray **)topLevel;
@@ -818,6 +860,8 @@ enum {
             r = owner;
         else if ([o isKindOfClass:[NSCustomObject class]])
             r = [(NSCustomObject *)o _finchRealize];
+        else if ([o respondsToSelector:@selector(_finchNibRealObject)])
+            r = [o _finchNibRealObject];  /* external objects (storyboards: NSStoryboard.m) */
         if (r != o)
             [real setObject:r ?: [NSNull null] forKey:o];
         if (r)

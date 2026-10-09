@@ -102,3 +102,15 @@ build/userland/apps/Hello.app/Contents/MacOS/Hello /Applications/Hello.app/Conte
 build/userland/apps/Hello.app/Contents/Info.plist /Applications/Hello.app/Contents/Info.plist
 build/userland/apps/Hello.app/Contents/PkgInfo /Applications/Hello.app/Contents/PkgInfo
 build/userland/apps/Hello.app/Contents/Resources/MainMenu.nib /Applications/Hello.app/Contents/Resources/MainMenu.nib
+build/userland/finch-appkit-layout-test /usr/local/bin/finch-appkit-layout-test
+build/userland/layout-test.nib /usr/local/share/finch/layout-test.nib
+build/userland/layout-test.storyboardc/Info.plist /usr/local/share/finch/layout-test.storyboardc/Info.plist
+build/userland/layout-test.storyboardc/MainMenu.nib /usr/local/share/finch/layout-test.storyboardc/MainMenu.nib
+build/userland/layout-test.storyboardc/main.nib /usr/local/share/finch/layout-test.storyboardc/main.nib
+build/userland/layout-test.storyboardc/content.nib /usr/local/share/finch/layout-test.storyboardc/content.nib
+build/userland/layout-test.storyboardc/detail.nib /usr/local/share/finch/layout-test.storyboardc/detail.nib
+build/userland/layout-test.storyboardc/other.nib /usr/local/share/finch/layout-test.storyboardc/other.nib
+build/userland/layout-test.storyboardc/vc1-view-v1.nib /usr/local/share/finch/layout-test.storyboardc/vc1-view-v1.nib
+build/userland/layout-test.storyboardc/vc2-view-v2.nib /usr/local/share/finch/layout-test.storyboardc/vc2-view-v2.nib
+build/userland/finch-appkit-bindings-test /usr/local/bin/finch-appkit-bindings-test
+build/userland/appkit-bindings-test.nib /usr/local/share/finch/appkit-bindings-test.nib

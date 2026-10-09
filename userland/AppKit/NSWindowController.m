@@ -5,6 +5,7 @@
  * responder, as on macOS.
  */
 #import "NSView_Finch.h"
+#import "NSStoryboard_Finch.h"
 
 @implementation NSWindowController {
     NSWindow *_window;
@@ -39,8 +40,10 @@
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
     self = [super initWithCoder:coder];
-    if (self)
+    if (self) {
         _c.cascade = YES;
+        FinchStoryboardDecodeController(self, coder);  /* a storyboard's window controller */
+    }
     return self;
 }
 
@@ -294,6 +297,7 @@ FinchViewControllerOf(NSView *view)
         NSView *v = [coder decodeObjectForKey:@"NSView"];
         if (v)
             [self setView:v];
+        FinchStoryboardDecodeController(self, coder);  /* a storyboard's view controller */
     }
     return self;
 }
@@ -366,6 +370,8 @@ FinchViewControllerOf(NSView *view)
 
 - (void)loadView
 {
+    if (FinchStoryboardLoadView(self))
+        return;
     NSString *name = [self nibName];
     if (!name) {
         [NSException raise:NSInternalInconsistencyException

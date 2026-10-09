@@ -251,6 +251,18 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         `NSClipView`, `NSScroller`, an in-process `NSPasteboard`. `finch-appkit-text-test` matches
         Apple's on the host and in the VM; `finch-appkit-text-window-test` types, clicks and scrolls
         through the server (2026-10-08); rich-text pasteboard types, find and spelling to come
+  - [ ] Bindings and controllers: Cocoa bindings (`NSKeyValueBinding`: bind/unbind/info, markers
+        and placeholders, transformers, `NSEditor` commits) for text fields, checkboxes, sliders,
+        pop-up buttons, text views and views; `NSObjectController`, `NSArrayController`,
+        `NSUserDefaultsController`; nib binding connectors; `NSFontManager` and a Finch-look
+        `NSFontPanel`. `finch-appkit-bindings-test` matches Apple's on the host (2026-10-09);
+        `NSTreeController`, table and outline view bindings, Core Data controllers to come
+  - [x] Auto Layout and storyboards: `NSLayoutConstraint`, the visual format language, anchors and
+        guides in a private CoreAutoLayout that Foundation re-exports, solved by Finch's own Cassowary
+        simplex; views' constraint API, autoresizing masks as constraints, intrinsic sizes, fitting
+        sizes, windows sized by their constraints; `NSStackView`; constraint nibs; `NSStoryboard`,
+        segues and `NSMainStoryboardFile`. `finch-appkit-layout-test` matches Apple's on the host
+        and in the VM (2026-10-09); popovers, storyboard references and right-to-left layout to come
 - [ ] TextEdit or Calculator launches and is usable
   - [x] A Cocoa app bundle built the usual way (`userland/tests/apps/Hello`: NSApplicationMain,
         a MainMenu nib from ibtool, outlets and actions) launches on Finch's frameworks and window

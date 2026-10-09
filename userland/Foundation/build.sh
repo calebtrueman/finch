@@ -23,6 +23,9 @@ CC="$(xcrun -f clang)"
 log() { echo "==> $*"; }
 
 [[ -f "${CFFW}/Versions/A/CoreFoundation" ]] || { echo "build CoreFoundation first: userland/CoreFoundation/build.sh" >&2; exit 1; }
+# As Apple's, Foundation re-exports Auto Layout's classes from the private
+# CoreAutoLayout (the symbols in CoreAutoLayout.reexports), weakly linked.
+[[ -f "${ROOT}/System/Library/PrivateFrameworks/CoreAutoLayout.framework/CoreAutoLayout" ]] || { echo "build CoreAutoLayout first: userland/CoreAutoLayout/build.sh" >&2; exit 1; }
 
 # Foundation implements classes the SDK declares: the methods it doesn't have
 # yet, and the protocol methods it gets from CoreFoundation, aren't errors.
@@ -46,7 +49,9 @@ mkdir -p "${FW}/Versions/C"
     -install_name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation \
     -current_version 4424.1.255 -compatibility_version 300 \
     "${OBJ}"/*.o -o "${FW}/Versions/C/Foundation" -licucore -lxml2 \
-    -F"${ROOT}/System/Library/Frameworks" -Wl,-reexport_framework,CoreFoundation -Wl,-reexport-lobjc -lSystem
+    -F"${ROOT}/System/Library/Frameworks" -Wl,-reexport_framework,CoreFoundation -Wl,-reexport-lobjc -lSystem \
+    -F"${ROOT}/System/Library/PrivateFrameworks" -Wl,-weak_framework,CoreAutoLayout \
+    -Wl,-reexported_symbols_list,"${HERE}/CoreAutoLayout.reexports"
 ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/Foundation "${FW}/Foundation"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" C Foundation com.apple.Foundation Foundation 6.9 4424.1.402 en_US

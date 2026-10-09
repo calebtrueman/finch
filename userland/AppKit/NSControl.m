@@ -9,6 +9,7 @@
  * NSControlTextEditingDelegate ones.
  */
 #import "NSControl_Finch.h"
+#import "NSKeyValueBinding_Finch.h"
 
 NSNotificationName NSControlTextDidBeginEditingNotification = @"NSControlTextDidBeginEditingNotification";
 NSNotificationName NSControlTextDidEndEditingNotification = @"NSControlTextDidEndEditingNotification";
@@ -335,6 +336,8 @@ VALUE_SETTER(setAttributedStringValue:, NSAttributedString *, setAttributedStrin
 
 - (BOOL)sendAction:(SEL)action to:(id)target
 {
+    /* Bindings take the control's value first, with or without an action (NSKeyValueBinding.m). */
+    FinchBindingsControlWillSendAction(self);
     if (!action)
         return NO;
     return [NSApp sendAction:action to:target from:self];
@@ -453,6 +456,12 @@ VALUE_SETTER(setAttributedStringValue:, NSAttributedString *, setAttributedStrin
 {
     if (!_editor)
         return NO;
+    /* the field editor went on to another control without telling this one: not ours to stop */
+    if ([_editor delegate] != (id)self) {
+        _editor = nil;
+        _ctl.editingNotified = NO;
+        return NO;
+    }
     [self _finchStopEditor];
     return YES;
 }
@@ -514,6 +523,7 @@ VALUE_SETTER(setAttributedStringValue:, NSAttributedString *, setAttributedStrin
     _ctl.editingNotified = YES;
     [self _finchPost:NSControlTextDidBeginEditingNotification selector:@selector(controlTextDidBeginEditing:)
               editor:[note object]];
+    FinchBindingsControlEdited(self, FinchEditBegan);
 }
 
 - (void)textDidChange:(NSNotification *)note
@@ -521,6 +531,7 @@ VALUE_SETTER(setAttributedStringValue:, NSAttributedString *, setAttributedStrin
     if (!_ctl.editingNotified)
         [self textDidBeginEditing:note];
     [self _finchPost:NSControlTextDidChangeNotification selector:@selector(controlTextDidChange:) editor:[note object]];
+    FinchBindingsControlEdited(self, FinchEditChanged);
 }
 
 - (BOOL)textShouldEndEditing:(NSText *)text
@@ -554,6 +565,7 @@ VALUE_SETTER(setAttributedStringValue:, NSAttributedString *, setAttributedStrin
     if (ed != _editor)
         return;
     [self validateEditing];
+    FinchBindingsControlEdited(self, FinchEditEnded);
     BOOL notified = _ctl.editingNotified;
     [self _finchStopEditor];
     NSInteger movement = [[[note userInfo] objectForKey:@"NSTextMovement"] integerValue];

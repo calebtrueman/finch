@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="23504" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="NO" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23504"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="Owner">
+            <connections>
+                <outlet property="objectController" destination="oc" id="o1"/>
+                <outlet property="arrayController" destination="ac" id="o2"/>
+                <outlet property="defaultsController" destination="udc" id="o3"/>
+                <outlet property="nameField" destination="nameField" id="o4"/>
+                <outlet property="check" destination="check" id="o5"/>
+                <outlet property="popup" destination="popup" id="o6"/>
+                <outlet property="greeting" destination="greeting" id="o7"/>
+                <outlet property="slider" destination="slider" id="o8"/>
+                <outlet property="countField" destination="countField" id="o9"/>
+                <outlet property="window" destination="win" id="o10"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <objectController objectClassName="Item" id="oc">
+            <declaredKeys>
+                <string>name</string>
+                <string>flag</string>
+            </declaredKeys>
+            <connections>
+                <binding destination="-2" name="contentObject" keyPath="model" id="b1"/>
+            </connections>
+        </objectController>
+        <arrayController objectClassName="Item" avoidsEmptySelection="NO" preservesSelection="NO" selectsInsertedObjects="NO" clearsFilterPredicateOnInsertion="NO" automaticallyRearrangesObjects="YES" id="ac">
+            <declaredKeys>
+                <string>name</string>
+                <string>value</string>
+            </declaredKeys>
+            <connections>
+                <binding destination="-2" name="contentArray" keyPath="items" id="b2"/>
+                <binding destination="-2" name="sortDescriptors" keyPath="sorts" id="b3"/>
+            </connections>
+        </arrayController>
+        <userDefaultsController representsSharedInstance="YES" id="udc"/>
+        <window title="Bindings" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="win">
+            <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
+            <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
+            <rect key="contentRect" x="196" y="240" width="400" height="260"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1512" height="982"/>
+            <view key="contentView" id="content">
+                <rect key="frame" x="0.0" y="0.0" width="400" height="260"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <textField verticalHuggingPriority="750" id="nameField">
+                        <rect key="frame" x="20" y="220" width="200" height="21"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="nameFieldCell">
+                            <font key="font" metaFont="system"/>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                        <connections>
+                            <binding destination="oc" name="value" keyPath="selection.name" id="b4">
+                                <dictionary key="options">
+                                    <string key="NSNullPlaceholder">Nameless</string>
+                                    <string key="NSNoSelectionPlaceholder">Nothing here</string>
+                                    <bool key="NSContinuouslyUpdatesValue" value="YES"/>
+                                </dictionary>
+                            </binding>
+                            <binding destination="oc" name="toolTip" keyPath="selection.name" id="b5"/>
+                        </connections>
+                    </textField>
+                    <button id="check">
+                        <rect key="frame" x="18" y="190" width="150" height="18"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <buttonCell key="cell" type="check" title="Flag" bezelStyle="regularSquare" imagePosition="left" inset="2" id="checkCell">
+                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                            <font key="font" metaFont="system"/>
+                        </buttonCell>
+                        <connections>
+                            <binding destination="oc" name="value" keyPath="selection.flag" id="b6"/>
+                        </connections>
+                    </button>
+                    <popUpButton verticalHuggingPriority="750" id="popup">
+                        <rect key="frame" x="18" y="150" width="160" height="25"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" id="popupCell">
+                            <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                            <font key="font" metaFont="menu"/>
+                            <menu key="menu" id="popupMenu"/>
+                        </popUpButtonCell>
+                        <connections>
+                            <binding destination="ac" name="content" keyPath="arrangedObjects" id="b7"/>
+                            <binding destination="ac" name="contentValues" keyPath="arrangedObjects.name" previousBinding="b7" id="b8"/>
+                            <binding destination="ac" name="selectedIndex" keyPath="selectionIndex" previousBinding="b8" id="b9"/>
+                        </connections>
+                    </popUpButton>
+                    <textField verticalHuggingPriority="750" id="greeting">
+                        <rect key="frame" x="20" y="110" width="200" height="21"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="greetingCell">
+                            <font key="font" metaFont="system"/>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                        <connections>
+                            <binding destination="udc" name="value" keyPath="values.FinchBindingsTestGreeting" id="b10"/>
+                            <binding destination="udc" name="hidden" keyPath="values.FinchBindingsTestHidden" id="b11"/>
+                        </connections>
+                    </textField>
+                    <slider verticalHuggingPriority="750" id="slider">
+                        <rect key="frame" x="18" y="70" width="200" height="28"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <sliderCell key="cell" continuous="YES" state="on" alignment="left" maxValue="100" tickMarkPosition="below" sliderType="linear" id="sliderCell"/>
+                        <connections>
+                            <binding destination="ac" name="value" keyPath="selection.value" id="b12"/>
+                            <binding destination="oc" name="enabled" keyPath="selection.flag" id="b13">
+                                <dictionary key="options">
+                                    <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                </dictionary>
+                            </binding>
+                        </connections>
+                    </slider>
+                    <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" id="countField">
+                        <rect key="frame" x="18" y="30" width="120" height="16"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <textFieldCell key="cell" lineBreakMode="clipping" title="Label" id="countFieldCell">
+                            <font key="font" metaFont="system"/>
+                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                        <connections>
+                            <binding destination="ac" name="value" keyPath="arrangedObjects.@count" id="b14"/>
+                        </connections>
+                    </textField>
+                </subviews>
+            </view>
+            <point key="canvasLocation" x="0" y="0"/>
+        </window>
+    </objects>
+</document>

@@ -35,6 +35,7 @@ NSNotificationName NSViewDidUpdateTrackingAreasNotification = @"NSViewDidUpdateT
     NSRect _arExact, _arAligned;  /* the last autoresized frame before and after pixel alignment */
     NSAppearance *_appearance;
     CALayer *_layer;
+    id _finchLayout;  /* Auto Layout's state (NSViewLayout.m) */
     struct {
         unsigned hidden : 1;
         unsigned autoresizesSubviews : 1;
@@ -67,12 +68,16 @@ NSNotificationName NSViewDidUpdateTrackingAreasNotification = @"NSViewDidUpdateT
         _f.postsFrame = YES;
         _f.postsBounds = YES;
         _f.translatesMask = YES;
+        _f.needsLayout = YES;
+        _f.needsUpdateConstraints = YES;
     }
     return self;
 }
 
 - (void)dealloc
 {
+    FinchLayoutViewDealloc(self);
+    [_finchLayout release];
     for (NSView *v in _subviews) {
         [v _finchSetSuperview:nil];
         [v setNextResponder:nil];
@@ -100,6 +105,9 @@ NSNotificationName NSViewDidUpdateTrackingAreasNotification = @"NSViewDidUpdateT
 {
     _superview = superview;
 }
+
+- (id)_finchLayoutState { return _finchLayout; }
+- (void)_finchSetLayoutState:(id)state { [_finchLayout autorelease]; _finchLayout = [state retain]; }
 
 /* Tell a subtree it is moving to another window (or none). */
 static void
@@ -168,6 +176,7 @@ did_move_to_window(NSView *view, NSWindow *window)
     [self didAddSubview:view];
     if (view->_window != _window)
         did_move_to_window(view, _window);
+    FinchLayoutViewDidMoveToSuperview(view);
     [view viewDidMoveToSuperview];
     [view setNeedsDisplay:YES];
     [view release];
@@ -189,6 +198,7 @@ did_move_to_window(NSView *view, NSWindow *window)
                                              [(NSView *)[_window firstResponder] isDescendantOf:self]))
         [_window _finchResetFirstResponder];
     [self retain];
+    FinchLayoutViewWillLeaveSuperview(self, superview);
     [self viewWillMoveToSuperview:nil];
     if (_window)
         will_move_to_window(self, nil);
@@ -331,31 +341,19 @@ did_move_to_window(NSView *view, NSWindow *window)
 - (void)setAlphaValue:(CGFloat)alpha {}
 - (NSUserInterfaceLayoutDirection)userInterfaceLayoutDirection { return NSUserInterfaceLayoutDirectionLeftToRight; }
 - (void)setUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)direction {}
+/* Auto Layout is NSViewLayout.m's; the flags live here. */
 - (BOOL)translatesAutoresizingMaskIntoConstraints { return _f.translatesMask; }
-- (void)setTranslatesAutoresizingMaskIntoConstraints:(BOOL)flag { _f.translatesMask = flag; }
-- (NSSize)intrinsicContentSize { return NSMakeSize(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric); }
-- (void)invalidateIntrinsicContentSize {}
-- (CGFloat)baselineOffsetFromBottom { return 0; }
-- (CGFloat)firstBaselineOffsetFromTop { return 0; }
-- (CGFloat)lastBaselineOffsetFromBottom { return 0; }
-- (NSSize)fittingSize { return _frame.size; }
+- (void)setTranslatesAutoresizingMaskIntoConstraints:(BOOL)flag
+{
+    if (_f.translatesMask == (unsigned)flag)
+        return;
+    _f.translatesMask = flag;
+    FinchLayoutViewFrameDidChange(self);
+}
 - (BOOL)needsLayout { return _f.needsLayout; }
 - (void)setNeedsLayout:(BOOL)flag { _f.needsLayout = flag; }
-- (void)layout { _f.needsLayout = NO; }
-- (void)layoutSubtreeIfNeeded
-{
-    if (_f.needsLayout)
-        [self layout];
-    for (NSView *v in [[_subviews copy] autorelease])
-        [v layoutSubtreeIfNeeded];
-}
 - (BOOL)needsUpdateConstraints { return _f.needsUpdateConstraints; }
 - (void)setNeedsUpdateConstraints:(BOOL)flag { _f.needsUpdateConstraints = flag; }
-- (void)updateConstraints { _f.needsUpdateConstraints = NO; }
-- (void)updateConstraintsForSubtreeIfNeeded {}
-- (NSArray *)constraints { return @[]; }
-- (BOOL)requiresConstraintBasedLayout { return NO; }
-+ (BOOL)requiresConstraintBasedLayout { return NO; }
 - (NSAppearance *)appearance { return _appearance; }
 - (void)setAppearance:(NSAppearance *)appearance { [_appearance autorelease]; _appearance = [appearance retain]; }
 - (NSAppearance *)effectiveAppearance
@@ -371,6 +369,7 @@ did_move_to_window(NSView *view, NSWindow *window)
     if (_f.hidden == (unsigned)hidden)
         return;
     _f.hidden = hidden;
+    FinchLayoutViewFrameDidChange(self);  /* stack views drop hidden views */
     if (hidden) {
         NSResponder *first = [_window firstResponder];
         if ([first isKindOfClass:[NSView class]] && [(NSView *)first isDescendantOf:self])
@@ -428,6 +427,7 @@ did_move_to_window(NSView *view, NSWindow *window)
     _frame.origin = origin;
     if (_superview)
         [_superview setNeedsDisplayInRect:_frame];
+    FinchLayoutViewFrameDidChange(self);
     if (_f.postsFrame)
         [[NSNotificationCenter defaultCenter] postNotificationName:NSViewFrameDidChangeNotification object:self];
 }
@@ -448,6 +448,7 @@ did_move_to_window(NSView *view, NSWindow *window)
     _frame.size = size;
     if (_f.autoresizesSubviews)
         [self resizeSubviewsWithOldSize:old];
+    FinchLayoutViewFrameDidChange(self);
     [self setNeedsDisplay:YES];
     if (_f.postsFrame)
         [[NSNotificationCenter defaultCenter] postNotificationName:NSViewFrameDidChangeNotification object:self];
@@ -1127,6 +1128,8 @@ enum {
     _f.postsFrame = YES;
     _f.postsBounds = YES;
     _f.translatesMask = YES;
+    _f.needsLayout = YES;
+    _f.needsUpdateConstraints = YES;
     if ([coder containsValueForKey:@"NSFrame"])
         _frame = [coder decodeRectForKey:@"NSFrame"];
     else if ([coder containsValueForKey:@"NSFrameSize"])
@@ -1160,6 +1163,7 @@ enum {
         [self setNextKeyView:next];
     if ([coder containsValueForKey:@"NSViewWantsLayer"])
         _f.wantsLayer = [coder decodeBoolForKey:@"NSViewWantsLayer"];
+    FinchLayoutDecodeView(self, coder);
     return self;
 }
 

@@ -73,6 +73,8 @@ steps=(
     "CoreFoundation|userland/CoreFoundation/build.sh"
     # libxml2, for Foundation's NSXMLParser
     "libxml2|oss libxml2"
+    # Auto Layout's private framework, which Foundation re-exports (docs/design/APPKIT.md)
+    "CoreAutoLayout|userland/CoreAutoLayout/build.sh"
     # Finch's Foundation (CF links it upward; docs/design/FOUNDATION.md)
     "Foundation|userland/Foundation/build.sh"
     "CoreServices|userland/CoreServices/build.sh"

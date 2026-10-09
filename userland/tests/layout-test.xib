@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="23504" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23504"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner"/>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <customView identifier="root" id="r1">
+            <rect key="frame" x="0.0" y="0.0" width="400" height="300"/>
+            <subviews>
+                <customView identifier="left" translatesAutoresizingMaskIntoConstraints="NO" id="v1">
+                    <rect key="frame" x="20" y="180" width="100" height="100"/>
+                    <constraints>
+                        <constraint firstAttribute="width" constant="100" id="w1"/>
+                        <constraint identifier="ratio" firstAttribute="height" secondItem="v1" secondAttribute="width" multiplier="1:1" id="w2"/>
+                    </constraints>
+                </customView>
+                <customView identifier="right" translatesAutoresizingMaskIntoConstraints="NO" id="v2">
+                    <rect key="frame" x="128" y="230" width="252" height="50"/>
+                    <constraints>
+                        <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="50" id="h2"/>
+                    </constraints>
+                </customView>
+                <button identifier="button" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="b1">
+                    <rect key="frame" x="13" y="13" width="76" height="32"/>
+                    <buttonCell key="cell" type="push" title="Button" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="bc1">
+                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                        <font key="font" metaFont="system"/>
+                    </buttonCell>
+                </button>
+                <customView identifier="tamic" horizontalHuggingPriority="300" verticalHuggingPriority="301" horizontalCompressionResistancePriority="700" verticalCompressionResistancePriority="701" id="t1">
+                    <rect key="frame" x="300" y="20" width="50" height="40"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
+                </customView>
+                <stackView identifier="stack" distribution="fillEqually" orientation="horizontal" alignment="top" spacing="12" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="sv1">
+                    <rect key="frame" x="20" y="200" width="300" height="80"/>
+                    <edgeInsets key="edgeInsets" left="4" right="5" top="6" bottom="7"/>
+                    <subviews>
+                        <customView identifier="s1" translatesAutoresizingMaskIntoConstraints="NO" id="sv1a">
+                            <rect key="frame" x="4" y="7" width="92" height="67"/>
+                        </customView>
+                        <customView identifier="s2" translatesAutoresizingMaskIntoConstraints="NO" id="sv1b">
+                            <rect key="frame" x="108" y="7" width="92" height="67"/>
+                        </customView>
+                    </subviews>
+                    <visibilityPriorities>
+                        <integer value="1000"/>
+                        <integer value="900"/>
+                    </visibilityPriorities>
+                    <customSpacing>
+                        <real value="3.4028234663852886e+38"/>
+                        <real value="3.4028234663852886e+38"/>
+                    </customSpacing>
+                </stackView>
+                <stackView identifier="gstack" distribution="gravityAreas" orientation="vertical" alignment="leading" spacing="6" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" translatesAutoresizingMaskIntoConstraints="NO" id="sv2">
+                    <rect key="frame" x="20" y="20" width="100" height="150"/>
+                    <beginningViews>
+                        <customView identifier="g1" translatesAutoresizingMaskIntoConstraints="NO" id="g1">
+                            <rect key="frame" x="0.0" y="130" width="40" height="20"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="20" id="g1h"/>
+                            </constraints>
+                        </customView>
+                    </beginningViews>
+                    <endViews>
+                        <customView identifier="g2" translatesAutoresizingMaskIntoConstraints="NO" id="g2">
+                            <rect key="frame" x="0.0" y="0.0" width="40" height="20"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="20" id="g2h"/>
+                            </constraints>
+                        </customView>
+                    </endViews>
+                    <visibilityPriorities>
+                        <integer value="1000"/>
+                        <integer value="1000"/>
+                    </visibilityPriorities>
+                    <customSpacing>
+                        <real value="3.4028234663852886e+38"/>
+                        <real value="3.4028234663852886e+38"/>
+                    </customSpacing>
+                </stackView>
+            </subviews>
+            <constraints>
+                <constraint firstItem="v1" firstAttribute="leading" secondItem="r1" secondAttribute="leading" constant="20" symbolic="YES" id="c1"/>
+                <constraint firstItem="v1" firstAttribute="top" secondItem="r1" secondAttribute="top" constant="20" symbolic="YES" id="c2"/>
+                <constraint firstItem="v2" firstAttribute="leading" secondItem="v1" secondAttribute="trailing" constant="8" symbolic="YES" id="c3"/>
+                <constraint firstAttribute="trailing" secondItem="v2" secondAttribute="trailing" constant="20" id="c4"/>
+                <constraint firstItem="v2" firstAttribute="top" secondItem="v1" secondAttribute="top" priority="750" id="c5"/>
+                <constraint firstItem="b1" firstAttribute="leading" secondItem="r1" secondAttribute="leading" constant="20" id="c6"/>
+                <constraint firstAttribute="bottom" secondItem="b1" secondAttribute="bottom" constant="20" id="c7"/>
+                <constraint firstItem="b1" firstAttribute="top" relation="greaterThanOrEqual" secondItem="v1" secondAttribute="bottom" constant="8" id="c8"/>
+                <constraint firstItem="v2" firstAttribute="height" secondItem="v1" secondAttribute="height" multiplier="0.5" constant="-5.5" priority="250" id="c9"/>
+                <constraint firstItem="sv1" firstAttribute="leading" secondItem="b1" secondAttribute="trailing" constant="12" id="s1l"/>
+                <constraint firstItem="sv1" firstAttribute="bottom" secondItem="r1" secondAttribute="bottom" constant="-10" id="s1b"/>
+                <constraint firstItem="sv1" firstAttribute="width" constant="200" id="s1w"/>
+                <constraint firstItem="sv1" firstAttribute="height" constant="60" id="s1h"/>
+                <constraint firstItem="sv2" firstAttribute="trailing" secondItem="r1" secondAttribute="trailing" constant="-10" id="s2t"/>
+                <constraint firstItem="sv2" firstAttribute="top" secondItem="v2" secondAttribute="bottom" constant="10" id="s2p"/>
+                <constraint firstItem="sv2" firstAttribute="width" constant="100" id="s2w"/>
+                <constraint firstItem="sv2" firstAttribute="height" constant="150" id="s2h"/>
+            </constraints>
+        </customView>
+    </objects>
+</document>
