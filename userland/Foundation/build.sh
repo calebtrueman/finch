@@ -5,7 +5,9 @@
 # Foundation headers so every method has Apple's signature.
 #
 # Linked as Apple ships it: Versions/C, current version 4424.1.255,
-# compatibility version 300, re-exporting libobjc and CoreFoundation.
+# compatibility version 300, re-exporting libobjc and CoreFoundation, and
+# linking libicucore (measurement formats) and libxml2 (NSXMLParser) as
+# Apple's does.
 #
 #   userland/Foundation/build.sh
 #     -> build/root/System/Library/Frameworks/Foundation.framework
@@ -29,7 +31,8 @@ CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
     -Wall -Wextra -Werror -Wno-unused-parameter -Wno-incomplete-implementation
     -Wno-objc-property-implementation -Wno-protocol -Wno-objc-protocol-method-implementation
     -Wno-deprecated-declarations -Wno-deprecated-implementations -Wno-objc-designated-initializers
-    -Wno-objc-missing-super-calls -Wno-sign-compare -Wno-objc-method-access)
+    -Wno-objc-missing-super-calls -Wno-sign-compare -Wno-objc-method-access
+    -I"${SDKROOT}/usr/include/libxml2")
 
 log "compiling"
 rm -rf "${OBJ}" && mkdir -p "${OBJ}"
@@ -42,7 +45,7 @@ mkdir -p "${FW}/Versions/C"
 "${CC}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
     -install_name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation \
     -current_version 4424.1.255 -compatibility_version 300 \
-    "${OBJ}"/*.o -o "${FW}/Versions/C/Foundation" \
+    "${OBJ}"/*.o -o "${FW}/Versions/C/Foundation" -licucore -lxml2 \
     -F"${ROOT}/System/Library/Frameworks" -Wl,-reexport_framework,CoreFoundation -Wl,-reexport-lobjc -lSystem
 ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/Foundation "${FW}/Foundation"

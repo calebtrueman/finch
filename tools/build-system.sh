@@ -71,12 +71,15 @@ steps=(
     "ICU|oss ICU"
     "tzdata|userland/tzdata/build.sh"
     "CoreFoundation|userland/CoreFoundation/build.sh"
+    # libxml2, for Foundation's NSXMLParser
+    "libxml2|oss libxml2"
     # Finch's Foundation (CF links it upward; docs/design/FOUNDATION.md)
     "Foundation|userland/Foundation/build.sh"
     "IOKit|userland/IOKit/build.sh"
     # Finch's CoreGraphics over Skia (docs/design/COREGRAPHICS.md)
     "skia|userland/skia/build.sh"
     "CoreGraphics|userland/CoreGraphics/build.sh"
+    "ImageIO|userland/ImageIO/build.sh"
     # Libraries Apple publishes that Finch's commands link (tools/check-closed.py).
     # libedit's generated headers come from its "make lists" target first.
     "zlib|oss zlib libz"

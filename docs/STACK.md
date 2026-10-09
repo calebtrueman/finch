@@ -6,11 +6,14 @@ These diagrams are updated in every commit that changes the stack, and
 `tools/render-stack.sh` checks that they render.
 
 **As of 2026-10-08:** nothing Finch builds links a closed library
-(`tools/check-closed.py`). Finch's own Foundation covers about 100 of Apple's
+(`tools/check-closed.py`). Finch's own Foundation covers about 130 of Apple's
 classes, on a CoreFoundation that dispatches to Objective-C objects as Apple's
-does (`docs/design/FOUNDATION.md`). Finch's CoreGraphics has begun, over Skia
+does (`docs/design/FOUNDATION.md`); its NSXMLParser runs on Apple's libxml2,
+built by Finch. Finch's CoreGraphics has begun, over Skia
 (`docs/design/COREGRAPHICS.md`): bitmap contexts draw paths, images,
-clips, shadows and transparency layers as Apple's do.
+clips, shadows and transparency layers as Apple's do. Finch's ImageIO reads
+PNG, JPEG, GIF, BMP, ICO and WebP and writes PNG and JPEG over the open
+codecs Skia builds, returning the CGImages and properties Apple's does.
 
 ```mermaid
 block-beta
@@ -26,17 +29,17 @@ block-beta
         columns 4
         t6["App frameworks"]
         appkit["AppKit"]
-        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, shadows,<br/>layers (over Skia, skcms)"]
-        ctio["CoreText, ImageIO"]
+        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms)"]
+        imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
+        ctio["CoreText"]
         later["QuartzCore, Metal, SwiftUI, AV"]
         space6b[" "]
-        space6c[" "]
     end
     block:L5
         columns 4
         t5["Foundation layer"]
-        foundation["Foundation<br/>strings, numbers, decimals, threads,<br/>files, bundles, formatters, queues,<br/>KVC/KVO, JSON, archiving, regexes,<br/>attributed strings, map/hash tables,<br/>undo, proxies, transforms,<br/>file handles, pipes, tasks,<br/>predicates, progress, file wrappers"]
+        foundation["Foundation<br/>strings, numbers, decimals, threads,<br/>files, bundles, formatters, queues,<br/>KVC/KVO, JSON, archiving, regexes,<br/>attributed strings, map/hash tables,<br/>undo, proxies, transforms,<br/>file handles, pipes, tasks,<br/>predicates, progress, file wrappers,<br/>units and measurements, XML parsing"]
         cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>ordered sets, NSCache, NSData, NSDate,<br/>NSURL, locales, calendars, defaults,<br/>run loops, attributed strings,<br/>streams, Mach ports"]
         od["OpenDirectory<br/>CFOpenDirectory"]
         space5[" "]
@@ -53,14 +56,14 @@ block-beta
         t4["Libraries"]
         comp["libcompression<br/>LZFSE, LZ4, Brotli, zlib, LZMA"]
         codecs["lzfse, lz4, brotli,<br/>liblzma, libxo, libsbuf"]
-        osslibs["zlib, bzip2, libedit, libresolv,<br/>libiconv, ncurses, OpenBSM"]
+        osslibs["zlib, bzip2, libedit, libresolv,<br/>libiconv, ncurses, OpenBSM,<br/>libxml2"]
         space4[" "]
         pam["OpenPAM + pam_modules"]
         pamunix["pam_unix, Finch pam.d"]
         ess["libEndpointSecuritySystem"]
         space4b[" "]
         tz["tzdata 2026c (IANA)"]
-        skia["Skia m155 + FreeType, libpng,<br/>libjpeg-turbo, libwebp, wuffs<br/>(static, for CoreGraphics)"]
+        skia["Skia m155 + FreeType, HarfBuzz,<br/>libpng, libjpeg-turbo, libwebp, wuffs<br/>(static, for CoreGraphics<br/>and ImageIO)"]
         space4d[" "]
     end
     block:L3
@@ -113,11 +116,11 @@ block-beta
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
     class apps,desktop,shell,appkit,ctio,later,kexts,metal planned
-    class cg,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class cg,imageio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia upstream
     class vz firmware
-    class space6,space6b,space6c,space5,space5b,space5c,space4,space4b,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space6,space6b,space5,space5b,space5c,space4,space4b,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |
@@ -144,6 +147,7 @@ flowchart LR
     gcore["GCoreFramework"]:::apple
     ffound["Foundation"]:::finch
     cgfw["CoreGraphics"]:::finch
+    imageio["ImageIO"]:::finch
     skialib["Skia, FreeType<br/>(static)"]:::upstream
     cxxlib["libc++"]:::upstream
     cf["CoreFoundation"]:::finch
@@ -152,6 +156,7 @@ flowchart LR
     objc["libobjc"]:::apple
     swift["libswiftCore"]:::upstream
     icu["libicucore"]:::apple
+    xml["libxml2"]:::apple
     comp["libcompression"]:::finch
     codecs["lzfse / lz4 / brotli<br/>(static)"]:::upstream
     lzma["liblzma"]:::upstream
@@ -171,10 +176,18 @@ flowchart LR
     cf -.->|"upward, as Apple's"| ffound
     cf --> objc --> swift
     cf --> icu
+    ffound --> icu
+    ffound --> xml
+    xml --> icu
+    xml --> z
     iokit --> cf
     cgfw --> cf
     cgfw --> skialib
     cgfw --> cxxlib
+    imageio --> cgfw
+    imageio --> cf
+    imageio --> skialib
+    imageio --> cxxlib
     od --> cf
     comp --> codecs
     comp --> lzma

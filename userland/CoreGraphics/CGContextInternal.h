@@ -70,6 +70,9 @@ CG_PRIVATE void CGContextPaintShader(CGContextRef c, sk_sp<SkShader> shader);
 /* A colour's components converted to the context's drawing space, as Skia takes them. */
 CG_PRIVATE SkColor4f CGContextConvertComponents(CGContextRef c, CGColorSpaceRef space, const CGFloat *components);
 CG_PRIVATE CGAffineTransform CGContextUserToDevice(CGContextRef c);
+/* Paint, or clip to, a path given in user space, leaving the current path alone. */
+CG_PRIVATE void CGContextDrawUserPath(CGContextRef c, CGPathRef path, CGPathDrawingMode mode);
+CG_PRIVATE void CGContextClipToUserPath(CGContextRef c, CGPathRef path, bool evenOdd);
 
 static inline CGGState &
 CGContextState(CGContextRef c)

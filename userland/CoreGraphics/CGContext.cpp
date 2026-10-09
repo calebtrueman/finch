@@ -943,6 +943,12 @@ draw_temporary(CGContextRef c, CGPathRef user_space_path, CGPathDrawingMode mode
 }
 
 void
+CGContextDrawUserPath(CGContextRef c, CGPathRef path, CGPathDrawingMode mode)
+{
+    draw_temporary(c, path, mode);
+}
+
+void
 CGContextFillRect(CGContextRef c, CGRect r)
 {
     CGPathRef p = CGPathCreateWithRect(r, NULL);
@@ -1092,6 +1098,20 @@ CGContextEOClip(CGContextRef c)
         return;
     clip_path(c, true);
     CGContextBeginPath(c);
+}
+
+void
+CGContextClipToUserPath(CGContextRef c, CGPathRef path, bool evenOdd)
+{
+    if (!c)
+        return;
+    CGMutablePathRef saved = c->path;
+    c->path = CGPathCreateMutable();
+    if (path)
+        CGPathAddPath(c->path, &CGContextState(c).ctm, path);
+    clip_path(c, evenOdd);
+    CFRelease(c->path);
+    c->path = saved;
 }
 
 void

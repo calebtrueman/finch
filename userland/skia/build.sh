@@ -54,16 +54,16 @@ ARGS=(
     # CPU raster only
     skia_use_gl=false skia_use_metal=false skia_use_vulkan=false skia_use_dawn=false
     skia_enable_ganesh=false skia_enable_graphite=false
-    # glyphs from FreeType; CoreText (shaping, font matching) is Finch's own
+    # glyphs from FreeType, shaping with HarfBuzz (CoreText is Finch's own)
     skia_use_freetype=true skia_use_system_freetype2=false skia_enable_fontmgr_empty=true
-    skia_use_harfbuzz=false skia_use_icu=false skia_use_expat=false
+    skia_use_harfbuzz=true skia_use_system_harfbuzz=false skia_use_icu=false skia_use_expat=false
     # codecs for ImageIO, all bundled
     skia_use_system_libpng=false skia_use_system_libjpeg_turbo=false
     skia_use_system_libwebp=false skia_use_system_zlib=false skia_use_wuffs=true
     skia_use_dng_sdk=false skia_use_piex=false skia_use_libavif=false
     skia_use_libjxl_decode=false skia_use_ffmpeg=false
     # PDF backend for CGPDFContext
-    skia_enable_pdf=true skia_pdf_subset_harfbuzz=false
+    skia_enable_pdf=true skia_pdf_subset_harfbuzz=true
     skia_enable_svg=false skia_enable_skottie=false skia_enable_skshaper=false
     skia_enable_skparagraph=false skia_enable_tools=false skia_use_xps=false
 )

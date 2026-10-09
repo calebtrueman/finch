@@ -186,3 +186,39 @@ The tests follow Foundation's:
   are: antialiased cell edges show where cells meet. Known gap: with
   rotated pattern matrices, Apple's cells are spaced slightly differently
   (some device-pixel snapping not yet worked out).
+- 2026-10-08: `ImageIO.framework` (`userland/ImageIO`), linked as Apple's
+  (Versions/A, 1.0), exporting the CGImageSource/Destination/Metadata
+  functions and the 750 string constants the SDK declares, with Apple's
+  values. Sources read PNG (libpng), JPEG (libjpeg-turbo), GIF (wuffs),
+  WebP (libwebp), BMP and ICO, and return CGImages in Apple's layouts: RGBX
+  for opaque 8-bit RGB, little-endian 16-bit, palette PNGs and BMPs as
+  indexed, gray as Generic Gray Gamma 2.2, every frame of a GIF composited.
+  Properties follow Apple's keys and number types, including the PNG,
+  JFIF, GIF, WebP, TIFF, Exif and IPTC dictionaries, EXIF and XMP metadata,
+  and Apple's colour naming (ProfileName). Incremental sources report
+  Apple's statuses as data arrives. Thumbnails use Apple's sizes and
+  layouts (premultiplied ARGB or XRGB, rows padded to 16 bytes, EXIF
+  orientation applied on request); the scaling filter is Finch's (Lanczos),
+  within a few levels of Apple's. Destinations write PNG and JPEG with
+  Apple's chunks and markers (sRGB or an ICC profile, eXIf/Exif, pHYs, JFIF)
+  and a quality scale fitted to Apple's quantization. `finch-imageio-test`
+  compares 34 generated images and the writers with Apple's ImageIO:
+  identical on the host and in the VM; decoded JPEG pixels are
+  within 4 levels of Apple's (a different IDCT and upsampler), and on about
+  700 PNGs and JPEGs from macOS itself the PNG pixels are identical.
+- Known gaps (ImageIO): Apple's CgBI ("crushed" iOS) PNGs are not read. No
+  TIFF, HEIF or GIF writing yet; metadata (XMP) objects are empty.
+- 2026-10-08: ICC naming as Apple's: a profile becomes a named space only
+  when its bytes are exactly a profile Apple's CG hands out (recognised by
+  SHA-256 fingerprint; the profiles themselves aren't shipped) or one Finch
+  generates. `CGDataConsumerPutBytes` is exported, as Apple's is.
+- 2026-10-08: CGFont and text. Metrics come from the font's tables (hhea
+  ascent and descent, OS/2 cap and x height, post names, fvar axes keyed by
+  name) and match Apple's for the test fonts; glyph boxes and variations
+  come from FreeType. Glyphs are drawn as unhinted outlines placed by the
+  text matrix, through the path machinery, so every text drawing mode,
+  clip, pattern and shadow works. Font smoothing, on by default, darkens
+  glyphs: raising coverage to the power 0.72 matches Apple's closely.
+  `CGFontCreateWithFontName` looks fonts up by PostScript name in the font
+  directories. Skia is built with HarfBuzz now, for CoreText's shaping and
+  PDF font subsetting.

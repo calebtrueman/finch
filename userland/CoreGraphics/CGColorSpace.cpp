@@ -12,6 +12,7 @@
  */
 #include "CGColorSpaceInternal.h"
 #include "modules/skcms/skcms.h"
+#include <CommonCrypto/CommonDigest.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -896,11 +897,66 @@ match_named(const struct CGColorSpace *cs)
     return -1;
 }
 
+/*
+ * SHA-256 fingerprints of the profiles Apple's CG hands out for its named
+ * spaces (hashes only: the profiles aren't Finch's to ship). Apple names an
+ * ICC-based space only when its data is one of those exactly; Finch also
+ * names exact copies of the profiles it generates.
+ */
+static const struct {
+    const char *sha256;
+    CFStringRef const *name;
+} apple_profiles[] = {
+    {"7a06987f2d7e458e98fa744c4acad9f3610f3c895c04a98179970d380d8a46e8", &kCGColorSpaceACESCGLinear},
+    {"304f569a83c1e5eddaddac54e99ed03339333db013738bb499ab64f049887e28", &kCGColorSpaceAdobeRGB1998},
+    {"a1096ca47d80ba9df7f9f8fa87a0b9446d9b6a2c94ab11e4144495616b1eb29b", &kCGColorSpaceCoreMedia709},
+    {"651a3f9c51ac383fa0a099374bd1e5030f45e6dc6af2520eadb151c0dc8fe3df", &kCGColorSpaceDCIP3},
+    {"3a168ff9230c9feb394544e58a2ebf15601534eebd9680149886107882b14270", &kCGColorSpaceDisplayP3_HLG},
+    {"aa36691d3056a6ddb4ed3d59e3ea98d6fff0a0f0328bc6dd34011d73e0a30bcb", &kCGColorSpaceDisplayP3_PQ},
+    {"0ff6958f98684c61f6bbdce1368ddeaf3873baf84545baba482e920d92a914c0", &kCGColorSpaceDisplayP3},
+    {"73d504558e7d03ef4ff2676ba62c7553ee5bd856b45da2d330e33e012ad61fb3", &kCGColorSpaceGenericGrayGamma2_2},
+    {"cbbe4e27855cdc4af796895db3c99c52bd1a727b70fdd458168d3ae570250a03", &kCGColorSpaceITUR_2020},
+    {"bceef6e3d4457bd368146d745ff203fa5adf50aa65460d1a9f3437e2387e7a82", &kCGColorSpaceLinearDisplayP3},
+    {"81107f536845d11fdd67ed62b3588bc27776a0e8b8ca787751538fd30d490d9a", &kCGColorSpaceLinearGray},
+    {"d3c1c5ca635a45b9bf1a9c69804f4a064b94e8b82a8c42ce272470aa5ecad2c2", &kCGColorSpaceLinearITUR_2020},
+    {"42d1e258eddfda5492ad878a0077e1365c9662cfe90789c9663333f24bf3c3ff", &kCGColorSpaceLinearSRGB},
+    {"2b3aa1645779a9e634744faf9b01e9102b0c9b88fd6deced7934df86b949af7e", &kCGColorSpaceSRGB},
+    {"0c8a584b288a306eac9e1d3f1e68bc1b64331c717ceb051420e6257f17b3509a", &kCGColorSpaceGenericCMYK},
+    {"0ef4da994a2b833d54af2d4ecbb2c6654b7198ad9e6bd80ed86d684e54fd37d3", &kCGColorSpaceGenericGray},
+    {"9ba83e9a54788f7a5d22b367bcf4461179798b81d80a7d2cf855a60c93dee09b", &kCGColorSpaceGenericLab},
+    {"49429d4dd70f439f6fa47a298e5ffbd280375d2cbd18708b1e05a34aafe5d219", &kCGColorSpaceGenericRGB},
+    {"0a11a32e7f42a26fb50d4850c070e4cf59a6eabeaaeae5a2c8a0c4c78d415469", &kCGColorSpaceGenericRGBLinear},
+    {"358fecec016b7c44d0e2af5e608c7c3f4aef834c2beb8fce6859e724a1b8a39e", &kCGColorSpaceGenericXYZ},
+    {"d2a121c2b94409b82be7c59595ed5a9a90c8fa8d805ce282d9bfd950799bda12", &kCGColorSpaceITUR_2020_sRGBGamma},
+    {"7c717549eec7134079950211e768d00a5a42fc4f4a7a1149723227e4bf7519fb", &kCGColorSpaceITUR_2100_HLG},
+    {"63cd9f4a8443c71df3633aa0a2ec4594aa8fbca23b1a3231b517bc726a567b16", &kCGColorSpaceITUR_2100_PQ},
+    {"d62ddfb7805428a137e4e7f48657b37e429c8ee677ac12a8ad5cc9b1e33bc4d7", &kCGColorSpaceITUR_709_HLG},
+    {"20d91982bcc869410ea08f96c40ee11c561b71de07b6ebdde540ec88e7361613", &kCGColorSpaceITUR_709_PQ},
+    {"c6f7fab7a70c5236059813295f05eb5fbf3d6f5a03335fbf1b548fce430b035b", &kCGColorSpaceITUR_709},
+    {"bf6680b188c0fb882e6094ea5d5ac94cc13cca6f252a98bed1be855c58bb616a", &kCGColorSpaceROMMRGB},
+};
+
+static CGColorSpaceRef
+named_for_bytes(CFDataRef data)
+{
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(CFDataGetBytePtr(data), (CC_LONG)CFDataGetLength(data), digest);
+    char hex[2 * CC_SHA256_DIGEST_LENGTH + 1];
+    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++)
+        snprintf(hex + 2 * i, 3, "%02x", digest[i]);
+    for (auto &p : apple_profiles)
+        if (!strcmp(p.sha256, hex))
+            return named_space_by_name(*p.name);
+    return NULL;
+}
+
 static CGColorSpaceRef
 create_with_icc(CFDataRef data)
 {
     if (!data)
         return NULL;
+    if (CGColorSpaceRef named = named_for_bytes(data))
+        return named;
     const uint8_t *bytes = CFDataGetBytePtr(data);
     size_t len = (size_t)CFDataGetLength(data);
     skcms_ICCProfile profile;
@@ -941,10 +997,19 @@ create_with_icc(CFDataRef data)
         break;
     }
     if (cs) {
+        /* only an exact copy of a named space's own profile becomes that space, as with Apple's */
         int named = match_named(cs);
         if (named >= 0) {
-            CFRelease(cs);
-            return named_space(named);
+            CGColorSpaceRef candidate = named_space(named);
+            CFDataRef own = CGColorSpaceCopyICCData(candidate);
+            bool same = own && CFEqual(own, data);
+            if (own)
+                CFRelease(own);
+            if (same) {
+                CFRelease(cs);
+                return candidate;
+            }
+            CFRelease(candidate);
         }
     } else if (profile.has_A2B) {
         CGColorSpaceModel model;

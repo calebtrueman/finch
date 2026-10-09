@@ -1,0 +1,7 @@
+_CGImageSource*
+_CGImageDestination*
+_CGImageMetadata*
+_kCGImage*
+_kCGComputeHDRStats
+_kCFErrorDomainCGImageMetadata
+_kIIO*

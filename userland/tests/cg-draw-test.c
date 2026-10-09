@@ -570,6 +570,95 @@ s_cglayer(CGContextRef c)
     CGLayerRelease(l);
 }
 
+static CGFontRef
+test_font(void)
+{
+    static CGFontRef font;
+    if (font)
+        return font;
+    const char *dirs[] = {getenv("FINCH_TEST_FONTS"), "/usr/local/share/finch/test-fonts",
+                          "build/src/skia/resources/fonts", "../../build/src/skia/resources/fonts"};
+    for (unsigned i = 0; i < sizeof dirs / sizeof dirs[0] && !font; i++) {
+        if (!dirs[i])
+            continue;
+        char path[1024];
+        snprintf(path, sizeof path, "%s/Roboto-Regular.ttf", dirs[i]);
+        CGDataProviderRef p = CGDataProviderCreateWithFilename(path);
+        if (p) {
+            font = CGFontCreateWithDataProvider(p);
+            CGDataProviderRelease(p);
+        }
+    }
+    if (!font) {
+        fprintf(stderr, "no test font\n");
+        exit(1);
+    }
+    return font;
+}
+
+static const CGGlyph word[] = {44, 73, 70, 76, 80, 3, 59, 82};
+
+static void
+s_text(CGContextRef c)
+{
+    CGContextSetFont(c, test_font());
+    CGContextSetFontSize(c, 18);
+    CGContextSetRGBFillColor(c, 0, 0, 0, 1);
+    CGPoint pos[8];
+    for (int i = 0; i < 8; i++)
+        pos[i] = CGPointMake(2 + 7.5 * i, 24);
+    CGContextShowGlyphsAtPositions(c, word, pos, 8);
+}
+
+static void
+s_text_modes(CGContextRef c)
+{
+    CGContextSetFont(c, test_font());
+    CGContextSetFontSize(c, 30);
+    CGContextSetRGBStrokeColor(c, 0.8, 0, 0, 1);
+    CGContextSetRGBFillColor(c, 0, 0, 0.8, 1);
+    CGContextSetLineWidth(c, 1.5);
+    CGContextSetTextDrawingMode(c, kCGTextFillStroke);
+    CGContextShowGlyphsAtPoint(c, 2, 34, word, 3);
+    CGContextSetTextDrawingMode(c, kCGTextStroke);
+    CGContextShowGlyphsAtPoint(c, 4, 6, word + 3, 2);
+}
+
+static void
+s_text_matrix(CGContextRef c)
+{
+    CGContextSetFont(c, test_font());
+    CGContextSetFontSize(c, 16);
+    CGContextSetTextMatrix(c, CGAffineTransformMake(1, 0.3, -0.2, 1.2, 0, 0));
+    CGContextSetCharacterSpacing(c, 2);
+    CGContextSetRGBFillColor(c, 0.1, 0.5, 0.1, 1);
+    CGContextShowGlyphsAtPoint(c, 4, 10, word, 8);
+}
+
+static void
+s_text_clip(CGContextRef c)
+{
+    CGContextSetFont(c, test_font());
+    CGContextSetFontSize(c, 44);
+    CGContextSetTextDrawingMode(c, kCGTextClip);
+    CGContextShowGlyphsAtPoint(c, 2, 14, word, 2);
+    CGGradientRef g = rainbow();
+    CGContextDrawLinearGradient(c, g, CGPointMake(0, 0), CGPointMake(64, 64), 0);
+    CGGradientRelease(g);
+}
+
+static void
+s_text_flipped(CGContextRef c)
+{
+    CGContextTranslateCTM(c, 0, 64);
+    CGContextScaleCTM(c, 1, -1);
+    CGContextSetTextMatrix(c, CGAffineTransformMakeScale(1, -1));
+    CGContextSetFont(c, test_font());
+    CGContextSetFontSize(c, 14);
+    CGContextSetGrayFillColor(c, 0.2, 1);
+    CGContextShowGlyphsAtPoint(c, 3, 20, word, 6);
+}
+
 typedef struct {
     const char *name;
     int fmt;
@@ -626,6 +715,11 @@ static const Scene scenes[] = {
     {"coloured pattern", FMT_RGBA, s_pattern},
     {"uncoloured pattern", FMT_RGBA, s_pattern_stencil},
     {"CGLayer", FMT_RGBA, s_cglayer},
+    {"glyphs", FMT_RGBA, s_text},
+    {"text drawing modes", FMT_RGBA, s_text_modes},
+    {"text matrix and spacing", FMT_RGBA, s_text_matrix},
+    {"text clip", FMT_RGBA, s_text_clip},
+    {"text in flipped CTM", FMT_RGBA, s_text_flipped},
 };
 #define NSCENES (sizeof scenes / sizeof scenes[0])
 #define SIZE 64
@@ -640,9 +734,11 @@ render(const Scene *s)
     return px;
 }
 
+/* Glyph rasterizers differ more than shape rasterizers: text scenes allow more on edges. */
 static int
 compare(const char *name, const unsigned char *ref, const unsigned char *got)
 {
+    double edge_limit = strstr(name, "text") || strstr(name, "glyphs") ? 20 : 16;
     int interior_max = 0, edges = 0, bad = 0;
     double edge_sum = 0;
     for (int y = 0; y < SIZE; y++)
@@ -677,7 +773,7 @@ compare(const char *name, const unsigned char *ref, const unsigned char *got)
             printf("\n");
         }
     double edge_mean = edges ? edge_sum / edges : 0;
-    int ok = interior_max <= 2 && edge_mean <= 16 && bad <= edges / 50 + 1;
+    int ok = interior_max <= 2 && edge_mean <= edge_limit && bad <= edges / 50 + 1;
     if (ok)
         printf("%s: ok\n", name);
     else

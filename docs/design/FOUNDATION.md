@@ -301,4 +301,30 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   distnoted), and `NSFileWrapper` (files, directories and links, Apple's
   numbered keys for clashing names). NSData reads URLs.
   `finch-documents-test` is identical to Apple's on the host and in the VM.
-
+- 2026-10-08: units, measurements and XML. `NSUnit`, `NSDimension` and all 22
+  of Apple's dimensions with every unit Apple's has (symbols and conversion
+  factors read from Apple's, Fahrenheit's odd constant included), each class
+  property one immortal instance of a runtime `_NSStatic_` subclass as Apple's
+  (miles per gallon, on the private `NSUnitConverterReciprocal`, an ordinary
+  one); `NSUnitConverterLinear`; `NSMeasurement` (conversion, arithmetic in the
+  base unit, Apple's equality, hashes and exception messages, secure coding
+  under Apple's keys). `NSMeasurementFormatter` works as Apple's, through the
+  private `NSUnitFormatter` and ICU's measure formats (Apple's `uameasfmt` C API
+  in libicucore, which Foundation now links): each unit carries its ICU unit,
+  the locale's preferred units come from ICU's usage data ("road", "person",
+  "food", "weather"...), and natural scale picks units with Apple's
+  thresholds, per measurement system. **libxml2** is new in Finch's image:
+  Apple's libxml2-39.10 (the 26.4 release), built from the project's own
+  sources and settings (`userland/oss/libxml2.build.sh`; Xcode's build of the
+  project stalls) with Apple's version and exactly Apple's 1,683 exports.
+  `NSXMLParser` runs on it as Apple's does: data and streams go through the push
+  parser in Apple's chunk sizes, entities are substituted, the delegate may
+  resolve undeclared ones, namespaces are reported or processed, and errors
+  carry libxml2's codes, messages, lines and columns, with Apple's stopping
+  rules (the first fatal error reaches the delegate, the parse ends with
+  libxml2's code 111; aborting gives `NSXMLParserDelegateAbortedParseError`).
+  Its quirks are kept: attribute types and element models are empty strings,
+  and text right after a reference to a declared entity is dropped.
+  `finch-measurement-test` (522 lines: every unit, five locales, every style
+  and option) and `finch-xmlparser-test` (811 lines) are identical to Apple's
+  on the host. `NSXMLDocument` and the rest of the tree API aren't done.

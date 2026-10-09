@@ -328,6 +328,15 @@ CGDataConsumerRelease(CGDataConsumerRef c)
         CFRelease(c);
 }
 
+/* Apple's CG exports this (privately); ImageIO writes through it. */
+size_t CGDataConsumerPutBytes(CGDataConsumerRef c, const void *bytes, size_t count);
+
+size_t
+CGDataConsumerPutBytes(CGDataConsumerRef c, const void *bytes, size_t count)
+{
+    return c && bytes ? CGDataConsumerPutBytesInternal(c, bytes, count) : 0;
+}
+
 size_t
 CGDataConsumerPutBytesInternal(CGDataConsumerRef c, const void *bytes, size_t count)
 {

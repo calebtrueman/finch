@@ -34,6 +34,7 @@ the image rebuilds the cache.
 | CoreFoundation.framework | swift-corelibs-foundation (Apache 2.0) | **Built by Finch** (`userland/CoreFoundation`; `docs/design/COREFOUNDATION.md`) |
 | libicucore | ICU-76142.4.7 | **Built by Finch** |
 | libz, libbz2, libedit, libresolv | zlib-100, bzip2-47, libedit-65, libresolv-96 | **Built by Finch**, Apple's exports exactly (patches in `userland/patches/{zlib,libedit}`) |
+| libxml2 | libxml2-39.10 (MIT) | **Built by Finch** (`userland/oss/libxml2.build.sh`), Apple's version and exports exactly; Foundation's NSXMLParser uses it |
 | liblzma, libxo, libsbuf | XZ Utils 5.4.3, libxo 1.6.0, FreeBSD 14.5 sbuf (upstream; Apple doesn't publish its copies for 26.4) | **Built by Finch** (`userland/{xz,libxo,libsbuf}`), Apple's versions, install names and exports exactly |
 | IOKit.framework | IOKitUser-100231.100.18.0.1 | **Built by Finch** (`userland/IOKit`): IOKitLib, pwr_mgt, ps, platform; 500 of Apple's 2,372 exports, every one Finch's binaries import. HID, graphics, display, USB and kext parts come as something needs them. |
 | libswiftCore | swift (Apache 2.0) | **Built by Finch** (`userland/swift`) |

@@ -50,6 +50,10 @@ NSRange FinchRegexRange(NSString *string, NSString *pattern, NSStringCompareOpti
 __attribute__((visibility("hidden")))
 NSUInteger FinchRegexReplace(NSMutableString *string, NSString *pattern, NSString *templ, NSStringCompareOptions mask, NSRange range);
 
+/* The unit for an ICU measure unit (NSUnit.m), or nil. */
+__attribute__((visibility("hidden")))
+NSDimension *FinchUnitForSpecifier(NSInteger specifier);
+
 /* Objects that are never freed implement -dealloc without calling super. */
 #define FINCH_NO_SUPER_DEALLOC \
     _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wobjc-missing-super-calls\"") \

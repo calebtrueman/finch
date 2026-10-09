@@ -61,3 +61,6 @@ bzip2           bzip2-47
 libedit         libedit-65
 libresolv       libresolv-96
 AvailabilityVersions AvailabilityVersions-157.2
+
+# Foundation's NSXMLParser
+libxml2         libxml2-39.10

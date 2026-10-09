@@ -115,7 +115,7 @@ Apple's is closed. Developed in the emulated M4 first. The map is
                 CFAttributedString bridges. Left of Apple's CF classes: NSFileSecurity,
                 NSSharedKeySet, the constant data and date classes, tagged-pointer strings.
         - [x] libswiftCore from Swift's open source (libobjc links it; 14,885/15,043 exports)
-        - [x] zlib, bzip2, libedit, libresolv (Apple's sources) and liblzma, libxo, libsbuf
+        - [x] zlib, bzip2, libedit, libresolv, libxml2 (Apple's sources) and liblzma, libxo, libsbuf
               (upstream, where Apple doesn't publish its copy), each with Apple's exports
               exactly (2026-10-08)
         - [x] OpenDirectory (CFOpenDirectory's C API over the local node),
@@ -174,8 +174,10 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] NSPredicate and NSExpression (2026-10-08)
   - [x] NSProgress, NSFileWrapper, byte-count, ISO 8601 and date-components formatters,
         collection differences (2026-10-08)
+  - [x] Units and measurements (NSUnit and its 22 dimensions, NSMeasurement,
+        NSMeasurementFormatter over ICU) and NSXMLParser over Apple's libxml2
+        (libxml2-39.10, built by Finch with Apple's exports) (2026-10-08)
   - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it):
-        NSXMLParser (needs libxml2 from Apple's source), units and measurements,
         the URL loading system, NSXPCConnection, a system-wide distributed
         notification center.
 - [ ] CoreGraphics, CoreText, ImageIO over open renderers (`docs/design/COREGRAPHICS.md`)
@@ -188,8 +190,13 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         blend modes, shadows, transparency layers) are done: `finch-cg-test` is
         identical to Apple's, and `finch-cg-draw-test` matches Apple's renders, on
         the host and in the VM (2026-10-08). Gradients (linear, radial, conic),
-        shadings, patterns and CGLayer too (2026-10-08). Next: PDF.
-  - [ ] ImageIO over Skia's codecs
+        shadings, patterns and CGLayer, and CGFont and glyph drawing
+        (font smoothing as Apple's) too (2026-10-08). Next: PDF.
+  - [ ] ImageIO over Skia's codecs. Image sources (PNG, JPEG, GIF, BMP, ICO,
+        WebP; properties, images, thumbnails, incremental loading), PNG and JPEG
+        destinations, and all 750 public property keys are done: `finch-imageio-test`
+        is identical to Apple's on the host and in the VM (2026-10-08).
+        Next: TIFF and HEIF, metadata (XMP), GIF writing.
   - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's
   - [ ] The window-server half of CoreGraphics (windows, events, displays)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display

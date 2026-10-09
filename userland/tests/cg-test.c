@@ -12,6 +12,7 @@
 #include <dlfcn.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static const char *
@@ -812,6 +813,98 @@ contexts(void)
     printf("byte order info: %d pixel format: %d\n", CGImageGetByteOrderInfo(im), CGImageGetPixelFormatInfo(im));
 }
 
+/* Test fonts: Skia's (open) Roboto and its variable-font test file, from FINCH_TEST_FONTS or the VM's copy. */
+static CGFontRef
+test_font(const char *file)
+{
+    const char *dirs[] = {getenv("FINCH_TEST_FONTS"), "/usr/local/share/finch/test-fonts",
+                          "build/src/skia/resources/fonts", "../../build/src/skia/resources/fonts"};
+    for (unsigned i = 0; i < sizeof dirs / sizeof dirs[0]; i++) {
+        if (!dirs[i])
+            continue;
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", dirs[i], file);
+        CGDataProviderRef p = CGDataProviderCreateWithFilename(path);
+        if (p) {
+            CGFontRef f = CGFontCreateWithDataProvider(p);
+            CGDataProviderRelease(p);
+            return f;
+        }
+    }
+    return NULL;
+}
+
+static void
+fonts(void)
+{
+    CGFontRef f = test_font("Roboto-Regular.ttf");
+    if (!f) {
+        printf("no test font\n");
+        return;
+    }
+    printf("font type: %d\n", CFGetTypeID(f) == CGFontGetTypeID());
+    cfstr("postscript name", CGFontCopyPostScriptName(f));
+    cfstr("full name", CGFontCopyFullName(f));
+    printf("glyphs %zu upem %d ascent %d descent %d leading %d cap %d x %d\n", CGFontGetNumberOfGlyphs(f),
+           CGFontGetUnitsPerEm(f), CGFontGetAscent(f), CGFontGetDescent(f), CGFontGetLeading(f), CGFontGetCapHeight(f),
+           CGFontGetXHeight(f));
+    rect("font bbox", CGFontGetFontBBox(f));
+    printf("italic angle %.4f stemV %.4f\n", CGFontGetItalicAngle(f), CGFontGetStemV(f));
+    CGGlyph gl[40];
+    for (int i = 0; i < 40; i++)
+        gl[i] = (CGGlyph)(i * 7);
+    int adv[40];
+    CGRect boxes[40];
+    printf("advances ok %d:", CGFontGetGlyphAdvances(f, gl, 40, adv));
+    for (int i = 0; i < 40; i++)
+        printf(" %d", adv[i]);
+    printf("\n");
+    printf("bboxes ok %d:", CGFontGetGlyphBBoxes(f, gl, 40, boxes));
+    for (int i = 0; i < 40; i += 3)
+        printf(" {%g %g %g %g}", boxes[i].origin.x, boxes[i].origin.y, boxes[i].size.width, boxes[i].size.height);
+    printf("\n");
+    for (int i = 0; i < 40; i += 5) {
+        char l[40];
+        snprintf(l, sizeof l, "glyph name %d", gl[i]);
+        cfstr(l, CGFontCopyGlyphNameForGlyph(f, gl[i]));
+    }
+    const char *names[] = {"A", "a", "space", "uni0041", "f_f", "nonexistent", ".notdef"};
+    for (unsigned i = 0; i < sizeof names / sizeof names[0]; i++) {
+        CFStringRef n = CFStringCreateWithCString(NULL, names[i], kCFStringEncodingUTF8);
+        printf("glyph with name %s: %d\n", names[i], CGFontGetGlyphWithGlyphName(f, n));
+        CFRelease(n);
+    }
+    CFArrayRef tags = CGFontCopyTableTags(f);
+    printf("tables:");
+    for (CFIndex i = 0; tags && i < CFArrayGetCount(tags); i++) {
+        uint32_t t = (uint32_t)(uintptr_t)CFArrayGetValueAtIndex(tags, i);
+        printf(" %c%c%c%c", t >> 24, (t >> 16) & 255, (t >> 8) & 255, t & 255);
+    }
+    printf("\n");
+    CFDataRef head = CGFontCopyTableForTag(f, 'head');
+    printf("head length %ld, missing table %d\n", head ? (long)CFDataGetLength(head) : -1L,
+           CGFontCopyTableForTag(f, 'zzzz') != NULL);
+    printf("axes %d variations %d\n", CGFontCopyVariationAxes(f) != NULL, CGFontCopyVariations(f) != NULL);
+    printf("can subset: %d %d\n", CGFontCanCreatePostScriptSubset(f, kCGFontPostScriptFormatType1),
+           CGFontCanCreatePostScriptSubset(f, kCGFontPostScriptFormatType42));
+    CGFontRef v = test_font("Distortable.ttf");
+    if (v) {
+        CFArrayRef axes = CGFontCopyVariationAxes(v);
+        printf("variable font axes: %ld\n", axes ? (long)CFArrayGetCount(axes) : -1L);
+        for (CFIndex i = 0; axes && i < CFArrayGetCount(axes); i++)
+            cfdesc("  axis", CFArrayGetValueAtIndex(axes, i));
+        cfdesc("variations", CGFontCopyVariations(v));
+        CFStringRef wght = CFSTR("Weight");
+        double val = 1.5;
+        CFNumberRef num = CFNumberCreate(NULL, kCFNumberDoubleType, &val);
+        CFDictionaryRef d = CFDictionaryCreate(NULL, (const void **)&wght, (const void **)&num, 1,
+                                               &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CGFontRef w = CGFontCreateCopyWithVariations(v, d);
+        cfdesc("variations after copy", w ? CGFontCopyVariations(w) : NULL);
+        cfstr("variable postscript name", CGFontCopyPostScriptName(v));
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -824,5 +917,6 @@ main(int argc, char **argv)
     paths();
     colors();
     contexts();
+    fonts();
     return 0;
 }

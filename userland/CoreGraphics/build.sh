@@ -31,6 +31,9 @@ COMMON=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g -fn
     -Wall -Wextra -Werror -Wno-unused-parameter -Wno-deprecated-declarations)
 CFLAGS=("${COMMON[@]}" -std=c17)
 CXXFLAGS=("${COMMON[@]}" -std=c++20 -fno-exceptions -fno-rtti -Wno-missing-field-initializers -I"${SKIA_SRC}"
+    -I"${SKIA_SRC}/third_party/freetype2/include" -I"${SKIA_SRC}/third_party/externals/freetype/include"
+    "-DFT_CONFIG_MODULES_H=<freetype-android/freetype/config/ftmodule.h>"
+    "-DFT_CONFIG_OPTIONS_H=<freetype-android/freetype/config/ftoption.h>"
     $(cd "${SKIA_SRC}" && bin/gn desc "${SKIA_OBJ}" //:skia defines | grep -v SKIA_IMPLEMENTATION | sed 's/^/-D/'))
 
 log "compiling"
@@ -52,7 +55,7 @@ mkdir -p "${FW}/Versions/A"
     -Wl,-exported_symbols_list,"${HERE}/exports.txt" -Wl,-dead_strip \
     "${SKIA_OBJ}/libskia.a" "${SKIA_OBJ}/libskcms.a" "${SKIA_OBJ}/libfreetype2.a" \
     "${SKIA_OBJ}/libpng.a" "${SKIA_OBJ}/libjpeg.a" "${SKIA_OBJ}/libwebp.a" \
-    "${SKIA_OBJ}/libwebp_sse41.a" "${SKIA_OBJ}/libwuffs.a" "${SKIA_OBJ}/libzlib.a" \
+    "${SKIA_OBJ}/libwebp_sse41.a" "${SKIA_OBJ}/libwuffs.a" "${SKIA_OBJ}/libzlib.a" "${SKIA_OBJ}/libharfbuzz.a" \
     -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -lc++ -lSystem
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/CoreGraphics "${FW}/CoreGraphics"
