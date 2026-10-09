@@ -149,6 +149,10 @@ enum {
     FWS_EVENT_MOUSE_MOVED = 5, FWS_EVENT_LEFT_DRAGGED = 6, FWS_EVENT_RIGHT_DRAGGED = 7,
     FWS_EVENT_KEY_DOWN = 10, FWS_EVENT_KEY_UP = 11, FWS_EVENT_FLAGS_CHANGED = 12,
     FWS_EVENT_SCROLL = 22, FWS_EVENT_OTHER_DOWN = 25, FWS_EVENT_OTHER_UP = 26, FWS_EVENT_OTHER_DRAGGED = 27,
+    /* queued by the client library, not sent by the server */
+    FWS_EVENT_APP_ACTIVATED = 1000,    /* FWS_ACTIVATED with active 1 */
+    FWS_EVENT_APP_DEACTIVATED = 1001,  /* FWS_ACTIVATED with active 0 */
+    FWS_EVENT_WINDOW_MOVED = 1002,     /* FWS_WINDOW_MOVED: the new frame in x, y, delta_x (width), delta_y (height) */
 };
 
 /* FWS_EVENT, FWS_POST_EVENT */

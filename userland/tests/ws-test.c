@@ -88,7 +88,10 @@ static void
 expect_event(const char *label)
 {
     FWSEvent e;
-    if (FWSNextEvent(&e, true))
+    bool got;
+    while ((got = FWSNextEvent(&e, true)) && e.type >= FWS_EVENT_APP_ACTIVATED)
+        ;  /* activation and server moves aren't what this checks */
+    if (got)
         printf("%s: type %u window %u at %g,%g clicks %u key %u\n", label, e.type, e.window, e.x, e.y, e.click_count,
                e.key_code);
     else

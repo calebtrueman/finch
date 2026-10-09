@@ -104,6 +104,16 @@ note_event(const FWSHeader &h, const uint8_t *body)
         pending->push_back(e);
     } else if (h.type == FWS_ACTIVATED && h.size >= sizeof(FWSActivated)) {
         active = ((const FWSActivated *)body)->active != 0;
+        FWSEvent e = {};
+        e.type = active ? FWS_EVENT_APP_ACTIVATED : FWS_EVENT_APP_DEACTIVATED;
+        pending->push_back(e);
+    } else if (h.type == FWS_WINDOW_MOVED && h.size >= sizeof(FWSMoved)) {
+        FWSRect f = ((const FWSMoved *)body)->frame;
+        FWSEvent e = {};
+        e.type = FWS_EVENT_WINDOW_MOVED;
+        e.window = h.window;
+        e.x = f.x, e.y = f.y, e.delta_x = f.width, e.delta_y = f.height;
+        pending->push_back(e);
     } else if (h.type == FWS_DISPLAY_CHANGED && h.size >= sizeof(FWSDisplayInfo)) {
         memcpy(&display, body, sizeof display);
     }
