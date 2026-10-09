@@ -690,11 +690,16 @@ server_flags(NSWindow *w)
 {
     if (NSIsEmptyRect(_dirty) || !_w.visible || _w.displaying)
         return;
-    CGContextRef cg = [self _finchCGContext];
-    if (!cg)
+    if (![self _finchCGContext])
         return;
     _w.displaying = YES;
+    /* layout can resize the window, which replaces its context: take the context after it */
     [_frameView layoutSubtreeIfNeeded];
+    CGContextRef cg = [self _finchCGContext];
+    if (!cg) {
+        _w.displaying = NO;
+        return;
+    }
     NSRect dirty = NSIntegralRect(_dirty);
     _dirty = NSZeroRect;
     CGContextSaveGState(cg);

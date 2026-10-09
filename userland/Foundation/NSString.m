@@ -968,3 +968,45 @@ PLACEHOLDER_IMPL(0)
 PLACEHOLDER_IMPL(1)
 - (NSMutableString *)initWithCapacity:(NSUInteger)capacity { return (id)CFStringCreateMutable(NULL, 0); }
 @end
+
+#pragma mark - Encodings
+
+/* The encodings, as Apple's: CoreFoundation's, as NSStringEncodings. */
+@implementation NSString (FinchEncodings)
+
++ (NSStringEncoding)defaultCStringEncoding
+{
+    return CFStringConvertEncodingToNSStringEncoding(CFStringGetSystemEncoding());
+}
+
++ (const NSStringEncoding *)availableStringEncodings
+{
+    static NSStringEncoding *list;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+      const CFStringEncoding *cf = CFStringGetListOfAvailableEncodings();
+      size_t n = 0;
+      while (cf[n] != kCFStringEncodingInvalidId)
+          n++;
+      list = calloc(n + 1, sizeof *list);
+      size_t k = 0;
+      for (size_t i = 0; i < n; i++) {
+          NSStringEncoding e = CFStringConvertEncodingToNSStringEncoding(cf[i]);
+          BOOL seen = NO;
+          for (size_t j = 0; j < k && !seen; j++)
+              seen = list[j] == e;
+          if (!seen && e != kCFStringEncodingInvalidId)
+              list[k++] = e;
+      }
+      list[k] = 0;
+    });
+    return list;
+}
+
++ (NSString *)localizedNameOfStringEncoding:(NSStringEncoding)encoding
+{
+    CFStringRef name = CFStringGetNameOfEncoding(CFStringConvertNSStringEncodingToEncoding(encoding));
+    return name ? (__bridge NSString *)name : @"";
+}
+
+@end

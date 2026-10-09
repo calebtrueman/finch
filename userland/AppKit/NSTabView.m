@@ -7,6 +7,8 @@
  * Finch's own look, a segmented strip centred over the content.
  */
 #import "NSView_Finch.h"
+#import "FinchTheme.h"
+#import "NSControl_Finch.h"
 
 @implementation NSTabViewItem {
     id _identifier;
@@ -344,6 +346,10 @@
 {
     if (_type == NSNoTabsNoBorder)
         return;
+    if (!FinchThemeIsClassic()) {
+        [self _finchDrawFieldworkTabs];
+        return;
+    }
     NSRect content = [self contentRect];
     [[NSColor colorWithWhite:0 alpha:0.03] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(content, -1, -1) xRadius:6 yRadius:6] fill];
@@ -357,7 +363,59 @@
         [(sel ? [NSColor controlAccentColor] : [NSColor controlColor]) setFill];
         [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(r, 0.5, 0.5) xRadius:5 yRadius:5] fill];
         NSDictionary *a = @{NSFontAttributeName : [self font],
-                            NSForegroundColorAttributeName : sel ? [NSColor whiteColor] : [NSColor controlTextColor]};
+                            NSForegroundColorAttributeName : sel ? FinchOnAccentColor() : [NSColor controlTextColor]};
+        NSSize s = [[_items[i] label] sizeWithAttributes:a];
+        [[_items[i] label] drawAtPoint:NSMakePoint(NSMidX(r) - s.width / 2, NSMidY(r) - s.height / 2) withAttributes:a];
+    }
+}
+
+/*
+ * Fieldwork's tabs (docs/design/FIELDWORK.md): folder tabs. The content is a slate panel with
+ * an outline; the selected tab is a slate card joined to it, its outline open at the bottom;
+ * the others are just their labels, in graphite.
+ */
+- (void)_finchDrawFieldworkTabs
+{
+    NSRect content = NSInsetRect([self contentRect], -1, -1);
+    NSColor *slate = FinchThemePaletteColor(@"slate") ?: [NSColor controlBackgroundColor];
+    NSColor *outline = FinchThemePaletteColor(@"outline") ?: [NSColor separatorColor];
+    NSBezierPath *panel = [NSBezierPath bezierPathWithRoundedRect:content xRadius:3 yRadius:3];
+    [slate setFill];
+    [panel fill];
+    [outline setStroke];
+    [panel setLineWidth:1];
+    [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(content, 0.5, 0.5) xRadius:3 yRadius:3] stroke];
+    if (_type > NSRightTabsBezelBorder)
+        return;
+    BOOL flipped = [self isFlipped];
+    for (NSUInteger i = 0; i < [_items count]; i++) {
+        NSRect r = [self _finchTabRect:i];
+        BOOL sel = _items[i] == _selected;
+        if (sel) {
+            /* the card: down to the panel's edge, over its outline */
+            NSRect card = r;
+            if (flipped)
+                card.size.height = NSMinY(content) - NSMinY(r) + 1;
+            else {
+                card.origin.y = NSMaxY(content) - 1;
+                card.size.height = NSMaxY(r) - card.origin.y;
+            }
+            NSBezierPath *tab = [NSBezierPath bezierPath];
+            CGFloat top = flipped ? NSMinY(card) + 0.5 : NSMaxY(card) - 0.5, base = flipped ? NSMaxY(card) : NSMinY(card);
+            [tab moveToPoint:NSMakePoint(NSMinX(card) + 0.5, base)];
+            [tab lineToPoint:NSMakePoint(NSMinX(card) + 0.5, top)];
+            [tab lineToPoint:NSMakePoint(NSMaxX(card) - 0.5, top)];
+            [tab lineToPoint:NSMakePoint(NSMaxX(card) - 0.5, base)];
+            [slate setFill];
+            NSRectFill(card);
+            [outline setStroke];
+            [tab setLineWidth:1];
+            [tab stroke];
+            [[NSColor controlAccentColor] setFill];
+            NSRectFill(NSMakeRect(NSMinX(card) + 1, flipped ? NSMinY(card) : NSMaxY(card) - 2, NSWidth(card) - 2, 2));
+        }
+        NSDictionary *a = @{NSFontAttributeName : [self font],
+                            NSForegroundColorAttributeName : sel ? [NSColor labelColor] : [NSColor secondaryLabelColor]};
         NSSize s = [[_items[i] label] sizeWithAttributes:a];
         [[_items[i] label] drawAtPoint:NSMakePoint(NSMidX(r) - s.width / 2, NSMidY(r) - s.height / 2) withAttributes:a];
     }
