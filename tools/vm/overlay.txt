@@ -94,6 +94,7 @@ build/userland/finch-excwatch /usr/local/bin/finch-excwatch
 build/userland/finch-app-test /usr/local/bin/finch-app-test
 build/userland/finch-quartzcore-test /usr/local/bin/finch-quartzcore-test
 build/userland/finch-calayer-test /usr/local/bin/finch-calayer-test
+build/userland/finch-cfnotify-test /usr/local/bin/finch-cfnotify-test
 build/userland/finch-appkit-containers-test /usr/local/bin/finch-appkit-containers-test
 userland/tests/hello-test.sh /usr/local/bin/finch-hello-test
 build/userland/apps/Hello.app/Contents/MacOS/Hello /Applications/Hello.app/Contents/MacOS/Hello
