@@ -141,10 +141,10 @@ LucidaGrande-Bold: Inter-Bold (Inter) size 12 weight 0.4 traits 0x2
   upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 133.564
   CGFont: Inter-Bold
 Apple Color Emoji: NotoColorEmoji (Noto Color Emoji) size 12 weight 0 traits 0x400
-  upem 1000 ascent 22.8 descent 6 leading 0 cap 22.8 x 0 width 172.27
+  upem 2048 ascent 11.1328 descent 2.92969 leading 0 cap 11.1328 x 0 width 172.277
   CGFont: NotoColorEmoji
 AppleColorEmoji: NotoColorEmoji (Noto Color Emoji) size 12 weight 0 traits 0x400
-  upem 1000 ascent 22.8 descent 6 leading 0 cap 22.8 x 0 width 172.27
+  upem 2048 ascent 11.1328 descent 2.92969 leading 0 cap 11.1328 x 0 width 172.277
   CGFont: NotoColorEmoji
 Apple Symbols: NotoSansSymbols-Regular (Noto Sans Symbols) size 12 weight 0 traits 0x0
   upem 1000 ascent 17.76 descent 6.84 leading 0 cap 8.568 x 6.432 width 129.396
@@ -261,11 +261,11 @@ Helvetica korean: NotoSansCJKsc-Regular | runs [0+3 NotoSansCJKsc-Regular] width
 Helvetica arabic: NotoSansArabic-Regular | runs [0+5 NotoSansArabic-Regular rtl] width 25.248
 Helvetica hebrew: LiberationSans | runs [0+4 LiberationSans rtl] width 26.373
 Helvetica symbols: NotoSansSymbols2-Regular | runs [0+1 NotoSansSymbols2-Regular] [1+1 LiberationSans] [2+1 Inter-Regular] [3+2 LiberationSans] width 42.6797
-Helvetica emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.88
-Helvetica heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.94
-Helvetica zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.94
-Helvetica skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.94
-Helvetica mixed: LiberationSans | runs [0+3 LiberationSans] [3+1 NotoSansCJKsc-Regular] [4+1 LiberationSans] [5+2 NotoSansArabic-Regular rtl] [7+1 LiberationSans] [8+2 NotoColorEmoji] [10+1 LiberationSans] width 62.66
+Helvetica emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.8828
+Helvetica heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.9414
+Helvetica zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.9414
+Helvetica skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.9414
+Helvetica mixed: LiberationSans | runs [0+3 LiberationSans] [3+1 NotoSansCJKsc-Regular] [4+1 LiberationSans] [5+2 NotoSansArabic-Regular rtl] [7+1 LiberationSans] [8+2 NotoColorEmoji] [10+1 LiberationSans] width 62.6614
 Helvetica-Bold latin: LiberationSans-Bold | runs [0+12 LiberationSans-Bold] width 68.0039
 Helvetica-Bold latin extended: LiberationSans-Bold | runs [0+13 LiberationSans-Bold] width 79.998
 Helvetica-Bold greek: LiberationSans-Bold | runs [0+5 LiberationSans-Bold] width 36.5332
@@ -276,11 +276,11 @@ Helvetica-Bold korean: NotoSansCJKsc-Bold | runs [0+3 NotoSansCJKsc-Bold] width 
 Helvetica-Bold arabic: NotoSansArabic-Bold | runs [0+5 NotoSansArabic-Bold rtl] width 27.876
 Helvetica-Bold hebrew: LiberationSans-Bold | runs [0+4 LiberationSans-Bold rtl] width 28.7871
 Helvetica-Bold symbols: NotoSansSymbols2-Regular | runs [0+1 NotoSansSymbols2-Regular] [1+1 LiberationSans-Bold] [2+1 Inter-Bold] [3+2 LiberationSans-Bold] width 42.2871
-Helvetica-Bold emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.88
-Helvetica-Bold heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.94
-Helvetica-Bold zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.94
-Helvetica-Bold skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.94
-Helvetica-Bold mixed: LiberationSans-Bold | runs [0+3 LiberationSans-Bold] [3+1 NotoSansCJKsc-Bold] [4+1 LiberationSans-Bold] [5+2 NotoSansArabic-Bold rtl] [7+1 LiberationSans-Bold] [8+2 NotoColorEmoji] [10+1 LiberationSans-Bold] width 65.322
+Helvetica-Bold emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.8828
+Helvetica-Bold heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.9414
+Helvetica-Bold zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.9414
+Helvetica-Bold skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.9414
+Helvetica-Bold mixed: LiberationSans-Bold | runs [0+3 LiberationSans-Bold] [3+1 NotoSansCJKsc-Bold] [4+1 LiberationSans-Bold] [5+2 NotoSansArabic-Bold rtl] [7+1 LiberationSans-Bold] [8+2 NotoColorEmoji] [10+1 LiberationSans-Bold] width 65.3235
 Menlo latin: DejaVuSansMono | runs [0+12 DejaVuSansMono] width 86.6953
 Menlo latin extended: DejaVuSansMono | runs [0+13 DejaVuSansMono] width 93.9199
 Menlo greek: DejaVuSansMono | runs [0+5 DejaVuSansMono] width 36.123
@@ -291,11 +291,11 @@ Menlo korean: NotoSansCJKsc-Regular | runs [0+3 NotoSansCJKsc-Regular] width 33.
 Menlo arabic: DejaVuSansMono | runs [0+5 DejaVuSansMono rtl] width 36.123
 Menlo hebrew: NotoSansHebrew-Regular | runs [0+4 NotoSansHebrew-Regular rtl] width 26.724
 Menlo symbols: DejaVuSansMono | runs [0+5 DejaVuSansMono] width 36.123
-Menlo emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.88
-Menlo heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.94
-Menlo zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.94
-Menlo skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.94
-Menlo mixed: DejaVuSansMono | runs [0+3 DejaVuSansMono] [3+1 NotoSansCJKsc-Regular] [4+1 DejaVuSansMono] [5+2 DejaVuSansMono rtl] [7+1 DejaVuSansMono] [8+2 NotoColorEmoji] [10+1 DejaVuSansMono] width 84.7369
+Menlo emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.8828
+Menlo heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.9414
+Menlo zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.9414
+Menlo skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.9414
+Menlo mixed: DejaVuSansMono | runs [0+3 DejaVuSansMono] [3+1 NotoSansCJKsc-Regular] [4+1 DejaVuSansMono] [5+2 DejaVuSansMono rtl] [7+1 DejaVuSansMono] [8+2 NotoColorEmoji] [10+1 DejaVuSansMono] width 84.7383
 # the default cascade list
 cascade 0: Inter-Regular
 cascade 1: NotoSans-Regular
@@ -306,6 +306,21 @@ cascade 5: NotoSansSymbols-Regular
 cascade 6: NotoSansSymbols2-Regular
 cascade 7: DejaVuSansMono
 cascade 8: NotoColorEmoji
+# colour glyphs, drawn at (20, 30) in a 200x120 bitmap with a red fill
+U+1F600 at 40 pt: advance 49.8047 bounds 0 -9.90826 49.9083 46.9725
+CTFontDrawGlyphs: ink x 23..66 y 55..96, 1499 px inked, max alpha 255, 1402 px opaque: mean colour 222 176 47, 0 px fill red
+CGContextShowGlyphsAtPositions: nothing
+CTFontDrawGlyphs, context alpha 0.5: ink x 23..66 y 55..96, 1491 px inked, max alpha 128, 1298 px opaque: mean colour 220 177 48, 0 px fill red
+CTFontDrawGlyphs, clear fill: nothing
+CTFontDrawGlyphs, CTM scaled 2: ink x 26..112 y 21..103, 5813 px inked, max alpha 255, 5632 px opaque: mean colour 223 176 47, 0 px fill red
+CTFontDrawGlyphs, text matrix rotated 30 degrees: ink x 0..38 y 38..80, 1394 px inked, max alpha 255, 1327 px opaque: mean colour 221 175 47, 0 px fill red
+CTFontDrawGlyphs at 12 pt: ink x 20..33 y 79..91, 157 px inked, max alpha 255, 127 px opaque: mean colour 222 176 46, 0 px fill red
+CTFontDrawGlyphs, stroke mode: ink x 23..66 y 55..96, 1499 px inked, max alpha 255, 1402 px opaque: mean colour 222 176 47, 0 px fill red
+CTFontDrawGlyphs, clip mode, then a rect filled: ink x 23..66 y 55..96, 1499 px inked, max alpha 255, 1402 px opaque: mean colour 222 176 47, 0 px fill red
+CTLineDraw A, grinning face, B: width 103.164
+CTLineDraw A, grinning face, B: ink x 20..120 y 55..96, 2162 px inked, max alpha 255, 1960 px opaque: mean colour 232 126 33, 555 px fill red
+CTLineDraw family (ZWJ sequence): width 49.8047
+CTLineDraw family (ZWJ sequence): ink x 23..66 y 54..98, 1977 px inked, max alpha 255, 1928 px opaque: mean colour 140 140 140, 0 px fill red
 # installed families
 family: DejaVu Sans Mono
 family: Inter

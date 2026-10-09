@@ -15,6 +15,8 @@
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
 #include FT_MULTIPLE_MASTERS_H
+#include FT_TRUETYPE_TABLES_H
+#include FT_COLOR_H
 #include <math.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -111,6 +113,7 @@ font_finalize(CFTypeRef cf)
     if (f->variations)
         CFRelease(f->variations);
     delete f->coords;
+    delete f->color;
 }
 
 static CFStringRef
@@ -135,6 +138,16 @@ CGFontGetTypeID(void)
     return CGTypeRegister(&font_class, &font_type);
 }
 
+/* FreeType leaves units_per_EM 0 for a font with only bitmaps (CBDT, sbix); its head table still has it. */
+static int
+units_per_em(FT_Face face)
+{
+    if (face->units_per_EM)
+        return face->units_per_EM;
+    TT_Header *head = (TT_Header *)FT_Get_Sfnt_Table(face, FT_SFNT_HEAD);
+    return head && head->Units_Per_EM ? head->Units_Per_EM : 1000;
+}
+
 static struct CGFont *
 font_from_data(CFDataRef data, const std::vector<double> *coords)
 {
@@ -153,7 +166,7 @@ font_from_data(CFDataRef data, const std::vector<double> *coords)
     f->bytes = CFDataGetBytePtr(data);
     f->length = (size_t)CFDataGetLength(data);
     f->face = face;
-    f->units_per_em = face->units_per_EM ? face->units_per_EM : 1000;
+    f->units_per_em = units_per_em(face);
     f->glyph_count = (size_t)face->num_glyphs;
     f->coords = coords ? new std::vector<double>(*coords) : NULL;
     if (coords && FT_HAS_MULTIPLE_MASTERS(face)) {
@@ -329,6 +342,116 @@ CGFontGetGlyphAdvances(CGFontRef f, const CGGlyph *glyphs, size_t count, int *ad
     return true;
 }
 
+/*
+ * A bitmap-only font's glyph: load it from the largest strike (with the
+ * lock held). The strike is the face's only size state; everything else
+ * loads unscaled.
+ */
+static bool
+load_bitmap(CGFontRef f, CGGlyph glyph, FT_Int32 flags)
+{
+    FT_Face face = (FT_Face)f->face;
+    if (!FT_HAS_FIXED_SIZES(face))
+        return false;
+    int best = 0;
+    for (int i = 1; i < face->num_fixed_sizes; i++)
+        if (face->available_sizes[i].y_ppem > face->available_sizes[best].y_ppem)
+            best = i;
+    if (!face->size || face->size->metrics.y_ppem != (face->available_sizes[best].y_ppem + 32) >> 6)
+        FT_Select_Size(face, best);
+    return !FT_Load_Glyph(face, glyph, flags) && face->glyph->format == FT_GLYPH_FORMAT_BITMAP;
+}
+
+/* Its bounds: the bitmap's extent at the strike, in font units. */
+static void
+bitmap_bbox(CGFontRef f, CGGlyph glyph, CGRect *box)
+{
+    FT_Face face = (FT_Face)f->face;
+    if (!load_bitmap(f, glyph, FT_LOAD_COLOR | FT_LOAD_BITMAP_METRICS_ONLY) || !face->size->metrics.y_ppem)
+        return;
+    double s = (double)f->units_per_em / face->size->metrics.y_ppem;
+    FT_GlyphSlot slot = face->glyph;
+    *box = CGRectMake(slot->bitmap_left * s, (slot->bitmap_top - (int)slot->bitmap.rows) * s,
+                      slot->bitmap.width * s, slot->bitmap.rows * s);
+}
+
+/*
+ * Whether a glyph has a colour form: layers in COLR (version 0), or a
+ * colour bitmap (CBDT, sbix). Checked once per glyph and cached. COLR
+ * version 1 paint graphs aren't counted: Apple's CoreText draws those
+ * glyphs as their outlines (measured on macOS 26), and so does Finch's.
+ */
+bool
+CGFontGlyphIsColor(CGFontRef f, CGGlyph glyph)
+{
+    if (!f || glyph >= f->glyph_count || !FT_HAS_COLOR((FT_Face)f->face))
+        return false;
+    FT_Face face = (FT_Face)f->face;
+    pthread_mutex_lock(&ft_lock);
+    std::vector<uint8_t> *&known = ((struct CGFont *)f)->color;
+    if (!known)
+        known = new std::vector<uint8_t>(f->glyph_count, 0);
+    uint8_t &k = (*known)[glyph];
+    if (!k) {
+        FT_UInt layer, color;
+        FT_LayerIterator it = {};
+        bool yes = FT_Get_Color_Glyph_Layer(face, glyph, &layer, &color, &it) ||
+                   (load_bitmap(f, glyph, FT_LOAD_COLOR | FT_LOAD_BITMAP_METRICS_ONLY) &&
+                    face->glyph->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA);
+        k = yes ? 2 : 1;
+    }
+    bool yes = k == 2;
+    pthread_mutex_unlock(&ft_lock);
+    return yes;
+}
+
+/*
+ * A glyph's outline from FreeType, in font units (y up), or NULL. Skia
+ * gives no outline for a glyph it draws in colour (COLR), but CG fills
+ * those with their base glyph's outline.
+ */
+CGPathRef
+CGFontCopyGlyphOutline(CGFontRef f, CGGlyph glyph)
+{
+    if (!f || glyph >= f->glyph_count)
+        return NULL;
+    FT_Face face = (FT_Face)f->face;
+    pthread_mutex_lock(&ft_lock);
+    if (FT_Load_Glyph(face, glyph, FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING) ||
+        face->glyph->format != FT_GLYPH_FORMAT_OUTLINE || face->glyph->outline.n_points == 0) {
+        pthread_mutex_unlock(&ft_lock);
+        return NULL;
+    }
+    CGMutablePathRef path = CGPathCreateMutable();
+    FT_Outline_Funcs funcs = {
+        [](const FT_Vector *to, void *u) -> int {
+            CGMutablePathRef p = (CGMutablePathRef)u;
+            if (!CGPathIsEmpty(p))
+                CGPathCloseSubpath(p);
+            CGPathMoveToPoint(p, NULL, to->x, to->y);
+            return 0;
+        },
+        [](const FT_Vector *to, void *u) -> int {
+            CGPathAddLineToPoint((CGMutablePathRef)u, NULL, to->x, to->y);
+            return 0;
+        },
+        [](const FT_Vector *c, const FT_Vector *to, void *u) -> int {
+            CGPathAddQuadCurveToPoint((CGMutablePathRef)u, NULL, c->x, c->y, to->x, to->y);
+            return 0;
+        },
+        [](const FT_Vector *c1, const FT_Vector *c2, const FT_Vector *to, void *u) -> int {
+            CGPathAddCurveToPoint((CGMutablePathRef)u, NULL, c1->x, c1->y, c2->x, c2->y, to->x, to->y);
+            return 0;
+        },
+        0, 0,
+    };
+    FT_Outline_Decompose(&face->glyph->outline, &funcs, path);
+    if (!CGPathIsEmpty(path))
+        CGPathCloseSubpath(path);
+    pthread_mutex_unlock(&ft_lock);
+    return path;
+}
+
 bool
 CGFontGetGlyphBBoxes(CGFontRef f, const CGGlyph *glyphs, size_t count, CGRect *bboxes)
 {
@@ -338,7 +461,13 @@ CGFontGetGlyphBBoxes(CGFontRef f, const CGGlyph *glyphs, size_t count, CGRect *b
     pthread_mutex_lock(&ft_lock);
     for (size_t i = 0; i < count; i++) {
         bboxes[i] = CGRectZero;
-        if (glyphs[i] >= f->glyph_count || FT_Load_Glyph(face, glyphs[i], FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING))
+        if (glyphs[i] >= f->glyph_count)
+            continue;
+        if (!FT_IS_SCALABLE(face)) {
+            bitmap_bbox(f, glyphs[i], &bboxes[i]);
+            continue;
+        }
+        if (FT_Load_Glyph(face, glyphs[i], FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING))
             continue;
         if (face->glyph->format != FT_GLYPH_FORMAT_OUTLINE || face->glyph->outline.n_points == 0)
             continue;

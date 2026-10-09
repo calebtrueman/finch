@@ -180,10 +180,28 @@ Text laid out in substituted fonts won't break lines in exactly the same
 places as on macOS (only Liberation is metric-compatible, and with Arial,
 Times New Roman and Courier New rather than Helvetica, Times and Courier).
 Apps that need exact metrics bundle their own fonts, and those load through
-`CTFontManager` as on macOS. Gaps: colour emoji are laid out but not drawn
-(CoreGraphics draws glyph outlines, and the emoji are bitmaps); fonts report
-no stylistic class (Apple sets `kCTFontSansSerifClass` and the like from the
-OS/2 table); only the first face of a `.ttc` collection is indexed.
+`CTFontManager` as on macOS.
+
+**Colour glyphs.** As on macOS, CoreText draws emoji and CoreGraphics'
+glyph calls don't: Apple's `CGContextShowGlyphs*` draw every glyph as its
+outline (nothing, for a bitmap emoji), while its CoreText draws colour
+glyphs as images. Finch's CoreText calls `CGContextFinchShowGlyphsWithColor`
+(Finch-only), which has Skia draw the glyphs that have colour forms (CBDT
+and sbix bitmaps, COLR version 0 layers) from the font, through the CTM and
+text matrix, with the context's alpha, blend mode, shadow and clip, and the
+fill colour ignored; a clear fill draws nothing; every text drawing mode
+draws them, and the clipping modes clip to their outlines (none, for a
+bitmap), all as measured on Apple's. COLR version 1 glyphs are drawn as
+outlines, as Apple's CoreText does. Noto Color Emoji is larger than Apple
+Color Emoji (its advance is 1.245 em, Apple's 1 em) and sits a little
+lower, so a line with emoji is wider than on macOS.
+
+Gaps: fonts report no stylistic class (Apple sets `kCTFontSansSerifClass`
+and the like from the OS/2 table); only the first face of a `.ttc`
+collection is indexed; an sbix glyph is placed by its bitmap's own origin,
+not offset by its outline's bounds as Apple's are (Apple Color Emoji draws
+0.125 em higher than on macOS); a text clip drawn through `CTLineDraw` is
+lost (Apple's keeps it, as `CTFontDrawGlyphs` now does).
 
 ## Testing
 
@@ -378,3 +396,22 @@ The tests follow Foundation's:
   text advances horizontally. Apple's renderer converts Lab colours
   differently from its own CGColorSpace, which Finch follows. Drawing
   system PDFs takes about six times as long as Apple's.
+- 2026-10-08: Colour glyphs (see "Fonts"). Apple's CoreText draws an emoji
+  as an image and then shows its glyph as an outline; Apple's
+  `CGContextShowGlyphs*` alone draw nothing for it (measured on macOS 26
+  with Apple Color Emoji, and with COLR test fonts). Finch's CoreText draws
+  them through `CGContextFinchShowGlyphsWithColor`, Skia drawing CBDT, sbix
+  and COLR version 0 glyphs from the font. Measured against Apple's with
+  each emoji font at 12, 40 and 100 points: the ink sits where Apple's does
+  (within the fonts' own differences), and the fill colour, text drawing
+  mode, antialiasing and smoothing settings don't change it, the context
+  alpha, CTM, text matrix, shadow and blend mode do. Fixes on the way: a
+  bitmap-only font's units per em come from its head table (FreeType
+  reports none, and CT and CG had taken 1000, so Noto Color Emoji's
+  metrics were 2.048 times too large) and its glyph bounds from the
+  strike's bitmaps; a COLR glyph's outline is FreeType's (Skia has none
+  for it); `CTFontDrawGlyphs` applies the context's text matrix and leaves
+  the font and any text clip in the context, as Apple's does; the
+  fill-and-clip text modes kept the clip only when font smoothing was off.
+  `finch-ctfonts-test` draws emoji through CoreText and CoreGraphics and
+  reports where they ink and in which colours.

@@ -195,7 +195,7 @@ draw_run(CTRunRef r, CGContextRef c, CFRange range, CGPoint origin)
     CGAffineTransform tm = CGAffineTransformConcat(r->font->matrix, saved);
     tm.tx = saved.tx, tm.ty = saved.ty;
     CGContextSetTextMatrix(c, tm);
-    CGContextShowGlyphsAtPositions(c, r->glyphs->data() + range.location, pos.data(), (size_t)range.length);
+    CGContextFinchShowGlyphsWithColor(c, r->glyphs->data() + range.location, pos.data(), (size_t)range.length);
     CGContextSetTextMatrix(c, saved);
     /* underline and strikethrough */
     CFNumberRef ul = (CFNumberRef)CFDictionaryGetValue(r->attributes, kCTUnderlineStyleAttributeName);

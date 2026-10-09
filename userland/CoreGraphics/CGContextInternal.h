@@ -8,6 +8,7 @@
 #include "CGSkia.h"
 #include "include/core/SkBitmap.h"
 #include "include/core/SkCanvas.h"
+#include "include/core/SkFont.h"
 #include "include/core/SkSurface.h"
 #include <vector>
 
@@ -73,6 +74,9 @@ CG_PRIVATE CGAffineTransform CGContextUserToDevice(CGContextRef c);
 /* Paint, or clip to, a path given in user space, leaving the current path alone. */
 CG_PRIVATE void CGContextDrawUserPath(CGContextRef c, CGPathRef path, CGPathDrawingMode mode);
 CG_PRIVATE void CGContextClipToUserPath(CGContextRef c, CGPathRef path, bool evenOdd);
+/* Draw glyphs in their colour forms, `m` mapping Skia's glyph space (y down) to the device (CGContext.cpp). */
+CG_PRIVATE void CGContextDrawColorGlyphs(CGContextRef c, const SkFont &font, const SkGlyphID *glyphs,
+                                         const SkPoint *positions, size_t count, const SkMatrix &m);
 
 static inline CGGState &
 CGContextState(CGContextRef c)

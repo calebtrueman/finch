@@ -39,6 +39,8 @@ CFTypeRef _CFRuntimeCreateInstance(CFAllocatorRef allocator, CFTypeID typeID, CF
 
 /* Finch CoreGraphics' accessor for a CGFont's file data and variation coordinates. */
 CFDataRef CGFontFinchCopyData(CGFontRef f, CFIndex *axisCount, double *coords, CFIndex maxCoords);
+/* And its CGContextShowGlyphsAtPositions that also draws colour glyphs (emoji), as Apple's CoreText does. */
+void CGContextFinchShowGlyphsWithColor(CGContextRef c, const CGGlyph *glyphs, const CGPoint *positions, size_t count);
 }
 
 CT_PRIVATE CFTypeID CTTypeRegister(const CTRuntimeClass *cls, CFTypeID *slot);

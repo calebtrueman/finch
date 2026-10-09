@@ -11,6 +11,7 @@
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
 #include FT_MULTIPLE_MASTERS_H
+#include FT_TRUETYPE_TABLES_H
 #include <hb.h>
 #include <math.h>
 #include <pthread.h>
@@ -180,7 +181,9 @@ font_from_graphics(CGFontRef cg, CGFloat size, const CGAffineTransform *matrix)
     f->bytes = CFDataGetBytePtr(data);
     f->length = (size_t)CFDataGetLength(data);
     f->face = face;
-    f->upem = face->units_per_EM ? face->units_per_EM : 1000;
+    /* a font with only bitmaps (CBDT, sbix) has units per em in its head table, though FreeType reports 0 */
+    TT_Header *head = (TT_Header *)FT_Get_Sfnt_Table(face, FT_SFNT_HEAD);
+    f->upem = face->units_per_EM ? face->units_per_EM : head && head->Units_Per_EM ? head->Units_Per_EM : 1000;
     f->size = size > 0 ? size : 12;
     f->matrix = matrix ? *matrix : CGAffineTransformIdentity;
     CFRetain(data);
@@ -767,16 +770,19 @@ CTFontDrawGlyphs(CTFontRef f, const CGGlyph glyphs[], const CGPoint positions[],
 {
     if (!f || !context)
         return;
-    CGContextSaveGState(context);
+    /*
+     * As Apple's: the font is left set in the context (so is a text clip),
+     * the glyphs are placed through the context's text matrix, and colour
+     * glyphs are drawn in colour.
+     */
     CGAffineTransform saved = CGContextGetTextMatrix(context);
     CGContextSetFont(context, f->cg);
     CGContextSetFontSize(context, f->size);
-    CGAffineTransform tm = f->matrix;
+    CGAffineTransform tm = CGAffineTransformConcat(f->matrix, saved);
     tm.tx = saved.tx, tm.ty = saved.ty;
     CGContextSetTextMatrix(context, tm);
-    CGContextShowGlyphsAtPositions(context, glyphs, positions, count);
+    CGContextFinchShowGlyphsWithColor(context, glyphs, positions, count);
     CGContextSetTextMatrix(context, saved);
-    CGContextRestoreGState(context);
 }
 
 #pragma mark - Tables, characters, variations, features

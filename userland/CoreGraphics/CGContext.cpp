@@ -1223,6 +1223,38 @@ CGContextClipToMask(CGContextRef c, CGRect rect, CGImageRef mask)
     c->canvas->clipShader(shader);
 }
 
+#pragma mark - Colour glyphs
+
+/*
+ * Glyphs with colour forms (COLR, CBDT, sbix), drawn by Skia from the font:
+ * `m` maps Skia's glyph space to the device. As Apple's CoreText draws
+ * them, the fill colour doesn't tint them (it only paints COLR's
+ * foreground layers); the context's alpha, blend mode, shadow and clip apply.
+ */
+void
+CGContextDrawColorGlyphs(CGContextRef c, const SkFont &font, const SkGlyphID *glyphs, const SkPoint *positions,
+                         size_t count, const SkMatrix &m)
+{
+    if (!c->canvas || !count)
+        return;
+    CGGState &g = CGContextState(c);
+    std::vector<SkRect> boxes(count);
+    font.getBounds(SkSpan(glyphs, count), SkSpan(boxes), nullptr);
+    SkRect bounds = SkRect::MakeEmpty();
+    for (size_t i = 0; i < count; i++)
+        bounds.join(boxes[i].makeOffset(positions[i]));
+    bounds = bounds.isEmpty() ? SkRect::MakeWH((float)c->width, (float)c->height) : m.mapRect(bounds);
+    SkPaint paint;
+    SkColor4f col = g.fill && !CGColorGetPattern(g.fill) ? CGContextColor(c, g.fill) : SkColor4f{0, 0, 0, 1};
+    col.fA = (float)g.alpha;
+    paint.setColor(col, c->skspace ? c->skspace->get() : nullptr);
+    paint.setBlendMode(sk_blend(g.blend));
+    paint.setAntiAlias(true);
+    Op op(c, bounds);
+    c->canvas->setMatrix(m);
+    c->canvas->drawGlyphs(SkSpan(glyphs, count), SkSpan(positions, count), SkPoint::Make(0, 0), font, paint);
+}
+
 #pragma mark - Images
 
 CG_PRIVATE void

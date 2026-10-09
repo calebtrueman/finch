@@ -3,8 +3,9 @@
  * finch-ctfonts-test: the fonts Finch ships and Apple's names for them
  * (userland/fonts). For each Apple font name, the font CoreText and
  * CoreGraphics resolve it to and its metrics; the UI fonts; the default font;
- * bold and italic faces; and the fallback fonts chosen for Latin, Greek,
- * Cyrillic, CJK, Arabic, Hebrew, symbols and emoji.
+ * bold and italic faces; the fallback fonts chosen for Latin, Greek,
+ * Cyrillic, CJK, Arabic, Hebrew, symbols and emoji; and emoji drawn in
+ * colour.
  *
  * Finch-only: Apple's output names Apple's own fonts, so the output is
  * compared with userland/tests/ctfonts-expected.txt instead of with a host
@@ -243,6 +244,159 @@ fallback(void)
     CFRelease(h);
 }
 
+/* What a bitmap holds: the inked box (rows from the top), pixel counts, mean colour, and how much is the fill colour (red). */
+#define CW 200
+#define CH 120
+static void
+ink(const char *label, const unsigned char *px)
+{
+    int x0 = CW, y0 = CH, x1 = -1, y1 = -1, inked = 0, opaque = 0, red = 0, maxa = 0;
+    double r = 0, gr = 0, b = 0;
+    for (int y = 0; y < CH; y++)
+        for (int x = 0; x < CW; x++) {
+            const unsigned char *p = px + 4 * (y * CW + x);
+            if (p[3] > maxa)
+                maxa = p[3];
+            if (p[3] <= 8)
+                continue;
+            inked++;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+            if (p[3] < 128)
+                continue;
+            /* unpremultiplied */
+            double pr = p[0] * 255.0 / p[3], pg = p[1] * 255.0 / p[3], pb = p[2] * 255.0 / p[3];
+            opaque++;
+            r += pr, gr += pg, b += pb;
+            red += pr > 200 && pg < 60 && pb < 60;
+        }
+    if (!inked) {
+        printf("%s: nothing\n", label);
+        return;
+    }
+    printf("%s: ink x %d..%d y %d..%d, %d px inked, max alpha %d, %d px opaque: mean colour %.0f %.0f %.0f, %d px fill red\n",
+           label, x0, x1, y0, y1, inked, maxa, opaque, opaque ? r / opaque : 0, opaque ? gr / opaque : 0,
+           opaque ? b / opaque : 0, red);
+}
+
+static CGContextRef
+canvas(unsigned char *px)
+{
+    memset(px, 0, CW * CH * 4);
+    CGColorSpaceRef s = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    CGContextRef c = CGBitmapContextCreate(px, CW, CH, 8, CW * 4, s, kCGImageAlphaPremultipliedLast);
+    CGColorSpaceRelease(s);
+    CGContextSetRGBFillColor(c, 1, 0, 0, 1);
+    return c;
+}
+
+static CTLineRef
+red_line(const char *text, CTFontRef font)
+{
+    CGColorSpaceRef s = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    CGFloat comps[] = {1, 0, 0, 1};
+    CGColorRef red = CGColorCreate(s, comps);
+    CGColorSpaceRelease(s);
+    CFStringRef keys[] = {kCTFontAttributeName, kCTForegroundColorAttributeName};
+    CFTypeRef values[] = {font, red};
+    CFDictionaryRef attrs = CFDictionaryCreate(NULL, (const void **)keys, values, 2, &kCFTypeDictionaryKeyCallBacks,
+                                               &kCFTypeDictionaryValueCallBacks);
+    CFStringRef str = cf(text);
+    CFAttributedStringRef as = CFAttributedStringCreate(NULL, str, attrs);
+    CTLineRef line = CTLineCreateWithAttributedString(as);
+    CFRelease(as), CFRelease(str), CFRelease(attrs), CGColorRelease(red);
+    return line;
+}
+
+/*
+ * Colour glyphs (Noto Color Emoji's CBDT bitmaps): CoreText draws them in
+ * their own colours, not the fill colour, through the CTM, text matrix and
+ * context alpha; CoreGraphics' glyph calls draw only outlines, so nothing
+ * for an emoji, as Apple's do.
+ */
+static void
+color_glyphs(void)
+{
+    printf("# colour glyphs, drawn at (20, 30) in a %dx%d bitmap with a red fill\n", CW, CH);
+    static unsigned char px[CW * CH * 4];
+    CTFontRef f = CTFontCreateWithName(CFSTR("Apple Color Emoji"), 40, NULL);
+    UniChar u[2] = {0xD83D, 0xDE00};
+    CGGlyph gl[2];
+    CTFontGetGlyphsForCharacters(f, u, gl, 2);
+    CGRect box;
+    CGSize adv;
+    CTFontGetBoundingRectsForGlyphs(f, kCTFontOrientationHorizontal, gl, &box, 1);
+    CTFontGetAdvancesForGlyphs(f, kCTFontOrientationHorizontal, gl, &adv, 1);
+    printf("U+1F600 at 40 pt: advance %s bounds %s %s %s %s\n", g(adv.width), g(box.origin.x), g(box.origin.y),
+           g(box.size.width), g(box.size.height));
+    CGPoint at = CGPointMake(20, 30);
+
+    struct {
+        const char *label;
+        int kind;
+    } cases[] = {
+        {"CTFontDrawGlyphs", 0},
+        {"CGContextShowGlyphsAtPositions", 1},
+        {"CTFontDrawGlyphs, context alpha 0.5", 2},
+        {"CTFontDrawGlyphs, clear fill", 3},
+        {"CTFontDrawGlyphs, CTM scaled 2", 4},
+        {"CTFontDrawGlyphs, text matrix rotated 30 degrees", 5},
+        {"CTFontDrawGlyphs at 12 pt", 6},
+        {"CTFontDrawGlyphs, stroke mode", 7},
+        {"CTFontDrawGlyphs, clip mode, then a rect filled", 8},
+        {"CTLineDraw A, grinning face, B", 9},
+        {"CTLineDraw family (ZWJ sequence)", 10},
+    };
+    for (unsigned i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        CGContextRef c = canvas(px);
+        CTFontRef font = (CTFontRef)CFRetain(f);
+        int k = cases[i].kind;
+        if (k == 2)
+            CGContextSetAlpha(c, 0.5);
+        if (k == 3)
+            CGContextSetRGBFillColor(c, 1, 0, 0, 0);
+        if (k == 4)
+            CGContextScaleCTM(c, 2, 2), at = CGPointMake(10, 15);
+        if (k == 5)
+            CGContextSetTextMatrix(c, CGAffineTransformMakeRotation(M_PI / 6));
+        if (k == 6)
+            CFRelease(font), font = CTFontCreateWithName(CFSTR("Apple Color Emoji"), 12, NULL);
+        if (k == 7)
+            CGContextSetTextDrawingMode(c, kCGTextStroke);
+        if (k == 8)
+            CGContextSetTextDrawingMode(c, kCGTextClip);
+        if (k == 1) {
+            CGFontRef cg = CTFontCopyGraphicsFont(font, NULL);
+            CGContextSetFont(c, cg);
+            CGContextSetFontSize(c, 40);
+            CGContextShowGlyphsAtPositions(c, gl, &at, 1);
+            CGFontRelease(cg);
+        } else if (k >= 9) {
+            CTFontRef helvetica = CTFontCreateWithName(CFSTR("Helvetica"), 40, NULL);
+            CTLineRef line = red_line(k == 9 ? "A\xF0\x9F\x98\x80" "B"
+                                             : "\xF0\x9F\x91\xA8\xE2\x80\x8D\xF0\x9F\x91\xA9\xE2\x80\x8D\xF0\x9F\x91\xA7",
+                                      helvetica);
+            CGContextSetTextPosition(c, at.x, at.y);
+            CTLineDraw(line, c);
+            printf("%s: width %s\n", cases[i].label, g(CTLineGetTypographicBounds(line, NULL, NULL, NULL)));
+            CFRelease(line), CFRelease(helvetica);
+        } else {
+            CTFontDrawGlyphs(font, gl, &at, 1, c);
+        }
+        if (k == 8) {
+            CGContextSetRGBFillColor(c, 0, 0, 1, 1);
+            CGContextFillRect(c, CGRectMake(0, 0, CW, CH));
+        }
+        ink(cases[i].label, px);
+        at = CGPointMake(20, 30);
+        CFRelease(font);
+        CGContextRelease(c);
+    }
+    CFRelease(f);
+}
+
 static void
 installed(void)
 {
@@ -264,6 +418,7 @@ main(void)
     ui_fonts();
     defaults_and_traits();
     fallback();
+    color_glyphs();
     installed();
     return 0;
 }
