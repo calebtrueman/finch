@@ -256,3 +256,32 @@ window server, Finch-only.
   Not yet: Services, the Help menu's search field, menu item views drawn in menus (they
   take their height only), badges, palette menus, scrolling long menus, tear-offs,
   `NSStatusBar`, Apple's automatic Edit and Window menu items (dictation, emoji, tabs).
+- 2026-10-09: TextKit 2, in UIFoundation where Apple has it: `NSTextRange` and
+  `NSCountableTextLocation`, `NSTextElement`/`NSTextParagraph`, `NSTextContentManager` and
+  `NSTextContentStorage` (paragraphs made lazily, asking the delegate, kept across edits that don't
+  touch them; Apple's enumeration rules and return values; the storage observed through
+  `textStorageObserver`; setting `attributedString` lets the storage go, as Apple's), `NSTextLayoutManager`
+  (fragments per paragraph made through its delegate and kept with their elements, their states,
+  `ensureLayoutFor...`, invalidation, usage bounds, fragments by position and location, text
+  segments of all three types and their options, rendering attributes, `NSTextSelectionDataSource`),
+  `NSTextLayoutFragment` (frames, rendering surface bounds from the fonts' bounding boxes, drawing
+  y-down into any context), `NSTextLineFragment`, `NSTextViewportLayoutController` (Apple's delegate
+  order), `NSTextSelection` and `NSTextSelectionNavigation` (moves by character, word, line, sentence,
+  paragraph and document in every direction, extending, deletion ranges, clicks, granularities, as
+  measured), and `NSTextContainer`'s `textLayoutManager`. The text layout manager lays text out with a
+  private `NSLayoutManager` of its own over the same `UIFTextLayout.m`, so TextKit 1 and 2 place every
+  line alike (`UIFTextKit2.h`). Shared layout fixes found on the way: line offsets are glyph positions
+  (kerning moves the glyph, not half of it), centred and right-aligned lines are placed without their
+  trailing whitespace, and a container archives its layout manager (and that its storage)
+  unconditionally, as Apple's. `NSTextView` is on TextKit 2 as on macOS 26 (`-initWithFrame:`, nibs and
+  archives, which hold TextKit 1 objects and are converted, `+scrollableTextView` and friends, the field
+  editor), TextKit 1 with `+textViewUsingTextLayoutManager:NO` or a TextKit 1 container; asking it or its
+  container for `layoutManager` switches it to TextKit 1 with Apple's notifications. Both systems edit,
+  move and measure alike (the view asks TextKit 2's layout engine TextKit 1's questions); a TextKit 2 view
+  draws through its viewport's layout fragments and mirrors its selection in `textSelections`.
+  `finch-textkit2-test` (ranges, content storage, layout and line fragments, editing, segments, the
+  viewport, navigation, TextKit 1 and 2 alike, drawing, text views, the switch, archives, a nib) prints the
+  same as Apple's frameworks on the host. Not yet: text list elements and attachments' view providers,
+  layout queues, estimated (non-contiguous) layout of long documents, vertical text, right-to-left
+  navigation, `NSTextView`'s own use of `NSTextSelectionNavigation`, Apple's reported
+  `selectionAffinity` (upstream after every selection change; Finch reports downstream, also in TextKit 1).

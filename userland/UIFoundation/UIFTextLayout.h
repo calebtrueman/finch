@@ -45,6 +45,8 @@ UIF_HIDDEN CGRect UIFLayoutUsedRect(UIFLayout *L, UIFLayoutParams p);
 /* Draw it with its first line's top at `top` (y grows down when flipped). */
 UIF_HIDDEN void UIFLayoutDraw(UIFLayout *L, CGFloat left, CGFloat top, BOOL flipped);
 UIF_HIDDEN void UIFLayoutDrawLines(UIFLayout *L, size_t first, size_t count, CGFloat left, CGFloat top, BOOL flipped);
+UIF_HIDDEN void UIFLayoutDrawLinesInContext(CGContextRef cg, UIFLayout *L, size_t first, size_t count, CGFloat left,
+                                            CGFloat top, BOOL flipped);
 
 UIF_HIDDEN NSFont *UIFFontIn(NSDictionary *attrs);
 UIF_HIDDEN NSParagraphStyle *UIFStyleIn(NSDictionary *attrs);

@@ -228,7 +228,10 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         UIFoundation, ApplicationServices and Foundation; the Cocoa umbrella
   - [x] UIFoundation: fonts, paragraph styles, shadows, string drawing, the text system
         (TextKit 1; TextKit 2 and document formats to come). `finch-uifoundation-test`
-        matches Apple's on the host and in the VM (2026-10-08).
+        matches Apple's on the host and in the VM (2026-10-08). TextKit 2 (`NSTextLayoutManager`,
+        `NSTextContentStorage`, layout and line fragments, the viewport, selection navigation) over
+        the same layout, and `NSTextView` on TextKit 2 by default with Apple's switch to TextKit 1:
+        `finch-textkit2-test` matches Apple's on the host and in the VM (2026-10-09); document formats to come.
   - [x] Drawing: colours, colour spaces, Bézier paths, gradients, images, graphics contexts.
         `finch-appkit-draw-test` matches Apple's on the host and in the VM (2026-10-08);
         dark-appearance colours and asset catalogs to come.
@@ -244,7 +247,7 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         (`NSMenu`, `NSMenuItem`, validation, key equivalents, nib main menus), a Finch-drawn menu bar,
         context and pop-up menus, `NSPopUpButton`: `finch-appkit-menu-test` matches Apple's on the
         host and in the VM, `finch-appkit-menu-window-test` drives them through the server (2026-10-08)
-  - [x] Text editing and scrolling: `NSTextView` and the field editor (TextKit 1), `NSScrollView`,
+  - [x] Text editing and scrolling: `NSTextView` and the field editor (TextKit 2, or 1 on request), `NSScrollView`,
         `NSClipView`, `NSScroller`, an in-process `NSPasteboard`. `finch-appkit-text-test` matches
         Apple's on the host and in the VM; `finch-appkit-text-window-test` types, clicks and scrolls
         through the server (2026-10-08); rich-text pasteboard types, find and spelling to come

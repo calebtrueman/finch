@@ -1,7 +1,21 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /*
- * NSTextView (TextKit 1): editing and showing an NSTextStorage laid out by
- * UIFoundation's NSLayoutManager in an NSTextContainer.
+ * NSTextView: editing and showing an NSTextStorage laid out in an
+ * NSTextContainer by UIFoundation's TextKit 2 (an NSTextLayoutManager over an
+ * NSTextContentStorage) or TextKit 1 (an NSLayoutManager).
+ *
+ * TextKit, as on macOS 26: -initWithFrame:, nibs, archives and the field
+ * editor use TextKit 2; +textViewUsingTextLayoutManager:NO and
+ * -initWithFrame:textContainer: with a TextKit 1 container use TextKit 1.
+ * Asking a TextKit 2 view (or its container) for its layoutManager switches
+ * it to TextKit 1 for good: NSTextViewWillSwitchToNSLayoutManagerNotification,
+ * a new NSLayoutManager over the same text storage and container (the text
+ * layout manager and content storage go), then
+ * NSTextViewDidSwitchToNSLayoutManagerNotification. Both systems share one
+ * layout (an NSTextLayoutManager answers TextKit 1's geometry questions
+ * through its layout engine, which the view keeps in _lm), so a view lays
+ * out, edits and moves alike either way; a TextKit 2 view draws its text
+ * through its layout fragments, laid out by its viewport controller.
  *
  * Behaviour is as measured against macOS 26.4's AppKit:
  * - Editing goes -shouldChangeTextInRange:replacementString: (which begins
@@ -202,12 +216,23 @@ enum { SIDE_UNKNOWN, SIDE_START, SIDE_END };
 
 @interface NSTextView ()
 - (void)_finchTextStorageEdited:(NSTextStorageEditActions)mask range:(NSRange)range changeInLength:(NSInteger)delta;
+- (void)_finchSwitchToTextKit1;
+@end
+
+/* UIFoundation's TextKit 2 layout engine (UIFTextKit2.h). */
+@interface NSTextLayoutManager (FinchLayoutEngine)
+- (NSLayoutManager *)_uifLayoutEngine;
+@end
+
+@interface NSTextView (FinchViewport) <NSTextViewportLayoutControllerDelegate>
 @end
 
 @implementation NSTextView {
     NSTextStorage *_storage;
-    NSLayoutManager *_lm;
+    NSLayoutManager *_lm; /* TextKit 1's, or (TextKit 2) the text layout manager's layout engine */
     NSTextContainer *_container;
+    NSTextLayoutManager *_tlm;  /* TextKit 2 */
+    NSTextContentStorage *_tcs; /* TextKit 2 */
     id _delegate; /* not retained */
     NSRange _sel, _selBeforeDrag, _marked, _dragUnit;
     NSSelectionAffinity _affinity;
@@ -258,7 +283,15 @@ tv_defaults(NSTextView *self)
         self->_typing = [default_typing_attributes() retain];
 }
 
-/* Take a text container and the layout manager and text storage it is part of. */
+#define SWAP_RETAINED(field, value) \
+    do {                              \
+        id _v = [(id)(value) retain]; \
+        [field release];              \
+        field = _v;                   \
+    } while (0)
+
+/* Take a text container and the text system it is part of: its NSTextLayoutManager
+ * and content storage (TextKit 2) or its NSLayoutManager (TextKit 1), and the text storage. */
 static void
 adopt(NSTextView *self, NSTextContainer *container)
 {
@@ -267,14 +300,39 @@ adopt(NSTextView *self, NSTextContainer *container)
     [self->_container release];
     self->_container = container;
     [container setTextView:self];
-    NSLayoutManager *lm = [container layoutManager];
-    [lm retain];
-    [self->_lm release];
-    self->_lm = lm;
-    NSTextStorage *ts = [lm textStorage];
-    [ts retain];
-    [self->_storage release];
-    self->_storage = ts;
+    NSTextLayoutManager *tlm = [container textLayoutManager];
+    if (self->_tlm.textViewportLayoutController.delegate == (id)self && self->_tlm != tlm)
+        self->_tlm.textViewportLayoutController.delegate = nil;
+    if (tlm) {
+        NSTextContentManager *tcm = tlm.textContentManager;
+        NSTextContentStorage *tcs = [tcm isKindOfClass:[NSTextContentStorage class]] ? (NSTextContentStorage *)tcm : nil;
+        SWAP_RETAINED(self->_tlm, tlm);
+        SWAP_RETAINED(self->_tcs, tcs);
+        SWAP_RETAINED(self->_lm, [tlm _uifLayoutEngine]);
+        SWAP_RETAINED(self->_storage, tcs.textStorage);
+        tlm.textViewportLayoutController.delegate = self;
+    } else {
+        NSLayoutManager *lm = [container layoutManager];
+        SWAP_RETAINED(self->_tlm, nil);
+        SWAP_RETAINED(self->_tcs, nil);
+        SWAP_RETAINED(self->_lm, lm);
+        SWAP_RETAINED(self->_storage, [lm textStorage]);
+    }
+}
+
+/* A TextKit 2 network: a content storage (returned retained: the view that
+ * adopts the container keeps it), its text layout manager, and a container. */
+static NSTextContainer *
+new_text_kit_2_container(NSSize size, NSTextContentStorage **storage)
+{
+    NSTextContentStorage *tcs = [[NSTextContentStorage alloc] init];
+    NSTextLayoutManager *tlm = [[NSTextLayoutManager alloc] init];
+    [tcs addTextLayoutManager:tlm];
+    NSTextContainer *tc = [[NSTextContainer alloc] initWithSize:size];
+    [tlm setTextContainer:tc];
+    [tlm release];
+    *storage = tcs;
+    return tc;
 }
 
 - (instancetype)initWithFrame:(NSRect)frame textContainer:(NSTextContainer *)container
@@ -288,34 +346,70 @@ adopt(NSTextView *self, NSTextContainer *container)
     return self;
 }
 
-- (instancetype)initWithFrame:(NSRect)frame
+- (instancetype)_finchInitWithFrame:(NSRect)frame textKit2:(BOOL)textKit2
 {
-    NSTextStorage *ts = [[NSTextStorage alloc] init];
-    NSLayoutManager *lm = [[NSLayoutManager alloc] init];
-    [ts addLayoutManager:lm];
-    NSTextContainer *tc = [[NSTextContainer alloc] initWithSize:NSMakeSize(frame.size.width, 10000000)];
+    NSTextContainer *tc;
+    NSTextStorage *ts = nil;
+    NSLayoutManager *lm = nil;
+    NSTextContentStorage *tcs = nil;
+    if (textKit2) {
+        tc = new_text_kit_2_container(NSMakeSize(frame.size.width, 10000000), &tcs);
+    } else {
+        ts = [[NSTextStorage alloc] init];
+        lm = [[NSLayoutManager alloc] init];
+        [ts addLayoutManager:lm];
+        tc = [[NSTextContainer alloc] initWithSize:NSMakeSize(frame.size.width, 10000000)];
+        [lm addTextContainer:tc];
+    }
     [tc setWidthTracksTextView:YES];
-    [lm addTextContainer:tc];
     self = [self initWithFrame:frame textContainer:tc];
     if (self) {
         _t.vResizable = YES;
         _maxSize = NSMakeSize(frame.size.width, 10000000);
     }
     [tc release];
+    [tcs release];
     [lm release];
     [ts release];
     return self;
 }
 
+- (instancetype)initWithFrame:(NSRect)frame { return [self _finchInitWithFrame:frame textKit2:YES]; }
+
 - (instancetype)initUsingTextLayoutManager:(BOOL)usingTextLayoutManager
 {
-    return [self initWithFrame:NSZeroRect];
+    return [self _finchInitWithFrame:NSZeroRect textKit2:usingTextLayoutManager];
 }
 
 + (instancetype)textViewUsingTextLayoutManager:(BOOL)usingTextLayoutManager
 {
-    return [[[self alloc] initWithFrame:NSZeroRect] autorelease];
+    return [[[self alloc] initUsingTextLayoutManager:usingTextLayoutManager] autorelease];
 }
+
+/* A text view in a scroll view, as Apple's: no frame yet, a vertical scroller,
+ * the view tracking the scroll view's width. */
++ (NSScrollView *)_finchScrollableTextView:(BOOL)rich
+{
+    NSScrollView *sv = [[[NSScrollView alloc] initWithFrame:NSZeroRect] autorelease];
+    [sv setHasVerticalScroller:YES];
+    [sv setBorderType:NSNoBorder];
+    NSSize size = [sv contentSize];
+    NSTextView *tv = [[self alloc] initWithFrame:NSMakeRect(0, 0, size.width, size.height)];
+    [tv setMinSize:NSMakeSize(0, size.height)];
+    [tv setVerticallyResizable:YES];
+    [tv setHorizontallyResizable:NO];
+    [tv setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [[tv textContainer] setWidthTracksTextView:YES];
+    if (!rich)
+        [tv setRichText:NO];
+    [sv setDocumentView:tv];
+    [tv release];
+    return sv;
+}
+
++ (NSScrollView *)scrollableTextView { return [self _finchScrollableTextView:YES]; }
++ (NSScrollView *)scrollableDocumentContentTextView { return [self _finchScrollableTextView:YES]; }
++ (NSScrollView *)scrollablePlainDocumentContentTextView { return [self _finchScrollableTextView:NO]; }
 
 - (void)dealloc
 {
@@ -326,8 +420,12 @@ adopt(NSTextView *self, NSTextContainer *container)
     [_blink release];
     if (kill_view == self)
         kill_view = nil;
+    if (_tlm.textViewportLayoutController.delegate == (id)self)
+        _tlm.textViewportLayoutController.delegate = nil;
     [_container setTextView:nil];
     [_container release];
+    [_tlm release];
+    [_tcs release];
     [_lm release];
     [_storage release];
     [_typing release];
@@ -347,13 +445,51 @@ adopt(NSTextView *self, NSTextContainer *container)
 - (void)setTextContainer:(NSTextContainer *)container { adopt(self, container); }
 - (void)replaceTextContainer:(NSTextContainer *)container
 {
-    [_container replaceLayoutManager:[container layoutManager] ?: _lm];
+    if (_tlm) {
+        NSTextLayoutManager *tlm = [[_tlm retain] autorelease];
+        [tlm setTextContainer:container];
+    } else {
+        [_container replaceLayoutManager:[container layoutManager] ?: _lm];
+    }
     adopt(self, container);
 }
-- (NSLayoutManager *)layoutManager { return _lm; }
+
+- (NSLayoutManager *)layoutManager
+{
+    if (_tlm)
+        [self _finchSwitchToTextKit1];
+    return _lm;
+}
+
 - (NSTextStorage *)textStorage { return _storage; }
-- (NSTextLayoutManager *)textLayoutManager { return nil; }
-- (NSTextContentStorage *)textContentStorage { return nil; }
+- (NSTextLayoutManager *)textLayoutManager { return _tlm; }
+- (NSTextContentStorage *)textContentStorage { return _tcs; }
+
+/* TextKit 1 from here on: an NSLayoutManager over the same text storage and container. */
+- (void)_finchSwitchToTextKit1
+{
+    if (!_tlm)
+        return;
+    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+    [nc postNotificationName:NSTextViewWillSwitchToNSLayoutManagerNotification object:self];
+    NSTextLayoutManager *tlm = [_tlm autorelease];
+    NSTextContentStorage *tcs = [_tcs autorelease];
+    _tlm = nil;
+    _tcs = nil;
+    if (tlm.textViewportLayoutController.delegate == (id)self)
+        tlm.textViewportLayoutController.delegate = nil;
+    [tlm setTextContainer:nil];
+    [tcs removeTextLayoutManager:tlm];
+    if (_storage.textStorageObserver == (id)tcs)
+        _storage.textStorageObserver = nil;
+    NSLayoutManager *lm = [[NSLayoutManager alloc] init];
+    [_storage addLayoutManager:lm];
+    [lm addTextContainer:_container];
+    [_lm release];
+    _lm = lm;
+    [self setNeedsDisplay:YES];
+    [nc postNotificationName:NSTextViewDidSwitchToNSLayoutManagerNotification object:self];
+}
 
 - (NSSize)textContainerInset { return _inset; }
 - (void)setTextContainerInset:(NSSize)inset
@@ -970,6 +1106,28 @@ update_typing_from_text(NSTextView *self)
     self->_typing = [a copy];
 }
 
+/* TextKit 2: the text layout manager's selections follow the view's. */
+static void
+sync_text_selections(NSTextView *self)
+{
+    NSTextLayoutManager *tlm = self->_tlm;
+    NSTextContentManager *tcm = tlm.textContentManager;
+    if (!tlm || !tcm)
+        return;
+    id<NSTextLocation> start = tcm.documentRange.location;
+    id<NSTextLocation> a = [tcm locationFromLocation:start withOffset:(NSInteger)self->_sel.location];
+    id<NSTextLocation> b = [tcm locationFromLocation:start withOffset:(NSInteger)NSMaxRange(self->_sel)];
+    NSTextRange *r = a && b ? [[[NSTextRange alloc] initWithLocation:a endLocation:b] autorelease] : nil;
+    if (!r)
+        return;
+    NSTextSelection *sel = [[[NSTextSelection alloc]
+        initWithRange:r
+             affinity:self->_affinity == NSSelectionAffinityUpstream ? NSTextSelectionAffinityUpstream : NSTextSelectionAffinityDownstream
+          granularity:NSTextSelectionGranularityCharacter] autorelease];
+    sel.anchorPositionOffset = -1;
+    tlm.textSelections = @[ sel ];
+}
+
 - (void)setSelectedRange:(NSRange)range affinity:(NSSelectionAffinity)affinity stillSelecting:(BOOL)still
 {
     range = clamp_range(self, range);
@@ -980,6 +1138,7 @@ update_typing_from_text(NSTextView *self)
         }
         _sel = range;
         _affinity = affinity;
+        sync_text_selections(self);
         [self setNeedsDisplay:YES];
         return;
     }
@@ -991,6 +1150,7 @@ update_typing_from_text(NSTextView *self)
     _sel = range;
     _affinity = affinity;
     _generation++;
+    sync_text_selections(self);
     if (moved && !_t.selfEdit) {
         update_typing_from_text(self);
         [self breakUndoCoalescing];
@@ -2017,10 +2177,26 @@ is_active(NSTextView *self)
         for (NSUInteger i = 0; i < n; i++)
             NSRectFillUsingOperation(NSOffsetRect(rects[i], o.x, o.y), NSCompositingOperationSourceOver);
     }
-    NSRange glyphs = [_lm glyphRangeForBoundingRect:inContainer inTextContainer:_container];
-    if (glyphs.length) {
-        [_lm drawBackgroundForGlyphRange:glyphs atPoint:o];
-        [_lm drawGlyphsForGlyphRange:glyphs atPoint:o];
+    if (_tlm) {
+        /* TextKit 2: the viewport's layout fragments draw themselves. */
+        [[_tlm textViewportLayoutController] layoutViewport];
+        CGContextRef cg = [[NSGraphicsContext currentContext] CGContext];
+        [_tlm enumerateTextLayoutFragmentsFromLocation:nil
+                                               options:NSTextLayoutFragmentEnumerationOptionsEnsuresLayout
+                                            usingBlock:^BOOL(NSTextLayoutFragment *f) {
+                                              CGRect fr = [f layoutFragmentFrame];
+                                              if (CGRectGetMinY(fr) >= NSMaxY(inContainer))
+                                                  return NO;
+                                              if (CGRectGetMaxY(fr) > NSMinY(inContainer))
+                                                  [f drawAtPoint:CGPointMake(o.x + fr.origin.x, o.y + fr.origin.y) inContext:cg];
+                                              return YES;
+                                            }];
+    } else {
+        NSRange glyphs = [_lm glyphRangeForBoundingRect:inContainer inTextContainer:_container];
+        if (glyphs.length) {
+            [_lm drawBackgroundForGlyphRange:glyphs atPoint:o];
+            [_lm drawGlyphsForGlyphRange:glyphs atPoint:o];
+        }
     }
     if (!_sel.length && [self shouldDrawInsertionPoint] && is_active(self) && _t.caretOn) {
         NSRect c = caret_rect(self, _sel.location, _affinity == NSSelectionAffinityUpstream);
@@ -2388,10 +2564,35 @@ start_blinking(NSTextView *self)
         return nil;
     tv_defaults(self);
     NSTextContainer *tc = [coder decodeObjectForKey:@"NSTextContainer"];
+    NSTextContentStorage *tcs = nil;
+    if (tc && ![tc textLayoutManager]) {
+        /* Nibs hold TextKit 1 objects; on macOS 26 the view comes up on TextKit 2 all the
+         * same, over the decoded text storage, when its layout manager is the plain kind. */
+        NSLayoutManager *lm = [tc layoutManager];
+        NSTextStorage *ts = [[[lm textStorage] retain] autorelease];
+        if (lm && [[lm textContainers] count] == 1 && ![lm delegate] && [lm isMemberOfClass:[NSLayoutManager class]] &&
+            (!ts || [ts isKindOfClass:[NSTextStorage class]])) {
+            [[lm retain] autorelease];
+            [[tc retain] autorelease];
+            [lm removeTextContainerAtIndex:0];
+            [ts removeLayoutManager:lm];
+            tcs = [[NSTextContentStorage alloc] init];
+            if (ts)
+                [tcs setTextStorage:ts];
+            NSTextLayoutManager *tlm = [[NSTextLayoutManager alloc] init];
+            [tcs addTextLayoutManager:tlm];
+            [tlm setTextContainer:tc];
+            [tlm release];
+        }
+    }
     if (tc)
         adopt(self, tc);
-    else
-        adopt(self, [[[NSTextContainer alloc] initWithSize:NSMakeSize(NSWidth([self frame]), 10000000)] autorelease]);
+    else {
+        NSTextContainer *fresh = new_text_kit_2_container(NSMakeSize(NSWidth([self frame]), 10000000), &tcs);
+        adopt(self, fresh);
+        [fresh release];
+    }
+    [tcs release];
     unsigned tv = (unsigned)[coder decodeIntForKey:@"NSTVFlags"];
     _t.hResizable = (tv & TV_HORIZONTALLY_RESIZABLE) != 0;
     _t.vResizable = (tv & TV_VERTICALLY_RESIZABLE) != 0;
@@ -2472,6 +2673,27 @@ start_blinking(NSTextView *self)
     [shared release];
     if (_delegate)
         [coder encodeConditionalObject:_delegate forKey:@"NSDelegate"];
+}
+
+@end
+
+#pragma mark - TextKit 2's viewport
+
+@implementation NSTextView (FinchViewport)
+
+/* The visible part of the view, in the text container's coordinates. */
+- (CGRect)viewportBoundsForTextViewportLayoutController:(NSTextViewportLayoutController *)controller
+{
+    NSRect v = [self visibleRect];
+    if (NSIsEmptyRect(v))
+        v = [self bounds];
+    NSPoint o = [self textContainerOrigin];
+    return NSRectToCGRect(NSOffsetRect(v, -o.x, -o.y));
+}
+
+- (void)textViewportLayoutController:(NSTextViewportLayoutController *)controller
+    configureRenderingSurfaceForTextLayoutFragment:(NSTextLayoutFragment *)fragment
+{
 }
 
 @end

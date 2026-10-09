@@ -39,6 +39,8 @@ typedef struct {
     NSMutableAttributedString *_temporary;
     NSRect *_rectArray;
     NSUInteger _rectCapacity;
+    NSUInteger _generation; /* bumped whenever the layout is discarded */
+    BOOL _engine;           /* NSTextLayoutManager's layout (UIFTextKit2.h) */
 }
 @end
 
@@ -74,13 +76,15 @@ discard_layout(NSLayoutManager *self)
     self->_layouts = NULL;
     self->_layoutCount = 0;
     self->_valid = NO;
+    self->_generation++;
 }
 
 - (void)dealloc
 {
     discard_layout(self);
-    for (NSTextContainer *c in _containers)
-        [c setLayoutManager:nil];
+    if (!_engine)
+        for (NSTextContainer *c in _containers)
+            [c setLayoutManager:nil];
     [_containers release];
     [_temporary release];
     free(_rectArray);
@@ -111,7 +115,7 @@ enum { LM_ALLOWS_NONCONTIGUOUS = 1 << 7 };
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-    [coder encodeConditionalObject:_textStorage forKey:@"NSTextStorage"];
+    [coder encodeObject:_engine ? nil : _textStorage forKey:@"NSTextStorage"];
     [coder encodeObject:_containers forKey:@"NSTextContainers"];
     [coder encodeInt:0x66 | (_allowsNonContiguous ? LM_ALLOWS_NONCONTIGUOUS : 0) forKey:@"NSLMFlags"];
     if (_delegate)
@@ -424,7 +428,9 @@ used_rect(ContainerLayout *cl, size_t i)
     return NSMakeRect(ln->x, f.origin.y, ln->width + 2 * cl->padding, f.size.height);
 }
 
-/* The x of a character's start within its line (from the text's start). */
+/* The x of a character's start within its line (from the text's start): its
+ * glyph's position, as TextKit places it (kerning moves the glyph, not the
+ * caret between), or CoreText's caret inside a ligature. */
 static CGFloat
 offset_in_line(UIFLine *ln, NSUInteger index)
 {
@@ -435,6 +441,24 @@ offset_in_line(UIFLine *ln, NSUInteger index)
     if (index >= textEnd)
         return (CGFloat)CTLineGetTypographicBounds(ln->line, NULL, NULL, NULL);
     CFIndex i = lr.location + (CFIndex)(index - ln->range.location);
+    CFArrayRef runs = CTLineGetGlyphRuns(ln->line);
+    for (CFIndex r = 0; r < CFArrayGetCount(runs); r++) {
+        CTRunRef run = CFArrayGetValueAtIndex(runs, r);
+        CFRange rr = CTRunGetStringRange(run);
+        if (i < rr.location || i >= rr.location + rr.length)
+            continue;
+        CFIndex n = CTRunGetGlyphCount(run);
+        for (CFIndex g = 0; g < n; g++) {
+            CFIndex si;
+            CTRunGetStringIndices(run, CFRangeMake(g, 1), &si);
+            if (si == i) {
+                CGPoint p;
+                CTRunGetPositions(run, CFRangeMake(g, 1), &p);
+                return p.x;
+            }
+        }
+        break;
+    }
     return CTLineGetOffsetForStringIndex(ln->line, i, NULL);
 }
 
@@ -1036,6 +1060,50 @@ clamp(NSLayoutManager *self, NSRange r)
     if (location >= t.length)
         return @{};
     return [t attributesAtIndex:location longestEffectiveRange:range inRange:clamp(self, rangeLimit)];
+}
+
+#pragma mark TextKit 2's layout
+
+/*
+ * NSTextLayoutManager lays text out with a layout manager of its own that no
+ * one else sees (UIFTextKit2.h): it holds the text storage without being one
+ * of its layout managers, and the container without being the container's
+ * layout manager, so TextKit 1 and 2 lay out alike.
+ */
+- (void)_uifBecomeEngineWithTextContainer:(NSTextContainer *)container
+{
+    _engine = YES;
+    if (_containers.count == 1 && _containers[0] == container)
+        return;
+    [_containers removeAllObjects];
+    if (container)
+        [_containers addObject:container];
+    [self invalidate];
+}
+
+UIFLayout *
+UIFLayoutManagerLayout(NSLayoutManager *lm, NSTextContainer *container, CGFloat *padding, CGFloat *width)
+{
+    ContainerLayout *cl = lm ? layout_for(lm, container) : NULL;
+    if (!cl)
+        return NULL;
+    if (padding)
+        *padding = cl->padding;
+    if (width)
+        *width = cl->width;
+    return &cl->layout;
+}
+
+NSUInteger
+UIFLayoutManagerGeneration(NSLayoutManager *lm)
+{
+    return lm ? lm->_generation : 0;
+}
+
+CGFloat
+UIFLineOffset(UIFLine *ln, NSUInteger index)
+{
+    return offset_in_line(ln, index);
 }
 
 @end

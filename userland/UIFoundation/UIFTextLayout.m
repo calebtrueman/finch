@@ -310,15 +310,22 @@ UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
             }
             CGFloat w = line ? line_width(line, avail) : 0;
             CGFloat x = indent;
-            CGFloat room = (right == CGFLOAT_MAX ? w + indent : right) - indent - w;
             NSTextAlignment align = ps.alignment;
             if (align == NSTextAlignmentNatural || align == NSTextAlignmentJustified)
                 align = ps.baseWritingDirection == NSWritingDirectionRightToLeft ? NSTextAlignmentRight : NSTextAlignmentLeft;
+            /* Centred and right-aligned lines are placed by their text without
+             * trailing whitespace, which may then hang up to the right edge. */
+            CGFloat placed = w;
+            if (line && align != NSTextAlignmentLeft)
+                placed = MAX(0, w - (CGFloat)CTLineGetTrailingWhitespaceWidth(line));
+            CGFloat room = (right == CGFLOAT_MAX ? placed + indent : right) - indent - placed;
             if (room > 0 && containerWidth != CGFLOAT_MAX) {
                 if (align == NSTextAlignmentCenter)
                     x += room / 2;
                 else if (align == NSTextAlignmentRight)
                     x += room;
+                if (right != CGFLOAT_MAX && x + w > right)
+                    w = MAX(right - x, placed);
             }
             /* Its characters: the paragraph break goes with the paragraph's last line. */
             NSUInteger lineEnd = lastInParagraph ? next : start + (NSUInteger)(pos + count);
@@ -457,7 +464,12 @@ decoration(CGContextRef cg, NSInteger style, CGFloat x0, CGFloat x1, CGFloat bas
 void
 UIFLayoutDrawLines(UIFLayout *L, size_t first, size_t count, CGFloat left, CGFloat top, BOOL flipped)
 {
-    CGContextRef cg = UIFCurrentCGContext();
+    UIFLayoutDrawLinesInContext(UIFCurrentCGContext(), L, first, count, left, top, flipped);
+}
+
+void
+UIFLayoutDrawLinesInContext(CGContextRef cg, UIFLayout *L, size_t first, size_t count, CGFloat left, CGFloat top, BOOL flipped)
+{
     if (!cg)
         return;
     CGAffineTransform savedTM = CGContextGetTextMatrix(cg);

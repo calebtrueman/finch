@@ -2,9 +2,16 @@
 /*
  * NSTextContainer: the region text is laid out in (a rectangle; exclusion
  * paths are kept but not yet laid around), with Apple's defaults, archive
- * keys and description.
+ * keys and description. A container belongs to an NSLayoutManager (TextKit 1)
+ * or an NSTextLayoutManager (TextKit 2). Asking a TextKit 2 text view's
+ * container for its layoutManager switches the view to TextKit 1, as on macOS.
  */
-#import "UIFoundationInternal.h"
+#import "UIFTextKit2.h"
+
+/* A TextKit 2 text view (AppKit's NSTextView) switching to TextKit 1. */
+@interface NSObject (UIFTextKit1Fallback)
+- (void)_finchSwitchToTextKit1;
+@end
 
 @interface NSLayoutManager (UIFTextContainer)
 - (void)textContainerChangedGeometry:(NSTextContainer *)container;
@@ -17,6 +24,7 @@
     NSUInteger _maximumNumberOfLines;
     NSArray *_exclusionPaths;
     NSLayoutManager *_layoutManager; /* not retained: it owns its containers */
+    NSTextLayoutManager *_uifTLM; /* not retained: it owns its container */
     __weak id _textView;
     BOOL _widthTracksTextView, _heightTracksTextView;
 }
@@ -47,7 +55,9 @@ changed(NSTextContainer *self, NSLayoutManager *lm)
 {
     if ([lm respondsToSelector:@selector(textContainerChangedGeometry:)])
         [lm textContainerChangedGeometry:self];
+    [self->_uifTLM _uifTextContainerChanged];
 }
+
 
 - (CGSize)size { return _size; }
 - (void)setSize:(CGSize)size
@@ -91,9 +101,18 @@ changed(NSTextContainer *self, NSLayoutManager *lm)
 - (void)setWidthTracksTextView:(BOOL)v { _widthTracksTextView = v; }
 - (BOOL)heightTracksTextView { return _heightTracksTextView; }
 - (void)setHeightTracksTextView:(BOOL)v { _heightTracksTextView = v; }
-- (NSLayoutManager *)layoutManager { return _layoutManager; }
+- (NSLayoutManager *)layoutManager
+{
+    if (!_layoutManager && _uifTLM) {
+        id tv = _textView;
+        if ([tv respondsToSelector:@selector(_finchSwitchToTextKit1)])
+            [tv _finchSwitchToTextKit1];
+    }
+    return _layoutManager;
+}
 - (void)setLayoutManager:(NSLayoutManager *)lm { _layoutManager = lm; }
-- (NSTextLayoutManager *)textLayoutManager { return nil; }
+- (NSTextLayoutManager *)textLayoutManager { return _uifTLM; }
+- (void)_uifSetTextLayoutManager:(NSTextLayoutManager *)tlm { _uifTLM = tlm; }
 - (NSTextView *)textView { return _textView; }
 - (void)setTextView:(NSTextView *)textView { _textView = textView; }
 
@@ -154,8 +173,12 @@ changed(NSTextContainer *self, NSLayoutManager *lm)
     [coder encodeDouble:_padding forKey:@"NSPadding"];
     [coder encodeDouble:15 forKey:@"NSMinWidth"];
     [coder encodeInteger:(_widthTracksTextView ? 1 : 0) | (_heightTracksTextView ? 2 : 0) forKey:@"NSTCFlags"];
-    [coder encodeConditionalObject:_layoutManager forKey:@"NSLayoutManager"];
-    [coder encodeConditionalObject:nil forKey:@"NSTextLayoutManager"];
+    /* Unconditionally, as Apple's: a text view's archive holds its text system through its container. */
+    [coder encodeObject:_layoutManager forKey:@"NSLayoutManager"];
+    if (_uifTLM)
+        [coder encodeObject:_uifTLM forKey:@"NSTextLayoutManager"];
+    else
+        [coder encodeConditionalObject:nil forKey:@"NSTextLayoutManager"];
     [coder encodeConditionalObject:_textView forKey:@"NSTextView"];
     if (_exclusionPaths.count)
         [coder encodeObject:_exclusionPaths forKey:@"NSExclusionPaths"];
@@ -181,6 +204,9 @@ changed(NSTextContainer *self, NSLayoutManager *lm)
         NSLayoutManager *lm = [coder decodeObjectForKey:@"NSLayoutManager"];
         if (lm && [lm.textContainers indexOfObjectIdenticalTo:self] == NSNotFound)
             _layoutManager = lm;
+        NSTextLayoutManager *tlm = [coder decodeObjectForKey:@"NSTextLayoutManager"];
+        if ([tlm isKindOfClass:[NSTextLayoutManager class]] && !_layoutManager)
+            tlm.textContainer = self;
     }
     return self;
 }
