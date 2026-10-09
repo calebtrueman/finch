@@ -207,13 +207,18 @@ text_style_size(NSString *style, BOOL *bold)
     NSString *usage = attrs[UIFUIUsageAttribute];
     id size = attrs[NSFontSizeAttribute];
     if (usage) {
-        /* The system font's emphasized (bold) and regular faces. */
+        /* Keep the system font's real bold and italic faces. */
         NSMutableDictionary *a = [NSMutableDictionary dictionary];
         if (symbolicTraits & NSFontDescriptorTraitBold) {
             a[UIFUIUsageAttribute] = @"CTFontEmphasizedUsage";
             a[NSFontNameAttribute] = @".AppleSystemUIFontEmphasized";
         } else {
             a[UIFUIUsageAttribute] = @"CTFontRegularUsage";
+        }
+        if (symbolicTraits & NSFontDescriptorTraitItalic) {
+            a[NSFontNameAttribute] = (symbolicTraits & NSFontDescriptorTraitBold)
+                ? @".AppleSystemUIFontEmphasizedItalic" : @".AppleSystemUIFontItalic";
+            a[NSFontTraitsAttribute] = @{NSFontSymbolicTrait : @(symbolicTraits)};
         }
         if (size)
             a[NSFontSizeAttribute] = size;
@@ -224,6 +229,18 @@ text_style_size(NSString *style, BOOL *bold)
         NSMutableDictionary *traits = [[attrs[NSFontTraitsAttribute] mutableCopy] autorelease];
         if (![traits isKindOfClass:[NSMutableDictionary class]])
             traits = [NSMutableDictionary dictionary];
+        if (traits[kDesignTraitKey]) {
+            if ([traits[kDesignTraitKey] isEqual:NSFontDescriptorSystemDesignRounded] &&
+                (symbolicTraits & NSFontDescriptorTraitItalic))
+                return nil; /* Open Runde has no italic face. */
+            BOOL wasBold = [traits[NSFontSymbolicTrait] unsignedIntValue] & NSFontDescriptorTraitBold;
+            if (symbolicTraits & NSFontDescriptorTraitBold) {
+                if ([traits[NSFontWeightTrait] doubleValue] < NSFontWeightBold)
+                    traits[NSFontWeightTrait] = @(NSFontWeightBold);
+            } else if (wasBold) {
+                traits[NSFontWeightTrait] = @(NSFontWeightRegular);
+            }
+        }
         traits[NSFontSymbolicTrait] = @(symbolicTraits);
         a[NSFontTraitsAttribute] = traits;
         return descriptor_with(a);
@@ -250,12 +267,17 @@ text_style_size(NSString *style, BOOL *bold)
 
 - (instancetype)fontDescriptorWithDesign:(NSFontDescriptorSystemDesign)design
 {
-    /* Only the system font has designs. */
+    /* A system font can change designs again after its first change. */
     NSDictionary *attrs = self.fontAttributes;
     NSString *usage = attrs[UIFUIUsageAttribute];
-    if (!usage || !design)
+    NSDictionary *oldTraits = attrs[NSFontTraitsAttribute];
+    BOOL hasDesign = [oldTraits isKindOfClass:[NSDictionary class]] && oldTraits[kDesignTraitKey];
+    if ((!usage && !hasDesign) || !design)
         return nil;
-    NSFont *f = UIFSystemFontForUsage(usage, self.pointSize);
+    NSFont *f = [NSFont fontWithDescriptor:self size:self.pointSize];
+    if (!f || ([design isEqual:NSFontDescriptorSystemDesignRounded] &&
+               (CTFontGetSymbolicTraits((CTFontRef)f) & kCTFontTraitItalic)))
+        return nil;
     NSDictionary *fontTraits = [(NSDictionary *)CTFontCopyTraits((CTFontRef)f) autorelease];
     NSMutableDictionary *traits = [NSMutableDictionary dictionary];
     traits[NSFontWidthTrait] = fontTraits[NSFontWidthTrait] ? fontTraits[NSFontWidthTrait] : @0;

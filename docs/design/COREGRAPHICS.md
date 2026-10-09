@@ -96,13 +96,17 @@ Apple's fonts can't be redistributed, so Finch ships open fonts and maps
 Apple's names to them. `userland/fonts/build.sh` downloads pinned upstream
 releases (each checked by SHA-256), installs the font files unmodified into
 `/System/Library/Fonts` and their licences into
-`/usr/share/finch/licenses/<family>/`. 51 files, 59 MB:
+`/usr/share/finch/licenses/<family>/`. 65 files, about 62 MB:
 
 | Font (version, licence) | Faces | Size | Stands in for |
 |---|---|---|---|
+| Open Runde 1.0.1 (OFL-1.1) | regular, medium, semibold, bold | 1.3 MB | SF Pro Rounded, including AppKit's rounded system design |
+| Fragment Mono 1.21 (OFL-1.1) | regular, italic | 0.3 MB | SF Mono and the monospaced system font |
+| XCharter 1.26 (Bitstream free font licence) | roman, bold, italic, bold italic | 0.5 MB | Charter |
+| TeX Gyre Pagella 2.501 (GUST Font License) | regular, bold, italic, bold italic | 0.8 MB | Palatino |
 | Inter 4.1 (OFL-1.1) | all 18 static faces, Thin to Black, upright and italic | 7.2 MB | the system font (SF Pro), Lucida Grande |
 | Liberation Sans, Serif, Mono 2.1.5 (OFL-1.1) | regular, bold, italic, bold italic | 4.2 MB | Helvetica, Helvetica Neue, Arial; Times, Times New Roman; Courier, Courier New (metric-compatible with Arial, Times New Roman and Courier New) |
-| DejaVu Sans Mono 2.37 (Bitstream Vera) | book, bold, oblique, bold oblique | 1.1 MB | Menlo, Monaco, SF Mono. Menlo is derived from DejaVu Sans Mono, so the metrics match Menlo's; JetBrains Mono doesn't. |
+| DejaVu Sans Mono 2.37 (Bitstream Vera) | book, bold, oblique, bold oblique | 1.1 MB | Menlo, Monaco, and SF Mono's bold styles. Fragment Mono has no bold face. |
 | Noto Sans, Noto Serif 2.015 (OFL-1.1) | regular, bold, italic, bold italic | 3.6 MB | fallback for Latin, Greek, Cyrillic |
 | Noto Sans Symbols 2.003, Symbols 2 2.008 (OFL-1.1) | regular | 0.8 MB | Apple Symbols, symbol fallback |
 | Noto Sans Arabic 2.013, Noto Sans Hebrew 3.001 (OFL-1.1) | regular, bold | 0.3 MB | Geeza Pro, Arial Hebrew, right-to-left fallback |
@@ -110,6 +114,12 @@ releases (each checked by SHA-256), installs the font files unmodified into
 | Noto Color Emoji 2.051 (OFL-1.1) | CBDT colour bitmaps | 10.2 MB | Apple Color Emoji |
 
 The Noto fonts are the unhinted builds, as Finch draws glyphs unhinted.
+XCharter and Pagella come from fixed TeX Live archive revisions. The new fonts are
+the same files checked in the October 9 Mac comparison.
+
+Fragment Mono has no bold face, so bold SF Mono requests still use DejaVu.
+Adding those traits with CoreText or NSFontManager also selects these real faces. Rounded
+requests below regular use Open Runde Regular; heavy and black use Bold.
 The fonts are installed into `build/root`, so the VM ramdisk carries them (it
 is 1 GiB, and about 470 MB was in use before the fonts).
 
@@ -128,11 +138,16 @@ ignoring case, as Apple's names do.
 | Helvetica-BoldOblique, HelveticaNeue-BoldItalic, Arial-BoldItalicMT | LiberationSans-BoldItalic |
 | Times, Times-Roman, Times New Roman, TimesNewRomanPSMT (and -Bold, -Italic, -BoldItalic forms) | LiberationSerif (and its faces) |
 | Courier, Courier New, CourierNewPSMT (and -Bold, -Oblique/-Italic forms) | LiberationMono (and its faces) |
-| Menlo, Menlo-Regular, Monaco, SF Mono, SFMono-Regular, .AppleSystemUIFontMonospaced | DejaVuSansMono |
+| Menlo, Menlo-Regular, Monaco | DejaVuSansMono |
+| SF Mono, SFMono-Regular, .AppleSystemUIFontMonospaced; SFMono-RegularItalic | FragmentMono-Regular; FragmentMono-Italic |
 | Menlo-Bold, SFMono-Bold, SFMono-Semibold; Menlo-Italic; Menlo-BoldItalic | DejaVuSansMono-Bold; -Oblique; -BoldOblique |
 | .AppleSystemUIFont, System Font, .SF NS, .SFNS-Regular, SF Pro, SF Pro Text, SF Pro Display, SFProText-Regular, LucidaGrande, .Keyboard | Inter-Regular |
 | .AppleSystemUIFontBold, .SFNS-Bold, SFProText-Bold, LucidaGrande-Bold | Inter-Bold |
 | SF weights: Ultralight, Thin, Light, Medium, Semibold, Heavy, Black (.SFNS-, SFProText-, SFProDisplay-) | Inter-ExtraLight, -Thin, -Light, -Medium, -SemiBold, -ExtraBold, -Black |
+| .AppleSystemUIFontItalic; .AppleSystemUIFontEmphasizedItalic | Inter-Italic; Inter-BoldItalic |
+| SF Pro Rounded, SFProRounded-Regular, .SFNSRounded-Regular; Medium, Semibold, Bold forms | OpenRunde-Regular; -Medium, -Semibold, -Bold |
+| Charter, Charter-Roman; -Bold, -Italic, -BoldItalic | XCharter-Roman; -Bold, -Italic, -BoldItalic |
+| Palatino, Palatino-Roman; -Bold, -Italic, -BoldItalic | TeXGyrePagella-Regular; -Bold, -Italic, -BoldItalic |
 | Apple Color Emoji, AppleColorEmoji | NotoColorEmoji |
 | Apple Symbols | NotoSansSymbols-Regular |
 | PingFang SC/TC/HK and their faces, Hiragino Sans (W3), Hiragino Kaku Gothic ProN, Hiragino Mincho ProN, Apple SD Gothic Neo, Heiti SC | NotoSansCJKsc-Regular (Semibold, W6 and Bold faces: NotoSansCJKsc-Bold) |
@@ -176,9 +191,20 @@ Japanese, Korean, Arabic, Hebrew, symbols and emoji (including ZWJ and
 skin-tone sequences). Apple's run necessarily names Apple's fonts, so the
 output is compared with `ctfonts-expected.txt` rather than with Apple's.
 
-Text laid out in substituted fonts won't break lines in exactly the same
-places as on macOS (only Liberation is metric-compatible, and with Arial,
-Times New Roman and Courier New rather than Helvetica, Times and Courier).
+`finch-font-replacements-test` checks all nine system weights, the rounded
+design and its bold/size changes, the monospaced system font, and real
+italic/bold fallback faces. It also reads glyph outlines and checks that
+CoreText and CoreGraphics load the same font data and agree on widths.
+
+Text laid out in substituted fonts may break lines in different places
+from macOS. The new fonts were compared on this Mac at seven sizes;
+Fragment Mono, XCharter and Pagella matched all tested paragraph breaks.
+For the system font Finch keeps Inter, whose line heights match San
+Francisco's at the UI sizes AppKit uses (13 pt text lines 16 points tall), so
+control and window layouts come out as on macOS; San Grotesque, also tried,
+looked closer but set lines a point shorter. Apple's changing letter spacing and
+optical sizes are not reproduced by these static fonts. Liberation keeps
+Arial, Times New Roman and Courier New's metrics.
 Apps that need exact metrics bundle their own fonts, and those load through
 `CTFontManager` as on macOS.
 

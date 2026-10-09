@@ -101,8 +101,13 @@ names(void)
         "Times", "Times-Roman", "Times-Bold", "Times New Roman", "TimesNewRomanPSMT", "TimesNewRomanPS-BoldMT",
         "Courier", "Courier-Bold", "Courier New", "CourierNewPSMT", "CourierNewPS-BoldMT",
         "Menlo", "Menlo-Regular", "Menlo-Bold", "Menlo-Italic", "Monaco", "SF Mono", "SFMono-Regular", "SFMono-Bold",
+        "SFMono-RegularItalic", "SFMono-BoldItalic", ".AppleSystemUIFontMonospaced",
         ".AppleSystemUIFont", ".AppleSystemUIFontBold", ".SFNS-Regular", ".SFNS-Semibold", ".SFNS-Bold", "System Font",
         "SF Pro", "SFProText-Regular", "SFProText-Medium", "SFProDisplay-Bold", "LucidaGrande", "Lucida Grande",
+        ".SFNS-Ultralight", ".SFNS-Thin", ".SFNS-Heavy", ".SFNS-Black", ".AppleSystemUIFontItalic",
+        "SF Pro Rounded", "SFProRounded-Regular", "SFProRounded-Medium", "SFProRounded-Semibold", "SFProRounded-Bold",
+        "Charter", "Charter-Roman", "Charter-Bold", "Charter-Italic", "Charter-BoldItalic",
+        "Palatino", "Palatino-Roman", "Palatino-Bold", "Palatino-Italic", "Palatino-BoldItalic",
         "LucidaGrande-Bold", "Apple Color Emoji", "AppleColorEmoji", "Apple Symbols",
         "PingFang SC", "PingFangSC-Regular", "PingFangSC-Semibold", "PingFangTC-Regular", "Hiragino Sans",
         "HiraginoSans-W3", "HiraginoSans-W6", "HiraKakuProN-W3", "Apple SD Gothic Neo",
@@ -159,7 +164,8 @@ defaults_and_traits(void)
     CFRelease(line), CFRelease(as);
 
     printf("# bold and italic copies\n");
-    const char *bases[] = {"Helvetica", "Times", "Courier", "Menlo", ".AppleSystemUIFont", "Noto Sans"};
+    const char *bases[] = {"Helvetica", "Times", "Courier", "Menlo", ".AppleSystemUIFont", "SF Mono",
+                           "SF Pro Rounded", "Charter", "Palatino", "Noto Sans"};
     for (unsigned i = 0; i < sizeof bases / sizeof bases[0]; i++) {
         CFStringRef n = cf(bases[i]);
         CTFontRef f = CTFontCreateWithName(n, 12, NULL);

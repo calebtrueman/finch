@@ -350,17 +350,34 @@ user_font(NSString *nameKey, NSString *sizeKey, NSString *defaultName, CGFloat d
     if (fontSize <= 0)
         fontSize = 12;
     NSString *usage = attrs[UIFUIUsageAttribute];
+    NSDictionary *traits = attrs[NSFontTraitsAttribute];
+    NSString *name = attrs[NSFontNameAttribute];
+    CTFontSymbolicTraits symbolic = [traits isKindOfClass:[NSDictionary class]]
+        ? (CTFontSymbolicTraits)[traits[NSFontSymbolicTrait] unsignedIntValue] : 0;
     if (usage) {
+        if (symbolic & kCTFontTraitItalic) {
+            NSString *italic = (symbolic & kCTFontTraitBold)
+                ? @".AppleSystemUIFontEmphasizedItalic" : @".AppleSystemUIFontItalic";
+            return system_font(italic, fontSize, attrs, italic, kFontFlagBase);
+        }
         NSFont *f = UIFSystemFontForUsage(usage, fontSize);
         if (f)
             return f;
     }
-    NSDictionary *traits = attrs[NSFontTraitsAttribute];
-    NSString *name = attrs[NSFontNameAttribute];
     if (!name && [traits isKindOfClass:[NSDictionary class]] && traits[@"NSCTFontUIFontDesignTrait"] && !attrs[NSFontFamilyAttribute]) {
-        /* A system design: Finch's serif and monospaced stand-ins, or the system font. */
+        /* A system design: choose its own family, keeping the design in the descriptor. */
         NSString *design = traits[@"NSCTFontUIFontDesignTrait"];
         CGFloat weight = [traits[NSFontWeightTrait] doubleValue];
+        if ([design isEqual:NSFontDescriptorSystemDesignRounded]) {
+            if (symbolic & kCTFontTraitItalic)
+                return nil; /* Open Runde has no italic face. */
+            size_t i = weight_index(weight);
+            if ((symbolic & kCTFontTraitBold) && i < 6)
+                i = 6;
+            NSString *rounded = i >= 6 ? @"SFProRounded-Bold" : i >= 5 ? @"SFProRounded-Semibold" :
+                                i >= 4 ? @"SFProRounded-Medium" : @"SFProRounded-Regular";
+            return system_font(rounded, fontSize, attrs, rounded, kFontFlagBase);
+        }
         if ([design isEqual:NSFontDescriptorSystemDesignSerif])
             return font_named(weight >= 0.3 ? @"Times-Bold" : @"Times-Roman", fontSize, NULL);
         if ([design isEqual:NSFontDescriptorSystemDesignMonospaced])
@@ -464,9 +481,9 @@ set_user_font(NSFont *font, NSString *nameKey, NSString *sizeKey)
 
 + (NSFont *)monospacedSystemFontOfSize:(CGFloat)fontSize weight:(NSFontWeight)weight
 {
-    /* SF Mono's place is taken by Menlo's (DejaVu Sans Mono on Finch). */
+    /* Fragment Mono supplies regular; DejaVu keeps bold available. */
     size_t i = weight_index(weight);
-    return font_named(i >= 5 ? @"Menlo-Bold" : @"Menlo-Regular", fontSize > 0 ? fontSize : 13, NULL);
+    return font_named(i >= 5 ? @"SFMono-Bold" : @"SFMono-Regular", fontSize > 0 ? fontSize : 13, NULL);
 }
 
 + (NSFont *)labelFontOfSize:(CGFloat)fontSize { return [self systemFontOfSize:fontSize > 0 ? fontSize : 10]; }
@@ -646,6 +663,11 @@ set_in_cgcontext(NSFont *font, CGContextRef cg)
         fontSize = 12;
     UIFSystemFontInfo *info = system_font_info(self);
     if (info) {
+        NSDictionary *traits = info->descriptor.fontAttributes[NSFontTraitsAttribute];
+        if ([traits isKindOfClass:[NSDictionary class]] &&
+            (traits[@"NSCTFontUIFontDesignTrait"] ||
+             ([traits[NSFontSymbolicTrait] unsignedIntValue] & kCTFontTraitItalic)))
+            return [NSFont fontWithDescriptor:info->descriptor size:fontSize];
         NSMutableDictionary *a = [[info->descriptor.fontAttributes mutableCopy] autorelease];
         [a removeObjectForKey:NSFontSizeAttribute];
         NSString *usage = a[UIFUIUsageAttribute];

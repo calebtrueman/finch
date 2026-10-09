@@ -1,20 +1,24 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # The fonts Finch ships in place of Apple's, which can't be redistributed.
-# Every font is an upstream release under an open licence, pinned by SHA-256,
-# and installed unchanged. CoreText and CoreGraphics map Apple's font names
-# onto them (userland/fonts/FinchFonts.h; docs/design/COREGRAPHICS.md,
+# Every font has an open licence, is pinned by SHA-256, and is installed
+# unchanged, from fixed release downloads. CoreText
+# and CoreGraphics map Apple's font names onto them (userland/fonts/FinchFonts.h; docs/design/COREGRAPHICS.md,
 # "Fonts").
 #
 #   userland/fonts/build.sh  -> build/root/System/Library/Fonts/*.{ttf,otf}
 #                               build/root/usr/share/finch/licenses/<font>/
 #
-# What ships and why (59 MB; the CJK pair is 32 MB of it):
-#   Inter 4.1 (OFL-1.1)              system/UI font (SF Pro): all 18 static faces
+# What ships and why (the CJK pair is about 32 MB):
+#   Inter 4.1 (OFL-1.1)              system/UI font (SF Pro): every weight, with italics
+#   Open Runde 1.0.1 (OFL-1.1)       SF Pro Rounded: regular, medium, semibold, bold
+#   Fragment Mono 1.21 (OFL-1.1)     SF Mono regular and italic
+#   XCharter 1.26 (Bitstream free)   Charter: regular, bold, italic, bold italic
+#   TeX Gyre Pagella 2.501 (GFL)     Palatino: regular, bold, italic, bold italic
 #   Liberation 2.1.5 (OFL-1.1)       Arial/Helvetica, Times, Courier: metric-compatible
 #   DejaVu Sans Mono 2.37 (Bitstream Vera + public domain)
-#                                    Menlo, Monaco, SF Mono: Menlo is derived from
-#                                    DejaVu Sans Mono, so its metrics match Menlo's
+#                                    Menlo, Monaco, and bold SF Mono requests:
+#                                    Fragment Mono has no bold face
 #   Noto Sans, Noto Serif 2.015 (OFL-1.1)   Latin, Greek, Cyrillic fallback
 #   Noto Sans Symbols 2.003, Symbols 2 2.008 (OFL-1.1)
 #   Noto Sans Arabic 2.013, Noto Sans Hebrew 3.001 (OFL-1.1)  right-to-left scripts
@@ -74,6 +78,41 @@ for w in Thin ExtraLight Light Regular Medium SemiBold Bold ExtraBold Black; do
     [[ ${w} == Regular ]] && faces+=("${d}/extras/ttf/Inter-Italic.ttf") || faces+=("${d}/extras/ttf/Inter-${w}Italic.ttf")
 done
 install_fonts Inter "${d}/LICENSE.txt" "${faces[@]}"
+
+fetch OpenRunde-1.0.1.zip 8043a338cc8ec78ed1bc0012aa779410eff68957a71004ff7b99306ddfaa1d41 \
+    https://github.com/lauridskern/open-runde/releases/download/v1.0.1/OpenRunde-1.0.1.zip
+fetch OpenRunde-LICENSE-1.0.1.txt 262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a \
+    https://raw.githubusercontent.com/lauridskern/open-runde/v1.0.1/LICENSE.txt
+d=$(unpack OpenRunde-1.0.1.zip)/OpenRunde-1.0.1
+install_fonts OpenRunde "${DL}/OpenRunde-LICENSE-1.0.1.txt" \
+    "${d}"/desktop/OpenRunde-{Regular,Medium,Semibold,Bold}.otf
+
+fetch fragment-mono-1.21.zip 1d3b711facfb0621638dc650708f8a26dbe83b1efb4382a2438ac5eadb716658 \
+    https://github.com/weiweihuanghuang/fragment-mono/releases/download/1.21/fragment-mono-1.21.zip
+d=$(unpack fragment-mono-1.21.zip)/fragment-mono-1.21
+install_fonts FragmentMono "${d}/OFL.txt" "${d}"/fonts/otf/FragmentMono-{Regular,Italic}.otf
+
+# CTAN's main zip URLs change with each update. These frozen TeX Live archives
+# have fixed revision names and contain the same font files used in our test.
+TEXLIVE=https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/2025/tlnet-final/archive
+fetch xcharter.r71564.tar.xz 8fc717152ae6ef683ebb982fbf20837f85ff03a5b440fd84b0b11eac7c14b523 \
+    "${TEXLIVE}/xcharter.r71564.tar.xz"
+fetch xcharter.doc.r71564.tar.xz 30a5aa924cab044820a208502cd94685357df968457d01a0dea6a8f1df2e4fa0 \
+    "${TEXLIVE}/xcharter.doc.r71564.tar.xz"
+d=$(unpack xcharter.r71564.tar.xz)
+doc=$(unpack xcharter.doc.r71564.tar.xz)
+install_fonts XCharter "${doc}/doc/fonts/xcharter/README" \
+    "${d}"/fonts/opentype/public/xcharter/XCharter-{Roman,Bold,Italic,BoldItalic}.otf
+
+fetch tex-gyre.r68624.tar.xz dfb4f55c4b02993003777a48663987bd102a3c5a2913172571e05fe2eb18407d \
+    "${TEXLIVE}/tex-gyre.r68624.tar.xz"
+fetch tex-gyre.doc.r68624.tar.xz c81a8ac0381e34c55b0075aec75e6646b69bb7b428ebb7d1eca337001f1ef08c \
+    "${TEXLIVE}/tex-gyre.doc.r68624.tar.xz"
+d=$(unpack tex-gyre.r68624.tar.xz)
+doc=$(unpack tex-gyre.doc.r68624.tar.xz)
+install_fonts TeXGyrePagella "${doc}/doc/fonts/tex-gyre/GUST-FONT-LICENSE.txt" \
+    "${d}"/fonts/opentype/public/tex-gyre/texgyrepagella-{regular,bold,italic,bolditalic}.otf
+install -m 644 "${doc}/doc/fonts/tex-gyre/README-TeX-Gyre-Pagella.txt" "${LICENSES}/TeXGyrePagella/"
 
 fetch liberation-fonts-ttf-2.1.5.tar.gz 7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0 \
     https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz

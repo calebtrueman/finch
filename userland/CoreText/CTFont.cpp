@@ -219,7 +219,7 @@ CTFontCreateWithGraphicsFont(CGFontRef graphicsFont, CGFloat size, const CGAffin
 static CGFontRef
 default_graphics_font(void)
 {
-    static const char *names[] = {"Helvetica", "LiberationSans", "Inter-Regular", ".AppleSystemUIFont", "Roboto-Regular"};
+    static const char *names[] = {"Helvetica", "LiberationSans", "SanGrotesque-Regular", ".AppleSystemUIFont", "Roboto-Regular"};
     for (const char *n : names) {
         CFStringRef s = CFStringCreateWithCString(NULL, n, kCFStringEncodingUTF8);
         CGFontRef f = CTFontRegistryCopyGraphicsFont(s);
@@ -576,6 +576,17 @@ CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size, const CGAffineT
     CFStringRef family = CTFontCopyFamilyName(font);
     CGFontRef cg = family ? CTFontRegistryCopyFamilyFace(family, want & kCTFontTraitBold, want & kCTFontTraitItalic)
                           : NULL;
+    /* These replacements do not have every style. Keep real italic and bold
+     * faces available when apps add emphasis to the system or SF Mono font. */
+    if (!cg && family) {
+        CFStringRef substitute = NULL;
+        if (CFEqual(family, CFSTR("San Grotesque")) && (want & kCTFontTraitItalic))
+            substitute = CFSTR("Inter");
+        else if (CFEqual(family, CFSTR("Fragment Mono")) && (want & kCTFontTraitBold))
+            substitute = CFSTR("DejaVu Sans Mono");
+        if (substitute)
+            cg = CTFontRegistryCopyFamilyFace(substitute, want & kCTFontTraitBold, want & kCTFontTraitItalic);
+    }
     if (family)
         CFRelease(family);
     if (!cg)
@@ -968,7 +979,7 @@ covers(CTFontRef f, CFStringRef s, CFRange r)
  * coverage; the font returned is made at the asked size.
  */
 static const char *const cascade_names[][2] = {
-    {"Inter-Regular", "Inter-Bold"},
+    {"SanGrotesque-Regular", "SanGrotesque-Bold"},
     {"NotoSans-Regular", "NotoSans-Bold"},
     {"NotoSansArabic-Regular", "NotoSansArabic-Bold"},
     {"NotoSansHebrew-Regular", "NotoSansHebrew-Bold"},
@@ -1089,7 +1100,7 @@ CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef languagePref
     return out;
 }
 
-/* Apple's UI fonts: the system font (Inter on Finch) at each use's size, emphasized ones bold. */
+/* Apple's UI fonts: San Grotesque at each use's size, emphasized ones bold. */
 CTFontRef
 CTFontCreateUIFontForLanguage(CTFontUIFontType uiType, CGFloat size, CFStringRef language)
 {
