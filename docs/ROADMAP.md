@@ -333,8 +333,10 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [ ] Cameras and scanners: device modules and Phase 3 USB support.
   - [x] Apple's unmodified TextEdit launches in the Finch VM (copied from the Mac at image
         build time with `FINCH_HOST_APPS=TextEdit tools/vm/mkramdisk.sh`; nothing of Apple's
-        is committed), opens an untitled document and takes typing (2026-10-09). Next:
-        RTF reading and writing, NSRulerView, NSFileCoordinator, NSTextFinder.
+        is committed), opens an untitled document and takes typing (2026-10-09). It reads and saves RTF;
+        NSFileCoordinator (presenters in-process) and NSTextFinder's find bar match Apple's
+        behaviour (`finch-filecoordinator-test`, `finch-textfinder-test`). Next: NSRulerView,
+        NSTextTable, NSFileVersion, sharing.
   - [x] App test tools: `finch-app-test` accepts `screenshot:PATH` to save a screen PNG and `screenshot64` to print one over the VM console; `tools/host-tests.sh` runs the host comparison suite;
         `tools/check-imports.py` finds libraries such as libxpc through the VM overlay list,
         including builds outside `build/root` (2026-10-09).

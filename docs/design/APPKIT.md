@@ -683,3 +683,12 @@ draws (`userland/tests/app-test.c`).
   sources, `NSView.Invalidating`, text suggestions, `NSMenuItem.sectionHeader`,
   `NSCursor.frameResize` and the AppKit attribute scope
   (`AttributeScopes.AppKitAttributes`), which come later.
+- 2026-10-09: the find bar. `NSTextFinder` (`NSTextFinder.m`) runs every
+  `NSTextFinderAction` against its client: show and hide the bar, next and previous
+  (case-insensitive, wrapping), set the search string from the selection, replace,
+  replace all (in the selection too) and select all. The search string lives on the find
+  pasteboard, as on macOS. The bar is `NSTextFinderBarView`, Apple's class name, 32 points
+  tall, with a replace row when asked for. `NSScrollView` tiles it above or below the
+  content (`findBarPosition`). `NSTextView` answers `performTextFinderAction:` and the
+  older `performFindPanelAction:` through a finder of its own, so TextEdit's Find menu
+  works. `finch-textfinder-test` matches Apple's run.

@@ -154,3 +154,5 @@ build/userland/apps/AssetsTest.app/Contents/Resources/Extra.bundle/Contents/Info
 build/userland/apps/AssetsTest.app/Contents/Resources/Extra.bundle/Contents/Resources/Assets.car /Applications/AssetsTest.app/Contents/Resources/Extra.bundle/Contents/Resources/Assets.car
 userland/tests/assets-test.sh /usr/local/bin/finch-assets-test
 build/userland/finch-rtf-test /usr/local/bin/finch-rtf-test
+build/userland/finch-filecoordinator-test /usr/local/bin/finch-filecoordinator-test
+build/userland/finch-textfinder-test /usr/local/bin/finch-textfinder-test

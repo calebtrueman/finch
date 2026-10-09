@@ -348,6 +348,24 @@ shows(NSScrollView *self, NSScroller *s, BOOL has)
         return;
     _tiling = YES;
     NSRect inner = NSInsetRect([self bounds], border_width(_borderType), border_width(_borderType));
+    /* the find bar takes its height above (or below) the content and the scrollers */
+    if (_findBarView) {
+        if (_findBarVisible) {
+            CGFloat fb = NSHeight([_findBarView frame]);
+            NSRect bar = NSMakeRect(NSMinX(inner), NSMinY(inner), NSWidth(inner), fb);
+            if (_findBarPosition == NSScrollViewFindBarPositionBelowContent)
+                bar.origin.y = NSMaxY(inner) - fb;
+            else
+                inner.origin.y += fb;
+            inner.size.height = MAX(0, inner.size.height - fb);
+            if ([_findBarView superview] != self)
+                [self addSubview:_findBarView];
+            [_findBarView setFrame:bar];
+            [_findBarView setHidden:NO];
+        } else {
+            [_findBarView setHidden:YES];
+        }
+    }
     BOOL v = shows(self, _vScroller, _hasV), h = shows(self, _hScroller, _hasH);
     CGFloat vw = v ? NSWidth([_vScroller frame]) : 0, hw = h ? NSHeight([_hScroller frame]) : 0;
     if (v && vw <= 0)
@@ -694,14 +712,20 @@ apply_magnification(NSScrollView *self, CGFloat m, NSPoint (^origin)(NSSize size
 - (NSView *)findBarView { return _findBarView; }
 - (void)setFindBarView:(NSView *)view
 {
+    if (_findBarView && _findBarView != view)
+        [_findBarView removeFromSuperview];
     [_findBarView autorelease];
     _findBarView = [view retain];
 }
 - (BOOL)isFindBarVisible { return _findBarVisible; }
-- (void)setFindBarVisible:(BOOL)flag { _findBarVisible = flag; }
+- (void)setFindBarVisible:(BOOL)flag
+{
+    _findBarVisible = flag;
+    [self tile];
+}
 - (NSScrollViewFindBarPosition)findBarPosition { return _findBarPosition; }
 - (void)setFindBarPosition:(NSScrollViewFindBarPosition)p { _findBarPosition = p; }
-- (void)findBarViewDidChangeHeight {}
+- (void)findBarViewDidChangeHeight { [self tile]; }
 
 - (void)addFloatingSubview:(NSView *)view forAxis:(NSEventGestureAxis)axis { [self addSubview:view]; }
 

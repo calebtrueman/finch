@@ -87,6 +87,15 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
 
 ## Status
 
+- 2026-10-09: `NSFileCoordinator` and `NSFilePresenter`, within one process
+  (`NSFileCoordinator.m`). Readers make presenters relinquish to the reader, then save, then
+  reacquire right after the accessor. Writers make presenters relinquish, and the reacquire
+  waits until the next coordination (immediate for deletions), as Apple's does.
+  `presentedItemDidChange` fires only when the file's modification date or size changed.
+  Moves send `presentedItemDidMoveToURL:`, and access intents run asynchronously on the
+  given queue. A presenter's own coordinator skips it. `finch-filecoordinator-test` matches
+  Apple's run. Coordination across processes needs a file-coordination daemon, which comes
+  later.
 - 2026-10-09: the Swift overlays now build and run with Finch's own Swift
   runtime. `userland/Foundation/swift/overlay.sh` compiles FoundationEssentials
   and FoundationInternationalization from `swift-foundation` at

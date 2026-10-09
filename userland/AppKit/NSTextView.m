@@ -2586,8 +2586,6 @@ start_blinking(NSTextView *self)
 - (void)changeAttributes:(id)sender {}
 - (void)changeDocumentBackgroundColor:(id)sender {}
 - (void)orderFrontSpellingPanel:(id)sender {}
-- (void)performFindPanelAction:(id)sender {}
-- (void)performTextFinderAction:(id)sender {}
 
 - (void)showFindIndicatorForRange:(NSRange)range {}
 - (void)setNeedsDisplayInRect:(NSRect)rect avoidAdditionalLayout:(BOOL)flag { [self setNeedsDisplayInRect:rect]; }
