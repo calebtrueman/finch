@@ -183,8 +183,12 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         without Apple's graphics frameworks (`userland/skia`, 2026-10-08)
   - [ ] CoreGraphics' drawing half: geometry, paths, colour spaces, bitmap contexts,
         images, gradients, then shadings, patterns, layers and PDF writing. Geometry,
-        affine transforms, paths, colour spaces, colours and data providers are done:
-        `finch-cg-test` is identical to Apple's on the host and in the VM (2026-10-08).
+        affine transforms, paths, colour spaces, colours, data providers, images,
+        bitmap contexts and drawing (fills, strokes, dashes, clips, masks, images,
+        blend modes, shadows, transparency layers) are done: `finch-cg-test` is
+        identical to Apple's, and `finch-cg-draw-test` matches Apple's renders, on
+        the host and in the VM (2026-10-08). Next: gradients, shadings, patterns,
+        CGLayer, PDF.
   - [ ] ImageIO over Skia's codecs
   - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's
   - [ ] The window-server half of CoreGraphics (windows, events, displays)

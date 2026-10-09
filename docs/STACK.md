@@ -9,8 +9,8 @@ These diagrams are updated in every commit that changes the stack, and
 (`tools/check-closed.py`). Finch's own Foundation covers about 100 of Apple's
 classes, on a CoreFoundation that dispatches to Objective-C objects as Apple's
 does (`docs/design/FOUNDATION.md`). Finch's CoreGraphics has begun, over Skia
-(`docs/design/COREGRAPHICS.md`): geometry, affine transforms, paths,
-colour spaces and colours.
+(`docs/design/COREGRAPHICS.md`): bitmap contexts draw paths, images,
+clips, shadows and transparency layers as Apple's do.
 
 ```mermaid
 block-beta
@@ -26,7 +26,7 @@ block-beta
         columns 4
         t6["App frameworks"]
         appkit["AppKit"]
-        cg["CoreGraphics<br/>geometry, paths, colour spaces,<br/>colours, data providers<br/>(over Skia, skcms)"]
+        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>colour spaces, clipping, shadows,<br/>layers (over Skia, skcms)"]
         ctio["CoreText, ImageIO"]
         space6[" "]
         later["QuartzCore, Metal, SwiftUI, AV"]

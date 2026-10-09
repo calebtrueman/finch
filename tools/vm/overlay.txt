@@ -50,6 +50,8 @@ build/userland/finch-streams-test /usr/local/bin/finch-streams-test
 build/userland/finch-predicate-test /usr/local/bin/finch-predicate-test
 build/userland/finch-documents-test /usr/local/bin/finch-documents-test
 build/userland/finch-cg-test /usr/local/bin/finch-cg-test
+build/userland/finch-cg-draw-test /usr/local/bin/finch-cg-draw-test
+userland/tests/cg-draw-reference.bin /usr/local/share/finch/cg-draw-reference.bin
 build/userland/finch-log-test /usr/local/bin/finch-log-test
 build/userland/finch-hardened-test /usr/local/bin/finch-hardened-test
 build/userland/finch-debuggee /usr/local/bin/finch-debuggee

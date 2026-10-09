@@ -636,6 +636,182 @@ colors(void)
     color_info("p3 red to srgb perceptual", CGColorCreateCopyByMatchingToColorSpace(srgb1, kCGRenderingIntentPerceptual, p3red, NULL));
 }
 
+static void
+ctx_info(const char *label, CGContextRef c)
+{
+    if (!c) {
+        printf("%s: NULL\n", label);
+        return;
+    }
+    CFStringRef sn = CGColorSpaceCopyName(CGBitmapContextGetColorSpace(c));
+    char nb[128] = "NULL";
+    if (sn)
+        CFStringGetCString(sn, nb, sizeof nb, kCFStringEncodingUTF8);
+    printf("%s: w=%zu h=%zu bpc=%zu bpp=%zu bpr=%zu info=0x%x alpha=%d space=%s data=%d\n", label,
+           CGBitmapContextGetWidth(c), CGBitmapContextGetHeight(c), CGBitmapContextGetBitsPerComponent(c),
+           CGBitmapContextGetBitsPerPixel(c), CGBitmapContextGetBytesPerRow(c), CGBitmapContextGetBitmapInfo(c),
+           CGBitmapContextGetAlphaInfo(c), nb, CGBitmapContextGetData(c) != NULL);
+    if (sn)
+        CFRelease(sn);
+}
+
+static void
+image_info(const char *label, CGImageRef im)
+{
+    if (!im) {
+        printf("%s: NULL\n", label);
+        return;
+    }
+    CFStringRef sn = CGImageGetColorSpace(im) ? CGColorSpaceCopyName(CGImageGetColorSpace(im)) : NULL;
+    char nb[128] = "NULL";
+    if (sn)
+        CFStringGetCString(sn, nb, sizeof nb, kCFStringEncodingUTF8);
+    printf("%s: w=%zu h=%zu bpc=%zu bpp=%zu bpr=%zu info=0x%x alpha=%d mask=%d interp=%d intent=%d space=%s decode=%d\n",
+           label, CGImageGetWidth(im), CGImageGetHeight(im), CGImageGetBitsPerComponent(im),
+           CGImageGetBitsPerPixel(im), CGImageGetBytesPerRow(im), CGImageGetBitmapInfo(im), CGImageGetAlphaInfo(im),
+           CGImageIsMask(im), CGImageGetShouldInterpolate(im), CGImageGetRenderingIntent(im), nb,
+           CGImageGetDecode(im) != NULL);
+    if (sn)
+        CFRelease(sn);
+}
+
+static void
+contexts(void)
+{
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB(), gray = CGColorSpaceCreateDeviceGray();
+    CGColorSpaceRef cmyk = CGColorSpaceCreateDeviceCMYK(), srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    struct { const char *l; size_t bpc, bpr; CGColorSpaceRef cs; uint32_t info; } f[] = {
+        {"rgba premul last", 8, 0, rgb, kCGImageAlphaPremultipliedLast},
+        {"argb premul first", 8, 0, rgb, kCGImageAlphaPremultipliedFirst},
+        {"bgra premul first little", 8, 0, rgb, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little},
+        {"rgbx skip last", 8, 0, rgb, kCGImageAlphaNoneSkipLast},
+        {"xrgb skip first", 8, 0, rgb, kCGImageAlphaNoneSkipFirst},
+        {"bgrx skip first little", 8, 0, rgb, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little},
+        {"rgb none", 8, 0, rgb, kCGImageAlphaNone},
+        {"rgba unpremul", 8, 0, rgb, kCGImageAlphaLast},
+        {"gray none", 8, 0, gray, kCGImageAlphaNone},
+        {"gray premul", 8, 0, gray, kCGImageAlphaPremultipliedLast},
+        {"gray 16", 16, 0, gray, kCGImageAlphaNone},
+        {"gray float", 32, 0, gray, kCGImageAlphaNone | kCGBitmapFloatComponents},
+        {"alpha only", 8, 0, NULL, kCGImageAlphaOnly},
+        {"alpha only with space", 8, 0, rgb, kCGImageAlphaOnly},
+        {"rgb 555", 5, 0, rgb, kCGImageAlphaNoneSkipFirst},
+        {"rgb 555 little", 5, 0, rgb, kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder16Little},
+        {"rgba 16", 16, 0, rgb, kCGImageAlphaPremultipliedLast},
+        {"rgba half", 16, 0, rgb, kCGImageAlphaPremultipliedLast | kCGBitmapFloatComponents | kCGBitmapByteOrder16Little},
+        {"rgba float", 32, 0, rgb, kCGImageAlphaPremultipliedLast | kCGBitmapFloatComponents | kCGBitmapByteOrder32Little},
+        {"rgbx float", 32, 0, rgb, kCGImageAlphaNoneSkipLast | kCGBitmapFloatComponents},
+        {"cmyk", 8, 0, cmyk, kCGImageAlphaNone},
+        {"cmyk 16", 16, 0, cmyk, kCGImageAlphaNone},
+        {"cmyk alpha", 8, 0, cmyk, kCGImageAlphaPremultipliedLast},
+        {"srgb rgba", 8, 0, srgb, kCGImageAlphaPremultipliedLast},
+        {"bpr too small", 8, 10, rgb, kCGImageAlphaPremultipliedLast},
+        {"bpr padded", 8, 100, rgb, kCGImageAlphaPremultipliedLast},
+        {"bpc 4", 4, 0, rgb, kCGImageAlphaNoneSkipLast},
+        {"null space", 8, 0, NULL, kCGImageAlphaPremultipliedLast},
+    };
+    for (unsigned i = 0; i < sizeof f / sizeof f[0]; i++) {
+        CGContextRef c = CGBitmapContextCreate(NULL, 7, 5, f[i].bpc, f[i].bpr, f[i].cs, f[i].info);
+        ctx_info(f[i].l, c);
+        if (c) {
+            CGImageRef im = CGBitmapContextCreateImage(c);
+            char l[100];
+            snprintf(l, sizeof l, "  %s image", f[i].l);
+            image_info(l, im);
+            CGImageRelease(im);
+            CGContextRelease(c);
+        }
+    }
+    printf("zero size: %d\n", CGBitmapContextCreate(NULL, 0, 0, 8, 0, rgb, kCGImageAlphaPremultipliedLast) != NULL);
+
+    CGContextRef c = CGBitmapContextCreate(NULL, 100, 50, 8, 0, rgb, kCGImageAlphaPremultipliedLast);
+    printf("type: %d\n", CFGetTypeID(c) == CGContextGetTypeID());
+    xform("ctm", CGContextGetCTM(c));
+    xform("user to device", CGContextGetUserSpaceToDeviceSpaceTransform(c));
+    printf("interpolation: %d\n", CGContextGetInterpolationQuality(c));
+    xform("text matrix", CGContextGetTextMatrix(c));
+    point("text position", CGContextGetTextPosition(c));
+    rect("clip box", CGContextGetClipBoundingBox(c));
+    CGContextTranslateCTM(c, 10, 20);
+    CGContextScaleCTM(c, 2, 3);
+    xform("ctm after translate scale", CGContextGetCTM(c));
+    xform("user to device after", CGContextGetUserSpaceToDeviceSpaceTransform(c));
+    point("to device", CGContextConvertPointToDeviceSpace(c, CGPointMake(1, 1)));
+    point("to user", CGContextConvertPointToUserSpace(c, CGPointMake(12, 26)));
+    rect("rect to device", CGContextConvertRectToDeviceSpace(c, CGRectMake(0, 0, 5, 5)));
+    rect("rect to user", CGContextConvertRectToUserSpace(c, CGRectMake(0, 0, 100, 50)));
+    rect("clip box scaled", CGContextGetClipBoundingBox(c));
+    CGContextSaveGState(c);
+    CGContextClipToRect(c, CGRectMake(1, 1, 10, 4));
+    rect("clip box after clip", CGContextGetClipBoundingBox(c));
+    CGContextRotateCTM(c, M_PI / 2);
+    xform12("ctm rotated", CGContextGetCTM(c));
+    rect("clip box rotated", CGContextGetClipBoundingBox(c));
+    CGContextRestoreGState(c);
+    rect("clip box restored", CGContextGetClipBoundingBox(c));
+    xform("ctm restored", CGContextGetCTM(c));
+    CGContextClipToRect(c, CGRectMake(100, 100, 5, 5));
+    rect("clip box empty", CGContextGetClipBoundingBox(c));
+    CGContextResetClip(c);
+    rect("clip box reset", CGContextGetClipBoundingBox(c));
+
+    /* the path lives in device space: changing the CTM afterwards moves it in user space */
+    printf("path empty: %d\n", CGContextIsPathEmpty(c));
+    CGContextMoveToPoint(c, 1, 1);
+    CGContextAddLineToPoint(c, 4, 5);
+    point("path current", CGContextGetPathCurrentPoint(c));
+    rect("path box", CGContextGetPathBoundingBox(c));
+    CGContextScaleCTM(c, 0.5, 0.5);
+    point("path current rescaled", CGContextGetPathCurrentPoint(c));
+    rect("path box rescaled", CGContextGetPathBoundingBox(c));
+    CGPathRef copied = CGContextCopyPath(c);
+    dump_path("copied path", copied);
+    printf("contains: %d %d\n", CGContextPathContainsPoint(c, CGPointMake(2, 2), kCGPathFill),
+           CGContextPathContainsPoint(c, CGPointMake(100, 100), kCGPathFill));
+    CGContextBeginPath(c);
+    printf("path empty after begin: %d\n", CGContextIsPathEmpty(c));
+    CGContextAddRect(c, CGRectMake(0, 0, 10, 10));
+    CGContextAddEllipseInRect(c, CGRectMake(0, 0, 4, 4));
+    CGContextAddArc(c, 0, 0, 5, 0, M_PI, 0);
+    dump_path("context path", CGContextCopyPath(c));
+    CGContextSetLineWidth(c, 4);
+    CGContextReplacePathWithStrokedPath(c);
+    {
+        /* the outline's precision is the stroker's (Skia's is single precision) */
+        CGRect sb = CGContextGetPathBoundingBox(c);
+        printf("stroked path box: {%.4f, %.4f, %.4f, %.4f}\n", sb.origin.x, sb.origin.y, sb.size.width, sb.size.height);
+    }
+    CGContextFillPath(c);
+    printf("path empty after fill: %d\n", CGContextIsPathEmpty(c));
+    CGContextRelease(c);
+
+    /* images */
+    uint8_t px[4 * 3 * 2] = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120};
+    CGDataProviderRef prov = CGDataProviderCreateWithData(NULL, px, sizeof px, NULL);
+    CGImageRef im = CGImageCreate(3, 2, 8, 32, 12, rgb, kCGImageAlphaLast, prov, NULL, true, kCGRenderingIntentDefault);
+    image_info("image", im);
+    image_info("image in rect", CGImageCreateWithImageInRect(im, CGRectMake(1, 0, 2, 2)));
+    image_info("image in rect frac", CGImageCreateWithImageInRect(im, CGRectMake(0.5, 0.5, 1, 1)));
+    image_info("image in rect outside", CGImageCreateWithImageInRect(im, CGRectMake(10, 10, 2, 2)));
+    image_info("image copy", CGImageCreateCopy(im));
+    image_info("image copy srgb", CGImageCreateCopyWithColorSpace(im, srgb));
+    image_info("image copy gray", CGImageCreateCopyWithColorSpace(im, gray));
+    CGFloat decode[6] = {1, 0, 1, 0, 1, 0};
+    image_info("image decode", CGImageCreate(3, 2, 8, 24, 9, rgb, kCGImageAlphaNone, prov, decode, false, kCGRenderingIntentPerceptual));
+    image_info("image bad bpr", CGImageCreate(3, 2, 8, 32, 4, rgb, kCGImageAlphaLast, prov, NULL, true, kCGRenderingIntentDefault));
+    image_info("image 16 bpc", CGImageCreate(1, 1, 16, 64, 8, rgb, kCGImageAlphaPremultipliedLast, prov, NULL, true, kCGRenderingIntentDefault));
+    image_info("image 1 bit gray", CGImageCreate(8, 2, 1, 1, 1, gray, kCGImageAlphaNone, prov, NULL, true, kCGRenderingIntentDefault));
+    CGImageRef mask = CGImageMaskCreate(3, 2, 8, 8, 3, prov, NULL, true);
+    image_info("mask", mask);
+    image_info("image with mask", CGImageCreateWithMask(im, mask));
+    CGFloat ranges[6] = {0, 10, 0, 10, 0, 10};
+    image_info("image masking colors", CGImageCreateWithMaskingColors(CGImageCreate(3, 2, 8, 24, 9, rgb, kCGImageAlphaNone, prov, NULL, false, kCGRenderingIntentDefault), ranges));
+    printf("image type: %d provider same: %d\n", CFGetTypeID(im) == CGImageGetTypeID(), CGImageGetDataProvider(im) == prov);
+    CFDataRef d = CGDataProviderCopyData(CGImageGetDataProvider(CGImageCreateWithImageInRect(im, CGRectMake(1, 0, 2, 2))));
+    printf("sub-image data length: %ld\n", (long)CFDataGetLength(d));
+    printf("byte order info: %d pixel format: %d\n", CGImageGetByteOrderInfo(im), CGImageGetPixelFormatInfo(im));
+}
+
 int
 main(int argc, char **argv)
 {
@@ -647,5 +823,6 @@ main(int argc, char **argv)
     transforms();
     paths();
     colors();
+    contexts();
     return 0;
 }
