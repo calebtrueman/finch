@@ -54,6 +54,7 @@ build/userland/finch-xmlparser-test /usr/local/bin/finch-xmlparser-test
 build/userland/finch-cg-test /usr/local/bin/finch-cg-test
 build/userland/finch-cg-draw-test /usr/local/bin/finch-cg-draw-test
 build/userland/finch-ct-test /usr/local/bin/finch-ct-test
+build/userland/finch-ws-test /usr/local/bin/finch-ws-test
 build/userland/finch-imageio-test /usr/local/bin/finch-imageio-test
 userland/tests/cg-draw-reference.bin /usr/local/share/finch/cg-draw-reference.bin
 build/src/skia/resources/fonts/Roboto-Regular.ttf /usr/local/share/finch/test-fonts/Roboto-Regular.ttf

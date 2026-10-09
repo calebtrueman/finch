@@ -96,7 +96,7 @@ userland/      everything above the kernel: Darwin built from Apple's open sourc
                Finch's own libraries and daemons, and the frameworks
                (CoreFoundation, Foundation, IOKit, ...), each with its build script
 drivers/       open kexts replacing Apple's closed platform drivers (Phase 3)
-desktop/       Finch's window server, compositor, shell (Phase 2)
+desktop/       Finch's desktop shell (Phase 2; the window server is userland/WindowServer)
 tools/         build system, VM tooling, checks (closed-library, API coverage)
 branding/      logo, icons, colours
 third_party/   imported non-Apple projects and their patches (darwin-vm, ...)

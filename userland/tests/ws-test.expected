@@ -1,0 +1,28 @@
+connected: 1
+display: 400x300 scale 2 refresh 60
+main display bounds: 400 300
+window 1 buffer 400x300, row 1600
+before ordering: [1 "Red" 50,40 200x150] [2 "Blue" 150,120 200x120]
+desktop where a would be (100,100): 43 58 74 255
+a only (60,50): 255 0 0 255
+overlap, b above (200,150): 127 0 128 255
+b only (300,220): 21 29 165 255
+desktop (10,10): 43 58 74 255
+ordered: [2 "Blue" 150,120 200x120 on] [1 "Red" 50,40 200x150 on]
+overlap, a above (200,150): 255 0 0 255
+a above b: [1 "Red" 50,40 200x150 on] [2 "Blue" 150,120 200x120 on]
+click in b: type 1 window 2 at 150,100 clicks 1 key 0
+drag captured by b: type 6 window 2 at -50,-60 clicks 0 key 0
+release to b: type 2 window 2 at -50,-60 clicks 1 key 0
+click in a: type 1 window 1 at 50,20 clicks 1 key 0
+release in a: type 2 window 1 at 50,20 clicks 1 key 0
+double click in a: type 1 window 1 at 50,20 clicks 2 key 0
+release: type 2 window 1 at 50,20 clicks 2 key 0
+key to b: type 10 window 2 at -150,-120 clicks 0 key 0
+key up to b (moving over the desktop sends nothing): type 11 window 2 at -150,-120 clicks 0 key 0
+resized buffer 200x160, row 832
+moved and resized a (20,20): 0 255 0 255
+where a was (60,100): 43 58 74 255
+b ordered out (300,220): 43 58 74 255
+b out: [1 "Red" 0,0 100x80 on] [2 "Blue" 150,120 200x120]
+a destroyed: [2 "Blue" 150,120 200x120]

@@ -204,6 +204,13 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [ ] The window-server half of CoreGraphics (windows, events, displays)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
   - Display and input paths in Tier 2: [`docs/design/WINDOWSERVER-DISPLAY.md`](design/WINDOWSERVER-DISPLAY.md)
+  - [x] `finch-windowserver` (`docs/design/WINDOWSERVER.md`): windows over shared
+        memory, levels and ordering, alpha and shadows, a Skia compositor, the
+        cursor, input routing (capture, click counts, key window), the window list,
+        and a headless backend; CoreGraphics' `FWS*` client and its display and
+        window-list API. `finch-ws-test` passes on the host and in the VM (2026-10-08).
+  - [ ] The host viewer (`tools/vz/finch-viewer`) for the TCP backend
+  - [ ] CGEvent, and the server on the Tier 2 display
 - [ ] AppKit
 - [ ] TextEdit or Calculator launches and is usable
 

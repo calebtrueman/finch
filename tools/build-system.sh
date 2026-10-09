@@ -80,6 +80,7 @@ steps=(
     "skia|userland/skia/build.sh"
     "CoreGraphics|userland/CoreGraphics/build.sh"
     "CoreText|userland/CoreText/build.sh"
+    "WindowServer|userland/WindowServer/build.sh"
     "ImageIO|userland/ImageIO/build.sh"
     # Libraries Apple publishes that Finch's commands link (tools/check-closed.py).
     # libedit's generated headers come from its "make lists" target first.

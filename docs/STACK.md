@@ -14,6 +14,8 @@ built by Finch. Finch's CoreGraphics has begun, over Skia
 clips, shadows and transparency layers as Apple's do. Finch's ImageIO reads
 PNG, JPEG, GIF, BMP, ICO and WebP and writes PNG and JPEG over the open
 codecs Skia builds, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does.
+Finch's window server composites windows that apps draw with CoreGraphics
+into shared memory, and routes input to them (`docs/design/WINDOWSERVER.md`).
 
 ```mermaid
 block-beta
@@ -22,14 +24,14 @@ block-beta
         columns 4
         t7["Apps and desktop"]
         apps["Unmodified Mac apps"]
-        desktop["Window server, compositor"]
+        desktop["finch-windowserver<br/>windows over shared memory,<br/>Skia compositor, cursor,<br/>input routing (headless, viewer)"]
         shell["Dock / Finder-alikes"]
     end
     block:L6
         columns 4
         t6["App frameworks"]
         appkit["AppKit"]
-        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms)"]
+        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>window server client, displays"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
         ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]
@@ -115,8 +117,8 @@ block-beta
     classDef firmware fill:#fee2e2,stroke:#b91c1c,color:#450a0a
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
-    class apps,desktop,shell,appkit,later,kexts,metal planned
-    class cg,imageio,ctio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class apps,shell,appkit,later,kexts,metal planned
+    class desktop,cg,imageio,ctio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia upstream
     class vz firmware
