@@ -60,8 +60,20 @@ xcrun clang -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -O2 -f
 mapfile -t core < <(objs SwiftUICore COpenSwiftUI OpenSwiftUI_SPI OpenAttributeGraph OpenAttributeGraphCxx \
     OpenAttributeGraphShims OpenCoreGraphicsShims OpenObservation OpenObservationCxx OpenQuartzCoreShims \
     OpenRenderBox OpenRenderBoxCxx OpenRenderBoxShims OpenRenderBoxShimsCxx)
-link SwiftUICore 7.4.26 "${core[@]}" "${PKG}/stubs.o" -- -lz -framework AppKit -framework QuartzCore -framework CoreText \
+# SwiftUICore names two of SwiftUI's protocols (Scene, Commands); SwiftUI, which re-exports it,
+# is always loaded with it, so they're found at load time.
+link SwiftUICore 7.4.26 "${core[@]}" "${PKG}/stubs.o" -- -Wl,-not_for_dyld_shared_cache -Wl,-U,'_$s7SwiftUI5SceneMp' -Wl,-U,'_$s7SwiftUI8CommandsMp' \
+    -lz -framework AppKit -framework QuartzCore -framework CoreText \
     -framework Combine -framework CoreGraphics -framework Foundation -lc++
 mapfile -t ui < <(objs SwiftUI)
 link SwiftUI 7.4.26 "${ui[@]}" -- -Wl,-reexport_framework,SwiftUICore -framework AppKit -framework QuartzCore \
     -framework Combine -framework Foundation
+
+# Notices for the open code linked in.
+NOTICES="${ROOT}/usr/share/finch/licenses"
+mkdir -p "${NOTICES}/OpenSwiftUI"
+cp "${SRC}/LICENSE" "${NOTICES}/OpenSwiftUI/"
+for d in OpenAttributeGraph OpenObservation OpenRenderBox OpenCoreGraphics; do
+    mkdir -p "${NOTICES}/${d}"
+    cp "${PKG}/build/checkouts/${d}/LICENSE"* "${NOTICES}/${d}/"
+done

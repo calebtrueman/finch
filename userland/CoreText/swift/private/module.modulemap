@@ -1,0 +1,4 @@
+module CoreText_FinchPrivate {
+    header "CTAdaptiveImageGlyph.h"
+    export *
+}

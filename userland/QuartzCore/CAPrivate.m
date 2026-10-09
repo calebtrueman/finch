@@ -5,6 +5,8 @@
  *   - CAFilter: a named filter type and its inputs, set and read by key. Layers keep
  *     filters as given; Finch's layer drawing doesn't apply them yet.
  *   - CABackdropLayer: a layer with its backdrop settings (drawn as an ordinary layer).
+ *   - CAChameleonLayer: the layer AppKit tints from what is behind it, for
+ *     vibrant content (drawn as an ordinary layer).
  *   - CAPresentationModifier and its group: values for a key path, applied on flush.
  *   - CATransactionCompletionItem: a token that holds a transaction's completion open.
  *   - CADisplayLink (public API since macOS 14): calls its target once per display
@@ -153,6 +155,15 @@ __attribute__((visibility("default")))
     [super dealloc];
 }
 
+@end
+
+#pragma mark - CAChameleonLayer
+
+__attribute__((visibility("default")))
+@interface CAChameleonLayer : CALayer
+@end
+
+@implementation CAChameleonLayer
 @end
 
 #pragma mark - CAPresentationModifier

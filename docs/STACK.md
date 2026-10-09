@@ -34,7 +34,10 @@ AppKit and the window server draw in Fieldwork, Finch's own design language
 (`docs/design/FIELDWORK.md`), from a theme file of tokens; the Classic theme keeps
 Aqua-compatible values for apps that need them and for the comparison tests.
 Combine is open code (OpenCombine with Finch's additions) built to Apple's ABI
-(`docs/design/COMBINE.md`). The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
+(`docs/design/COMBINE.md`). SwiftUI is built from OpenSwiftUI, renamed to Apple's
+modules, and links against Finch's frameworks; running apps on it is the next step
+(`docs/design/SWIFTUI.md`). Foundation carries the URL loading system that Apple keeps in
+the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
 
 CoreFoundation's local notification center shares observers with Foundation's
@@ -84,13 +87,15 @@ block-beta
         imagecap["ImageCaptureCore (device<br/>browser, finds no devices yet),<br/>ICADevices; Quartz umbrella<br/>with ImageKit's device views"]
         space6b[" "]
         coreservices["CoreServices<br/>app lookup and launch,<br/>local Apple events, files"]
-        later["Metal, SwiftUI, AV"]
+        later["Metal, AV"]
         coreui["CoreUI<br/>compiled asset catalogs,<br/>named images and colors"]
+        space6c[" "]
+        swiftui["SwiftUI, SwiftUICore<br/>(OpenSwiftUI, OpenAttributeGraph;<br/>links, apps not yet running)"]
     end
     block:L5
         columns 4
         t5["Foundation layer"]
-        foundation["Foundation<br/>strings, numbers, decimals, threads,<br/>files, bundles, formatters, queues,<br/>KVC/KVO, JSON, archiving, regexes,<br/>attributed strings, map/hash tables,<br/>undo, proxies, transforms,<br/>file handles, pipes, tasks,<br/>predicates, progress, file wrappers,<br/>units and measurements, XML parsing,<br/>URL resource values, NSXPCConnection"]
+        foundation["Foundation<br/>strings, numbers, decimals, threads,<br/>files, bundles, formatters, queues,<br/>KVC/KVO, JSON, archiving, regexes,<br/>attributed strings, map/hash tables,<br/>undo, proxies, transforms,<br/>file handles, pipes, tasks,<br/>predicates, progress, file wrappers,<br/>units and measurements, XML parsing,<br/>URL resource values, NSXPCConnection,<br/>URL loading (HTTP/1.1, TLS via OpenSSL)"]
         uti["UniformTypeIdentifiers<br/>UTType, declared and<br/>dynamic types"]
         cf["CoreFoundation<br/>swift-corelibs CF + Finch ObjC:<br/>toll-free dispatch, collections,<br/>ordered sets, NSCache, NSData, NSDate,<br/>NSURL, locales, calendars, defaults,<br/>run loops, attributed strings,<br/>streams, Mach ports, notifications;<br/>bundle languages and .loctable files"]
         security["Security<br/>keys, certificates, caller-root trust<br/>(OpenSSL); services to come"]
@@ -172,7 +177,7 @@ block-beta
     class apps testapp
     class shell,uti,appkit,quartzcore,coreservices,coreui,security,sysconfig,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
-    class swift,codecs,cxx,qemu,tz,skia,fonts upstream
+    class swift,codecs,cxx,qemu,tz,skia,fonts,swiftui upstream
     class vz firmware
     class space6,space6b,space6c,space5,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
@@ -200,6 +205,9 @@ flowchart LR
     classDef planned fill:#f3f4f6,stroke:#9ca3af,color:#6b7280,stroke-dasharray:4 3
     classDef closed fill:#ffffff,stroke:#b91c1c,color:#b91c1c,stroke-width:2px
 
+    swiftui["SwiftUI"]:::upstream
+    swiftuicore["SwiftUICore<br/>(OpenSwiftUI, OpenAttributeGraph)"]:::upstream
+    combine["Combine<br/>(OpenCombine + Finch)"]:::upstream
     gcore["GCoreFramework"]:::apple
     appkit["AppKit"]:::finch
     uif["UIFoundation<br/>TextKit 1 and 2"]:::finch
@@ -242,6 +250,14 @@ flowchart LR
     kern["libsystem_kernel"]:::apple
     xnu["XNU"]:::apple
 
+    swiftui -->|"re-exports"| swiftuicore
+    swiftui --> appkit
+    swiftuicore --> appkit
+    swiftuicore --> qc
+    swiftuicore --> ctfw
+    swiftuicore --> combine
+    ffound --> combine
+    ffound --> openssl
     gcore --> ffound
     gcore -.->|"linked, unused"| comp
     appkit -->|"re-exports"| ffound

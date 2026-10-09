@@ -69,8 +69,14 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     presentation modifiers.
   - UIFoundation: the text context provider, `NSAdaptiveImageGlyph`, `NSTextEncapsulation`.
 
-  The link still needs these Swift overlays, which are next:
-  - CoreGraphics' (Apple compiles it into CoreGraphics.framework);
-  - Foundation's `Date.ComponentsFormatStyle`;
-  - CoreText's `AttributedString.AdaptiveImageGlyph`.
+  Then the Swift overlays and the rest of what the link needed:
+  - CoreGraphics' Swift overlay, compiled into CoreGraphics as Apple's is, and CoreText's
+    (`AttributedString.AdaptiveImageGlyph`, line heights, the CoreText attribute scope);
+  - Foundation: `Date.ComponentsFormatStyle`, the Combine integration, and the URL loading
+    system that Apple keeps in CFNetwork (`docs/design/FOUNDATION.md`);
+  - AppKit: `NSAccessibilityElement`, custom actions and rotors, `NSHapticFeedbackManager`,
+    and the private accessibility entry points and accent-colour functions;
+  - QuartzCore: `CAChameleonLayer`.
 
+  `SwiftUI.framework` and `SwiftUICore.framework` now link against Finch's frameworks alone.
+  Next is step 2 of the plan: a minimal app on the host, then in the VM.

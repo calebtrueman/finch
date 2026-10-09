@@ -87,6 +87,23 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
 
 ## Status
 
+- 2026-10-09: the URL loading system. Apple's lives in CFNetwork, which is closed, and
+  Foundation re-exports it; Finch's is in Foundation itself (`NSURLSession.m`), and the
+  build fails if Foundation ever links CFNetwork. `NSURLRequest`, `NSMutableURLRequest`,
+  `NSURLResponse`, `NSHTTPURLResponse`, and `NSURLSession` with its configuration and its
+  data, upload and download tasks, which report through completion handlers or delegates.
+  Sessions load `file:` and `data:` URLs and HTTP/1.1, following redirects and decoding
+  chunked bodies. HTTPS runs over OpenSSL, linked in with its symbols hidden, and verifies
+  servers against `/etc/ssl/cert.pem`; Finch's image doesn't ship a CA bundle yet.
+  Swift gets `URLRequest`, from the historical overlay, and Finch's async methods
+  (`data(for:)`, `download(for:)`, `bytes(for:)`). Finch also adds Foundation's async byte
+  sequences, `FileHandle.bytes`, `URL.resourceBytes` and `lines`, with their frozen
+  iterators laid out as Apple's are. `finch-urlsession-test` serves HTTP on the loopback
+  interface and matches Apple's run. Still to come: caching, cookies, authentication
+  challenges, HTTP/2, streaming delegate data, and WebSocket and stream tasks.
+- 2026-10-09: Foundation's Combine integration (`swift/Finch/Foundation+Combine.swift`):
+  the KVO, notification, timer and URL session publishers, the coder conformances, and the
+  run loop and operation queue schedulers. Foundation links Combine, as Apple's does.
 - 2026-10-09: `NSFileCoordinator` and `NSFilePresenter`, within one process
   (`NSFileCoordinator.m`). Readers make presenters relinquish to the reader, then save, then
   reacquire right after the accessor. Writers make presenters relinquish, and the reacquire

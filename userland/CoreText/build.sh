@@ -46,6 +46,14 @@ for f in "${HERE}"/*.cpp; do
     "${CXX}" "${CXXFLAGS[@]}" -c "$f" -o "${OBJ}/$(basename "${f%.cpp}").o"
 done
 
+for f in "${HERE}"/*.m; do
+    "${CC}" "${COMMON[@]}" -fobjc-arc -c "$f" -o "${OBJ}/$(basename "${f%.m}").o"
+done
+# The Swift overlay (module CoreText), compiled into CoreText as Apple's is (swift/).
+"$(xcrun -f swiftc)" -c -wmo -module-name CoreText -import-underlying-module -parse-as-library \
+    -enable-library-evolution -module-link-name swiftCoreText -target arm64e-apple-macos26.0 -sdk "${SDKROOT}" \
+    -swift-version 5 -O -I "${HERE}/swift/private" "${HERE}"/swift/*.swift -o "${OBJ}/CoreText-swift.o"
+
 log "linking"
 mkdir -p "${FW}/Versions/A"
 "${CXX}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
@@ -54,7 +62,8 @@ mkdir -p "${FW}/Versions/A"
     "${OBJ}"/*.o -o "${FW}/Versions/A/CoreText" \
     -Wl,-exported_symbols_list,"${HERE}/exports.txt" -Wl,-dead_strip \
     "${SKIA_OBJ}/libharfbuzz.a" "${SKIA_OBJ}/libfreetype2.a" "${SKIA_OBJ}/libpng.a" "${SKIA_OBJ}/libzlib.a" "${SKIA_OBJ}/libskia.a" \
-    -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -framework CoreGraphics -licucore -lc++
+    -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -framework CoreGraphics -framework Foundation \
+    -weak_framework UniformTypeIdentifiers -licucore -lc++ -lobjc -L"${SDKROOT}/usr/lib/swift"
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/CoreText "${FW}/CoreText"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" A CoreText com.apple.CoreText CoreText 1.0 877.4 English

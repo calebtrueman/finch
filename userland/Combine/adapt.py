@@ -83,6 +83,9 @@ def main():
             s = s.replace('#if !canImport(Combine)', "#if true // Finch: Apple's Combine has these")
             s = re.sub(r'@inlinable\s*(?=(?:@\w+(?:\([^)]*\))?\s*)*(\w+))', inlinable, s)
             s = freeze(s)
+            if f == 'PassthroughSubject.swift':  # Apple's takes its subscriber __owned
+                s = s.replace('func receive<Downstream: Subscriber>(subscriber: Downstream)',
+                              'func receive<Downstream: Subscriber>(subscriber: __owned Downstream)')
             if f in ('Result.Publisher.swift', 'Optional.Publisher.swift'):
                 s = flatten_ocombine(s)
             s = s.replace('.ocombine.publisher', '.publisher').replace('.OCombine.Publisher', '.Publisher')

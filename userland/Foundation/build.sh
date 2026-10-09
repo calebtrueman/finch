@@ -7,7 +7,8 @@
 # Linked as Apple ships it: Versions/C, current version 4424.1.255,
 # compatibility version 300, re-exporting libobjc and CoreFoundation, and
 # linking libicucore (measurement formats) and libxml2 (NSXMLParser) as
-# Apple's does.
+# Apple's does, and Combine (its publishers) as Apple's does. OpenSSL (corecrypto's build) is linked in with its symbols
+# hidden, for the URL loading system's TLS (Apple's is in CFNetwork).
 #
 #   userland/Foundation/build.sh
 #     -> build/root/System/Library/Frameworks/Foundation.framework
@@ -18,10 +19,13 @@ OBJ="${FINCH_ROOT}/build/obj/Foundation"
 ROOT="${FINCH_ROOT}/build/root"
 FW="${ROOT}/System/Library/Frameworks/Foundation.framework"
 CFFW="${ROOT}/System/Library/Frameworks/CoreFoundation.framework"
+OPENSSL="${FINCH_ROOT}/build/obj/corecrypto-openssl"
 SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 CC="$(xcrun -f clang)"
 log() { echo "==> $*"; }
 
+[[ -f "${ROOT}/System/Library/Frameworks/Combine.framework/Combine" ]] || { echo "build Combine first: userland/Combine/build.sh" >&2; exit 1; }
+[[ -f "${OPENSSL}/libssl.a" ]] || { echo "build corecrypto first (make -C userland/corecrypto install)" >&2; exit 1; }
 [[ -f "${CFFW}/Versions/A/CoreFoundation" ]] || { echo "build CoreFoundation first: userland/CoreFoundation/build.sh" >&2; exit 1; }
 # As Apple's, Foundation re-exports Auto Layout's classes from the private
 # CoreAutoLayout (the symbols in CoreAutoLayout.reexports), weakly linked.
@@ -35,7 +39,7 @@ CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
     -Wno-objc-property-implementation -Wno-protocol -Wno-objc-protocol-method-implementation
     -Wno-deprecated-declarations -Wno-deprecated-implementations -Wno-objc-designated-initializers
     -Wno-objc-missing-super-calls -Wno-sign-compare -Wno-objc-method-access
-    -I"${SDKROOT}/usr/include/libxml2")
+    -I"${SDKROOT}/usr/include/libxml2" -I"${OPENSSL}/include" -I"${FINCH_ROOT}/build/src/openssl/include")
 
 log "compiling"
 rm -rf "${OBJ}" && mkdir -p "${OBJ}"
@@ -53,18 +57,26 @@ mkdir -p "${FW}/Versions/C"
 "${CC}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
     -install_name /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation \
     -current_version 4424.1.255 -compatibility_version 300 \
-    "${OBJ}"/*.o "${SWIFTOBJ}/Foundation-swift.o" "${SWIFTOBJ}"/cshims/*.o -o "${FW}/Versions/C/Foundation" -licucore -lxml2 \
+    "${OBJ}"/*.o "${SWIFTOBJ}/Foundation-swift.o" "${SWIFTOBJ}"/cshims/*.o -o "${FW}/Versions/C/Foundation" -licucore -lxml2 -Wl,-no_warn_inits \
+    -L"${OPENSSL}" -Wl,-hidden-lssl -Wl,-hidden-lcrypto \
     -L"${SWIFTOBJ}/coll" -Wl,-hidden-lCollectionsInternal -L"${SDKROOT}/usr/lib/swift" \
-    -F"${ROOT}/System/Library/Frameworks" -Wl,-reexport_framework,CoreFoundation -Wl,-reexport-lobjc -lSystem \
+    -F"${ROOT}/System/Library/Frameworks" -Wl,-reexport_framework,CoreFoundation -Wl,-reexport-lobjc -lSystem -framework Combine \
     -F"${ROOT}/System/Library/PrivateFrameworks" -Wl,-weak_framework,CoreAutoLayout \
     -Wl,-reexported_symbols_list,"${HERE}/CoreAutoLayout.reexports"
+# Foundation carries the URL loading system itself: nothing may come from Apple's CFNetwork.
+if otool -L "${FW}/Versions/C/Foundation" | grep -q CFNetwork.framework; then
+    echo "error: Foundation links CFNetwork for:" >&2
+    dyld_info -imports "${FW}/Versions/C/Foundation" | grep "from CFNetwork" >&2
+    exit 1
+fi
 ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/Foundation "${FW}/Foundation"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" C Foundation com.apple.Foundation Foundation 6.9 4424.1.402 en_US
 codesign -f -s - -i com.apple.Foundation "${FW}/Versions/C/Foundation" 2>/dev/null
 NOTICES="${ROOT}/usr/share/finch/licenses"
-mkdir -p "${NOTICES}/swift-foundation" "${NOTICES}/swift-collections" "${NOTICES}/swift-foundation-overlay"
+mkdir -p "${NOTICES}/openssl" "${NOTICES}/swift-foundation" "${NOTICES}/swift-collections" "${NOTICES}/swift-foundation-overlay"
 cp "${FINCH_ROOT}/build/src/swift-foundation/"{LICENSE.md,NOTICE.txt} "${NOTICES}/swift-foundation/"
 cp "${FINCH_ROOT}/build/src/swift-collections/LICENSE.txt" "${NOTICES}/swift-collections/"
+cp "${FINCH_ROOT}/build/src/openssl/LICENSE.txt" "${NOTICES}/openssl/"
 cp "${HERE}/swift/Darwin/LICENSE.txt" "${NOTICES}/swift-foundation-overlay/"
 log "installed ${FW#"${FINCH_ROOT}/"}"

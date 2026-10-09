@@ -36,3 +36,13 @@ CGTypeCopyDescriptionPrefix(CFTypeRef cf, const char *name)
 {
     return CFStringCreateWithFormat(NULL, NULL, CFSTR("<%s %p>"), name, cf);
 }
+
+/* The mouse's movement since the last mouse event (CGRemoteOperation.h). Finch reports none yet. */
+__attribute__((visibility("default"))) void
+CGGetLastMouseDelta(int32_t *deltaX, int32_t *deltaY)
+{
+    if (deltaX)
+        *deltaX = 0;
+    if (deltaY)
+        *deltaY = 0;
+}

@@ -27,7 +27,7 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | XNU, most Darwin userland | APSL 2.0 | Build and modify. Modifications to APSL files stay APSL and must be published. |
 | CF-Lite, libdispatch, swift-corelibs, Swift, LLVM/clang | Apache 2.0 / APSL | Build directly |
 | WebKit | BSD / LGPL | Build directly |
-| OpenSSL 3.5.9 | Apache 2.0 | Built and linked statically into Finch's libcorecrypto and Security.framework |
+| OpenSSL 3.5.9 | Apache 2.0 | Built and linked statically into Finch's libcorecrypto, Security.framework and Foundation.framework (TLS for the URL loading system) |
 | swift-foundation, swift-experimental-string-processing (`swift-6.3.1-RELEASE`), swift-collections 1.1.6 | Apache 2.0, with Swift's Runtime Library Exception where stated | Foundation's Swift value types and private collections; Swift's string and regex libraries. Source notices ship with the image. |
 | Swift Darwin overlays (`swift-5.4-RELEASE`, `swift-5.2.5-RELEASE`) | Apache 2.0 with Runtime Library Exception | Historical open Foundation, CoreFoundation, IOKit, simd and Darwin sources, adapted for the current SDK. Imported files retain their notices. |
 | objc4-951.7 and libdispatch-1542.100.32 Swift overlays | objc4 project APSL 2.0; Dispatch Swift sources Apache 2.0 with Runtime Library Exception | Built from their pinned source trees. The overlay build installs the project licences and the compiled files' copyright notices in `objc4-swift-overlay` and `libdispatch-swift-overlay`; the Dispatch folder also keeps Swift's licence and exception. |
@@ -36,6 +36,7 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | XZ Utils 5.4.3 (liblzma), libxo, libsbuf | 0BSD / BSD | Build directly |
 | libxml2 (Apple's libxml2-39.10) | MIT | Build directly (Foundation's NSXMLParser links it) |
 | OpenCombine 0.14.0 | MIT | Adapted and built as Combine.framework (`docs/design/COMBINE.md`) |
+| OpenSwiftUI (`aefa4e6`), OpenAttributeGraph, OpenObservation, OpenRenderBox, OpenCoreGraphics (revisions pinned by OpenSwiftUI's `Package.resolved`) | MIT | Adapted and built as SwiftUI.framework and SwiftUICore.framework (`docs/design/SWIFTUI.md`). Notices ship in the image. OpenSwiftUI's DarwinPrivateFrameworks package (headers for Apple's private frameworks) is fetched by SwiftPM but switched off: nothing from it is linked. swift-numerics and swift-syntax (Apache 2.0) are build-time dependencies only. |
 | Skia (chrome/m155) | BSD-3 | Built and linked statically into Finch's CoreGraphics |
 | FreeType | FTL or GPL-2.0 | Taken under the FTL (BSD-style, with a credit clause), linked statically with Skia |
 | HarfBuzz, libpng, libjpeg-turbo, libwebp, wuffs, zlib (Chromium's), skcms | MIT / libpng / BSD-3 + IJG / BSD-3 / Apache 2.0 / Zlib / BSD-3 | Built with Skia, linked statically |

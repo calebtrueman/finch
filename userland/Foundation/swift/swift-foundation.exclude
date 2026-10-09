@@ -19,3 +19,5 @@ URL/URL_ObjC.swift
 URL/URLComponents_ObjC.swift
 # Apple's NSUUID is its Swift subclass __NSConcreteUUID; Finch bridges through bytes (Darwin/UUID+NSUUID.swift).
 UUID_Wrappers.swift
+# Date.ComponentsFormatStyle: swift-foundation has only a stub; Finch's is Finch/Date+ComponentsFormatStyle.swift.
+Formatting/Date/Date+ComponentsFormatStyle+Stub.swift

@@ -98,3 +98,57 @@ CGPathFromSkPath(const SkPath &path)
     }
     return out;
 }
+
+#pragma mark - Stroked and dashed copies of paths
+
+#include "include/core/SkPaint.h"
+#include "include/core/SkPathEffect.h"
+#include "include/core/SkPathUtils.h"
+#include "include/core/SkStrokeRec.h"
+#include "include/effects/SkDashPathEffect.h"
+#include <vector>
+
+/* The outline of a path stroked with these settings, as Skia's stroker draws it. */
+extern "C" CGPathRef
+CGPathCreateCopyByStrokingPath(CGPathRef path, const CGAffineTransform *transform, CGFloat lineWidth, CGLineCap cap,
+                               CGLineJoin join, CGFloat miterLimit)
+{
+    if (!path)
+        return NULL;
+    SkPaint p;
+    p.setStyle(SkPaint::kStroke_Style);
+    p.setStrokeWidth((float)lineWidth);
+    p.setStrokeCap(cap == kCGLineCapRound ? SkPaint::kRound_Cap : cap == kCGLineCapSquare ? SkPaint::kSquare_Cap : SkPaint::kButt_Cap);
+    p.setStrokeJoin(join == kCGLineJoinRound ? SkPaint::kRound_Join : join == kCGLineJoinBevel ? SkPaint::kBevel_Join : SkPaint::kMiter_Join);
+    p.setStrokeMiter((float)miterLimit);
+    SkPath outline = skpathutils::FillPathWithPaint(CGSkPath(path, transform, false), p);
+    return CGPathFromSkPath(outline);
+}
+
+/* The path cut into dashes (lengths alternate on and off, starting `phase` in). */
+extern "C" CGPathRef
+CGPathCreateCopyByDashingPath(CGPathRef path, const CGAffineTransform *transform, CGFloat phase, const CGFloat *lengths,
+                              size_t count)
+{
+    if (!path)
+        return NULL;
+    SkPath src = CGSkPath(path, transform, false);
+    if (!lengths || count == 0)
+        return CGPathFromSkPath(src);
+    std::vector<float> intervals;
+    for (size_t i = 0; i < count; i++)
+        intervals.push_back((float)lengths[i]);
+    if (intervals.size() % 2)   /* an odd count repeats, as CG's does */
+        intervals.insert(intervals.end(), intervals.begin(), intervals.end());
+    sk_sp<SkPathEffect> dash = SkDashPathEffect::Make(intervals, (float)phase);
+    SkPaint p;
+    p.setStyle(SkPaint::kStroke_Style);
+    p.setPathEffect(dash);
+    SkPath out = skpathutils::FillPathWithPaint(src, p);
+    /* FillPathWithPaint strokes; only the dash is wanted: apply the effect alone */
+    SkPathBuilder b;
+    SkStrokeRec rec(SkStrokeRec::kHairline_InitStyle);
+    if (dash && dash->filterPath(&b, src, &rec))
+        out = b.detach();
+    return CGPathFromSkPath(out);
+}

@@ -46,6 +46,12 @@ for f in "${HERE}"/*.cpp; do
     "${CXX}" "${CXXFLAGS[@]}" -c "$f" -o "${OBJ}/$(basename "${f%.cpp}").o"
 done
 
+# The Swift overlay (module CoreGraphics), compiled into CoreGraphics as Apple's is: Swift's historical
+# Darwin overlay (Apache 2.0), adapted, and Finch's geometry (swift/).
+"$(xcrun -f swiftc)" -c -wmo -module-name CoreGraphics -import-underlying-module -parse-as-library \
+    -enable-library-evolution -module-link-name swiftCoreGraphics -target arm64e-apple-macos26.0 -sdk "${SDKROOT}" \
+    -swift-version 5 -O "${HERE}"/swift/*.swift -o "${OBJ}/CoreGraphics-swift.o"
+
 log "linking"
 mkdir -p "${FW}/Versions/A"
 "${CXX}" -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib \
@@ -56,7 +62,7 @@ mkdir -p "${FW}/Versions/A"
     "${SKIA_OBJ}/libskia.a" "${SKIA_OBJ}/libskcms.a" "${SKIA_OBJ}/libfreetype2.a" \
     "${SKIA_OBJ}/libpng.a" "${SKIA_OBJ}/libjpeg.a" "${SKIA_OBJ}/libwebp.a" \
     "${SKIA_OBJ}/libwebp_sse41.a" "${SKIA_OBJ}/libwuffs.a" "${SKIA_OBJ}/libzlib.a" "${SKIA_OBJ}/libharfbuzz.a" \
-    -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -lz -lc++ -lSystem
+    -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -lz -lc++ -lSystem -L"${SDKROOT}/usr/lib/swift"
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/CoreGraphics "${FW}/CoreGraphics"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" A CoreGraphics com.apple.CoreGraphics CoreGraphics 2.0 1965.4.5 English

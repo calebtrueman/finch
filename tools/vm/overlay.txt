@@ -161,3 +161,4 @@ build/userland/finch-textblock-test /usr/local/bin/finch-textblock-test
 build/userland/finch-combine-test /usr/local/bin/finch-combine-test
 build/userland/finch-cftokenizer-test /usr/local/bin/finch-cftokenizer-test
 userland/tests/table.rtf /usr/local/share/finch/table.rtf
+build/userland/finch-urlsession-test /usr/local/bin/finch-urlsession-test

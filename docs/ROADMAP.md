@@ -397,7 +397,15 @@ and AppKit come in Phase 2).
 - [ ] Metal → Mesa
 - [x] Combine: OpenCombine (MIT) adapted to Apple's ABI, with Finch's Merge, CombineLatest
       and collecting by time; every Combine symbol the system apps import (2026-10-09)
-- [ ] SwiftUI
+- [ ] SwiftUI: OpenSwiftUI (MIT) built as SwiftUI and SwiftUICore (`docs/design/SWIFTUI.md`)
+  - [x] Both frameworks build and link against Finch's frameworks alone (2026-10-09)
+  - [ ] A minimal app draws and responds on the host, then in the VM
+  - [ ] ABI parity, then the system apps, smallest first
+- [ ] The URL loading system (Apple's is in the closed CFNetwork; Finch's is in Foundation)
+  - [x] Requests, responses, sessions; file, data and HTTP/1.1 loading; TLS over OpenSSL;
+        Swift's URLRequest and async methods (2026-10-09)
+  - [ ] A CA bundle in the image (Mozilla's, pinned), caching, cookies, authentication,
+        HTTP/2, streaming delegate data, WebSocket and stream tasks
 - [ ] AVFoundation / CoreAudio / CoreMedia
 
 **Exit:** a defined app corpus (e.g., top 50 non-App-Store Mac apps) runs with no Apple

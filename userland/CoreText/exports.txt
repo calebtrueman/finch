@@ -1,2 +1,5 @@
 _CT*
 _kCT*
+_$s*
+_OBJC_CLASS_$_CTAdaptiveImageGlyph
+_OBJC_METACLASS_$_CTAdaptiveImageGlyph
