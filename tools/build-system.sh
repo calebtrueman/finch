@@ -84,6 +84,11 @@ steps=(
     "CoreText|userland/CoreText/build.sh"
     "WindowServer|userland/WindowServer/build.sh"
     "ImageIO|userland/ImageIO/build.sh"
+    # AppKit and the frameworks around it (docs/design/APPKIT.md)
+    "ApplicationServices|userland/ApplicationServices/build.sh"
+    "UIFoundation|userland/UIFoundation/build.sh"
+    "AppKit|userland/AppKit/build.sh"
+    "Cocoa|userland/Cocoa/build.sh"
     # Libraries Apple publishes that Finch's commands link (tools/check-closed.py).
     # libedit's generated headers come from its "make lists" target first.
     "zlib|oss zlib libz"

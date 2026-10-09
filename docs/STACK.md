@@ -17,6 +17,11 @@ codecs Skia builds, returning the CGImages and properties Apple's does. CoreText
 in open fonts Finch ships in place of Apple's (Inter for the system font,
 Liberation for Helvetica, Arial, Times and Courier, DejaVu Sans Mono for
 Menlo, Noto for other scripts and emoji), which Apple's font names resolve to.
+Finch's window server composites windows that apps draw with CoreGraphics
+into shared memory, and routes input to them (`docs/design/WINDOWSERVER.md`).
+Finch's AppKit has begun (`docs/design/APPKIT.md`), split as Apple's is,
+with a private UIFoundation under it and the Cocoa and ApplicationServices
+umbrellas over it.
 
 ```mermaid
 block-beta
@@ -31,7 +36,7 @@ block-beta
     block:L6
         columns 4
         t6["App frameworks"]
-        appkit["AppKit"]
+        appkit["AppKit, UIFoundation (begun);<br/>Cocoa and ApplicationServices<br/>umbrellas"]
         cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>window server client, displays"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
@@ -118,8 +123,8 @@ block-beta
     classDef firmware fill:#fee2e2,stroke:#b91c1c,color:#450a0a
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
-    class apps,shell,appkit,later,kexts,metal planned
-    class desktop,cg,imageio,ctio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class apps,shell,later,kexts,metal planned
+    class appkit,desktop,cg,imageio,ctio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia,fonts upstream
     class vz firmware

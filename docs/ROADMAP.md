@@ -217,7 +217,13 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         a host window at the display's scale, mouse, scroll and key input back,
         reconnecting; tested end to end on the host (2026-10-08).
   - [ ] CGEvent, and the server on the Tier 2 display
-- [ ] AppKit
+- [ ] AppKit ([`docs/design/APPKIT.md`](design/APPKIT.md))
+  - [x] Framework skeletons as Apple splits them: AppKit re-exporting a private
+        UIFoundation, ApplicationServices and Foundation; the Cocoa umbrella
+  - [ ] UIFoundation: fonts, paragraph styles, shadows, string drawing, the text system
+  - [ ] Drawing: colours, colour spaces, Bézier paths, gradients, images, graphics contexts
+  - [ ] Applications, windows, views, events and the responder chain, on the window server
+  - [ ] Controls and cells, menus, nib loading
 - [ ] TextEdit or Calculator launches and is usable
 
 **Exit:** an unmodified Mac app draws a window on Finch's own frameworks and
