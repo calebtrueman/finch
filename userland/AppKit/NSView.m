@@ -421,7 +421,13 @@ did_move_to_window(NSView *view, NSWindow *window)
     FinchLayoutViewFrameDidChange(self);
 }
 - (BOOL)needsLayout { return _f.needsLayout; }
-- (void)setNeedsLayout:(BOOL)flag { _f.needsLayout = flag; }
+/* a view needing layout gets an update pass, as one needing display does */
+- (void)setNeedsLayout:(BOOL)flag
+{
+    _f.needsLayout = flag;
+    if (flag && _window)
+        FinchApplicationNeedsDisplay();
+}
 - (BOOL)needsUpdateConstraints { return _f.needsUpdateConstraints; }
 - (void)setNeedsUpdateConstraints:(BOOL)flag { _f.needsUpdateConstraints = flag; }
 - (NSAppearance *)appearance { return _appearance; }
@@ -500,6 +506,7 @@ did_move_to_window(NSView *view, NSWindow *window)
     if (_superview)
         [_superview setNeedsDisplayInRect:_frame];
     FinchLayoutViewFrameDidChange(self);
+    FinchViewGeometryInWindowDidChange(self);
     if (_f.postsFrame)
         [[NSNotificationCenter defaultCenter] postNotificationName:NSViewFrameDidChangeNotification object:self];
 }
@@ -521,6 +528,7 @@ did_move_to_window(NSView *view, NSWindow *window)
     if (_f.autoresizesSubviews)
         [self resizeSubviewsWithOldSize:old];
     FinchLayoutViewFrameDidChange(self);
+    FinchViewGeometryInWindowDidChange(self);
     [self setNeedsDisplay:YES];
     if (_f.postsFrame)
         [[NSNotificationCenter defaultCenter] postNotificationName:NSViewFrameDidChangeNotification object:self];

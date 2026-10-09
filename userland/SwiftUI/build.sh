@@ -48,8 +48,10 @@ done
 HEADERS="${PKG}/build/checkouts/Compute/Submodules/swift-runtime-headers"
 SWIFT_PATCH="${FINCH_ROOT}/userland/swift/patches/0001-arm64e-runtime-metadata.patch"
 chmod -R u+w "${HEADERS}"
-git -C "${HEADERS}" apply -R --check --include='include/*' "${SWIFT_PATCH}" 2>/dev/null ||
+if ! git -C "${HEADERS}" apply -R --check --include='include/*' "${SWIFT_PATCH}" 2>/dev/null; then
+    git -C "${HEADERS}" checkout -q -- include   # an earlier version of the patch
     git -C "${HEADERS}" apply --include='include/*' "${SWIFT_PATCH}"
+fi
 swift build -c release --triple arm64e-apple-macosx26.0 --scratch-path "${PKG}/build" --target SwiftUI
 # Compute's C++ helpers, which SwiftPM builds only as their own targets
 for t in Platform Utilities; do

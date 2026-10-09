@@ -120,4 +120,12 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     formatting, empty dictionaries bridging to Swift, locale/time zone/calendar equality with
     Swift subclasses. UIFoundation: `NSStringDrawingContext`'s private options and results.
 
-  Next: events (the button), window placement, and Text styles; then larger apps.
+  - Clicks work: the button counts and the text updates. This needed AppKit's private
+    geometry observers and event latching (`AppKitPrivate.m`), an update pass when a view
+    needs layout, and the Swift runtime authenticating `swift_lookUpClassMethod`'s
+    arguments as Apple's does (descriptors signed DA/0xae86, method descriptors DA/0x675a).
+    Finch's runtime now builds without clang's struct-pointer signing at its interfaces,
+    matching what compiled code passes.
+
+  Next: window placement (it is centred while still empty), Text styles and fonts, then
+  larger apps.

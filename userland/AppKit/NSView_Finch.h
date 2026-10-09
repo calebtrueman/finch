@@ -59,4 +59,7 @@ FINCH_PRIVATE void FinchLayoutDecodeView(NSView *view, NSCoder *coder);
 /* A class Finch's AppKit doesn't have yet, by name, so the build doesn't need it. */
 #define FINCH_CLASS(name) ((Class)objc_getClass(#name))
 
+/* A view's frame changed: geometry-in-window observers on it or above it are told (AppKitPrivate.m). */
+FINCH_PRIVATE void FinchViewGeometryInWindowDidChange(NSView *view);
+
 #endif

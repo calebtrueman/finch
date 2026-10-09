@@ -1972,4 +1972,11 @@ static const void *kIdentifier = &kIdentifier, *kRestoration = &kRestoration;
     return [self respondsToSelector:a];
 }
 - (BOOL)_finchHasCloseTarget { return NO; }
+/* Private, as Apple's: a left mouse-down's drags and up go to this view from now on. */
+- (void)_latchView:(NSView *)view forEvent:(NSEvent *)event
+{
+    if ([event type] == NSEventTypeLeftMouseDown && _mouseDownView)
+        _mouseDownView = view;
+}
+
 @end

@@ -20,7 +20,10 @@ struct ContentView: View {
             Text("Hello from SwiftUI")
                 .font(.title)
             Text("Pressed \(count) times")
-            Button("Press") { count += 1 }
+            Button("Press") {
+                count += 1
+                FileHandle.standardError.write(Data("pressed \(count)\n".utf8))
+            }
         }
         .padding(40)
     }

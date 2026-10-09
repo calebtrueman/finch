@@ -115,7 +115,7 @@ index 21a5c92..466828c 100644
  template <typename Runtime, typename Pointee, bool Nullable = true,
            typename Offset = int32_t>
 diff --git a/include/swift/Runtime/Config.h b/include/swift/Runtime/Config.h
-index f0acbb8..5577180 100644
+index f0acbb8..ac2bf2f 100644
 --- a/include/swift/Runtime/Config.h
 +++ b/include/swift/Runtime/Config.h
 @@ -280,9 +280,18 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
@@ -137,7 +137,18 @@ index f0acbb8..5577180 100644
  #define __ptrauth_swift_protocol_conformance_descriptor \
    __ptrauth(ptrauth_key_process_independent_data, 1, \
              SpecialPointerAuthDiscriminators::ProtocolConformanceDescriptor)
-@@ -358,6 +367,7 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
+@@ -345,7 +354,9 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
+   __ptrauth(ptrauth_key_function_pointer, 1,                                   \
+             SpecialPointerAuthDiscriminators::IsCurrentGlobalActorFunction)
+ 
+-#if __has_attribute(ptrauth_struct)
++/* Finch: Apple's runtime is built without struct-pointer signing (compiled code passes
++   descriptors signed by the type-descriptor schema, or not at all), so Finch's is too. */
++#if __has_attribute(ptrauth_struct) && defined(FINCH_PTRAUTH_STRUCT)
+ #define swift_ptrauth_struct(key, discriminator)                               \
+   __attribute__((ptrauth_struct(key, discriminator)))
+ #else
+@@ -358,6 +369,7 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
                         __builtin_ptrauth_struct_disc(from) + 1)
  #else
  #define SWIFT_PTRAUTH 0
@@ -145,7 +156,7 @@ index f0acbb8..5577180 100644
  #define __ptrauth_swift_function_pointer(__typekey)
  #define __ptrauth_swift_class_method_pointer(__declkey)
  #define __ptrauth_swift_protocol_witness_function_pointer(__declkey)
-@@ -380,6 +390,8 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
+@@ -380,6 +392,8 @@ extern uintptr_t __COMPATIBILITY_LIBRARIES_CANNOT_CHECK_THE_IS_SWIFT_BIT_DIRECTL
  #define __ptrauth_swift_heap_object_destructor
  #define __ptrauth_swift_type_descriptor
  #define __ptrauth_swift_protocol_conformance_descriptor
@@ -197,7 +208,7 @@ index ab7d1bc..09e6558 100644
      // If there's no completion function, do a quick-and-dirty check to
      // see if all of the type arguments are already complete.  If they
 diff --git a/stdlib/public/runtime/Metadata.cpp b/stdlib/public/runtime/Metadata.cpp
-index e7d03f6..88c3231 100644
+index e7d03f6..a7f9b4f 100644
 --- a/stdlib/public/runtime/Metadata.cpp
 +++ b/stdlib/public/runtime/Metadata.cpp
 @@ -474,6 +474,29 @@ static void copyMetadataPattern(void **section,
@@ -313,7 +324,46 @@ index e7d03f6..88c3231 100644
  }
  // This gets called if we fail during copyGenericClassObjcName().  Its job is
  // to generate a unique name, even though the name won't be very helpful if
-@@ -6115,7 +6162,7 @@ static bool doesNotRequireInstantiation(
+@@ -4401,6 +4448,14 @@ void *
+ swift::swift_lookUpClassMethod(const ClassMetadata *metadata,
+                                const MethodDescriptor *method,
+                                const ClassDescriptor *description) {
++#if SWIFT_PTRAUTH
++  // Finch: as Apple's runtime, the caller signs the descriptor with the type descriptor
++  // schema (key DA, 0xae86, no address).
++  description = ptrauth_auth_data(description, ptrauth_key_process_independent_data,
++                                  SpecialPointerAuthDiscriminators::TypeDescriptor);
++  // and the method descriptor with the method descriptor schema (key DA, 0x675a).
++  method = ptrauth_auth_data(method, ptrauth_key_process_independent_data, 0x675a);
++#endif
+   assert(metadata->isTypeMetadata());
+ 
+ #ifndef NDEBUG
+@@ -4421,16 +4476,17 @@ swift::swift_lookUpClassMethod(const ClassMetadata *metadata,
+ 
+ #if SWIFT_PTRAUTH
+   // Re-sign the return value without the address.
++  // Finch: the slot is signed as Xcode 26's compiler signs vtable entries, which this
++  // runtime's address-blended scheme doesn't match; compiled dispatch through the slot
++  // works, so the entry is stripped and signed for the caller instead.
+   unsigned extra = method->Flags.getExtraDiscriminator();
+   if (method->Flags.isData()) {
+-    return ptrauth_auth_and_resign(
+-        *methodPtr, ptrauth_key_process_independent_data,
+-        ptrauth_blend_discriminator(methodPtr, extra),
++    return ptrauth_sign_unauthenticated(
++        ptrauth_strip(*methodPtr, ptrauth_key_process_independent_data),
+         ptrauth_key_process_independent_data, extra);
+   } else {
+-    return ptrauth_auth_and_resign(
+-        *methodPtr, ptrauth_key_function_pointer,
+-        ptrauth_blend_discriminator(methodPtr, extra),
++    return ptrauth_sign_unauthenticated(
++        ptrauth_strip(*methodPtr, ptrauth_key_function_pointer),
+         ptrauth_key_function_pointer, extra);
+   }
+ #else
+@@ -6115,7 +6171,7 @@ static bool doesNotRequireInstantiation(
  
  #if SWIFT_PTRAUTH
  static const unsigned swift_ptrauth_key_associated_type =
@@ -322,7 +372,7 @@ index e7d03f6..88c3231 100644
  
  /// Given an unsigned pointer to an associated-type protocol witness,
  /// fill in the appropriate slot in the witness table we're building.
-@@ -6124,13 +6171,11 @@ static void initAssociatedConformanceWitness(const Metadata **slot,
+@@ -6124,13 +6180,11 @@ static void initAssociatedConformanceWitness(const Metadata **slot,
                                               const ProtocolRequirement &reqt) {
    assert(reqt.Flags.getKind() ==
             ProtocolRequirementFlags::Kind::AssociatedTypeAccessFunction);
@@ -338,7 +388,7 @@ index e7d03f6..88c3231 100644
  
  /// Given an unsigned pointer to an associated-conformance protocol witness,
  /// fill in the appropriate slot in the witness table we're building.
-@@ -6138,9 +6183,7 @@ static void initAssociatedConformanceProtocolWitness(void **slot, void *witness,
+@@ -6138,9 +6192,7 @@ static void initAssociatedConformanceProtocolWitness(void **slot, void *witness,
                                                const ProtocolRequirement &reqt) {
    assert(reqt.Flags.getKind() ==
             ProtocolRequirementFlags::Kind::AssociatedConformanceAccessFunction);
@@ -349,7 +399,7 @@ index e7d03f6..88c3231 100644
  }
  #endif
  
-@@ -6210,10 +6253,9 @@ static void copyProtocolWitness(void **dest, void * const *src,
+@@ -6210,10 +6262,9 @@ static void copyProtocolWitness(void **dest, void * const *src,
                               // might be proven unused and null'ed)
      return;
  
@@ -361,7 +411,7 @@ index e7d03f6..88c3231 100644
          dest, src, reqt.Flags.getExtraDiscriminator(),
          /*allowNull*/ true); // NULL allowed for VFE (methods in the vtable
                               // might be proven unused and null'ed)
-@@ -6327,7 +6369,10 @@ instantiateWitnessTable(const Metadata *Type,
+@@ -6327,7 +6378,10 @@ instantiateWitnessTable(const Metadata *Type,
      for (size_t i = 0, e = numPatternWitnesses; i < e; ++i) {
        size_t requirementIndex = i - WitnessTableFirstRequirementOffset;
        if (i < WitnessTableFirstRequirementOffset)
@@ -373,7 +423,7 @@ index e7d03f6..88c3231 100644
        else
          copyProtocolWitness(&table[i], &pattern[i],
                              requirements[requirementIndex]);
-@@ -6336,7 +6381,9 @@ instantiateWitnessTable(const Metadata *Type,
+@@ -6336,7 +6390,9 @@ instantiateWitnessTable(const Metadata *Type,
      // Put the conformance descriptor in place. Instantiation will fill in the
      // rest.
      assert(numPatternWitnesses == 0);
@@ -384,7 +434,7 @@ index e7d03f6..88c3231 100644
    }
  
    // Copy any instantiation arguments that correspond to conditional
-@@ -6447,6 +6494,8 @@ const WitnessTable *
+@@ -6447,6 +6503,8 @@ const WitnessTable *
  swift::swift_getWitnessTable(const ProtocolConformanceDescriptor *conformance,
                               const Metadata *type,
                               const void * const *instantiationArgs) {
@@ -393,7 +443,7 @@ index e7d03f6..88c3231 100644
    /// Local function to unique a foreign witness table, if needed.
    auto uniqueForeignWitnessTableRef =
        [conformance](const WitnessTable *candidate) {
-@@ -6743,6 +6792,8 @@ const RelativeWitnessTable *
+@@ -6743,6 +6801,8 @@ const RelativeWitnessTable *
  swift::swift_getWitnessTableRelative(const ProtocolConformanceDescriptor *conformance,
                               const Metadata *type,
                               const void * const *instantiationArgs) {
