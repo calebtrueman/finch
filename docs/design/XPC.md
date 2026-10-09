@@ -151,3 +151,112 @@ symbols are: the bundle SPI (`xpc_bundle_*`, `xpc_string_cache_create`,
   Measured: a fresh process takes about 2 s to start in the emulator, because there's
   no dyld shared cache and each process maps about 170 dylibs one by one. A Finch shared
   cache is worth doing before services start launching on demand.
+- **NSXPC fixes (2026-10-09):** `xpc_connection_set_target_queue` no longer crashes
+  (connection queues were made with `dispatch_queue_create_with_target`, whose target
+  can't change); a client takes the server's audit token from each reply and a peer
+  the client's from the handshake, so pids and uids are known as soon as Apple's are;
+  canceling a client drops its dead-name request, and a dead-name notification for a
+  name already gone no longer deallocates it (a Mach port guard exception when client
+  and listener share a task).
+
+## NSXPC (Foundation)
+
+`NSXPCConnection`, `NSXPCListener`, `NSXPCInterface`, `NSXPCListenerEndpoint` and
+`NSXPCCoder` (`NSXPCEncoder`, `NSXPCDecoder`) are in Finch's Foundation
+(`userland/Foundation/NSXPCConnection.m`), over this libxpc. Apple's NSXPC wire format
+is private and Finch only talks NSXPC to its own processes, so the format below is
+Finch's own. Everything else (API, queues, ordering, errors, descriptions) follows
+Apple's, as measured on the host with `finch-nsxpc-test`.
+
+### Messages
+
+Every NSXPC message is an xpc dictionary:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `nsxpc` | uint64 | `1`: an NSXPC message (anything else is logged and dropped) |
+| `sel` | string | the selector |
+| `proxy` | uint64 | the object it's for: `1` is the receiver's `exportedObject`; higher numbers are objects the receiver passed as proxies |
+| `args` | array | one value per argument, the reply block's slot holding null |
+| `reply` | bool | the sender waits for a reply (the method has a reply block and it wasn't nil) |
+
+A message with a reply block is sent with `xpc_connection_send_message_with_reply`
+(or `_sync` from a synchronous proxy); the reply, made with
+`xpc_dictionary_create_reply`, is `{nsxpc: 1, args: [...]}` with the reply block's
+arguments. A proxy given back is `{nsxpc: 1, release: N, count: K}`.
+
+Arguments are encoded by the type the protocol's **extended** method encoding gives
+them (`_protocol_getMethodTypeEncoding`, so both sides need the protocol compiled in):
+signed integers as int64, unsigned ones as uint64, `BOOL`/`bool` as bool, `float` and
+`double` as double, structs, unions and arrays as data (their bytes: Finch↔Finch is
+always arm64), `char *`, `SEL` and `Class` as strings, pointers refused. An object
+argument is, in order of precedence: a proxy if the interface has an interface for it
+(`setInterface:…`), the xpc object itself if it has an XPC type (`setXPCType:…`, or is
+declared `xpc_object_t`), otherwise its object tree (below), checked on receipt against
+the argument's classes (`setClasses:…`, or the defaults: the declared class; the
+property-list classes for `id` and collections).
+
+### Object trees (NSXPCCoder)
+
+| Object | Tree |
+|---|---|
+| nil | null |
+| NSString | string |
+| NSNumber | bool (CFBoolean), int64, uint64 (above INT64_MAX), double |
+| NSData | data |
+| NSArray | array of trees |
+| NSDictionary | `{$class: "NSDictionary", keys: [...], values: [...]}` |
+| NSSet, NSOrderedSet | `{$class: "NSSet" or "NSOrderedSet", objects: [...]}` |
+| NSDate | `{$class: "NSDate", time: double}` (since the reference date) |
+| NSNull | `{$class: "NSNull"}` |
+| an xpc object | `{$class: "$xpc", value: <it>}` (`encodeXPCObject:forKey:`) |
+| a proxy | `{$class: "$proxy", number: uint64}` |
+| anything else | `{$class: "<classForCoder>", <its keys>...}`, filled by its `-encodeWithCoder:` (unkeyed values go under `$0`, `$1`, …) |
+
+Only NSSecureCoding classes are encoded. The decoder raises (`NSInvalidUnarchiveOperationException`)
+for a class that isn't allowed (a subclass of an allowed class is allowed, as with
+NSKeyedUnarchiver), and the receiver then logs, drops the message and invalidates the
+connection, as Apple's does. Object identity isn't kept (no shared references or
+cycles), as in Apple's NSXPCCoder.
+
+### Behaviour
+
+- Each connection has a private serial queue (`com.apple.NSXPCConnection.user.<name>`,
+  `….user.endpoint`, `….user.anonymous.<pid>` for peers). Events, exported methods,
+  reply blocks, error handlers and the interruption and invalidation handlers run there,
+  in order; `+currentConnection` is set while exported methods and reply blocks run.
+  Synchronous proxies run the reply block (or the error handler) on the calling thread
+  before returning.
+- Reply blocks: the receiver gets a heap block whose invoke function is
+  `_objc_msgForward`, with a class (a subclass of `__NSMallocBlock__`) that answers
+  `-methodSignatureForSelector:` with the reply block's signature, so CoreFoundation's
+  forwarding hands its call to `-forwardInvocation:` as an NSInvocation, which becomes
+  the reply. It can be called later and from any thread; a second call is logged and
+  ignored; if it's never called, the request's reply right dies with it and the sender
+  sees an error.
+- Errors (NSCocoaErrorDomain, `NSDebugDescription` as Apple's): 4097
+  (`NSXPCConnectionInterrupted`, "connection to service named X") for replies pending
+  when the service dies; 4099 (`NSXPCConnectionInvalid`, "The connection to service
+  with pid N named X was invalidated from this process.", or "… was invalidated:
+  Connection init failed at lookup with error 3 - No such process." when the name
+  doesn't exist); 4101 for a reply that can't be decoded. Messages sent after
+  invalidation fail at once (only those with a reply block report it). After
+  invalidation both handlers are released.
+- A named connection looks its service up when it's first resumed and is invalidated if
+  that fails (Finch's libxpc would otherwise drop the messages silently).
+- `+[NSXPCListener serviceListener]` `-resume` calls `xpc_main` (or, with the bundle's
+  `XPCService` `RunLoopType` = `NSRunLoop`, checks in `XPC_SERVICE_NAME` and runs the
+  main run loop).
+
+### Not yet
+
+- App-bundled services (`Contents/XPCServices/*.xpc`) aren't found by finch-init:
+  `initWithServiceName:` looks the name up as a Mach service, so a service needs a job
+  plist naming it (`userland/tests/launchd/org.finch.test.nsxpc.plist`). Apple starts one
+  instance per app, in the app's domain.
+- Methods returning `NSProgress *` (Apple's progress reporting across the connection),
+  `remoteObjectProxyWithTimeout:` timeouts, code-signing requirements (libxpc fails them
+  closed), and passing a proxy back to the side that exported it (it becomes a proxy
+  of a proxy).
+- On a peer that refuses or drops a connection, Apple's endpoint clients see an
+  interruption and reconnect; Finch's libxpc invalidates endpoint connections instead.

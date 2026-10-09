@@ -73,8 +73,10 @@ _xpc_connection_alloc(enum xpc_conn_kind kind, const char *name, dispatch_queue_
 	c->suspend_count = 1;
 	c->target = target ? target : dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0);
 	dispatch_retain(c->target);
-	c->queue = dispatch_queue_create_with_target(name ? name : "org.finch.xpc.connection",
-	    DISPATCH_QUEUE_SERIAL, c->target);
+	/* Not dispatch_queue_create_with_target: that fixes the target, and
+	 * xpc_connection_set_target_queue must be able to change it. */
+	c->queue = dispatch_queue_create(name ? name : "org.finch.xpc.connection", DISPATCH_QUEUE_SERIAL);
+	dispatch_set_target_queue(c->queue, c->target);
 	/* Connections are created suspended: no events until xpc_connection_resume. */
 	dispatch_suspend(c->queue);
 	c->send_port = c->recv_port = c->service_port = MACH_PORT_NULL;
@@ -318,6 +320,7 @@ _xpc_listener_accept(struct xpc_connection_s *listener, mach_msg_header_t *h)
 	peer->recv_port = d[0].name;
 	peer->send_port = d[1].name;
 	peer->connected = true;
+	peer->audit = listener->audit;   /* the client, which sent the handshake */
 	/* Learn when the client is gone (its send rights to S all die). */
 	mach_port_request_notification(mach_task_self(), peer->recv_port, MACH_NOTIFY_NO_SENDERS,
 	    0, peer->recv_port, MACH_MSG_TYPE_MAKE_SEND_ONCE, &prev);
@@ -364,7 +367,22 @@ _xpc_connection_receive(struct xpc_connection_s *c)
 		case MACH_NOTIFY_DEAD_NAME: {
 			/* Client: the server's end died. */
 			mach_dead_name_notification_t *n = (mach_dead_name_notification_t *)h;
-			mach_port_deallocate(mach_task_self(), n->not_port);   /* the dead name */
+			/* The notification's reference to the dead name. It may already be
+			 * gone: a client in the same task as its listener can see the
+			 * notification after canceling (the name is then reused or
+			 * invalid, and deallocating it trips a Mach port guard). */
+			mach_port_type_t type = 0;
+			if (mach_port_type(mach_task_self(), n->not_port, &type) == KERN_SUCCESS &&
+			    (type & MACH_PORT_TYPE_DEAD_NAME)) {
+				mach_port_deallocate(mach_task_self(), n->not_port);
+			}
+			os_unfair_lock_lock(&c->lock);
+			bool gone = c->canceled;
+			os_unfair_lock_unlock(&c->lock);
+			if (gone) {
+				free(h);
+				return;
+			}
 			os_unfair_lock_lock(&c->lock);
 			bool reconnectable = !c->from_endpoint && c->name != NULL;
 			os_unfair_lock_unlock(&c->lock);
@@ -544,6 +562,14 @@ xpc_connection_cancel(xpc_connection_t connection)
 		mach_port_mod_refs(mach_task_self(), recv, MACH_PORT_RIGHT_RECEIVE, -1);
 	}
 	if (MACH_PORT_VALID(send)) {
+		if (c->kind == XPC_CONN_CLIENT) {
+			/* No dead-name notification for a name we're giving up. */
+			mach_port_t prev = MACH_PORT_NULL;
+			if (mach_port_request_notification(mach_task_self(), send, MACH_NOTIFY_DEAD_NAME, 0,
+			        MACH_PORT_NULL, MACH_MSG_TYPE_MAKE_SEND_ONCE, &prev) == KERN_SUCCESS && MACH_PORT_VALID(prev)) {
+				mach_port_deallocate(mach_task_self(), prev);
+			}
+		}
 		mach_port_deallocate(mach_task_self(), send);
 	}
 	if (MACH_PORT_VALID(service)) {
@@ -626,9 +652,10 @@ _xpc_connection_send_request(struct xpc_connection_s *c, xpc_object_t message)
 	return rp;
 }
 
-/* A reply, or (send-once notification / failure) the interrupted error. */
+/* A reply, or (send-once notification / failure) the interrupted error. A
+ * reply also tells the client who the server is (its audit token). */
 static xpc_object_t
-_xpc_connection_take_reply(mach_port_t rp, mach_msg_option_t opts)
+_xpc_connection_take_reply(struct xpc_connection_s *c, mach_port_t rp, mach_msg_option_t opts)
 {
 	mach_msg_header_t *h = NULL;
 	xpc_object_t reply = NULL;
@@ -636,6 +663,13 @@ _xpc_connection_take_reply(mach_port_t rp, mach_msg_option_t opts)
 	if (_xpc_message_receive(rp, opts, 0, &h) == MACH_MSG_SUCCESS) {
 		if (h->msgh_id == (mach_msg_id_t)XPC_MSGID_REPLY) {
 			reply = _xpc_message_decode(h);
+			if (reply != NULL) {
+				mach_msg_audit_trailer_t *t = (mach_msg_audit_trailer_t *)
+				    ((uint8_t *)h + round_msg(h->msgh_size));
+				os_unfair_lock_lock(&c->lock);
+				c->audit = t->msgh_audit;
+				os_unfair_lock_unlock(&c->lock);
+			}
 		} else {
 			mach_msg_destroy(h);   /* e.g. MACH_NOTIFY_SEND_ONCE: request dropped */
 		}
@@ -661,8 +695,9 @@ xpc_connection_send_message_with_reply(xpc_connection_t connection, xpc_object_t
 		return;
 	}
 	dispatch_source_t s = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, rp, 0, q);
+	xpc_retain((xpc_object_t)c);   /* until the reply (or its failure) is in */
 	dispatch_source_set_event_handler(s, ^{
-		xpc_object_t reply = _xpc_connection_take_reply(rp, MACH_RCV_TIMEOUT);
+		xpc_object_t reply = _xpc_connection_take_reply(c, rp, MACH_RCV_TIMEOUT);
 		dispatch_source_cancel(s);
 		h(reply);
 		xpc_release(reply);
@@ -671,6 +706,7 @@ xpc_connection_send_message_with_reply(xpc_connection_t connection, xpc_object_t
 		mach_port_mod_refs(mach_task_self(), rp, MACH_PORT_RIGHT_RECEIVE, -1);
 		Block_release(h);
 		dispatch_release(s);
+		xpc_release((xpc_object_t)c);
 	});
 	dispatch_resume(s);
 }
@@ -685,7 +721,7 @@ xpc_connection_send_message_with_reply_sync(xpc_connection_t connection, xpc_obj
 	if (!MACH_PORT_VALID(rp)) {
 		return xpc_retain((xpc_object_t)XPC_ERROR_CONNECTION_INVALID);
 	}
-	reply = _xpc_connection_take_reply(rp, 0);
+	reply = _xpc_connection_take_reply(c, rp, 0);
 	mach_port_mod_refs(mach_task_self(), rp, MACH_PORT_RIGHT_RECEIVE, -1);
 	return reply;
 }

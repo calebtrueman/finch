@@ -335,3 +335,30 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   of the system's declared types plus the app's own, and dynamic types whose `dyn.`
   identifiers encode their tags as Apple's do. `finch-uti-test` matches Apple's on the
   host.
+- 2026-10-09: NSXPC. `NSXPCConnection` (service, Mach-service and endpoint
+  connections, peers), `NSXPCListener` (`+serviceListener`, which runs an XPC
+  service's main loop through `xpc_main` as Apple's does, `+anonymousListener`,
+  Mach services), `NSXPCInterface`, `NSXPCListenerEndpoint` and `NSXPCCoder`
+  (`NSXPCEncoder`, `NSXPCDecoder`), over Finch's libxpc
+  (`NSXPCConnection.m`; wire format in `docs/design/XPC.md`, "NSXPC"). Remote
+  object proxies are `__NSXPCInterfaceProxy_<protocol>` subclasses of
+  `_NSXPCDistantObject`, as Apple's; arguments travel by the protocol's
+  extended type encodings (scalars, structs, secure-coded objects checked
+  against the interface's classes, proxies, xpc objects), and the receiver's
+  reply block is a heap block whose invoke function is `_objc_msgForward`, so
+  CF's forwarding turns its call into the reply. Queues, ordering,
+  `+currentConnection`, synchronous proxies, interruption and invalidation,
+  errors 4097/4099/4101 with Apple's descriptions, and the `NSXPCInterface`
+  defaults and exceptions follow Apple's. `finch-nsxpc-test` (in
+  `FinchXPCTest.app`, with its XPC service `org.finch.test.nsxpc.xpc`) prints
+  the same 135 lines against Apple's Foundation and launchd on the host and
+  against Finch's Foundation, libxpc and finch-init in the VM, but one: a
+  connection to a listener that refuses it is invalidated on Finch (Apple's
+  libxpc reports an interruption and reconnects). Three libxpc fixes came with
+  it: `xpc_connection_set_target_queue` crashed (the connection queue was made
+  with a fixed target), clients learn the server's audit token from replies and
+  peers the client's from the handshake (so `processIdentifier` works), and a
+  dead-name notification for a name already given up no longer trips a Mach
+  port guard. Not yet: finch-init doesn't find `.xpc` bundles in an app (the test
+  declares its service with a job plist), `NSProgress` returns, timeouts and
+  code-signing requirements.

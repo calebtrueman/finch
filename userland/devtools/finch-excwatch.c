@@ -127,6 +127,19 @@ main(int argc, char **argv)
 			if (msg.exception == EXC_BAD_ACCESS)
 				printf(" fault %#llx", (unsigned long long)((uint64_t)msg.code[1] - slide));
 			printf("\n");
+			/* The caller chain, by frame pointers (unslid return addresses). */
+			uint64_t fp = (uint64_t)__darwin_arm_thread_state64_get_fp(*ts);
+			printf("excwatch: frames");
+			for (int depth = 0; depth < 32 && fp; depth++) {
+				uint64_t frame[2];
+				mach_vm_size_t got = 0;
+				if (mach_vm_read_overwrite(msg.task.name, fp, sizeof(frame), (mach_vm_address_t)frame, &got) != KERN_SUCCESS ||
+				    got != sizeof(frame) || frame[1] == 0)
+					break;
+				printf(" %#llx", (unsigned long long)((frame[1] & 0xfffffffffULL) - slide));
+				fp = frame[0];
+			}
+			printf("\n");
 		}
 		for (int i = 0; i < 29; i += 4)
 			printf("excwatch: x%-2d %#18llx %#18llx %#18llx %#18llx\n", i,

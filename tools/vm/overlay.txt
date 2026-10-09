@@ -119,3 +119,8 @@ build/userland/layout-test.storyboardc/vc1-view-v1.nib /usr/local/share/finch/la
 build/userland/layout-test.storyboardc/vc2-view-v2.nib /usr/local/share/finch/layout-test.storyboardc/vc2-view-v2.nib
 build/userland/finch-appkit-bindings-test /usr/local/bin/finch-appkit-bindings-test
 build/userland/appkit-bindings-test.nib /usr/local/share/finch/appkit-bindings-test.nib
+build/userland/apps/FinchXPCTest.app/Contents/MacOS/finch-nsxpc-test /Applications/FinchXPCTest.app/Contents/MacOS/finch-nsxpc-test
+build/userland/apps/FinchXPCTest.app/Contents/Info.plist /Applications/FinchXPCTest.app/Contents/Info.plist
+build/userland/apps/FinchXPCTest.app/Contents/XPCServices/org.finch.test.nsxpc.xpc/Contents/MacOS/org.finch.test.nsxpc /Applications/FinchXPCTest.app/Contents/XPCServices/org.finch.test.nsxpc.xpc/Contents/MacOS/org.finch.test.nsxpc
+build/userland/apps/FinchXPCTest.app/Contents/XPCServices/org.finch.test.nsxpc.xpc/Contents/Info.plist /Applications/FinchXPCTest.app/Contents/XPCServices/org.finch.test.nsxpc.xpc/Contents/Info.plist
+userland/tests/launchd/org.finch.test.nsxpc.plist /System/Library/Finch/LaunchDaemons/org.finch.test.nsxpc.plist

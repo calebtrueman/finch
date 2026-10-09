@@ -184,9 +184,12 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] Units and measurements (NSUnit and its 22 dimensions, NSMeasurement,
         NSMeasurementFormatter over ICU) and NSXMLParser over Apple's libxml2
         (libxml2-39.10, built by Finch with Apple's exports) (2026-10-08)
+  - [x] NSXPCConnection, NSXPCListener, NSXPCInterface and NSXPCCoder over Finch's
+        libxpc; `finch-nsxpc-test` and its bundled XPC service match Apple's on the
+        host and in the VM (2026-10-09). App-bundled `.xpc` services still need a job
+        plist (finch-init doesn't look in apps' `Contents/XPCServices` yet).
   - [ ] The rest, by what apps use (`tools/check-framework-api.py` lists it):
-        the URL loading system, NSXPCConnection, a system-wide distributed
-        notification center.
+        the URL loading system, a system-wide distributed notification center.
 - [ ] CoreGraphics, CoreText, ImageIO over open renderers (`docs/design/COREGRAPHICS.md`)
   - [x] Skia (chrome/m155) builds for arm64e with FreeType and the open codecs, and
         without Apple's graphics frameworks (`userland/skia`, 2026-10-08)

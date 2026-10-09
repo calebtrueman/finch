@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- finch-nsxpc-test's XPC service, the .xpc bundle inside FinchXPCTest.app.
+     finch-init doesn't yet look up services in an app's Contents/XPCServices
+     (docs/design/XPC.md), so the test declares it as a job started on demand;
+     finch-init sets XPC_SERVICE_NAME to the label, which +serviceListener
+     checks in. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.finch.test.nsxpc</string>
+	<key>Program</key>
+	<string>/Applications/FinchXPCTest.app/Contents/XPCServices/org.finch.test.nsxpc.xpc/Contents/MacOS/org.finch.test.nsxpc</string>
+	<key>MachServices</key>
+	<dict>
+		<key>org.finch.test.nsxpc</key>
+		<true/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>1</integer>
+	<key>StandardErrorPath</key>
+	<string>/var/log/org.finch.test.nsxpc.log</string>
+</dict>
+</plist>
