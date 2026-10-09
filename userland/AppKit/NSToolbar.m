@@ -190,6 +190,79 @@ is_space(NSToolbarItem *i)
         [NSApp sendAction:action to:_target from:self];
 }
 
+/* Sizes are archived as NSValues, or as strings by ibtool. */
+static NSSize
+decode_size(NSCoder *coder, NSString *key)
+{
+    id v = [coder decodeObjectForKey:key];
+    if ([v isKindOfClass:[NSString class]])
+        return NSSizeFromString(v);
+    if ([v isKindOfClass:[NSValue class]])
+        return [v sizeValue];
+    return NSZeroSize;
+}
+
+/* From a nib or storyboard, with Apple's keys. */
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    self = [self initWithItemIdentifier:[coder decodeObjectForKey:@"NSToolbarItemIdentifier"] ?: @""];
+    if (self) {
+        [self setLabel:[coder decodeObjectForKey:@"NSToolbarItemLabel"]];
+        [self setPaletteLabel:[coder decodeObjectForKey:@"NSToolbarItemPaletteLabel"]];
+        _toolTip = [[coder decodeObjectForKey:@"NSToolbarItemToolTip"] copy];
+        _title = [[coder decodeObjectForKey:@"NSToolbarItemTitle"] copy];
+        _image = [[coder decodeObjectForKey:@"NSToolbarItemImage"] retain];
+        _view = [[coder decodeObjectForKey:@"NSToolbarItemView"] retain];
+        _menuForm = [[coder decodeObjectForKey:@"NSToolbarItemMenuFormRepresentation"] retain];
+        _target = [coder decodeObjectForKey:@"NSToolbarItemTarget"];
+        NSString *action = [coder decodeObjectForKey:@"NSToolbarItemAction"];
+        if ([action isKindOfClass:[NSString class]])
+            _action = NSSelectorFromString(action);
+        if ([coder containsValueForKey:@"NSToolbarItemTag"])
+            _tag = [coder decodeIntegerForKey:@"NSToolbarItemTag"];
+        if ([coder containsValueForKey:@"NSToolbarItemEnabled"])
+            _enabled = [coder decodeBoolForKey:@"NSToolbarItemEnabled"];
+        if ([coder containsValueForKey:@"NSToolbarItemAutovalidates"])
+            _autovalidates = [coder decodeBoolForKey:@"NSToolbarItemAutovalidates"];
+        _bordered = [coder decodeBoolForKey:@"NSToolbarItemBordered"];
+        _navigational = [coder decodeBoolForKey:@"NSToolbarItemNavigational"];
+        _priority = [coder decodeIntegerForKey:@"NSToolbarItemVisibilityPriority"];
+        _minSize = decode_size(coder, @"NSToolbarItemMinSize");
+        _maxSize = decode_size(coder, @"NSToolbarItemMaxSize");
+    }
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder {}
+
+@end
+
+/* The standard spaces and separator, as nibs archive them (Apple's private classes). */
+@interface NSToolbarFlexibleSpaceItem : NSToolbarItem
+@end
+@implementation NSToolbarFlexibleSpaceItem
+- (instancetype)initWithItemIdentifier:(NSToolbarItemIdentifier)identifier
+{
+    return [super initWithItemIdentifier:NSToolbarFlexibleSpaceItemIdentifier];
+}
+@end
+
+@interface NSToolbarSpaceItem : NSToolbarItem
+@end
+@implementation NSToolbarSpaceItem
+- (instancetype)initWithItemIdentifier:(NSToolbarItemIdentifier)identifier
+{
+    return [super initWithItemIdentifier:NSToolbarSpaceItemIdentifier];
+}
+@end
+
+@interface NSToolbarSeparatorItem : NSToolbarItem
+@end
+@implementation NSToolbarSeparatorItem
+- (instancetype)initWithItemIdentifier:(NSToolbarItemIdentifier)identifier
+{
+    return [super initWithItemIdentifier:NSToolbarSeparatorItemIdentifier];
+}
 @end
 
 @implementation NSToolbarItemGroup {

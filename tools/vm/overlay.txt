@@ -97,6 +97,7 @@ build/userland/finch-introspect-test /usr/local/bin/finch-introspect-test
 build/userland/finch-excwatch /usr/local/bin/finch-excwatch
 build/userland/finch-app-test /usr/local/bin/finch-app-test
 build/userland/finch-quartzcore-test /usr/local/bin/finch-quartzcore-test
+build/userland/finch-imagekit-test /usr/local/bin/finch-imagekit-test
 build/userland/finch-calayer-test /usr/local/bin/finch-calayer-test
 build/userland/finch-cfnotify-test /usr/local/bin/finch-cfnotify-test
 build/userland/finch-l10n-test /usr/local/bin/finch-l10n-test

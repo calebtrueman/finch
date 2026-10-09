@@ -424,3 +424,9 @@ window server, Finch-only.
   layout queues, estimated (non-contiguous) layout of long documents, vertical text, right-to-left
   navigation, `NSTextView`'s own use of `NSTextSelectionNavigation`, Apple's reported
   `selectionAffinity` (upstream after every selection change; Finch reports downstream, also in TextKit 1).
+- 2026-10-09: nib support Image Capture's storyboard needed (`docs/design/IMAGECAPTURE.md`):
+  `NSSplitViewItem -initWithCoder:` (Apple's keys: behavior, view controller, and holding priority,
+  thicknesses and collapsing when not the behavior's defaults), `NSToolbarItem -initWithCoder:` (label,
+  palette label, tool tip, title, image, view, target and action, tag, enabled, autovalidates, bordered,
+  navigational, visibility priority, min and max sizes), and Apple's private `NSToolbarFlexibleSpaceItem`,
+  `NSToolbarSpaceItem` and `NSToolbarSeparatorItem` that nibs archive for the standard items.

@@ -24,7 +24,10 @@ Finch's AppKit (`docs/design/APPKIT.md`), split as Apple's is with a private
 UIFoundation under it, runs windows on that server: views draw, events reach
 them, nibs and storyboards load, and Auto Layout solves constraints with
 Finch's own Cassowary solver, in a private CoreAutoLayout that Foundation
-re-exports, as Apple's does.
+re-exports, as Apple's does. Image Capture's frameworks are Finch's own
+(`docs/design/IMAGECAPTURE.md`): ImageCaptureCore's browser finds no cameras or
+scanners yet, and Quartz re-exports QuartzCore and ImageKit's device views
+(PDFKit and Quick Look come later).
 
 ```mermaid
 block-beta
@@ -45,7 +48,7 @@ block-beta
         space6[" "]
         ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]
         later["QuartzCore (layers drawn through<br/>CoreGraphics, animations kept,<br/>not yet played), CoreServices<br/>(umbrella); Metal, SwiftUI, AV"]
-        space6b[" "]
+        imagecap["ImageCaptureCore (device<br/>browser, finds no devices yet),<br/>ICADevices; Quartz umbrella<br/>with ImageKit's device views"]
     end
     block:L5
         columns 4
@@ -127,11 +130,11 @@ block-beta
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
     class apps,shell,later,kexts,metal planned
-    class uti,appkit,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class uti,appkit,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia,fonts upstream
     class vz firmware
-    class space6,space6b,space5,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space6,space5,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |

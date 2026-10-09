@@ -95,6 +95,11 @@ steps=(
     "AppKit|userland/AppKit/build.sh"
     "RecapPerformanceTesting|userland/RecapPerformanceTesting/build.sh"
     "Cocoa|userland/Cocoa/build.sh"
+    # Image Capture's frameworks: ImageCaptureCore, ICADevices, and Quartz with ImageKit
+    # (docs/design/IMAGECAPTURE.md)
+    "ImageCaptureCore|userland/ImageCaptureCore/build.sh"
+    "ICADevices|userland/ICADevices/build.sh"
+    "Quartz|userland/Quartz/build.sh"
     # Libraries Apple publishes that Finch's commands link (tools/check-closed.py).
     # libedit's generated headers come from its "make lists" target first.
     "zlib|oss zlib libz"

@@ -274,6 +274,11 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         a MainMenu nib from ibtool, outlets and actions) launches on Finch's frameworks and window
         server, shows its menu bar and window, and responds to clicks and typing
         (`tools/run-app.sh`, 2026-10-09)
+  - [ ] Apple's Image Capture launches on Finch's frameworks (ImageCaptureCore, ICADevices, Quartz
+        with ImageKit's device views; `docs/design/IMAGECAPTURE.md`) and shows its window with an
+        empty device list (host, headless window server, 2026-10-09). `finch-imagekit-test` matches
+        Apple's on the host and in the VM. Its window's title bar and toolbar to come;
+        cameras and scanners need device modules (Phase 3 USB)
 
 **Exit:** an unmodified Mac app draws a window on Finch's own frameworks and
 window server.
@@ -317,6 +322,8 @@ installed.
 The rest of the frameworks, ordered by app coverage (Foundation, CoreGraphics
 and AppKit come in Phase 2).
 - [ ] QuartzCore (CoreAnimation)
+- [ ] PDFKit (Apple's Quartz re-exports it; Finch's Quartz re-exports only QuartzCore and ImageKit
+      so far), Quick Look UI, the rest of ImageKit (image browser and view, picture taker, slideshow)
 - [ ] Metal → Mesa
 - [ ] SwiftUI
 - [ ] AVFoundation / CoreAudio / CoreMedia

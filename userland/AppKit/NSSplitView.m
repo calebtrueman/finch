@@ -357,6 +357,31 @@ half(CGFloat v)
 - (CGFloat)preferredThicknessFraction { return _preferredFraction; }
 - (void)setPreferredThicknessFraction:(CGFloat)v { _preferredFraction = v; }
 
+/* From a nib or storyboard: Apple's keys, each present only when not the behavior's default. */
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    NSSplitViewItemBehavior behavior = [coder decodeIntegerForKey:@"NSSplitViewItemBehavior"];
+    NSViewController *vc = [coder decodeObjectForKey:@"NSSplitViewItemViewController"];
+    NSSplitViewItem *made = behavior == NSSplitViewItemBehaviorSidebar ? [NSSplitViewItem sidebarWithViewController:vc]
+                            : behavior == NSSplitViewItemBehaviorContentList
+                                ? [NSSplitViewItem contentListWithViewController:vc]
+                            : behavior == NSSplitViewItemBehaviorInspector ? [NSSplitViewItem inspectorWithViewController:vc]
+                                                                           : [NSSplitViewItem splitViewItemWithViewController:vc];
+    [self release];
+    self = [made retain];
+#define DECODE(key, ivar, how) \
+    if ([coder containsValueForKey:@"NSSplitViewItem" key]) \
+        ivar = [coder how:@"NSSplitViewItem" key];
+    DECODE("HoldingCollapsed", _collapsed, decodeBoolForKey)
+    DECODE("CanCollapseFromDrag", _canCollapse, decodeBoolForKey)
+    DECODE("HoldingPriority", _holding, decodeFloatForKey)
+    DECODE("MinimumThickness", _minimumThickness, decodeDoubleForKey)
+    DECODE("MaximumThickness", _maximumThickness, decodeDoubleForKey)
+    DECODE("PreferredThicknessFraction", _preferredFraction, decodeDoubleForKey)
+#undef DECODE
+    return self;
+}
+
 @end
 
 @implementation NSSplitViewController {
