@@ -139,3 +139,13 @@ The tests follow Foundation's:
 
 - 2026-10-08: Skia m155 builds for arm64e with FreeType and the open codecs,
   with no references to Apple's graphics frameworks (`userland/skia/build.sh`).
+- 2026-10-08: `CoreGraphics.framework` (`userland/CoreGraphics`), linked as Apple's
+  (Versions/A, 1965.4.5, compatibility 64), exporting only `CG*` symbols. CG
+  types register with CoreFoundation's runtime. Geometry and affine transforms
+  (including Apple's handling of null, infinite and negative rects, and
+  `CGAffineTransformDecompose`) and CGPath match Apple's line for line in
+  `finch-cg-test`, on the host and in the VM. Paths keep the elements they
+  were built from, so `CGPathApply` returns what Apple's does: arcs are
+  Bézier quarters plus a remainder, built on a unit circle and mapped through
+  translate · scale · rotate, with Apple's quarter-circle constant
+  0.5522847498.

@@ -182,7 +182,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] Skia (chrome/m155) builds for arm64e with FreeType and the open codecs, and
         without Apple's graphics frameworks (`userland/skia`, 2026-10-08)
   - [ ] CoreGraphics' drawing half: geometry, paths, colour spaces, bitmap contexts,
-        images, gradients, then shadings, patterns, layers and PDF writing
+        images, gradients, then shadings, patterns, layers and PDF writing. Geometry,
+        affine transforms and paths are done: `finch-cg-test` is identical to Apple's
+        on the host and in the VM (2026-10-08).
   - [ ] ImageIO over Skia's codecs
   - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's
   - [ ] The window-server half of CoreGraphics (windows, events, displays)

@@ -8,8 +8,8 @@ These diagrams are updated in every commit that changes the stack, and
 **As of 2026-10-08:** nothing Finch builds links a closed library
 (`tools/check-closed.py`). Finch's own Foundation covers about 100 of Apple's
 classes, on a CoreFoundation that dispatches to Objective-C objects as Apple's
-does (`docs/design/FOUNDATION.md`). Skia builds as the renderer for the coming
-CoreGraphics (`docs/design/COREGRAPHICS.md`).
+does (`docs/design/FOUNDATION.md`). Finch's CoreGraphics has begun, over Skia
+(`docs/design/COREGRAPHICS.md`): geometry, affine transforms and paths.
 
 ```mermaid
 block-beta
@@ -25,8 +25,12 @@ block-beta
         columns 4
         t6["App frameworks"]
         appkit["AppKit"]
-        cg["CoreGraphics, CoreText, ImageIO"]
+        cg["CoreGraphics<br/>geometry, transforms, paths<br/>(over Skia)"]
+        ctio["CoreText, ImageIO"]
+        space6[" "]
         later["QuartzCore, Metal, SwiftUI, AV"]
+        space6b[" "]
+        space6c[" "]
     end
     block:L5
         columns 4
@@ -107,12 +111,12 @@ block-beta
     classDef firmware fill:#fee2e2,stroke:#b91c1c,color:#450a0a
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
-    class apps,desktop,shell,appkit,cg,later,kexts,metal planned
-    class cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class apps,desktop,shell,appkit,ctio,later,kexts,metal planned
+    class cg,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia upstream
     class vz firmware
-    class space5,space5b,space5c,space4,space4b,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space6,space6b,space6c,space5,space5b,space5c,space4,space4b,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |
@@ -138,6 +142,9 @@ flowchart LR
 
     gcore["GCoreFramework"]:::apple
     ffound["Foundation"]:::finch
+    cgfw["CoreGraphics"]:::finch
+    skialib["Skia, FreeType<br/>(static)"]:::upstream
+    cxxlib["libc++"]:::upstream
     cf["CoreFoundation"]:::finch
     iokit["IOKit"]:::apple
     od["OpenDirectory"]:::finch
@@ -164,6 +171,9 @@ flowchart LR
     cf --> objc --> swift
     cf --> icu
     iokit --> cf
+    cgfw --> cf
+    cgfw --> skialib
+    cgfw --> cxxlib
     od --> cf
     comp --> codecs
     comp --> lzma
