@@ -1,0 +1,9 @@
+window "Hello, Finch": shown 360x202
+  window "" 1024x24 level 24
+  window "Hello, Finch" 360x202 level 0
+Hello: launched, window 'Hello, Finch', menu items 3
+content: 255 255 255
+titlebar: 246 246 246
+Hello: Hello, Finch!
+button: 41 120 245
+Hello: terminating

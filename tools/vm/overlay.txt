@@ -91,3 +91,9 @@ build/userland/finch-hardened-test /usr/local/bin/finch-hardened-test
 build/userland/finch-debuggee /usr/local/bin/finch-debuggee
 build/userland/finch-introspect-test /usr/local/bin/finch-introspect-test
 build/userland/finch-excwatch /usr/local/bin/finch-excwatch
+build/userland/finch-app-test /usr/local/bin/finch-app-test
+userland/tests/hello-test.sh /usr/local/bin/finch-hello-test
+build/userland/apps/Hello.app/Contents/MacOS/Hello /Applications/Hello.app/Contents/MacOS/Hello
+build/userland/apps/Hello.app/Contents/Info.plist /Applications/Hello.app/Contents/Info.plist
+build/userland/apps/Hello.app/Contents/PkgInfo /Applications/Hello.app/Contents/PkgInfo
+build/userland/apps/Hello.app/Contents/Resources/MainMenu.nib /Applications/Hello.app/Contents/Resources/MainMenu.nib
