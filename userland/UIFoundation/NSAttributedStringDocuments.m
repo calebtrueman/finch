@@ -43,7 +43,17 @@ typedef struct {
     NSTextAlignment tabAlign[64];
     NSTextAlignment pendingTab;
     BOOL specified; /* the document gave paragraph properties (\pard or any): only then is there a style */
+    BOOL intbl;     /* \intbl: the paragraph is in a table's cell */
 } ParaState;
+
+/* A table row's definition (\trowd ... \cellxN per cell): the cells, and the table's borders. */
+typedef struct {
+    int right;               /* \cellx, twips */
+    int pad[4];              /* \clpadl, t, r, b (NSRectEdge order: MinX, MinY, MaxX, MaxY) */
+    int border[4], borderColor[4];
+    int background;          /* \clcbpat */
+    NSTextBlockVerticalAlignment valign;
+} CellDef;
 
 enum Dest {
     DestText, DestSkip, DestFontTable, DestColorTable, DestExpandedColors, DestInfo, DestInfoItem,
@@ -83,6 +93,14 @@ typedef struct {
     BOOL _cacheValid;
     NSMutableString *_pending;        /* text not yet appended, with _pendingAttrs */
     NSDictionary *_pendingAttrs;
+    /* tables */
+    CellDef _cells[64], _cell;        /* the row's cells, and the one being defined */
+    int _cellCount;
+    int _tableBorder[4], _tableBorderColor[4];
+    int *_borderWidth, *_borderColor; /* where \brdrw and \brdrcf go */
+    NSTextTable *_table;              /* the table being read, or nil */
+    NSMutableDictionary *_cellBlocks; /* "row,column" -> NSTextTableBlock */
+    int _row, _column;
 }
 @end
 
@@ -128,6 +146,7 @@ generic_color(double r, double g, double b)
         _attrCache = [[NSMutableDictionary alloc] init];
         _encoding = NSWindowsCP1252StringEncoding;
         _attachments = [attachments retain];
+        _cellBlocks = [[NSMutableDictionary alloc] init];
         [self _resetChar:&_s.c];
         [self _resetPara:&_s.p];
         _s.dest = DestText;
@@ -137,6 +156,8 @@ generic_color(double r, double g, double b)
 
 - (void)dealloc
 {
+    [_table release];
+    [_cellBlocks release];
     [_out release];
     [_doc release];
     [_fonts release];
@@ -236,7 +257,146 @@ color_at(NSArray *colors, NSArray *expanded, int i)
         [tabs addObject:[[[NSTextTab alloc] initWithTextAlignment:p->tabAlign[i] location:p->tabs[i] / 20.0 options:@{}]
                             autorelease]];
     [ps setTabStops:tabs];
+    if (p->intbl)
+        [ps setTextBlocks:@[ [self _cellBlock] ]];
     return ps;
+}
+
+#pragma mark Tables
+
+static id
+color_at(NSArray *colors, NSArray *expanded, int i);
+
+/* The block for the cell being read: one per cell, made from the row's definition. */
+- (NSTextTableBlock *)_cellBlock
+{
+    if (!_table) {
+        _table = [[NSTextTable alloc] init];
+        _row = _column = 0;
+        [_cellBlocks removeAllObjects];
+    }
+    /* the table's borders are spread over its rows (the top in the first, the bottom in the last) */
+    for (int e = 0; e < 4; e++) {
+        if (_tableBorder[e] > 0) {
+            [_table setWidth:_tableBorder[e] / 20.0 type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder
+                        edge:(NSRectEdge)e];
+            id c = color_at(_colors, _expandedColors, _tableBorderColor[e]);
+            if (c)
+                [_table setBorderColor:c forEdge:(NSRectEdge)e];
+        }
+    }
+    [_table setNumberOfColumns:MAX([_table numberOfColumns], (NSUInteger)MAX(_cellCount, _column + 1))];
+    NSString *key = [NSString stringWithFormat:@"%d,%d", _row, _column];
+    NSTextTableBlock *b = _cellBlocks[key];
+    if (b)
+        return b;
+    b = [[[NSTextTableBlock alloc] initWithTable:_table startingRow:_row rowSpan:1 startingColumn:_column columnSpan:1]
+        autorelease];
+    if (_column < _cellCount) {
+        CellDef *d = &_cells[_column];
+        for (int e = 0; e < 4; e++) {
+            [b setWidth:d->pad[e] / 20.0 type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockPadding edge:(NSRectEdge)e];
+            if (d->border[e] > 0) {
+                [b setWidth:d->border[e] / 20.0 type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder
+                       edge:(NSRectEdge)e];
+                id c = color_at(_colors, _expandedColors, d->borderColor[e]);
+                if (c)
+                    [b setBorderColor:c forEdge:(NSRectEdge)e];
+            }
+        }
+        [b setVerticalAlignment:d->valign];
+        id bg = d->background ? color_at(_colors, _expandedColors, d->background) : nil;
+        if (bg)
+            [b setBackgroundColor:bg];
+    }
+    _cellBlocks[key] = b;
+    return b;
+}
+
+/* Words of a row's definition and its cells; YES if the word was one. */
+- (BOOL)_tableWord:(const char *)w param:(int)param
+{
+    static const char *edges[4] = {"l", "t", "r", "b"};
+    if (is_word(w, "trowd")) {
+        _cellCount = 0;
+        memset(&_cell, 0, sizeof _cell);
+        memset(_tableBorder, 0, sizeof _tableBorder);
+        memset(_tableBorderColor, 0, sizeof _tableBorderColor);
+        _borderWidth = _borderColor = NULL;
+        return YES;
+    }
+    for (int e = 0; e < 4; e++) {
+        char name[16];
+        snprintf(name, sizeof name, "trbrdr%s", edges[e]);
+        if (is_word(w, name)) {
+            _borderWidth = &_tableBorder[e == 0 ? NSMinXEdge : e == 1 ? NSMinYEdge : e == 2 ? NSMaxXEdge : NSMaxYEdge];
+            _borderColor = &_tableBorderColor[e == 0 ? NSMinXEdge : e == 1 ? NSMinYEdge : e == 2 ? NSMaxXEdge : NSMaxYEdge];
+            return YES;
+        }
+        snprintf(name, sizeof name, "clbrdr%s", edges[e]);
+        if (is_word(w, name)) {
+            int edge = e == 0 ? NSMinXEdge : e == 1 ? NSMinYEdge : e == 2 ? NSMaxXEdge : NSMaxYEdge;
+            _borderWidth = &_cell.border[edge];
+            _borderColor = &_cell.borderColor[edge];
+            return YES;
+        }
+        snprintf(name, sizeof name, "clpad%s", edges[e]);
+        if (is_word(w, name)) {
+            _cell.pad[e == 0 ? NSMinXEdge : e == 1 ? NSMinYEdge : e == 2 ? NSMaxXEdge : NSMaxYEdge] = param;
+            return YES;
+        }
+    }
+    if (is_word(w, "brdrw")) {
+        if (_borderWidth)
+            *_borderWidth = param;
+        return YES;
+    }
+    if (is_word(w, "brdrcf")) {
+        if (_borderColor)
+            *_borderColor = param;
+        return YES;
+    }
+    if (is_word(w, "brdrnil") || is_word(w, "brdrnone")) {
+        if (_borderWidth)
+            *_borderWidth = 0;
+        return YES;
+    }
+    if (is_word(w, "brdrs") || is_word(w, "brdrth") || is_word(w, "brdrdb") || is_word(w, "brdrdot") ||
+        is_word(w, "brdrdash")) {
+        if (_borderWidth && !*_borderWidth)
+            *_borderWidth = 15; /* a single line until \brdrw says */
+        return YES;
+    }
+    if (is_word(w, "clvertalt")) { _cell.valign = NSTextBlockTopAlignment; return YES; }
+    if (is_word(w, "clvertalc")) { _cell.valign = NSTextBlockMiddleAlignment; return YES; }
+    if (is_word(w, "clvertalb")) { _cell.valign = NSTextBlockBottomAlignment; return YES; }
+    if (is_word(w, "clcbpat")) { _cell.background = param; return YES; }
+    if (is_word(w, "clshdrawnil")) { _cell.background = 0; return YES; } /* no shading: no background */
+    if (is_word(w, "cellx")) {
+        _cell.right = param;
+        if (_cellCount < 64)
+            _cells[_cellCount++] = _cell;
+        memset(&_cell, 0, sizeof _cell);
+        _borderWidth = _borderColor = NULL;
+        return YES;
+    }
+    if (is_word(w, "intbl")) { _s.p.intbl = YES; _s.p.specified = YES; return YES; }
+    if (is_word(w, "cell")) {
+        [self _emitCharacter:'\n'];
+        _column++;
+        return YES;
+    }
+    if (is_word(w, "row")) {
+        _row++;
+        _column = 0;
+        return YES;
+    }
+    if (is_word(w, "itap") || is_word(w, "lastrow") || is_word(w, "taflags") || is_word(w, "trgaph") ||
+        is_word(w, "trleft") || is_word(w, "gaph") || is_word(w, "trql") ||
+        is_word(w, "trqc") || is_word(w, "trqr") || is_word(w, "clpadft") || is_word(w, "clpadfl") ||
+        is_word(w, "clpadfb") || is_word(w, "clpadfr") || is_word(w, "nestcell") || is_word(w, "nestrow"))
+        return YES;
+    return NO;
 }
 
 - (NSDictionary *)_attributes
@@ -295,6 +455,10 @@ color_at(NSArray *colors, NSArray *expanded, int i)
     }
     if (_s.dest != DestText && _s.dest != DestFieldResult && _s.dest != DestListText)
         return;
+    if (_table && !_s.p.intbl) {
+        [_table release];
+        _table = nil;
+    }
     NSDictionary *a = [self _attributes];
     if (!_pendingAttrs || ![a isEqualToDictionary:_pendingAttrs]) {
         [self _flush];
@@ -503,6 +667,8 @@ is_word(const char *w, const char *name)
     if (is_word(w, "expndtw")) { c->expandTwips = param; return; }
     if (is_word(w, "expnd")) { c->expandTwips = param * 5; return; } /* quarter points */
     if (is_word(w, "kerning")) { c->kerning = v != 0; return; }
+    if (_s.dest == DestText && [self _tableWord:w param:param])
+        return;
     /* paragraph formatting */
     if (is_word(w, "pard")) { [self _resetPara:p]; p->specified = YES; return; }
     static const char *paragraphWords[] = {"ql", "qr", "qc", "qj", "qnatural", "li", "ri", "fi", "sb", "sa", "sl",
@@ -812,12 +978,12 @@ font_index(RTFWriter *w, NSString *name)
 
 /* sRGB components of a colour (NSColor or CGColor), 0...1. */
 static BOOL
-srgb_components(id color, CGFloat rgba[4])
+components_in(id color, CFStringRef spaceName, CGFloat rgba[4])
 {
     CGColorRef cg = UIFCGColor(color);
     if (!cg)
         return NO;
-    CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    CGColorSpaceRef srgb = CGColorSpaceCreateWithName(spaceName);
     CGColorRef c = CGColorCreateCopyByMatchingToColorSpace(srgb, kCGRenderingIntentDefault, cg, NULL);
     CGColorSpaceRelease(srgb);
     if (!c)
@@ -830,6 +996,19 @@ srgb_components(id color, CGFloat rgba[4])
     rgba[3] = comp[n - 1];
     CGColorRelease(c);
     return YES;
+}
+
+static BOOL
+srgb_components(id color, CGFloat rgba[4])
+{
+    return components_in(color, kCGColorSpaceSRGB, rgba);
+}
+
+/* \colortbl's values are Generic RGB, as Apple's writer gives them (\expandedcolortbl has the sRGB ones). */
+static BOOL
+generic_components(id color, CGFloat rgba[4])
+{
+    return components_in(color, kCGColorSpaceGenericRGB, rgba);
 }
 
 static NSUInteger
@@ -885,9 +1064,9 @@ append_text(RTFWriter *w, NSString *s, BOOL *ucWritten)
 }
 
 static NSString *
-paragraph_rtf(NSParagraphStyle *ps)
+paragraph_rtf(NSParagraphStyle *ps, BOOL inTable)
 {
-    NSMutableString *s = [NSMutableString stringWithString:@"\\pard"];
+    NSMutableString *s = [NSMutableString stringWithString:inTable ? @"\\pard\\intbl\\itap1" : @"\\pard"];
     if (!ps)
         ps = [NSParagraphStyle defaultParagraphStyle];
     int li = (int)lround([ps headIndent] * 20), fi = (int)lround(([ps firstLineHeadIndent] - [ps headIndent]) * 20);
@@ -931,6 +1110,63 @@ paragraph_rtf(NSParagraphStyle *ps)
     return s;
 }
 
+/* The table cell a paragraph is in, if any. */
+static NSTextTableBlock *
+table_block(NSParagraphStyle *ps)
+{
+    for (NSTextBlock *b in [ps textBlocks])
+        if ([b isKindOfClass:[NSTextTableBlock class]])
+            return (NSTextTableBlock *)b;
+    return nil;
+}
+
+static NSString *
+border_rtf(const char *prefix, const char *edge, NSTextBlock *b, NSRectEdge e, RTFWriter *w, BOOL omitNone)
+{
+    CGFloat width = [b widthForLayer:NSTextBlockBorder edge:e];
+    if (width <= 0)
+        return omitNone ? @"" : [NSString stringWithFormat:@"\\%s%s\\brdrnil ", prefix, edge];
+    id color = [b borderColorForEdge:e];
+    NSString *cf = color ? [NSString stringWithFormat:@"%lu", (unsigned long)color_index(w, color)] : @"nil";
+    return [NSString stringWithFormat:@"\\%s%s\\brdrs\\brdrw%d\\brdrcf%@ ", prefix, edge, (int)lround(width * 20), cf];
+}
+
+/* A table row's definition, as Apple's writer lays it out: the table's borders (its top on the first
+ * row, its bottom on the last), then each cell's alignment, background, borders, padding and edge. */
+static NSString *
+row_rtf(NSArray<NSTextTableBlock *> *cells, BOOL firstRow, BOOL lastRow, RTFWriter *w)
+{
+    NSTextTable *t = [cells.firstObject table];
+    NSMutableString *s = [NSMutableString stringWithString:@"\n\\itap1\\trowd \\taflags0 \\trgaph108\\trleft-108 "];
+    if (firstRow)
+        [s appendString:border_rtf("trbrdr", "t", t, NSMinYEdge, w, YES)];
+    [s appendString:border_rtf("trbrdr", "l", t, NSMinXEdge, w, YES)];
+    if (lastRow)
+        [s appendString:border_rtf("trbrdr", "b", t, NSMaxYEdge, w, YES)];
+    [s appendString:border_rtf("trbrdr", "r", t, NSMaxXEdge, w, YES)];
+    [s appendString:@"\n"];
+    NSUInteger cols = MAX([t numberOfColumns], (NSUInteger)1);
+    for (NSTextTableBlock *c in cells) {
+        NSTextBlockVerticalAlignment v = [c verticalAlignment];
+        [s appendString:v == NSTextBlockMiddleAlignment ? @"\\clvertalc " : v == NSTextBlockBottomAlignment ? @"\\clvertalb " : @"\\clvertalt "];
+        if ([c backgroundColor])
+            [s appendFormat:@"\\clcbpat%lu ", (unsigned long)color_index(w, [c backgroundColor])];
+        else
+            [s appendString:@"\\clshdrawnil "];
+        [s appendString:border_rtf("clbrdr", "t", c, NSMinYEdge, w, NO)];
+        [s appendString:border_rtf("clbrdr", "l", c, NSMinXEdge, w, NO)];
+        [s appendString:border_rtf("clbrdr", "b", c, NSMaxYEdge, w, NO)];
+        [s appendString:border_rtf("clbrdr", "r", c, NSMaxXEdge, w, NO)];
+        [s appendFormat:@"\\clpadt%d \\clpadl%d \\clpadb%d \\clpadr%d \\gaph\\cellx%d\n",
+                        (int)lround([c widthForLayer:NSTextBlockPadding edge:NSMinYEdge] * 20),
+                        (int)lround([c widthForLayer:NSTextBlockPadding edge:NSMinXEdge] * 20),
+                        (int)lround([c widthForLayer:NSTextBlockPadding edge:NSMaxYEdge] * 20),
+                        (int)lround([c widthForLayer:NSTextBlockPadding edge:NSMaxXEdge] * 20),
+                        (int)(8640 * (NSUInteger)MIN([c startingColumn] + MAX([c columnSpan], 1), (NSInteger)cols) / cols)];
+    }
+    return s;
+}
+
 UIF_HIDDEN NSData *
 UIFRTFData(NSAttributedString *str, NSRange range, NSDictionary *docAttrs, NSArray<NSString *> **attachmentNames)
 {
@@ -951,11 +1187,48 @@ UIFRTFData(NSAttributedString *str, NSRange range, NSDictionary *docAttrs, NSArr
     double lastBase = 0, lastKern = 0;
     NSUInteger pos = range.location, end = NSMaxRange(range);
     NSString *string = [str string];
+    NSTextTable *rowTable = nil;
+    NSInteger rowNumber = -1;
     while (pos < end) {
         NSRange pr = [string paragraphRangeForRange:NSMakeRange(pos, 0)];
         NSParagraphStyle *ps = [str attribute:NSParagraphStyleAttributeName atIndex:pos effectiveRange:NULL];
+        /* tables: a row's definition before its first paragraph; where each cell and row ends */
+        NSTextTableBlock *cell = table_block(ps);
+        BOOL cellEnd = NO, rowEnd = NO, lastRow = NO;
+        if (cell) {
+            if ([cell table] != rowTable || [cell startingRow] != rowNumber) {
+                NSMutableArray *cells = [NSMutableArray array];
+                NSUInteger q = pos;
+                BOOL last = YES;
+                while (q < end) {
+                    NSTextTableBlock *c = table_block([str attribute:NSParagraphStyleAttributeName atIndex:q effectiveRange:NULL]);
+                    if (!c || [c table] != [cell table])
+                        break;
+                    if ([c startingRow] != [cell startingRow]) {
+                        last = NO;
+                        break;
+                    }
+                    if ([cells indexOfObjectIdenticalTo:c] == NSNotFound)
+                        [cells addObject:c];
+                    q = NSMaxRange([string paragraphRangeForRange:NSMakeRange(q, 0)]);
+                }
+                [body appendString:row_rtf(cells, [cell table] != rowTable, last, &b)];
+                rowTable = [cell table];
+                rowNumber = [cell startingRow];
+            }
+            NSUInteger next = NSMaxRange(pr);
+            NSTextTableBlock *following = next < [string length]
+                                              ? table_block([str attribute:NSParagraphStyleAttributeName atIndex:next effectiveRange:NULL])
+                                              : nil;
+            cellEnd = following != cell;
+            rowEnd = cellEnd && !(following && [following table] == [cell table] && [following startingRow] == [cell startingRow]);
+            lastRow = rowEnd && !(following && [following table] == [cell table]);
+        } else {
+            rowTable = nil;
+            rowNumber = -1;
+        }
         if (first || !(ps == lastPara || [ps isEqual:lastPara])) {
-            [body appendString:paragraph_rtf(ps)];
+            [body appendString:paragraph_rtf(ps, cell != nil)];
             if (first)
                 [body appendString:@"\n"];
             else
@@ -1047,7 +1320,11 @@ UIFRTFData(NSAttributedString *str, NSRange range, NSDictionary *docAttrs, NSArr
                 append_text(&b, text, &ucWritten);
                 [body appendString:@"}}"];
             } else {
-                append_text(&b, text, &ucWritten);
+                /* a cell's last paragraph ends with \cell (and its row's last with \row), not a newline */
+                BOOL ends = cellEnd && NSMaxRange(r) == pend && [text length] && [text characterAtIndex:[text length] - 1] == '\n';
+                append_text(&b, ends ? [text substringToIndex:[text length] - 1] : text, &ucWritten);
+                if (ends)
+                    [body appendString:rowEnd ? (lastRow ? @"\\cell \\lastrow\\row\n" : @"\\cell \\row\n") : @"\\cell \n"];
             }
             pos = NSMaxRange(r);
         }
@@ -1071,7 +1348,7 @@ UIFRTFData(NSAttributedString *str, NSRange range, NSDictionary *docAttrs, NSArr
     [out appendString:@"}\n{\\colortbl;\\red255\\green255\\blue255;"];
     for (id color in b.colors) {
         CGFloat c[4];
-        srgb_components(color, c);
+        generic_components(color, c);
         [out appendFormat:@"\\red%d\\green%d\\blue%d;", (int)lround(c[0] * 255), (int)lround(c[1] * 255),
                           (int)lround(c[2] * 255)];
     }

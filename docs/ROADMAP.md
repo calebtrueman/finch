@@ -336,8 +336,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         is committed), opens an untitled document and takes typing (2026-10-09). It reads and saves RTF;
         NSFileCoordinator (presenters in-process) and NSTextFinder's find bar match Apple's
         behaviour (`finch-filecoordinator-test`, `finch-textfinder-test`), and Show Ruler
-        brings up NSRulerView with its markers and format bar (`finch-ruler-test`). Next:
-        NSTextTable, NSFileVersion, sharing.
+        brings up NSRulerView with its markers and format bar (`finch-ruler-test`). Tables
+        read from and write to RTF as Apple's do, and draw with their backgrounds and borders
+        (2026-10-09). Next: cells' vertical alignment, NSFileVersion, sharing.
   - [x] App test tools: `finch-app-test` accepts `screenshot:PATH` to save a screen PNG and `screenshot64` to print one over the VM console; `tools/host-tests.sh` runs the host comparison suite;
         `tools/check-imports.py` finds libraries such as libxpc through the VM overlay list,
         including builds outside `build/root` (2026-10-09).

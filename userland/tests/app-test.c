@@ -22,8 +22,9 @@
  *   windows           print the window list (titles and sizes)
  *   screenshot:PATH   save the screen as a PNG
  *   screenshot64[:half]  print the screen as a base64 PNG between BEGIN-PNG and
- *                     END-PNG lines (to get it out of the VM over its console);
- *                     half scales it down by two
+ *                     END-PNG lines (to get it out of the VM over its console),
+ *                     as numbered, checksummed lines, twice; half scales it down
+ *                     by two (tools/vm/png-from-console.py decodes it)
  *   output            print what the app has written since the last time
  */
 #include <CoreGraphics/CoreGraphics.h>
@@ -211,19 +212,30 @@ main(int argc, char **argv)
             CGImageRelease(im);
             static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
             const uint8_t *p = CFDataGetBytePtr(png);
-            size_t len = (size_t)CFDataGetLength(png), col = 0;
+            size_t len = (size_t)CFDataGetLength(png);
+            /* Numbered lines with a checksum, the whole image twice: the console can interleave kernel
+             * messages, so tools/vm/png-from-console.py keeps the first intact copy of each line. */
             printf("BEGIN-PNG\n");
-            for (size_t i = 0; i < len; i += 3) {
-                uint32_t v = (uint32_t)p[i] << 16 | (i + 1 < len ? (uint32_t)p[i + 1] << 8 : 0) | (i + 2 < len ? p[i + 2] : 0);
-                char out[4] = {b64[v >> 18 & 63], b64[v >> 12 & 63], i + 1 < len ? b64[v >> 6 & 63] : '=',
-                               i + 2 < len ? b64[v & 63] : '='};
-                fwrite(out, 1, 4, stdout);
-                if ((col += 4) == 76) {
-                    putchar('\n');
-                    col = 0;
+            for (int pass = 0; pass < 2; pass++) {
+                size_t line = 0;
+                for (size_t i = 0; i < len; i += 57, line++) {
+                    char out[80];
+                    size_t n = 0;
+                    for (size_t k = i; k < i + 57 && k < len; k += 3) {
+                        uint32_t v = (uint32_t)p[k] << 16 | (k + 1 < len ? (uint32_t)p[k + 1] << 8 : 0) |
+                                     (k + 2 < len ? p[k + 2] : 0);
+                        out[n++] = b64[v >> 18 & 63];
+                        out[n++] = b64[v >> 12 & 63];
+                        out[n++] = k + 1 < len ? b64[v >> 6 & 63] : '=';
+                        out[n++] = k + 2 < len ? b64[v & 63] : '=';
+                    }
+                    unsigned sum = 0;
+                    for (size_t k = 0; k < n; k++)
+                        sum = (sum * 31 + (unsigned char)out[k]) & 0xffff;
+                    printf("P%zu:%04x:%.*s\n", line, sum, (int)n, out);
                 }
             }
-            printf("%sEND-PNG\n", col ? "\n" : "");
+            printf("END-PNG\n");
             CFRelease(png);
         } else if (!strncmp(s, "screenshot:", 11)) {
             usleep(200000);

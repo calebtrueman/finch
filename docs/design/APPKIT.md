@@ -719,3 +719,11 @@ draws (`userland/tests/app-test.c`).
   fallback, and a paragraph takes its first character's style. The fixes are done
   quietly, so they don't widen the edits that delegates see. `finch-textblock-test`
   matches Apple's run. Next: RTF tables.
+- 2026-10-09: RTF tables. The reader builds `NSTextTable` and `NSTextTableBlock`s from
+  `\trowd` row definitions (cells' padding, borders, backgrounds, vertical alignment; the
+  table's borders, spread over its rows) and `\intbl`, `\cell` and `\row`. The writer lays
+  tables out as Apple's does, row definitions included, and `\colortbl` now holds Generic
+  RGB values, as Apple's does. Both match Apple's byte for byte in `finch-rtf-test`.
+  `NSTextView` switches to TextKit 1 for text with blocks, as Apple's does, so TextEdit draws
+  tables with their backgrounds and borders.
+

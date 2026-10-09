@@ -441,6 +441,18 @@ new_text_kit_2_container(NSSize size, NSTextContentStorage **storage)
 
 #pragma mark - The text system
 
+static BOOL
+has_text_blocks(NSTextStorage *storage)
+{
+    __block BOOL found = NO;
+    [storage enumerateAttribute:NSParagraphStyleAttributeName inRange:NSMakeRange(0, [storage length]) options:0
+                     usingBlock:^(NSParagraphStyle *ps, NSRange r, BOOL *stop) {
+                       if ([[ps textBlocks] count])
+                           found = *stop = YES;
+                     }];
+    return found;
+}
+
 - (NSTextContainer *)textContainer { return _container; }
 - (void)setTextContainer:(NSTextContainer *)container { adopt(self, container); }
 - (void)replaceTextContainer:(NSTextContainer *)container
@@ -2536,6 +2548,9 @@ is_active(NSTextView *self)
         for (NSUInteger i = 0; i < n; i++)
             NSRectFillUsingOperation(NSOffsetRect(rects[i], o.x, o.y), NSCompositingOperationSourceOver);
     }
+    /* As Apple's, text blocks and tables are TextKit 1's: a text view holding them switches to it. */
+    if (_tlm && has_text_blocks(_storage))
+        [self _finchSwitchToTextKit1];
     if (_tlm) {
         /* TextKit 2: the viewport's layout fragments draw themselves. */
         [[_tlm textViewportLayoutController] layoutViewport];

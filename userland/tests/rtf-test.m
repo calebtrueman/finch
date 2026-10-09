@@ -122,6 +122,59 @@ read_case(const char *label, const char *rtf)
     }
 }
 
+/* Each paragraph's table cell, if any. */
+static void
+show_tables(NSAttributedString *a)
+{
+    for (NSUInteger i = 0; i < a.length;) {
+        NSRange r;
+        NSParagraphStyle *q = [a attribute:NSParagraphStyleAttributeName atIndex:i effectiveRange:&r];
+        printf("  %s:", NSStringFromRange(r).UTF8String);
+        for (NSTextBlock *x in q.textBlocks)
+            if ([x isKindOfClass:[NSTextTableBlock class]]) {
+                NSTextTableBlock *t = (NSTextTableBlock *)x;
+                printf(" row %ld column %ld of %lu, padding %g/%g, border %g, table border %g/%g, valign %ld, background %d",
+                       (long)t.startingRow, (long)t.startingColumn, (unsigned long)t.table.numberOfColumns,
+                       [t widthForLayer:NSTextBlockPadding edge:NSMinXEdge], [t widthForLayer:NSTextBlockPadding edge:NSMinYEdge],
+                       [t widthForLayer:NSTextBlockBorder edge:NSMinYEdge], [t.table widthForLayer:NSTextBlockBorder edge:NSMinYEdge],
+                       [t.table widthForLayer:NSTextBlockBorder edge:NSMaxYEdge], (long)t.verticalAlignment, t.backgroundColor != nil);
+            }
+        printf("\n");
+        i = NSMaxRange(r);
+    }
+}
+
+/* A two-by-two table with a background, a border and centred text in its first cell, and two paragraphs in its second. */
+static NSAttributedString *
+table_string(NSFont *font)
+{
+    NSTextTable *t = [NSTextTable new];
+    t.numberOfColumns = 2;
+    [t setWidth:1 type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder];
+    NSMutableAttributedString *s = [NSMutableAttributedString new];
+    NSDictionary *f = @{NSFontAttributeName : font};
+    [s appendAttributedString:[[NSAttributedString alloc] initWithString:@"before\n" attributes:f]];
+    for (int r = 0; r < 2; r++)
+        for (int c = 0; c < 2; c++) {
+            NSTextTableBlock *b = [[NSTextTableBlock alloc] initWithTable:t startingRow:r rowSpan:1 startingColumn:c columnSpan:1];
+            [b setWidth:2 type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockPadding];
+            if (r == 0 && c == 0) {
+                b.backgroundColor = [NSColor colorWithSRGBRed:1 green:0 blue:0 alpha:1];
+                [b setWidth:2 type:NSTextBlockAbsoluteValueType forLayer:NSTextBlockBorder edge:NSMinYEdge];
+                [b setBorderColor:[NSColor colorWithSRGBRed:0 green:0 blue:1 alpha:1] forEdge:NSMinYEdge];
+                b.verticalAlignment = NSTextBlockMiddleAlignment;
+            }
+            NSMutableParagraphStyle *p = [NSMutableParagraphStyle new];
+            p.textBlocks = @[ b ];
+            NSMutableDictionary *a = [f mutableCopy];
+            a[NSParagraphStyleAttributeName] = p;
+            NSString *text = r == 0 && c == 1 ? @"B1\nB2\n" : [NSString stringWithFormat:@"%c%d\n", 'A' + c, r];
+            [s appendAttributedString:[[NSAttributedString alloc] initWithString:text attributes:a]];
+        }
+    [s appendAttributedString:[[NSAttributedString alloc] initWithString:@"after" attributes:f]];
+    return s;
+}
+
 int
 main(void)
 {
@@ -183,6 +236,14 @@ main(void)
             NSDefaultTabIntervalDocumentAttribute : @36, NSTitleDocumentAttribute : @"T", NSAuthorDocumentAttribute : @"A"
         });
         write_case("special", str(@"a{b}c\\d\u00a0e\u2014f\u2028g\fh", helv), nil);
+        {
+            NSAttributedString *t = table_string(helv);
+            NSData *rtf = [t RTFFromRange:NSMakeRange(0, t.length) documentAttributes:@{}];
+            printf("[write table]\n%s\n", [[NSString alloc] initWithData:rtf encoding:NSUTF8StringEncoding].UTF8String);
+            NSAttributedString *back = [[NSAttributedString alloc] initWithRTF:rtf documentAttributes:nil];
+            printf("[read table back]\n");
+            show_tables(back);
+        }
 
         read_case("apple-mixed",
                   "{\\rtf1\\ansi\\ansicpg1252\\cocoartf2869\n\\cocoatextscaling0\\cocoaplatform0{\\fonttbl\\f0\\fswiss\\fcharset0 "
