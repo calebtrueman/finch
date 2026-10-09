@@ -42,7 +42,7 @@ block-beta
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
         ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]
-        later["QuartzCore, Metal, SwiftUI, AV"]
+        later["QuartzCore (begun: transforms),<br/>CoreServices (umbrella);<br/>Metal, SwiftUI, AV"]
         space6b[" "]
     end
     block:L5

@@ -75,11 +75,13 @@ steps=(
     "libxml2|oss libxml2"
     # Finch's Foundation (CF links it upward; docs/design/FOUNDATION.md)
     "Foundation|userland/Foundation/build.sh"
+    "CoreServices|userland/CoreServices/build.sh"
     "UniformTypeIdentifiers|userland/UniformTypeIdentifiers/build.sh"
     "IOKit|userland/IOKit/build.sh"
     # Finch's CoreGraphics over Skia (docs/design/COREGRAPHICS.md)
     "skia|userland/skia/build.sh"
     "CoreGraphics|userland/CoreGraphics/build.sh"
+    "QuartzCore|userland/QuartzCore/build.sh"
     # The open fonts Finch ships for Apple's (userland/fonts)
     "fonts|userland/fonts/build.sh"
     "CoreText|userland/CoreText/build.sh"
