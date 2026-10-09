@@ -182,6 +182,7 @@ IIO_PRIVATE IIOCodec *IIOCodecCreateGIF();
 IIO_PRIVATE IIOCodec *IIOCodecCreateWebP();
 IIO_PRIVATE IIOCodec *IIOCodecCreateBMP();
 IIO_PRIVATE IIOCodec *IIOCodecCreateICO();
+IIO_PRIVATE IIOCodec *IIOCodecCreateICNS();
 
 /* PNG and BMP helpers shared with ICO. */
 IIO_PRIVATE CFDictionaryRef IIOPNGCopyProperties(const uint8_t *p, size_t n, bool *ready, int *orientation);

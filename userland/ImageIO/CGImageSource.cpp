@@ -67,15 +67,17 @@ static const struct Format {
     {"public.jpeg", IIOCodecCreateJPEG},     {"public.png", IIOCodecCreatePNG},
     {"com.compuserve.gif", IIOCodecCreateGIF}, {"com.microsoft.ico", IIOCodecCreateICO},
     {"com.microsoft.bmp", IIOCodecCreateBMP}, {"org.webmproject.webp", IIOCodecCreateWebP},
+    {"com.apple.icns", IIOCodecCreateICNS},
 };
+enum { kFormats = sizeof formats / sizeof formats[0] };
 
 static CFStringRef
 uti_string(int i)
 {
-    static CFStringRef strings[6];
+    static CFStringRef strings[kFormats];
     static pthread_once_t once = PTHREAD_ONCE_INIT;
     pthread_once(&once, [] {
-        for (int k = 0; k < 6; k++)
+        for (int k = 0; k < kFormats; k++)
             strings[k] = CFStringCreateWithCString(NULL, formats[k].uti, kCFStringEncodingASCII);
     });
     return strings[i];
@@ -100,6 +102,8 @@ sniff(const uint8_t *p, size_t n)
     }
     if (n >= 16 && !memcmp(p, "RIFF", 4) && !memcmp(p + 8, "WEBPVP8", 7))
         return 5;
+    if (n >= 8 && !memcmp(p, "icns", 4))
+        return 6;
     return -1;
 }
 
@@ -140,10 +144,10 @@ source_create(CFDataRef data, bool final)
 CFArrayRef
 CGImageSourceCopyTypeIdentifiers(void)
 {
-    const void *v[6];
-    for (int i = 0; i < 6; i++)
+    const void *v[kFormats];
+    for (int i = 0; i < kFormats; i++)
         v[i] = uti_string(i);
-    return CFArrayCreate(NULL, v, 6, &kCFTypeArrayCallBacks);
+    return CFArrayCreate(NULL, v, kFormats, &kCFTypeArrayCallBacks);
 }
 
 CGImageSourceRef
