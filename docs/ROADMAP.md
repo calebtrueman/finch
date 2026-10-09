@@ -249,6 +249,10 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         Apple's on the host and in the VM; `finch-appkit-text-window-test` types, clicks and scrolls
         through the server (2026-10-08); rich-text pasteboard types, find and spelling to come
 - [ ] TextEdit or Calculator launches and is usable
+  - [x] A Cocoa app bundle built the usual way (`userland/tests/apps/Hello`: NSApplicationMain,
+        a MainMenu nib from ibtool, outlets and actions) launches on Finch's frameworks and window
+        server, shows its menu bar and window, and responds to clicks and typing
+        (`tools/run-app.sh`, 2026-10-09)
 
 **Exit:** an unmodified Mac app draws a window on Finch's own frameworks and
 window server.
