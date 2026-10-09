@@ -375,7 +375,7 @@ segmented_defaults(NSSegmentedCell *self)
     [p setAlignment:[self alignmentForSegment:s]];
     [p setLineBreakMode:NSLineBreakByTruncatingTail];
     BOOL enabled = [self isEnabled] && [self isEnabledForSegment:s];
-    NSColor *c = selected && _trackingMode == NSSegmentSwitchTrackingSelectOne ? [NSColor whiteColor]
+    NSColor *c = selected && _trackingMode == NSSegmentSwitchTrackingSelectOne ? FinchOnAccentColor()
                                                                                : [NSColor controlTextColor];
     return @{
         NSFontAttributeName : [self font] ?: [NSFont systemFontOfSize:0],

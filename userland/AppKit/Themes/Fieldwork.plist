@@ -548,6 +548,20 @@
 			<key>night</key>
 			<string>#EAEDE6</string>
 		</dict>
+		<key>knob</key>
+		<dict>
+			<key>day</key>
+			<string>#FAF9F5</string>
+			<key>night</key>
+			<string>#3A423E</string>
+		</dict>
+		<key>onAccent</key>
+		<dict>
+			<key>day</key>
+			<string>#FAF9F5</string>
+			<key>night</key>
+			<string>#181D1C</string>
+		</dict>
 		<key>outline</key>
 		<dict>
 			<key>day</key>

@@ -16,6 +16,7 @@
  * Escape work in an open menu; a click outside cancels.
  */
 #import "NSMenu_Finch.h"
+#import "FinchTheme.h"
 
 #define BAR_HEIGHT 24
 #define ITEM_HEIGHT 22
@@ -44,6 +45,50 @@ gray(CGFloat w)
     return [NSColor colorWithSRGBRed:w green:w blue:w alpha:1];
 }
 
+/*
+ * Fieldwork (docs/design/FIELDWORK.md): the menu bar is the Instrument Bar, slate with
+ * the FINCH mark, the app's menus, and the workbench and clock on the right; menus are
+ * slate sheets whose lit row is sage with an accent tick. Classic keeps the look above.
+ */
+static BOOL
+fieldwork(void)
+{
+    return !FinchThemeIsClassic();
+}
+
+static NSColor *
+surface(void)
+{
+    return fieldwork() ? (FinchThemePaletteColor(@"slate") ?: [NSColor controlBackgroundColor]) : gray(0.96);
+}
+
+static NSColor *
+ink(BOOL enabled)
+{
+    if (fieldwork())
+        return enabled ? [NSColor labelColor] : [NSColor disabledControlTextColor];
+    return enabled ? gray(0.1) : gray(0.62);
+}
+
+/* A lit row or title: its fill, and its text. */
+static NSColor *
+lit_fill(void)
+{
+    return fieldwork() ? [NSColor selectedTextBackgroundColor] : accent();
+}
+
+static NSColor *
+lit_text(void)
+{
+    return fieldwork() ? [NSColor labelColor] : [NSColor whiteColor];
+}
+
+static NSColor *
+rule_color(void)
+{
+    return fieldwork() ? [NSColor separatorColor] : gray(0.84);
+}
+
 #pragma mark - Windows
 
 @interface FinchMenuWindow : NSPanel
@@ -62,7 +107,7 @@ gray(CGFloat w)
     [self setExcludedFromWindowsMenu:YES];
     [self setOpaque:opaque];
     [self setHasShadow:!opaque];
-    [self setBackgroundColor:opaque ? gray(0.96) : [NSColor clearColor]];
+    [self setBackgroundColor:opaque ? surface() : [NSColor clearColor]];
     return self;
 }
 
@@ -266,10 +311,12 @@ draw_arrow(CGFloat x, CGFloat midY, NSColor *color)
 - (void)drawRect:(NSRect)dirty
 {
     NSRect b = NSMakeRect(0, 0, _size.width, _size.height);
-    NSBezierPath *bg = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(b, 0.5, 0.5) xRadius:RADIUS yRadius:RADIUS];
-    [gray(0.97) setFill];
+    CGFloat radius = fieldwork() ? 4 : RADIUS;
+    NSBezierPath *bg = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(b, 0.5, 0.5) xRadius:radius yRadius:radius];
+    [(fieldwork() ? surface() : gray(0.97)) setFill];
     [bg fill];
-    [[NSColor colorWithSRGBRed:0 green:0 blue:0 alpha:0.2] setStroke];
+    [(fieldwork() ? (FinchThemePaletteColor(@"outline") ?: [NSColor separatorColor])
+                  : [NSColor colorWithSRGBRed:0 green:0 blue:0 alpha:0.2]) setStroke];
     [bg setLineWidth:1];
     [bg stroke];
     CGFloat lineHeight = ceil([_font ascender] - [_font descender]);
@@ -277,7 +324,7 @@ draw_arrow(CGFloat x, CGFloat midY, NSColor *color)
         NSMenuItem *item = _rows[(NSUInteger)row];
         NSRect r = [self rectOfRow:row];
         if ([item isSeparatorItem]) {
-            [gray(0.84) setFill];
+            [rule_color() setFill];
             NSRectFill(NSMakeRect(10, floor(NSMidY(r)), r.size.width - 20, 1));
             continue;
         }
@@ -286,10 +333,15 @@ draw_arrow(CGFloat x, CGFloat midY, NSColor *color)
         BOOL enabled = [item isEnabled] && ![item isSectionHeader];
         BOOL lit = row == _highlighted && enabled;
         if (lit) {
-            [accent() setFill];
-            [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(r, 5, 0) xRadius:4 yRadius:4] fill];
+            [lit_fill() setFill];
+            NSRect plate = NSInsetRect(r, 5, 0);
+            [[NSBezierPath bezierPathWithRoundedRect:plate xRadius:fieldwork() ? 2 : 4 yRadius:fieldwork() ? 2 : 4] fill];
+            if (fieldwork()) {
+                [[NSColor controlAccentColor] setFill];
+                NSRectFill(NSMakeRect(NSMinX(plate), NSMinY(plate) + 3, 2, NSHeight(plate) - 6));
+            }
         }
-        NSColor *color = lit ? [NSColor whiteColor] : enabled ? gray(0.1) : gray(0.62);
+        NSColor *color = lit ? lit_text() : ink(enabled);
         NSFont *font = [item isSectionHeader] ? [NSFont boldSystemFontOfSize:[_font pointSize] - 2] : _font;
         CGFloat textY = NSMinY(r) + floor((r.size.height - lineHeight) / 2);
         /* the state column */
@@ -326,7 +378,8 @@ draw_arrow(CGFloat x, CGFloat midY, NSColor *color)
             [[item title] drawAtPoint:NSMakePoint(x, textY) withAttributes:text_attributes(font, color)];
         NSString *key = FinchMenuKeyEquivalentString(item);
         if ([key length]) {
-            NSDictionary *a = text_attributes(_font, lit ? color : enabled ? gray(0.45) : gray(0.68));
+            NSDictionary *a = text_attributes(_font, fieldwork() ? (enabled ? [NSColor secondaryLabelColor] : [NSColor disabledControlTextColor])
+                                                     : lit ? color : enabled ? gray(0.45) : gray(0.68));
             CGFloat w = [key sizeWithAttributes:a].width;
             [key drawAtPoint:NSMakePoint(_keyRight - w, textY) withAttributes:a];
         }
@@ -425,11 +478,34 @@ bar_font(BOOL bold)
     return i == 0 ? app_name() : [_items[(NSUInteger)i] title];
 }
 
+/* The Instrument Bar's mark, and the system context on its right. */
+static NSFont *
+technical_font(CGFloat size, NSFontWeight weight)
+{
+    return [NSFont monospacedSystemFontOfSize:size weight:weight];
+}
+
+static NSDictionary *
+mark_attributes(void)
+{
+    return @{
+        NSFontAttributeName : technical_font(11, NSFontWeightSemibold),
+        NSForegroundColorAttributeName : [NSColor controlAccentColor],
+        NSKernAttributeName : @1.5,
+    };
+}
+
+static CGFloat
+mark_width(void)
+{
+    return fieldwork() ? ceil([@"FINCH" sizeWithAttributes:mark_attributes()].width) + 2 * BAR_PAD + 1 : 0;
+}
+
 - (void)layoutTitles
 {
     [_items removeAllObjects];
     [_rects removeAllObjects];
-    CGFloat x = BAR_START;
+    CGFloat x = BAR_START + mark_width();
     NSArray *all = [[NSApp mainMenu] itemArray];
     for (NSUInteger n = 0; n < [all count]; n++) {
         NSMenuItem *i = all[n];
@@ -462,24 +538,82 @@ bar_font(BOOL bold)
     [self setNeedsDisplay:YES];
 }
 
+- (void)viewDidMoveToWindow
+{
+    [super viewDidMoveToWindow];
+    if ([self window] && fieldwork()) {
+        /* the clock: redrawn every half minute */
+        NSTimer *t = [NSTimer timerWithTimeInterval:30 target:self selector:@selector(_finchTick:) userInfo:nil repeats:YES];
+        [[NSRunLoop currentRunLoop] addTimer:t forMode:NSRunLoopCommonModes];
+    }
+}
+
+- (void)_finchTick:(NSTimer *)t
+{
+    if (![self window]) {
+        [t invalidate];
+        return;
+    }
+    [self setNeedsDisplay:YES];
+}
+
+/* FINCH, then a divider; on the right, the workbench and the time, in the technical face. */
+- (void)_finchDrawInstruments
+{
+    NSRect b = [self bounds];
+    NSDictionary *m = mark_attributes();
+    NSSize ms = [@"FINCH" sizeWithAttributes:m];
+    [@"FINCH" drawAtPoint:NSMakePoint(BAR_START + BAR_PAD, floor((BAR_HEIGHT - ms.height) / 2)) withAttributes:m];
+    [[NSColor separatorColor] setFill];
+    NSRectFill(NSMakeRect(BAR_START + mark_width() - 1, 6, 1, BAR_HEIGHT - 12));
+    NSDictionary *quiet = @{
+        NSFontAttributeName : technical_font(11, NSFontWeightRegular),
+        NSForegroundColorAttributeName : [NSColor secondaryLabelColor],
+    };
+    NSDictionary *loud = @{
+        NSFontAttributeName : technical_font(11, NSFontWeightMedium),
+        NSForegroundColorAttributeName : [NSColor labelColor],
+    };
+    static NSDateFormatter *clock;
+    if (!clock) {
+        clock = [[NSDateFormatter alloc] init];
+        [clock setDateFormat:@"EEE d MMM  HH:mm"];
+    }
+    NSString *time = [[clock stringFromDate:[NSDate date]] uppercaseString];
+    NSString *bench = @"01 / DESK";
+    NSSize ts = [time sizeWithAttributes:loud], bs = [bench sizeWithAttributes:quiet];
+    CGFloat x = NSMaxX(b) - 14 - ts.width;
+    [time drawAtPoint:NSMakePoint(x, floor((BAR_HEIGHT - ts.height) / 2)) withAttributes:loud];
+    x -= 24 + bs.width;
+    [bench drawAtPoint:NSMakePoint(x, floor((BAR_HEIGHT - bs.height) / 2)) withAttributes:quiet];
+}
+
 - (void)drawRect:(NSRect)dirty
 {
     NSRect b = [self bounds];
-    [gray(0.96) setFill];
+    [surface() setFill];
     NSRectFill(b);
-    [gray(0.80) setFill];
+    [(fieldwork() ? [NSColor separatorColor] : gray(0.80)) setFill];
     NSRectFill(NSMakeRect(0, NSMaxY(b) - 1, b.size.width, 1));
+    if (fieldwork())
+        [self _finchDrawInstruments];
     NSFont *font = bar_font(NO);
     CGFloat lineHeight = ceil([font ascender] - [font descender]);
     for (NSInteger i = 0; i < (NSInteger)[_items count]; i++) {
         NSRect r = [self rectOfTitle:i];
         BOOL lit = i == _highlighted;
-        if (lit) {
+        if (lit && fieldwork()) {
+            /* a sage plate with an accent rule under the title */
+            [lit_fill() setFill];
+            NSRectFill(NSMakeRect(NSMinX(r), 0, NSWidth(r), BAR_HEIGHT - 1));
+            [[NSColor controlAccentColor] setFill];
+            NSRectFill(NSMakeRect(NSMinX(r) + BAR_PAD - 2, BAR_HEIGHT - 3, NSWidth(r) - 2 * BAR_PAD + 4, 2));
+        } else if (lit) {
             [accent() setFill];
             [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(r, 1, 3) xRadius:5 yRadius:5] fill];
         }
         BOOL enabled = [_items[(NSUInteger)i] isEnabled];
-        NSColor *color = lit ? [NSColor whiteColor] : enabled ? gray(0.1) : gray(0.62);
+        NSColor *color = lit ? lit_text() : ink(enabled);
         [[self titleFor:i] drawAtPoint:NSMakePoint(NSMinX(r) + BAR_PAD, floor((BAR_HEIGHT - lineHeight) / 2))
                         withAttributes:text_attributes(bar_font(i == 0), color)];
     }

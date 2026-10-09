@@ -413,8 +413,12 @@ protections under Finch's own keys).
         cluster (2026-10-09).
   - [ ] Controls: buttons, pop-ups, segmented controls, check boxes, sliders, fields,
         scrollers, tabs, menus.
+    - [x] The shared control colours and bezels, and menus (2026-10-09).
+    - [ ] Scrollers, tabs, fields' focus rings, table headers; Night's own art.
   - [ ] Night: the system-wide dark appearance (`AppleInterfaceStyle`).
   - [ ] The Instrument Bar: app menus on the left, system context on the right.
+    - [x] Drawn by each app's menu bar: FINCH, the menus, the workbench and the clock (2026-10-09).
+    - [ ] A system process owning it (network, battery, the launcher behind FINCH).
   - [ ] The Rail, in place of the Dock.
   - [ ] Workbenches: named, persistent, defined in text files.
   - [ ] Window behaviour: alignment guides, layout zones, fill the workbench.

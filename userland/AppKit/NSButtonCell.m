@@ -810,7 +810,7 @@ position_to_flags(NSCellImagePosition p)
                                              (_showsStateBy & (NSChangeGrayCellMask | NSChangeBackgroundCellMask))) ||
                   _bezelStyle == NSBezelStyleBadge);
     if (light)
-        [t addAttribute:NSForegroundColorAttributeName value:[NSColor whiteColor] range:all];
+        [t addAttribute:NSForegroundColorAttributeName value:FinchOnAccentColor() range:all];
     if (![self isEnabled])
         [t addAttribute:NSForegroundColorAttributeName value:[NSColor disabledControlTextColor] range:all];
     FinchDrawCellText(t, frame, [controlView isFlipped]);

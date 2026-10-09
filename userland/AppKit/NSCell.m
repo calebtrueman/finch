@@ -8,25 +8,47 @@
  * this file), never Apple's artwork.
  */
 #import "NSControl_Finch.h"
+#import "FinchTheme.h"
 
 #pragma mark - Finch's look
 
+/* Classic's colours, or the theme's (docs/design/FIELDWORK.md): Fieldwork's controls are slate, outlined in ink. */
 NSColor *
 FinchAccentColor(void)
 {
+    if (!FinchThemeIsClassic())
+        return [NSColor controlAccentColor];
     return [NSColor colorWithSRGBRed:0.16 green:0.47 blue:0.96 alpha:1];
 }
 
 NSColor *
 FinchControlFill(BOOL pressed)
 {
+    if (!FinchThemeIsClassic())
+        return pressed ? [NSColor unemphasizedSelectedContentBackgroundColor] : [NSColor controlColor];
     return pressed ? [NSColor colorWithSRGBRed:0.84 green:0.85 blue:0.87 alpha:1]
                    : [NSColor colorWithSRGBRed:0.985 green:0.985 blue:0.99 alpha:1];
+}
+
+/* Text and marks on the accent colour. */
+NSColor *
+FinchOnAccentColor(void)
+{
+    return (FinchThemeIsClassic() ? nil : FinchThemePaletteColor(@"onAccent")) ?: [NSColor whiteColor];
+}
+
+/* A slider's knob. */
+NSColor *
+FinchKnobColor(void)
+{
+    return (FinchThemeIsClassic() ? nil : FinchThemePaletteColor(@"knob")) ?: [NSColor whiteColor];
 }
 
 NSColor *
 FinchControlStroke(void)
 {
+    if (!FinchThemeIsClassic())
+        return FinchThemePaletteColor(@"outline") ?: [NSColor separatorColor];
     return [NSColor colorWithSRGBRed:0.70 green:0.71 blue:0.74 alpha:1];
 }
 
@@ -42,11 +64,27 @@ FinchDrawBezel(NSRect rect, CGFloat radius, NSColor *fill, NSColor *stroke)
     NSRect r = NSInsetRect(rect, 0.5, 0.5);
     if (r.size.width <= 0 || r.size.height <= 0)
         return;
+    BOOL fieldwork = !FinchThemeIsClassic();
+    /* Fieldwork's controls are machined, not pills: small corners, a faint highlight along the top */
+    if (fieldwork && radius > 1)
+        radius = MIN(radius, FinchThemeMetric(@"controlCornerRadius", 3) + (MIN(r.size.width, r.size.height) <= 16 ? 0 : 1));
     radius = MIN(radius, MIN(r.size.width, r.size.height) / 2);
     NSBezierPath *p = [NSBezierPath bezierPathWithRoundedRect:r xRadius:radius yRadius:radius];
     if (fill) {
         [fill setFill];
         [p fill];
+        if (fieldwork && stroke && r.size.height > 6) {
+            NSColor *hl = FinchThemePaletteColor(@"edgeHighlight");
+            if (hl) {
+                [NSGraphicsContext saveGraphicsState];
+                [p addClip];
+                [hl setFill];
+                BOOL flipped = [[NSGraphicsContext currentContext] isFlipped];
+                NSRectFillUsingOperation(NSMakeRect(NSMinX(r), flipped ? NSMinY(r) + 0.5 : NSMaxY(r) - 1.5, NSWidth(r), 1),
+                                         NSCompositingOperationSourceOver);
+                [NSGraphicsContext restoreGraphicsState];
+            }
+        }
     }
     if (stroke) {
         [stroke setStroke];
@@ -89,7 +127,7 @@ FinchDrawCheckbox(NSRect box, NSControlStateValue state, BOOL pressed, BOOL enab
         [mark lineToPoint:NSMakePoint(x + s * 0.43, Y(0.33))];
         [mark lineToPoint:NSMakePoint(x + s * 0.76, Y(0.70))];
     }
-    [FinchDisabled([NSColor whiteColor], enabled) setStroke];
+    [FinchDisabled(FinchOnAccentColor(), enabled) setStroke];
     [mark stroke];
 }
 
@@ -110,7 +148,7 @@ FinchDrawRadio(NSRect box, NSControlStateValue state, BOOL pressed, BOOL enabled
         [circle stroke];
         return;
     }
-    [FinchDisabled([NSColor whiteColor], enabled) setFill];
+    [FinchDisabled(FinchOnAccentColor(), enabled) setFill];
     CGFloat d = g.size.width * 0.38;
     [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(NSMidX(g) - d / 2, NSMidY(g) - d / 2, d, d)] fill];
 }

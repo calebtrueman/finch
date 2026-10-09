@@ -2,12 +2,13 @@ CFLocale.c: the current locale comes from the AppleLocale preference, with the
 user's locale overrides (measurement units, first weekday, 24-hour time and so on)
 from the preferences, as Apple's CoreFoundation reads them (swift-corelibs leaves
 the preference lookup out, so the current locale was the empty root locale).
+With no AppleLocale set, the locale is the first preferred language's, else en_US.
 
 diff --git a/Sources/CoreFoundation/CFLocale.c b/Sources/CoreFoundation/CFLocale.c
-index 06f8617..ccc1a58 100644
+index 06f8617..a4cafb1 100644
 --- a/Sources/CoreFoundation/CFLocale.c
 +++ b/Sources/CoreFoundation/CFLocale.c
-@@ -653,13 +653,31 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
+@@ -653,13 +653,42 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
       */
      
      CFStringRef ident = NULL;
@@ -21,6 +22,17 @@ index 06f8617..ccc1a58 100644
 -#if 0 // TARGET_OS_MAC || TARGET_OS_WIN32 || TARGET_OS_LINUX || TARGET_OS_BSD
 +#if TARGET_OS_MAC
          name = (CFStringRef)CFPreferencesCopyAppValue(CFSTR("AppleLocale"), kCFPreferencesCurrentApplication);
++        if (!name || CFGetTypeID(name) != CFStringGetTypeID()) {
++            /* no locale set: the first preferred language's, else en_US (a Mac always has one) */
++            if (name) CFRelease(name);
++            name = NULL;
++            CFArrayRef langs = (CFArrayRef)CFPreferencesCopyAppValue(CFSTR("AppleLanguages"), kCFPreferencesCurrentApplication);
++            if (langs && CFGetTypeID(langs) == CFArrayGetTypeID() && CFArrayGetCount(langs) > 0 &&
++                CFGetTypeID(CFArrayGetValueAtIndex(langs, 0)) == CFStringGetTypeID())
++                name = (CFStringRef)CFRetain(CFArrayGetValueAtIndex(langs, 0));
++            if (langs) CFRelease(langs);
++            if (!name) name = (CFStringRef)CFRetain(CFSTR("en_US"));
++        }
 +        if (!overridePrefs) {
 +            static const CFStringRef keys[] = {
 +                CFSTR("AppleLanguages"), CFSTR("AppleMetricUnits"), CFSTR("AppleMeasurementUnits"),
@@ -44,7 +56,7 @@ index 06f8617..ccc1a58 100644
  #endif
      } else {
          CFRetain(name);
-@@ -699,6 +717,7 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
+@@ -699,6 +728,7 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
          }
  
          if (cached) {
@@ -52,7 +64,7 @@ index 06f8617..ccc1a58 100644
  #if DEPLOYMENT_RUNTIME_SWIFT
              CFRetain(cached); // In Swift, this object isn't immortal and needs to be correctly memory-managed.
  #endif
-@@ -707,7 +726,8 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
+@@ -707,7 +737,8 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
          }
      }
      

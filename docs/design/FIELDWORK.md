@@ -208,3 +208,16 @@ without touching the compatibility stack.
 
 - 2026-10-09: the design language. Decided with the user: app menus stay in the
   Instrument Bar (left), and window controls stay on the left as a restyled cluster.
+- 2026-10-09: tokens and the first drawing:
+  - Theme file and switch. System colours resolve to Day or Night values from it.
+  - Window frame: the window server shapes windows (6/2 pt corners, outline, shallow
+    shadow, chalk desktop). The title bar has slate, the top highlight, the key
+    window's green mark and the left control cluster.
+  - Controls: the shared control colours are themed, so buttons, check boxes, radios,
+    segmented controls and sliders take the accent, slate fills, ink outlines and
+    small machined corners.
+  - Instrument Bar: the menu bar is now the Instrument Bar. On the left, FINCH in the
+    technical face, then the app's menus. On the right, the workbench and the clock.
+    An open title is a sage plate with an accent rule.
+  - Menus: slate sheets, whose lit row is sage with an accent tick.
+

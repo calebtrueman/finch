@@ -416,7 +416,7 @@
         [[NSBezierPath bezierPathWithOvalInRect:knob] fill];
         return;
     }
-    NSColor *fill = [self isHighlighted] ? FinchControlFill(YES) : [NSColor whiteColor];
+    NSColor *fill = [self isHighlighted] ? FinchControlFill(YES) : FinchKnobColor();
     NSBezierPath *p = [NSBezierPath bezierPathWithOvalInRect:NSInsetRect(knob, 0.5, 0.5)];
     [FinchDisabled(fill, enabled) setFill];
     [p fill];
@@ -445,7 +445,7 @@
     BOOL flipped = [view isFlipped];
     if (_sliderType == NSSliderTypeCircular) {
         NSRect dial = [self _finchDialIn:frame];
-        FinchDrawBezel(dial, dial.size.width / 2, FinchDisabled([NSColor whiteColor], [self isEnabled]),
+        FinchDrawBezel(dial, dial.size.width / 2, FinchDisabled(FinchKnobColor(), [self isEnabled]),
                        FinchDisabled(FinchControlStroke(), [self isEnabled]));
         [self drawKnob:[self knobRectFlipped:flipped]];
         return;
