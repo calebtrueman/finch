@@ -105,7 +105,7 @@ static UIFSystemFontInfo *
 system_font_info(NSFont *font)
 {
     pthread_mutex_lock(&cache_lock);
-    UIFSystemFontInfo *info = (id)CFDictionaryGetValue(system_info, font);
+    UIFSystemFontInfo *info = system_info && font ? (id)CFDictionaryGetValue(system_info, font) : nil;
     pthread_mutex_unlock(&cache_lock);
     return info;
 }
@@ -113,7 +113,8 @@ system_font_info(NSFont *font)
 NSFontDescriptor *
 UIFSystemFontDescriptor(NSFont *font)
 {
-    return system_font_info(font)->descriptor;
+    UIFSystemFontInfo *info = system_font_info(font);
+    return info ? info->descriptor : nil;
 }
 
 /* Matrices are interned so -matrix can return an inner pointer that outlives

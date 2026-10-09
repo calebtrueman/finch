@@ -353,4 +353,27 @@ finch_font_alias(const char *name)
     return 0;
 }
 
+/* The other way: the Apple PostScript name a Finch font stands in for, for
+ * documents that name fonts (RTF). The first of its names that is a
+ * PostScript name (no spaces, not a private ".name"), preferring "X-Regular"
+ * or "X-Roman" over "X" when both are listed; 0 if it stands in for none. */
+static inline const char *
+finch_font_apple_name(const char *finch)
+{
+    const char *found = 0;
+    for (size_t i = 0; i < sizeof finch_font_aliases / sizeof finch_font_aliases[0]; i++) {
+        const char *apple = finch_font_aliases[i].apple;
+        if (strcmp(finch_font_aliases[i].finch, finch) || apple[0] == '.' || strchr(apple, ' '))
+            continue;
+        if (!found) {
+            found = apple;
+        } else {
+            size_t n = strlen(found);
+            if (!strncmp(apple, found, n) && (!strcmp(apple + n, "-Regular") || !strcmp(apple + n, "-Roman")))
+                return apple;
+        }
+    }
+    return found;
+}
+
 #endif

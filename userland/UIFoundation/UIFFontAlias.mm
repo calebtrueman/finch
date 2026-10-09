@@ -10,3 +10,10 @@ UIFFontAlias(NSString *name)
     const char *alias = name ? finch_font_alias(name.UTF8String) : NULL;
     return alias ? [NSString stringWithUTF8String:alias] : nil;
 }
+
+NSString *
+UIFAppleFontName(NSString *finchName)
+{
+    const char *apple = finchName ? finch_font_apple_name(finchName.UTF8String) : NULL;
+    return apple ? [NSString stringWithUTF8String:apple] : nil;
+}

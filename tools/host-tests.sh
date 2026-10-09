@@ -33,7 +33,7 @@ COMPARE=(
     "appkit-text-test|${B}/appkit-text-test.nib" "appkit-document-test|${B}" "nib-test|${B}/nib-test.nib"
     "appkit-layout-test|${B}" "appkit-bindings-test|${B}/appkit-bindings-test.nib" "appkit-panels-test|"
     "textkit2-test|" "appkit-tables-test|" "appkit-containers2-test|" "appkit-controls2-test|" "imagekit-test|"
-    "coreservices-test|build/coreservices-test" "security-test|" "swift-overlay-test|" "swift-runtime-test|"
+    "coreservices-test|build/coreservices-test" "security-test|" "rtf-test|" "swift-overlay-test|" "swift-runtime-test|"
 )
 # Finch-only window-server tests and their expected output
 EXPECT=(window controls-window menu-window text-window panels-window tables-window)

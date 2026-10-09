@@ -153,3 +153,4 @@ build/userland/apps/AssetsTest.app/Contents/Resources/AssetsTest.nib /Applicatio
 build/userland/apps/AssetsTest.app/Contents/Resources/Extra.bundle/Contents/Info.plist /Applications/AssetsTest.app/Contents/Resources/Extra.bundle/Contents/Info.plist
 build/userland/apps/AssetsTest.app/Contents/Resources/Extra.bundle/Contents/Resources/Assets.car /Applications/AssetsTest.app/Contents/Resources/Extra.bundle/Contents/Resources/Assets.car
 userland/tests/assets-test.sh /usr/local/bin/finch-assets-test
+build/userland/finch-rtf-test /usr/local/bin/finch-rtf-test

@@ -1232,3 +1232,19 @@ fragment_geometry(NSTextLayoutFragment *self)
 - (void)adjustViewportByVerticalOffset:(CGFloat)verticalOffset { _bounds.origin.y += verticalOffset; }
 
 @end
+
+/* Apple's private multi-container API (TextEdit's page layout uses it); Finch lays out one container. */
+@implementation NSTextLayoutManager (FinchContainers)
+- (NSArray<NSTextContainer *> *)textContainers
+{
+    NSTextContainer *c = [self textContainer];
+    return c ? @[ c ] : @[];
+}
+- (NSTextRange *)rangeForTextContainerAtIndex:(NSUInteger)index { return nil; }
+- (NSTextContainer *)templateTextContainer { return nil; }
+- (void)setTemplateTextContainer:(NSTextContainer *)container {}
+- (void)textContainerChangedGeometry:(NSTextContainer *)container
+{
+    [self invalidateLayoutForRange:[[self textContentManager] documentRange]];
+}
+@end

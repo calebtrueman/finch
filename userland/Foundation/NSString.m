@@ -599,6 +599,47 @@ transformed(NSString *self, void (*fn)(CFMutableStringRef, CFLocaleRef), CFLocal
     if (contentsEndPtr) *contentsEndPtr = (NSUInteger)c;
 }
 
+- (NSRange)lineRangeForRange:(NSRange)range
+{
+    NSUInteger start, end;
+    [self getLineStart:&start end:&end contentsEnd:NULL forRange:range];
+    return NSMakeRange(start, end - start);
+}
+
+- (void)getParagraphStart:(NSUInteger *)startPtr end:(NSUInteger *)parEndPtr contentsEnd:(NSUInteger *)contentsEndPtr
+                 forRange:(NSRange)range
+{
+    CFIndex s, e, c;
+    CFStringGetParagraphBounds((CFStringRef)self, CFRangeMake((CFIndex)range.location, (CFIndex)range.length), &s, &e, &c);
+    if (startPtr) *startPtr = (NSUInteger)s;
+    if (parEndPtr) *parEndPtr = (NSUInteger)e;
+    if (contentsEndPtr) *contentsEndPtr = (NSUInteger)c;
+}
+
+- (NSRange)paragraphRangeForRange:(NSRange)range
+{
+    NSUInteger start, end;
+    [self getParagraphStart:&start end:&end contentsEnd:NULL forRange:range];
+    return NSMakeRange(start, end - start);
+}
+
+- (NSRange)rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)index
+{
+    CFRange r = CFStringGetRangeOfComposedCharactersAtIndex((CFStringRef)self, (CFIndex)index);
+    return NSMakeRange((NSUInteger)r.location, (NSUInteger)r.length);
+}
+
+- (NSRange)rangeOfComposedCharacterSequencesForRange:(NSRange)range
+{
+    if (![self length])
+        return NSMakeRange(0, 0);
+    NSRange first = [self rangeOfComposedCharacterSequenceAtIndex:range.location];
+    if (!range.length)
+        return NSMakeRange(first.location, 0);
+    NSRange last = [self rangeOfComposedCharacterSequenceAtIndex:NSMaxRange(range) - 1];
+    return NSMakeRange(first.location, NSMaxRange(last) - first.location);
+}
+
 - (void)enumerateLinesUsingBlock:(void (^)(NSString *line, BOOL *stop))block
 {
     NSUInteger n = [self length], start = 0;

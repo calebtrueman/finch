@@ -7,6 +7,7 @@
  * what the screen shows. Finch-only; compare with the expected output.
  *
  *   finch-app-test SERVER APP-EXECUTABLE STEP...
+ *   (FINCH_APP_ARGS="file ..." passes arguments to the app)
  *
  * Steps (points; window-relative ones are from the top left of the named
  * window, title bar included):
@@ -127,7 +128,13 @@ main(int argc, char **argv)
     posix_spawn_file_actions_init(&fa);
     posix_spawn_file_actions_adddup2(&fa, pipefd[1], 1);
     posix_spawn_file_actions_adddup2(&fa, pipefd[1], 2);
-    char *aargs[] = {argv[2], NULL};
+    /* FINCH_APP_ARGS: arguments for the app (files to open, as Finch's NSWorkspace passes them), space-separated */
+    char *aargs[16] = {argv[2], NULL};
+    char *extra = getenv("FINCH_APP_ARGS") ? strdup(getenv("FINCH_APP_ARGS")) : NULL;
+    int na = 1;
+    for (char *tok = extra ? strtok(extra, " ") : NULL; tok && na < 15; tok = strtok(NULL, " "))
+        aargs[na++] = tok;
+    aargs[na] = NULL;
     if (posix_spawn(&app, argv[2], &fa, NULL, aargs, environ)) {
         printf("can't start %s\n", argv[2]);
         kill(server, SIGTERM);

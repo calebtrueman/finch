@@ -802,6 +802,10 @@ type_names(NSDictionary *t)
     }
     NSSavePanel *p = [panelClass savePanel];
     [p setNameFieldStringValue:[self displayName]];
+    /* the type's extension is added to the name the user gives, as on macOS */
+    NSString *ext = [self fileNameExtensionForType:_fileType saveOperation:op];
+    if ([ext length])
+        [p setAllowedFileTypes:@[ ext ]];
     if (![self prepareSavePanel:p] || [p runModal] != NSModalResponseOK)
         return;
     [self saveToURL:[p URL] ofType:_fileType forSaveOperation:op delegate:delegate didSaveSelector:didSaveSelector
@@ -846,7 +850,13 @@ type_names(NSDictionary *t)
 - (void)scheduleAutosaving {}
 - (IBAction)runPageLayout:(id)sender {}
 - (IBAction)printDocument:(id)sender {}
-- (NSPrintInfo *)printInfo { return _printInfo; }
+/* As Apple's: a copy of the shared print info until the document is given its own. */
+- (NSPrintInfo *)printInfo
+{
+    if (!_printInfo)
+        _printInfo = [[FINCH_CLASS(NSPrintInfo) sharedPrintInfo] copy];
+    return _printInfo;
+}
 - (void)setPrintInfo:(NSPrintInfo *)info { [_printInfo autorelease]; _printInfo = [info retain]; }
 
 - (BOOL)presentError:(NSError *)error

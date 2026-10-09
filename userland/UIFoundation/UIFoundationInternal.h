@@ -29,6 +29,8 @@
 /* The PostScript name Finch ships in place of an Apple font name, or nil
  * (userland/fonts/FinchFonts.h). */
 UIF_HIDDEN NSString *UIFFontAlias(NSString *name);
+/* The other way: the Apple font name a shipped font stands in for, or nil. */
+UIF_HIDDEN NSString *UIFAppleFontName(NSString *finchName);
 
 /* AppKit's classes, found at run time: UIFoundation doesn't link AppKit
  * (AppKit links it). */

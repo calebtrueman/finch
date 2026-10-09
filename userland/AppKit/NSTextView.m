@@ -838,12 +838,43 @@ set_paragraph_value(NSTextView *self, NSRange range, void (^change)(NSMutablePar
     [_storage replaceCharactersInRange:range withAttributedString:string];
 }
 
-- (NSData *)RTFFromRange:(NSRange)range { return nil; }
-- (NSData *)RTFDFromRange:(NSRange)range { return nil; }
-- (BOOL)readRTFDFromFile:(NSString *)path { return NO; }
-- (BOOL)writeRTFDToFile:(NSString *)path atomically:(BOOL)flag { return NO; }
-- (void)replaceCharactersInRange:(NSRange)range withRTF:(NSData *)rtfData {}
-- (void)replaceCharactersInRange:(NSRange)range withRTFD:(NSData *)rtfdData {}
+/* RTF and RTFD of the text (UIFoundation's document formats). */
+- (NSData *)RTFFromRange:(NSRange)range
+{
+    return [[self textStorage] RTFFromRange:range documentAttributes:@{}];
+}
+- (NSData *)RTFDFromRange:(NSRange)range
+{
+    return [[self textStorage] RTFDFromRange:range documentAttributes:@{}];
+}
+- (BOOL)readRTFDFromFile:(NSString *)path
+{
+    NSAttributedString *s = [[[NSAttributedString alloc] initWithURL:[NSURL fileURLWithPath:path] options:@{}
+                                                  documentAttributes:NULL error:NULL] autorelease];
+    if (!s)
+        return NO;
+    [[self textStorage] setAttributedString:s];
+    return YES;
+}
+- (BOOL)writeRTFDToFile:(NSString *)path atomically:(BOOL)flag
+{
+    NSTextStorage *t = [self textStorage];
+    NSFileWrapper *w = [t RTFDFileWrapperFromRange:NSMakeRange(0, [t length]) documentAttributes:@{}];
+    return [w writeToURL:[NSURL fileURLWithPath:path] options:flag ? NSFileWrapperWritingAtomic : 0
+        originalContentsURL:nil error:NULL];
+}
+- (void)replaceCharactersInRange:(NSRange)range withRTF:(NSData *)rtfData
+{
+    NSAttributedString *s = [[[NSAttributedString alloc] initWithRTF:rtfData documentAttributes:NULL] autorelease];
+    if (s)
+        [[self textStorage] replaceCharactersInRange:range withAttributedString:s];
+}
+- (void)replaceCharactersInRange:(NSRange)range withRTFD:(NSData *)rtfdData
+{
+    NSAttributedString *s = [[[NSAttributedString alloc] initWithRTFD:rtfdData documentAttributes:NULL] autorelease];
+    if (s)
+        [[self textStorage] replaceCharactersInRange:range withAttributedString:s];
+}
 
 /* The text storage was edited (from NSLayoutManager): follow it with the selection and the size. */
 - (void)_finchTextStorageEdited:(NSTextStorageEditActions)mask range:(NSRange)range changeInLength:(NSInteger)delta
