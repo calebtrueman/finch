@@ -109,7 +109,7 @@
 {
     if (!_laidOut || !_line.line || !context)
         return;
-    UIFLayout L = {&_line, 1, 1, _line.height, NSMaxRange(_line.range), NO};
+    UIFLayout L = {&_line, 1, 1, _line.height, NSMaxRange(_line.range), NO, NULL, 0, 0};
     UIFLayoutDrawLinesInContext(context, &L, 0, 1, point.x, point.y, YES);
 }
 

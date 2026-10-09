@@ -20,8 +20,13 @@
  *   (NSLayoutManager's extra line fragment).
  * - Without NSStringDrawingUsesLineFragmentOrigin, only the first line is
  *   laid out, unwrapped, and the rectangle's origin is its baseline.
+ * - Paragraphs in text blocks are laid out inside them: each block insets
+ *   its content by its margin, border and padding (and may set its width).
+ *   A table's cells (NSTextTableBlock) share its columns equally and stand
+ *   side by side; a row is as tall as its tallest cell.
  */
 #import "UIFTextLayout.h"
+#import "UIFTextBlock.h"
 
 static void
 layout_add(UIFLayout *l, UIFLine line)
@@ -40,7 +45,211 @@ UIFLayoutFree(UIFLayout *l)
         if (l->lines[i].line)
             CFRelease(l->lines[i].line);
     free(l->lines);
+    for (size_t i = 0; i < l->blockCount; i++)
+        [l->blocks[i].block release];
+    free(l->blocks);
 }
+
+static void
+block_add(UIFLayout *l, NSTextBlock *b, NSRange range, CGRect frame, CGRect content)
+{
+    if (l->blockCount == l->blockCapacity) {
+        l->blockCapacity = l->blockCapacity ? l->blockCapacity * 2 : 4;
+        l->blocks = realloc(l->blocks, l->blockCapacity * sizeof *l->blocks);
+    }
+    l->blocks[l->blockCount++] = (UIFBlockFrame){[b retain], range, frame, content};
+}
+
+#pragma mark - Text blocks
+
+/* An open block: where its frame starts and its content lies. */
+typedef struct {
+    NSTextBlock *block;
+    NSUInteger start;
+    CGFloat top, left, width;     /* its frame (margins included) */
+    CGFloat contentLeft, contentWidth;
+    CGFloat of;                   /* what its percentages are of */
+} OpenBlock;
+
+typedef struct {
+    OpenBlock open[16];
+    size_t depth;
+    /* the table whose cells are open, and its current row */
+    NSTextTable *table;
+    size_t tableDepth;            /* the cell's place in `open` */
+    NSUInteger tableStart;
+    CGFloat tableTop, tableLeft, tableWidth, tableOf, tableContentLeft, tableContentWidth;
+    NSInteger row;
+    CGFloat rowTop, rowBottom;
+    struct {
+        NSTextTableBlock *cell;
+        NSRange range;
+        CGFloat left, width, contentLeft, contentWidth, top;
+    } cells[64];
+    size_t cellCount;
+} BlockState;
+
+static CGFloat
+area_left(BlockState *bs) { return bs->depth ? bs->open[bs->depth - 1].contentLeft : 0; }
+
+static CGFloat
+area_width(BlockState *bs, CGFloat container)
+{
+    return bs->depth ? bs->open[bs->depth - 1].contentWidth : container;
+}
+
+/* The row's cells are as tall as the row. */
+static void
+end_row(UIFLayout *L, BlockState *bs)
+{
+    for (size_t i = 0; i < bs->cellCount; i++) {
+        __typeof__(bs->cells[0]) *c = &bs->cells[i];
+        CGFloat bottom = bs->rowBottom;
+        CGRect frame = CGRectMake(c->left, c->top, c->width, bottom - c->top);
+        CGFloat of = bs->tableContentWidth;
+        CGRect content = CGRectMake(c->contentLeft, c->top + UIFTextBlockInset(c->cell, NSMinYEdge, of),
+                                    c->contentWidth, 0);
+        content.size.height = MAX(0, bottom - UIFTextBlockInset(c->cell, NSMaxYEdge, of) - content.origin.y);
+        block_add(L, c->cell, c->range, frame, content);
+    }
+    bs->cellCount = 0;
+}
+
+static void
+end_table(UIFLayout *L, BlockState *bs, NSUInteger at, CGFloat *y)
+{
+    end_row(L, bs);
+    CGFloat bottom = bs->rowBottom + UIFTextBlockInset(bs->table, NSMaxYEdge, bs->tableOf);
+    block_add(L, bs->table, NSMakeRange(bs->tableStart, at - bs->tableStart),
+              CGRectMake(bs->tableLeft, bs->tableTop, bs->tableWidth, bottom - bs->tableTop),
+              CGRectMake(bs->tableContentLeft, bs->tableTop + UIFTextBlockInset(bs->table, NSMinYEdge, bs->tableOf),
+                         bs->tableContentWidth, 0));
+    *y = bottom;
+    bs->table = nil;
+}
+
+/* Close the open blocks from `keep` on (innermost first), at character `at`. */
+static void
+close_blocks(UIFLayout *L, BlockState *bs, size_t keep, NSUInteger at, CGFloat *y, NSArray *next)
+{
+    while (bs->depth > keep) {
+        OpenBlock *o = &bs->open[--bs->depth];
+        if ([o->block isKindOfClass:[NSTextTableBlock class]] && bs->table) {
+            NSTextTableBlock *cell = (NSTextTableBlock *)o->block;
+            CGFloat bottom = *y + UIFTextBlockInset(cell, NSMaxYEdge, o->of);
+            CGFloat h = UIFTextBlockDimension(cell, NSTextBlockMinimumHeight, o->of);
+            bottom = MAX(bottom, o->top + h);
+            bs->rowBottom = MAX(bs->rowBottom, bottom);
+            if (bs->cellCount < 64) {
+                __typeof__(bs->cells[0]) *c = &bs->cells[bs->cellCount++];
+                c->cell = cell;
+                c->range = NSMakeRange(o->start, at - o->start);
+                c->left = o->left;
+                c->width = o->width;
+                c->contentLeft = o->contentLeft;
+                c->contentWidth = o->contentWidth;
+                c->top = o->top;
+            }
+            /* another cell of the same table next: stay in the table */
+            id following = bs->depth < next.count ? next[bs->depth] : nil;
+            if (!([following isKindOfClass:[NSTextTableBlock class]] &&
+                  ((NSTextTableBlock *)following).table == bs->table))
+                end_table(L, bs, at, y);
+            else
+                *y = bs->rowTop;
+            continue;
+        }
+        *y += UIFTextBlockInset(o->block, NSMaxYEdge, o->of);
+        CGFloat h = MAX(UIFTextBlockDimension(o->block, NSTextBlockHeight, o->of),
+                        UIFTextBlockDimension(o->block, NSTextBlockMinimumHeight, o->of));
+        *y = MAX(*y, o->top + h);
+        block_add(L, o->block, NSMakeRange(o->start, at - o->start), CGRectMake(o->left, o->top, o->width, *y - o->top),
+                  CGRectMake(o->contentLeft, o->top + UIFTextBlockInset(o->block, NSMinYEdge, o->of), o->contentWidth,
+                             0));
+    }
+}
+
+/* Open a block for the paragraph at `at`. */
+static void
+open_block(UIFLayout *L, BlockState *bs, NSTextBlock *b, NSUInteger at, CGFloat *y, CGFloat container)
+{
+    if (bs->depth >= 16)
+        return;
+    CGFloat left = area_left(bs), width = area_width(bs, container);
+    OpenBlock *o = &bs->open[bs->depth];
+    o->block = b;
+    o->start = at;
+    if ([b isKindOfClass:[NSTextTableBlock class]]) {
+        NSTextTableBlock *cell = (NSTextTableBlock *)b;
+        NSTextTable *t = cell.table;
+        if (t != bs->table) {
+            if (bs->table)
+                end_table(L, bs, at, y);
+            bs->table = t;
+            bs->tableDepth = bs->depth;
+            bs->tableStart = at;
+            bs->tableOf = width;
+            bs->tableTop = *y;
+            bs->tableLeft = left;
+            bs->tableWidth = width;
+            CGFloat tl = UIFTextBlockInset(t, NSMinXEdge, width), tr = UIFTextBlockInset(t, NSMaxXEdge, width);
+            CGFloat tw = UIFTextBlockDimension(t, NSTextBlockWidth, width);
+            bs->tableContentLeft = left + tl;
+            bs->tableContentWidth = tw > 0 ? tw : MAX(0, width - tl - tr);
+            bs->tableWidth = bs->tableContentWidth + tl + tr;
+            bs->rowTop = bs->rowBottom = *y + UIFTextBlockInset(t, NSMinYEdge, width);
+            bs->row = cell.startingRow;
+        } else if (cell.startingRow != bs->row) {
+            end_row(L, bs);
+            bs->rowTop = bs->rowBottom;
+            bs->row = cell.startingRow;
+        }
+        NSUInteger cols = MAX(t.numberOfColumns, (NSUInteger)1);
+        CGFloat colWidth = bs->tableContentWidth / cols;
+        NSInteger c = MIN(MAX(cell.startingColumn, 0), (NSInteger)cols - 1);
+        NSInteger span = MAX(1, MIN(cell.columnSpan, (NSInteger)cols - c));
+        CGFloat of = bs->tableContentWidth;
+        o->of = of;
+        o->top = bs->rowTop;
+        o->left = bs->tableContentLeft + c * colWidth;
+        o->width = span * colWidth;
+        o->contentLeft = o->left + UIFTextBlockInset(cell, NSMinXEdge, of);
+        o->contentWidth = MAX(0, o->width - UIFTextBlockInset(cell, NSMinXEdge, of) - UIFTextBlockInset(cell, NSMaxXEdge, of));
+        *y = o->top + UIFTextBlockInset(cell, NSMinYEdge, of);
+    } else {
+        o->of = width;
+        o->top = *y;
+        o->left = left;
+        CGFloat l = UIFTextBlockInset(b, NSMinXEdge, width), r = UIFTextBlockInset(b, NSMaxXEdge, width);
+        CGFloat w = UIFTextBlockDimension(b, NSTextBlockWidth, width);
+        CGFloat minW = UIFTextBlockDimension(b, NSTextBlockMinimumWidth, width),
+                maxW = UIFTextBlockDimension(b, NSTextBlockMaximumWidth, width);
+        if (w <= 0)
+            w = MAX(0, width - l - r);
+        if (minW > 0)
+            w = MAX(w, minW);
+        if (maxW > 0)
+            w = MIN(w, maxW);
+        o->contentLeft = left + l;
+        o->contentWidth = w;
+        o->width = w + l + r;
+        *y += UIFTextBlockInset(b, NSMinYEdge, width);
+    }
+    bs->depth++;
+}
+
+/* The paragraph at `at` has these blocks: close the ones it leaves, open the ones it enters. */
+static void
+enter_blocks(UIFLayout *L, BlockState *bs, NSArray *blocks, NSUInteger at, CGFloat *y, CGFloat container)
+{
+    size_t keep = 0;
+    while (keep < bs->depth && keep < blocks.count && bs->open[keep].block == blocks[keep])
+        keep++;
+    close_blocks(L, bs, keep, at, y, blocks);
+    for (size_t i = keep; i < blocks.count; i++)
+        open_block(L, bs, blocks[i], at, y, container);
+}
+
 
 #pragma mark - Attributes
 
@@ -225,6 +434,9 @@ UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
     L.end = MIN(p.start, len);
     BOOL stop = NO;
     BOOL firstParagraph = YES;
+    BlockState bs = {0};
+    BOOL blocksOn = multi && containerWidth != CGFLOAT_MAX;
+    CGFloat fullWidth = containerWidth;
     while (!stop) {
         /* One paragraph: [start, end), then its break. */
         NSUInteger end = start;
@@ -245,6 +457,17 @@ UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
                                                                              : kCTLineTruncationEnd;
         BOOL truncates = mode == NSLineBreakByTruncatingHead || mode == NSLineBreakByTruncatingTail ||
                          mode == NSLineBreakByTruncatingMiddle;
+        /* its text blocks: where its content goes */
+        CGFloat blockLeft = 0, blockWidth = 0;
+        if (blocksOn) {
+            if (skip == 0)
+                enter_blocks(&L, &bs, ps.textBlocks, start, &y, fullWidth);
+            if (bs.depth) {
+                blockLeft = area_left(&bs);
+                blockWidth = area_width(&bs, fullWidth);
+            }
+            containerWidth = bs.depth ? blockWidth : fullWidth;
+        }
         if (!firstParagraph && multi)
             y += ps.paragraphSpacingBefore;
         firstParagraph = NO;
@@ -331,7 +554,8 @@ UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
             NSUInteger lineEnd = lastInParagraph ? next : start + (NSUInteger)(pos + count);
             if (stop)
                 lineEnd = next; /* a truncated last line stands for the rest of its paragraph */
-            UIFLine ln = {line, NSMakeRange(start + (NSUInteger)pos, lineEnd - (start + (NSUInteger)pos)), x, y, h, h - desc, w, 0, NO};
+            UIFLine ln = {line, NSMakeRange(start + (NSUInteger)pos, lineEnd - (start + (NSUInteger)pos)), blockLeft + x, y, h, h - desc, w, 0, NO,
+                          blockLeft, blockWidth};
             layout_add(&L, ln);
             L.end = lineEnd;
             y += h;
@@ -357,6 +581,10 @@ UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
             y += ps.paragraphSpacing;
             start = next;
             if (start >= len) {
+                if (blocksOn && bs.depth) {
+                    close_blocks(&L, &bs, 0, len, &y, @[]);
+                    containerWidth = fullWidth;
+                }
                 if (L.count && L.lines[L.count - 1].spacingAfter == 0) {
                     L.lines[L.count - 1].spacingAfter = ps.lineSpacing;
                     y += ps.lineSpacing;
@@ -365,7 +593,7 @@ UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
                 line_metrics(NULL, s, typing, CFRangeMake((CFIndex)len, 0), fontLeading, p.roundLeading, &h, &asc, &desc);
                 if (p.height > 0 && y + h > p.height + 0.001)
                     break;
-                UIFLine ln = {NULL, NSMakeRange(len, 0), ps.firstLineHeadIndent, y, h, h - desc, 0, 0, YES};
+                UIFLine ln = {NULL, NSMakeRange(len, 0), ps.firstLineHeadIndent, y, h, h - desc, 0, 0, YES, 0, 0};
                 layout_add(&L, ln);
                 y += h;
                 break;
@@ -374,10 +602,14 @@ UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p)
             break;
         }
     }
-    /* Trailing spacing isn't part of the height. */
+    if (blocksOn && bs.depth)
+        close_blocks(&L, &bs, 0, L.end, &y, @[]);
+    /* Trailing spacing isn't part of the height (a block's bottom is). */
     if (L.count) {
         UIFLine *last = &L.lines[L.count - 1];
         L.height = last->top + last->height;
+        for (size_t i = 0; i < L.blockCount; i++)
+            L.height = MAX(L.height, CGRectGetMaxY(L.blocks[i].frame));
     }
     return L;
 }
@@ -407,9 +639,29 @@ UIFLayoutUsedRect(UIFLayout *L, UIFLayoutParams p)
         CGFloat h = ln ? ln->height : 0, desc = ln ? ln->height - ln->baseline : 0;
         return CGRectMake(0, -desc, w, h);
     }
+    for (size_t i = 0; i < L->blockCount; i++)
+        maxX = MAX(maxX, CGRectGetMaxX(L->blocks[i].frame));
     if (minX > 0 && maxX <= minX)
         maxX = minX;
     return CGRectMake(0, 0, maxX, L->height);
+}
+
+void
+UIFLayoutDrawBlocks(UIFLayout *L, NSRange chars, CGFloat left, CGFloat top, id lm)
+{
+    id view = [lm respondsToSelector:@selector(firstTextView)] ? [lm firstTextView] : nil;
+    for (size_t i = 0; i < L->blockCount; i++) {
+        UIFBlockFrame *b = &L->blocks[i];
+        if (chars.length && !NSIntersectionRange(b->range, chars).length && b->range.length)
+            continue;
+        NSRect frame = NSOffsetRect(NSRectFromCGRect(b->frame), left, top);
+        if ([b->block isKindOfClass:[NSTextTableBlock class]]) {
+            NSTextTableBlock *cell = (NSTextTableBlock *)b->block;
+            [cell.table drawBackgroundForBlock:cell withFrame:frame inView:(id _Nonnull)view characterRange:b->range layoutManager:lm];
+        } else {
+            [b->block drawBackgroundWithFrame:frame inView:(id _Nonnull)view characterRange:b->range layoutManager:lm];
+        }
+    }
 }
 
 #pragma mark - Drawing

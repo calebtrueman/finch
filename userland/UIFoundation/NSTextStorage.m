@@ -85,7 +85,7 @@
 - (void)setDelegate:(id<NSTextStorageDelegate>)delegate { _delegate = delegate; }
 - (id<NSTextStorageObserving>)textStorageObserver { return _observer; }
 - (void)setTextStorageObserver:(id<NSTextStorageObserving>)observer { _observer = observer; }
-- (BOOL)fixesAttributesLazily { return NO; }
+- (BOOL)fixesAttributesLazily { return YES; } /* as Apple's says; Finch fixes as it processes each edit */
 - (void)invalidateAttributesInRange:(NSRange)range { }
 - (void)ensureAttributesAreFixedInRange:(NSRange)range { }
 
@@ -117,6 +117,9 @@
         [self processEditing];
 }
 
+/* A subclass's own storage can't be reached without edits; it's left as it is. */
+- (void)_uifFixAttributesQuietlyInRange:(NSRange)range {}
+
 - (void)processEditing
 {
     if (_processing)
@@ -127,6 +130,13 @@
     if ([d respondsToSelector:@selector(textStorage:willProcessEditing:range:changeInLength:)])
         [d textStorage:self willProcessEditing:_editedMask range:_editedRange changeInLength:_changeInLength];
     [nc postNotificationName:NSTextStorageWillProcessEditingNotification object:self];
+    /* fix the edited paragraphs, out of sight: Apple's fixes lazily, so they aren't edits anyone sees */
+    if (_editedRange.location != NSNotFound && self.length) {
+        NSUInteger len = self.length;
+        NSRange r = NSMakeRange(MIN(_editedRange.location, len - 1), 0);
+        r.length = MIN(NSMaxRange(_editedRange), len) - r.location;
+        [self _uifFixAttributesQuietlyInRange:[self.string paragraphRangeForRange:r]];
+    }
     if ([d respondsToSelector:@selector(textStorage:didProcessEditing:range:changeInLength:)])
         [d textStorage:self didProcessEditing:_editedMask range:_editedRange changeInLength:_changeInLength];
     [nc postNotificationName:NSTextStorageDidProcessEditingNotification object:self];
@@ -282,6 +292,143 @@ write_varint(NSMutableData *d, NSUInteger v)
 {
     [_contents setAttributes:attrs range:range];
     [self edited:NSTextStorageEditedAttributes range:range changeInLength:0];
+}
+
+- (void)_uifFixAttributesQuietlyInRange:(NSRange)range { [_contents fixAttributesInRange:range]; }
+
+@end
+
+#pragma mark - Attribute fixing
+
+/*
+ * As Apple's: text without a font gets the default (Helvetica 12), characters
+ * its font can't show get a font that can (CoreText's fallback, the same size),
+ * and each paragraph takes the paragraph style of its first character.
+ * NSTextStorage fixes the edited paragraphs as it processes an edit.
+ */
+static BOOL
+needs_glyph(unichar c)
+{
+    return c >= 0x20 && c != 0x2028 && c != 0x2029 && c != 0x85 && !(c >= 0x7f && c < 0xa0) && c != 0xfffc;
+}
+
+@implementation NSMutableAttributedString (UIFAttributeFixing)
+
+- (void)fixFontAttributeInRange:(NSRange)range
+{
+    NSUInteger len = self.length;
+    if (NSMaxRange(range) > len)
+        range.length = len > range.location ? len - range.location : 0;
+    if (!range.length)
+        return;
+    NSString *str = self.string;
+    [self beginEditing];
+    NSUInteger i = range.location;
+    while (i < NSMaxRange(range)) {
+        NSRange run;
+        NSFont *font = [self attribute:NSFontAttributeName atIndex:i longestEffectiveRange:&run inRange:range];
+        if (!font) {
+            font = UIFDefaultFont();
+            [self addAttribute:NSFontAttributeName value:font range:run];
+        }
+        /* the characters this font has no glyphs for, a stretch at a time */
+        CTFontRef ct = (CTFontRef)font;
+        NSUInteger j = run.location;
+        while (j < NSMaxRange(run)) {
+            NSRange seq = [str rangeOfComposedCharacterSequenceAtIndex:j];
+            unichar buf[8];
+            NSUInteger n = MIN(seq.length, (NSUInteger)8);
+            [str getCharacters:buf range:NSMakeRange(seq.location, n)];
+            CGGlyph glyphs[8];
+            BOOL missing = needs_glyph(buf[0]) && !CTFontGetGlyphsForCharacters(ct, buf, glyphs, (CFIndex)n);
+            if (!missing) {
+                j = NSMaxRange(seq);
+                continue;
+            }
+            NSUInteger end = NSMaxRange(seq);
+            while (end < NSMaxRange(run)) {
+                NSRange s2 = [str rangeOfComposedCharacterSequenceAtIndex:end];
+                unichar b2[8];
+                NSUInteger n2 = MIN(s2.length, (NSUInteger)8);
+                [str getCharacters:b2 range:NSMakeRange(s2.location, n2)];
+                if (!needs_glyph(b2[0]) || CTFontGetGlyphsForCharacters(ct, b2, glyphs, (CFIndex)n2))
+                    break;
+                end = NSMaxRange(s2);
+            }
+            NSRange gap = NSMakeRange(j, end - j);
+            CTFontRef fallback = CTFontCreateForString(ct, (CFStringRef)[str substringWithRange:gap], CFRangeMake(0, (CFIndex)gap.length));
+            if (fallback) {
+                if (!CFEqual(fallback, ct))
+                    [self addAttribute:NSFontAttributeName value:(id)fallback range:gap];
+                CFRelease(fallback);
+            }
+            j = end;
+        }
+        i = NSMaxRange(run);
+    }
+    [self endEditing];
+}
+
+/* As Apple's, the first paragraph takes the style at the range's start, from where that style begins. */
+- (void)fixParagraphStyleAttributeInRange:(NSRange)range
+{
+    NSString *str = self.string;
+    NSUInteger len = str.length;
+    if (range.location >= len)
+        return;
+    NSRange all = [str paragraphRangeForRange:NSMakeRange(range.location, MIN(range.length, len - range.location))];
+    [self beginEditing];
+    NSUInteger i = all.location;
+    BOOL first = YES;
+    while (i < NSMaxRange(all)) {
+        NSRange para = [str paragraphRangeForRange:NSMakeRange(i, 0)];
+        if (!para.length)
+            break;
+        NSUInteger from = first ? range.location : para.location;
+        NSRange run;
+        id style = [self attribute:NSParagraphStyleAttributeName atIndex:from effectiveRange:&run];
+        NSRange span = para;
+        if (first) {
+            NSUInteger begin = MAX(run.location, para.location);
+            span = NSMakeRange(begin, NSMaxRange(para) - begin);
+        }
+        first = NO;
+        if (NSMaxRange(run) < NSMaxRange(span) || run.location > span.location) {
+            if (style)
+                [self addAttribute:NSParagraphStyleAttributeName value:style range:span];
+            else
+                [self removeAttribute:NSParagraphStyleAttributeName range:span];
+        }
+        i = NSMaxRange(para);
+    }
+    [self endEditing];
+}
+
+/* An attachment belongs only on the attachment character. */
+- (void)fixAttachmentAttributeInRange:(NSRange)range
+{
+    NSUInteger len = self.length;
+    if (NSMaxRange(range) > len)
+        range.length = len > range.location ? len - range.location : 0;
+    NSString *str = self.string;
+    NSMutableArray *strip = [NSMutableArray array];
+    [self enumerateAttribute:NSAttachmentAttributeName inRange:range options:0
+                  usingBlock:^(id value, NSRange r, BOOL *stop) {
+                    if (!value)
+                        return;
+                    for (NSUInteger k = r.location; k < NSMaxRange(r); k++)
+                        if ([str characterAtIndex:k] != NSAttachmentCharacter)
+                            [strip addObject:[NSValue valueWithRange:NSMakeRange(k, 1)]];
+                  }];
+    for (NSValue *v in strip)
+        [self removeAttribute:NSAttachmentAttributeName range:v.rangeValue];
+}
+
+- (void)fixAttributesInRange:(NSRange)range
+{
+    [self fixFontAttributeInRange:range];
+    [self fixParagraphStyleAttributeInRange:range];
+    [self fixAttachmentAttributeInRange:range];
 }
 
 @end

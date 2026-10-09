@@ -18,7 +18,17 @@ typedef struct {
     CGFloat width;        /* used width */
     CGFloat spacingAfter; /* lineSpacing (and paragraph spacing) below it */
     BOOL extra;           /* the empty line after a final paragraph break */
+    CGFloat fragX;        /* in a text block: its content's left edge */
+    CGFloat fragWidth;    /* in a text block: its content's width (0: the container's) */
 } UIFLine;
+
+/* A text block's frame (margin included), for drawing and NSLayoutManager's block rects. */
+typedef struct {
+    NSTextBlock *block;   /* retained */
+    NSRange range;        /* its characters */
+    CGRect frame;         /* its bounds, margins included */
+    CGRect content;       /* where its text is laid out */
+} UIFBlockFrame;
 
 typedef struct {
     UIFLine *lines;
@@ -26,6 +36,8 @@ typedef struct {
     CGFloat height;   /* to the bottom of the last line */
     NSUInteger end;   /* the first character not laid out */
     BOOL truncated;
+    UIFBlockFrame *blocks;
+    size_t blockCount, blockCapacity;
 } UIFLayout;
 
 typedef struct {
@@ -40,6 +52,8 @@ typedef struct {
 
 UIF_HIDDEN UIFLayout UIFLayoutString(NSAttributedString *s, NSDictionary *typing, UIFLayoutParams p);
 UIF_HIDDEN void UIFLayoutFree(UIFLayout *l);
+/* Draw the backgrounds and borders of the blocks among these characters (origin: the text area's). */
+UIF_HIDDEN void UIFLayoutDrawBlocks(UIFLayout *L, NSRange chars, CGFloat left, CGFloat top, id layoutManager);
 /* The rectangle a layout uses. */
 UIF_HIDDEN CGRect UIFLayoutUsedRect(UIFLayout *L, UIFLayoutParams p);
 /* Draw it with its first line's top at `top` (y grows down when flipped). */

@@ -415,8 +415,14 @@ fragment_rect(ContainerLayout *cl, size_t i)
 {
     UIFLine *ln = &cl->layout.lines[i];
     CGFloat h = ln->height + ln->spacingAfter;
-    if (i + 1 < cl->layout.count)
-        h = cl->layout.lines[i + 1].top - ln->top;
+    /* down to the next line, when it follows in the same column (a table's cells stand side by side) */
+    if (i + 1 < cl->layout.count) {
+        UIFLine *n = &cl->layout.lines[i + 1];
+        if (n->top > ln->top && n->fragX == ln->fragX && n->fragWidth == ln->fragWidth)
+            h = n->top - ln->top;
+    }
+    if (ln->fragWidth > 0)
+        return NSMakeRect(ln->fragX, ln->top, ln->fragWidth + 2 * cl->padding, h);
     return NSMakeRect(0, ln->top, cl->width, h);
 }
 
@@ -818,9 +824,16 @@ glyph_at_point(NSLayoutManager *self, NSPoint point, NSTextContainer *container,
     ContainerLayout *cl = layout_for(self, container);
     if (!cl || !cl->layout.count)
         return 0;
-    /* The line at that height, or the nearest one. */
+    /* The line at that height, or the nearest one (a line in a table cell, if the point is in its fragment). */
     size_t pick = SIZE_MAX;
-    for (size_t i = 0; i < cl->layout.count; i++) {
+    for (size_t i = 0; i < cl->layout.count && cl->layout.blockCount; i++)
+        if (!cl->layout.lines[i].extra && cl->layout.lines[i].fragWidth > 0 &&
+            NSPointInRect(point, fragment_rect(cl, i))) {
+            pick = i;
+            break;
+        }
+    BOOL found = pick != SIZE_MAX;
+    for (size_t i = 0; i < cl->layout.count && !found; i++) {
         if (cl->layout.lines[i].extra)
             continue;
         pick = i;
@@ -946,8 +959,70 @@ fractionOfDistanceBetweenInsertionPoints:(CGFloat *)partialFraction
     }
 }
 
-/* Backgrounds are drawn with the glyphs. */
-- (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(NSPoint)origin { }
+/* Text blocks' backgrounds and borders; text backgrounds are drawn with the glyphs. */
+- (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(NSPoint)origin
+{
+    [self layout];
+    for (size_t c = 0; c < _layoutCount; c++)
+        if (_layouts[c].layout.blockCount)
+            UIFLayoutDrawBlocks(&_layouts[c].layout, glyphsToShow, origin.x + _layouts[c].padding, origin.y, self);
+}
+
+#pragma mark Text blocks
+
+static UIFBlockFrame *
+block_frame(NSLayoutManager *self, NSTextBlock *block, NSRange range, ContainerLayout **clOut)
+{
+    [self layout];
+    for (size_t c = 0; c < self->_layoutCount; c++) {
+        ContainerLayout *cl = &self->_layouts[c];
+        for (size_t i = 0; i < cl->layout.blockCount; i++) {
+            UIFBlockFrame *b = &cl->layout.blocks[i];
+            if (b->block == block && (NSLocationInRange(range.location, b->range) || NSEqualRanges(range, b->range))) {
+                if (clOut)
+                    *clOut = cl;
+                return b;
+            }
+        }
+    }
+    return NULL;
+}
+
+- (NSRect)layoutRectForTextBlock:(NSTextBlock *)block glyphRange:(NSRange)glyphRange
+{
+    ContainerLayout *cl;
+    UIFBlockFrame *b = block_frame(self, block, glyphRange, &cl);
+    return b ? NSOffsetRect(NSRectFromCGRect(b->content), cl->padding, 0) : NSZeroRect;
+}
+
+- (NSRect)boundsRectForTextBlock:(NSTextBlock *)block glyphRange:(NSRange)glyphRange
+{
+    ContainerLayout *cl;
+    UIFBlockFrame *b = block_frame(self, block, glyphRange, &cl);
+    return b ? NSOffsetRect(NSRectFromCGRect(b->frame), cl->padding, 0) : NSZeroRect;
+}
+
+- (NSRect)layoutRectForTextBlock:(NSTextBlock *)block atIndex:(NSUInteger)glyphIndex effectiveRange:(NSRangePointer)r
+{
+    ContainerLayout *cl;
+    UIFBlockFrame *b = block_frame(self, block, NSMakeRange(glyphIndex, 0), &cl);
+    if (r)
+        *r = b ? b->range : NSMakeRange(NSNotFound, 0);
+    return b ? NSOffsetRect(NSRectFromCGRect(b->content), cl->padding, 0) : NSZeroRect;
+}
+
+- (NSRect)boundsRectForTextBlock:(NSTextBlock *)block atIndex:(NSUInteger)glyphIndex effectiveRange:(NSRangePointer)r
+{
+    ContainerLayout *cl;
+    UIFBlockFrame *b = block_frame(self, block, NSMakeRange(glyphIndex, 0), &cl);
+    if (r)
+        *r = b ? b->range : NSMakeRange(NSNotFound, 0);
+    return b ? NSOffsetRect(NSRectFromCGRect(b->frame), cl->padding, 0) : NSZeroRect;
+}
+
+/* Layout places blocks itself. */
+- (void)setLayoutRect:(NSRect)rect forTextBlock:(NSTextBlock *)block glyphRange:(NSRange)glyphRange {}
+- (void)setBoundsRect:(NSRect)rect forTextBlock:(NSTextBlock *)block glyphRange:(NSRange)glyphRange {}
 
 - (void)fillBackgroundRectArray:(const NSRect *)rectArray
                           count:(NSUInteger)rectCount

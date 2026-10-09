@@ -706,3 +706,16 @@ draws (`userland/tests/app-test.c`).
   A text view in a clip view now takes the visible size as its minimum and fills it, as
   Apple's does. `finch-ruler-test` matches Apple's run, except for the inset that Apple's
   scroll pockets add, which Finch doesn't have.
+- 2026-10-09: text blocks and tables, in UIFoundation. `NSTextBlock`, `NSTextTable` and
+  `NSTextTableBlock` (`NSTextBlock.m`) keep Apple's values and their types. They archive
+  with Apple's keys (`NSParam<n>`, `NSValueTypes` with the vertical alignment in its top
+  bits, `NSNumCols`, `NSTableFlags`, `NSRowNum`...), and blocks are equal only to
+  themselves. Layout (`UIFTextLayout.m`) puts paragraphs inside their blocks' margins,
+  borders and padding. A table's cells share its columns and stand side by side, and a
+  row is as tall as its tallest cell. `NSLayoutManager` answers the block rect queries and
+  draws block backgrounds and borders. `NSAttributedString` finds the ranges of blocks,
+  tables and lists, and item numbers. `NSTextStorage` fixes attributes as Apple's does:
+  text with no font gets Helvetica 12, characters the font can't show get CoreText's
+  fallback, and a paragraph takes its first character's style. The fixes are done
+  quietly, so they don't widen the edits that delegates see. `finch-textblock-test`
+  matches Apple's run. Next: RTF tables.
