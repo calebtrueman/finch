@@ -4,7 +4,7 @@
  *
  * Foundation's geometry (docs/design/FOUNDATION.md), against the SDK's
  * <Foundation/NSGeometry.h>: the rect, point and size functions, their
- * string forms ("{{1, 2}, {3, 4}}", with %g as Apple's), and NSValue's
+ * string forms ("{{1, 2}, {3, 4}}", with %.17g as Apple's), and NSValue's
  * geometry boxes.
  */
 #import <Foundation/Foundation.h>
@@ -41,10 +41,58 @@ NSIntegralRect(NSRect r)
     return NSMakeRect(x0, y0, x1 - x0, y1 - y0);
 }
 
+/* One edge or length to an integer: inward, outward or nearest (half up; half down for a flipped y edge). */
+static CGFloat
+align_value(CGFloat v, NSAlignmentOptions opts, NSAlignmentOptions inward, NSAlignmentOptions outward,
+            NSAlignmentOptions nearest, BOOL isMin, BOOL halfDown)
+{
+    if (opts & inward)
+        return isMin ? ceil(v) : floor(v);
+    if (opts & outward)
+        return isMin ? floor(v) : ceil(v);
+    if (opts & nearest)
+        return halfDown ? ceil(v - 0.5) : floor(v + 0.5);
+    return v;
+}
+
+/*
+ * Each axis is fixed by two of its min edge, max edge and length, each
+ * aligned inward, outward or to the nearest integer; the third follows.
+ */
+static void
+align_axis(CGFloat *origin, CGFloat *length, NSAlignmentOptions o, int shift, BOOL flippedAxis)
+{
+    /* y's option bits are x's shifted left by one */
+    NSAlignmentOptions minIn = NSAlignMinXInward << shift, minOut = NSAlignMinXOutward << shift,
+                       minNear = NSAlignMinXNearest << shift;
+    NSAlignmentOptions maxIn = NSAlignMaxXInward << shift, maxOut = NSAlignMaxXOutward << shift,
+                       maxNear = NSAlignMaxXNearest << shift;
+    NSAlignmentOptions lenIn = NSAlignWidthInward << shift, lenOut = NSAlignWidthOutward << shift,
+                       lenNear = NSAlignWidthNearest << shift;
+    BOOL hasMin = (o & (minIn | minOut | minNear)) != 0, hasMax = (o & (maxIn | maxOut | maxNear)) != 0,
+         hasLen = (o & (lenIn | lenOut | lenNear)) != 0;
+    CGFloat lo = *origin, hi = *origin + *length;
+    if (hasMin && hasMax) {
+        lo = align_value(lo, o, minIn, minOut, minNear, YES, flippedAxis);
+        hi = align_value(hi, o, maxIn, maxOut, maxNear, NO, flippedAxis);
+    } else if (hasMin && hasLen) {
+        lo = align_value(lo, o, minIn, minOut, minNear, YES, flippedAxis);
+        hi = lo + align_value(*length, o, lenIn, lenOut, lenNear, NO, NO);
+    } else if (hasMax && hasLen) {
+        hi = align_value(hi, o, maxIn, maxOut, maxNear, NO, flippedAxis);
+        lo = hi - align_value(*length, o, lenIn, lenOut, lenNear, NO, NO);
+    }
+    *origin = lo;
+    *length = hi - lo;
+}
+
 NSRect
 NSIntegralRectWithOptions(NSRect r, NSAlignmentOptions opts)
 {
-    return NSIntegralRect(r);
+    BOOL flipped = (opts & NSAlignRectFlipped) != 0;
+    align_axis(&r.origin.x, &r.size.width, opts, 0, NO);
+    align_axis(&r.origin.y, &r.size.height, opts, 1, flipped);
+    return r;
 }
 
 NSRect
@@ -95,8 +143,8 @@ BOOL NSContainsRect(NSRect a, NSRect b)
 }
 BOOL NSIntersectsRect(NSRect a, NSRect b) { return !NSIsEmptyRect(NSIntersectionRect(a, b)); }
 
-NSString *NSStringFromPoint(NSPoint p) { return [NSString stringWithFormat:@"{%g, %g}", p.x, p.y]; }
-NSString *NSStringFromSize(NSSize s) { return [NSString stringWithFormat:@"{%g, %g}", s.width, s.height]; }
+NSString *NSStringFromPoint(NSPoint p) { return [NSString stringWithFormat:@"{%.17g, %.17g}", p.x, p.y]; }
+NSString *NSStringFromSize(NSSize s) { return [NSString stringWithFormat:@"{%.17g, %.17g}", s.width, s.height]; }
 NSString *
 NSStringFromRect(NSRect r)
 {

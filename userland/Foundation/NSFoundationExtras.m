@@ -730,3 +730,11 @@ register_builtins(void)
 }
 
 @end
+
+/* NSObject's class name, as scripting declares it (NSScriptClassDescription.h); AppKit code uses it widely. */
+@implementation NSObject (NSScriptClassDescription)
+- (NSString *)className
+{
+    return NSStringFromClass([self class]);
+}
+@end
