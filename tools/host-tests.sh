@@ -14,6 +14,8 @@
 set -uo pipefail
 FINCH_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${FINCH_ROOT}"
+# Finch draws in Classic, AppKit's Aqua-compatible theme, to compare with Apple's (docs/design/FIELDWORK.md).
+export FINCH_THEME=Classic
 B=build/userland
 R=build/root/System/Library
 # (frameworks nested in umbrellas are found by their own name, so their folders are listed too)

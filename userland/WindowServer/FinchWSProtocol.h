@@ -73,6 +73,7 @@ enum {
     FWS_WINDOW_SHADOW = 1 << 1,
     FWS_WINDOW_IGNORES_MOUSE = 1 << 2,
     FWS_WINDOW_SHARED = 1 << 3,    /* listed for other apps */
+    FWS_WINDOW_TITLED = 1 << 4,    /* a document window: Fieldwork's window silhouette */
 };
 
 /* FWS_CREATE_WINDOW, FWS_SET_FRAME */

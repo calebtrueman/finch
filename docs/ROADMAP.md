@@ -403,6 +403,22 @@ binaries.
 ## Phase 5: Finch 1.0
 Installer (the standalone install from Phase 3, run from recoveryOS), updates, Finch desktop polish, security model (code signing, sandbox, SIP-like
 protections under Finch's own keys).
+- [ ] Fieldwork, Finch's design language (`docs/design/FIELDWORK.md`). Its parts:
+  - [x] Theme tokens: Day and Night system colours, palette and metrics, in a theme file.
+        A theme switch: Fieldwork by default, Classic (Aqua-compatible) for the comparison
+        tests and per app (2026-10-09).
+  - [x] The window frame: the window server shapes windows (6 pt top corners, 2 pt
+        bottom), with an outline and a shallow shadow on a chalk desktop. The title bar is
+        slate, with a top highlight, the key window's green mark, and the left control
+        cluster (2026-10-09).
+  - [ ] Controls: buttons, pop-ups, segmented controls, check boxes, sliders, fields,
+        scrollers, tabs, menus.
+  - [ ] Night: the system-wide dark appearance (`AppleInterfaceStyle`).
+  - [ ] The Instrument Bar: app menus on the left, system context on the right.
+  - [ ] The Rail, in place of the Dock.
+  - [ ] Workbenches: named, persistent, defined in text files.
+  - [ ] Window behaviour: alignment guides, layout zones, fill the workbench.
+  - [ ] Illustrated icons, and the mascot in onboarding, empty states and About.
 
 ## Phase 6: Windows software
 Run Windows applications on Finch, as CrossOver and Game Porting Toolkit do on macOS.
@@ -416,6 +432,27 @@ Run Windows applications on Finch, as CrossOver and Game Porting Toolkit do on m
 
 **Exit:** a defined corpus of Windows apps (ARM64 and x86-64) runs on Finch with no
 Apple binaries.
+
+## Phase 7: Linux binaries
+Run arm64 Linux programs directly on XNU, as FreeBSD's Linuxulator and the original WSL 1
+do: a syscall translation layer, not a VM.
+- An ELF loader beside the Mach-O one, and a Linux syscall table mapped onto XNU's
+  calls.
+- Emulate the Linux-only interfaces:
+  - futex, epoll, clone and its flags, inotify, eventfd and signalfd;
+  - `/proc` and `/sys`;
+  - later, namespaces and cgroups for containers.
+- **Licensing:** FreeBSD's Linuxulator is BSD-licensed and shares XNU's BSD heritage, so
+  it's a legitimate reference. Linux kernel code is GPL-only and can't be copied in: the
+  same rule that keeps Darling out (`docs/LICENSING.md`).
+- **Apple Silicon:**
+  - 16K pages: most arm64 Linux software copes, as Asahi shows, but some binaries
+    assume 4K pages.
+  - Only arm64 Linux binaries run natively. x86 Linux binaries need a translator, FEX
+    or box64, the same family as Phase 6's.
+
+**Exit:** a defined set of arm64 Linux command-line programs and services runs unmodified
+on Finch.
 
 ## Beyond: Finch for iPhone/iPad
 Depends on a bootrom/iBoot path to unsigned code on target devices, which is not

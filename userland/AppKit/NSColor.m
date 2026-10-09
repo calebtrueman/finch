@@ -14,6 +14,7 @@
  * System colours are dynamic on macOS; Finch's resolve to the light
  * appearance's values, measured from Apple's in sRGB.
  */
+#import "FinchTheme.h"
 #import "AppKitDrawing.h"
 #include <math.h>
 
@@ -667,6 +668,8 @@ system_color(NSString *name)
         return [c isKindOfClass:[NSDynamicSystemColor class]] ? [(NSDynamicSystemColor *)c _resolved] : c;
     }
     CGFloat c[4] = {_r, _g, _b, _a};
+    if ([_catalog isEqualToString:@"System"])
+        FinchThemeColorComponents(_name, c); /* the theme's value, if it has one */
     return space_color([NSColorSpace sRGBColorSpace], c, 4);
 }
 

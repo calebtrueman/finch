@@ -58,5 +58,8 @@ mkdir -p "${FW}/Versions/C"
 ln -sfn C "${FW}/Versions/Current"
 ln -sfn Versions/Current/AppKit "${FW}/AppKit"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" C AppKit com.apple.AppKit AppKit 6.9 2685.50.120 English
+# Themes (docs/design/FIELDWORK.md)
+mkdir -p "${FW}/Versions/C/Resources/Themes"
+cp "${HERE}"/Themes/*.plist "${FW}/Versions/C/Resources/Themes/"
 codesign -f -s - -i com.apple.AppKit "${FW}/Versions/C/AppKit" 2>/dev/null
 log "installed ${FW#"${FINCH_ROOT}/"}"

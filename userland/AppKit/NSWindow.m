@@ -11,6 +11,7 @@
  * through a CG bitmap context whose user space is the window's base
  * coordinates; the area drawn is flushed to the server.
  */
+#import "FinchTheme.h"
 #import "NSView_Finch.h"
 
 NSNotificationName NSWindowDidBecomeKeyNotification = @"NSWindowDidBecomeKeyNotification";
@@ -103,11 +104,88 @@ enum { BUTTON_CLOSE, BUTTON_MINIATURIZE, BUTTON_ZOOM };
     return [[self window] isOpaque];
 }
 
+/* Fieldwork's window controls: one cluster of three segments on the left (docs/design/FIELDWORK.md). */
+enum { FW_SEGMENT = 22, FW_CLUSTER_HEIGHT = 18, FW_LEFT = 10 };
+
 static NSRect
 button_rect(int which, NSRect bounds, CGFloat titlebar)
 {
+    if (!FinchThemeIsClassic())
+        return NSMakeRect(FW_LEFT + which * FW_SEGMENT, NSMaxY(bounds) - titlebar / 2 - FW_CLUSTER_HEIGHT / 2.0, FW_SEGMENT,
+                          FW_CLUSTER_HEIGHT);
     CGFloat d = 12, gap = 8, left = 12;
     return NSMakeRect(left + which * (d + gap), NSMaxY(bounds) - titlebar / 2 - d / 2, d, d);
+}
+
+static void
+set_fill(CGContextRef cg, NSColor *c)
+{
+    CGColorRef cc = [c CGColor];
+    if (cc)
+        CGContextSetFillColorWithColor(cg, cc);
+}
+
+static void
+set_stroke(CGContextRef cg, NSColor *c)
+{
+    CGColorRef cc = [c CGColor];
+    if (cc)
+        CGContextSetStrokeColorWithColor(cg, cc);
+}
+
+/* The cluster: a machined strip of three segments, close (x), minimise (-) and zoom (a square), in ink. */
+static void
+draw_fieldwork_controls(CGContextRef cg, NSRect b, CGFloat t, BOOL key, const BOOL enabled[3], int pressed)
+{
+    NSRect all = NSUnionRect(button_rect(0, b, t), button_rect(2, b, t));
+    CGRect r = NSRectToCGRect(NSInsetRect(all, 0.5, 0.5));
+    CGFloat radius = FinchThemeMetric(@"controlCornerRadius", 3);
+    CGPathRef path = CGPathCreateWithRoundedRect(r, radius, radius, NULL);
+    set_fill(cg, [NSColor controlColor]);
+    CGContextAddPath(cg, path);
+    CGContextFillPath(cg);
+    if (pressed >= 0 && enabled[pressed]) {
+        CGContextSaveGState(cg);
+        CGContextAddPath(cg, path);
+        CGContextClip(cg);
+        set_fill(cg, [NSColor selectedTextBackgroundColor]);
+        CGContextFillRect(cg, NSRectToCGRect(button_rect(pressed, b, t)));
+        CGContextRestoreGState(cg);
+    }
+    set_stroke(cg, FinchThemePaletteColor(@"outline") ?: [NSColor separatorColor]);
+    CGContextSetLineWidth(cg, 1);
+    CGContextAddPath(cg, path);
+    CGContextStrokePath(cg);
+    CGPathRelease(path);
+    /* the dividers */
+    set_fill(cg, [NSColor separatorColor]);
+    for (int i = 1; i < 3; i++) {
+        NSRect seg = button_rect(i, b, t);
+        CGContextFillRect(cg, CGRectMake(NSMinX(seg), NSMinY(seg) + 4, 1, NSHeight(seg) - 8));
+    }
+    NSColor *ink = key ? [NSColor labelColor] : [NSColor secondaryLabelColor];
+    for (int i = 0; i < 3; i++) {
+        NSRect seg = button_rect(i, b, t);
+        CGFloat cx = floor(NSMidX(seg)) + 0.5, cy = floor(NSMidY(seg)) + 0.5;
+        CGContextSaveGState(cg);
+        set_stroke(cg, ink);
+        CGContextSetAlpha(cg, enabled[i] ? 1 : 0.3);
+        CGContextSetLineWidth(cg, 1.25);
+        CGContextSetLineCap(cg, kCGLineCapRound);
+        if (i == BUTTON_CLOSE) {
+            CGContextMoveToPoint(cg, cx - 3.5, cy - 3.5);
+            CGContextAddLineToPoint(cg, cx + 3.5, cy + 3.5);
+            CGContextMoveToPoint(cg, cx - 3.5, cy + 3.5);
+            CGContextAddLineToPoint(cg, cx + 3.5, cy - 3.5);
+        } else if (i == BUTTON_MINIATURIZE) {
+            CGContextMoveToPoint(cg, cx - 4, cy);
+            CGContextAddLineToPoint(cg, cx + 4, cy);
+        } else {
+            CGContextAddRect(cg, CGRectMake(cx - 3.5, cy - 3.5, 7, 7));
+        }
+        CGContextStrokePath(cg);
+        CGContextRestoreGState(cg);
+    }
 }
 
 static void
@@ -152,22 +230,41 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     CGFloat chrome = visible_chrome_height(w);
     NSRect bar = NSMakeRect(0, NSMaxY(b) - chrome, b.size.width, chrome);
     BOOL key = [w isKeyWindow];
-    if (![w titlebarAppearsTransparent]) {
-        CGContextSetRGBFillColor(cg, key ? 0.965 : 0.945, key ? 0.965 : 0.945, key ? 0.965 : 0.945, 1);
-        CGContextFillRect(cg, NSRectToCGRect(bar));
-        CGContextSetRGBFillColor(cg, 0, 0, 0, 0.1);
-        CGContextFillRect(cg, CGRectMake(0, NSMinY(bar), b.size.width, 0.5));
-    }
     NSWindowStyleMask style = [w styleMask];
     BOOL enabled[3] = {(style & NSWindowStyleMaskClosable) != 0, (style & NSWindowStyleMaskMiniaturizable) != 0,
                        (style & NSWindowStyleMaskResizable) != 0};
-    static const CGFloat colours[3][3] = {{0.93, 0.33, 0.30}, {0.96, 0.73, 0.22}, {0.30, 0.76, 0.33}};
-    for (int i = 0; i < 3; i++) {
-        NSRect r = button_rect(i, b, t);
-        if (enabled[i] && key)
-            fill_circle(cg, r, colours[i][0], colours[i][1], colours[i][2], _pressed == i ? 0.8 : 1);
-        else
-            fill_circle(cg, r, 0.82, 0.82, 0.82, 1);
+    BOOL fieldwork = !FinchThemeIsClassic();
+    if (fieldwork) {
+        /* slate, a hairline under it, a faint highlight along the top edge, and the key window's green mark */
+        if (![w titlebarAppearsTransparent]) {
+            set_fill(cg, FinchThemePaletteColor(@"slate") ?: [NSColor controlBackgroundColor]);
+            CGContextFillRect(cg, NSRectToCGRect(bar));
+            set_fill(cg, [NSColor separatorColor]);
+            CGContextFillRect(cg, CGRectMake(0, NSMinY(bar), b.size.width, 1));
+        }
+        set_fill(cg, FinchThemePaletteColor(@"edgeHighlight") ?: [NSColor highlightColor]);
+        CGContextFillRect(cg, CGRectMake(0, NSMaxY(b) - 1, b.size.width, 1));
+        if (key) {
+            set_fill(cg, [NSColor controlAccentColor]);
+            CGFloat mark = FinchThemeMetric(@"keyWindowMarkWidth", 2);
+            CGContextFillRect(cg, CGRectMake(0, NSMaxY(b) - mark, b.size.width, mark));
+        }
+        draw_fieldwork_controls(cg, b, t, key, enabled, _pressed);
+    } else {
+        if (![w titlebarAppearsTransparent]) {
+            CGContextSetRGBFillColor(cg, key ? 0.965 : 0.945, key ? 0.965 : 0.945, key ? 0.965 : 0.945, 1);
+            CGContextFillRect(cg, NSRectToCGRect(bar));
+            CGContextSetRGBFillColor(cg, 0, 0, 0, 0.1);
+            CGContextFillRect(cg, CGRectMake(0, NSMinY(bar), b.size.width, 0.5));
+        }
+        static const CGFloat colours[3][3] = {{0.93, 0.33, 0.30}, {0.96, 0.73, 0.22}, {0.30, 0.76, 0.33}};
+        for (int i = 0; i < 3; i++) {
+            NSRect r = button_rect(i, b, t);
+            if (enabled[i] && key)
+                fill_circle(cg, r, colours[i][0], colours[i][1], colours[i][2], _pressed == i ? 0.8 : 1);
+            else
+                fill_circle(cg, r, 0.82, 0.82, 0.82, 1);
+        }
     }
     NSString *title = [w titleVisibility] == NSWindowTitleHidden ? nil : [w title];
     if ([title length]) {
@@ -179,6 +276,8 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
                        ? [(id)FINCH_CLASS(NSColor) colorWithCGColor:ink]
                        : nil;
         CGColorRelease(ink);
+        if (fieldwork)
+            color = key ? [NSColor labelColor] : [NSColor secondaryLabelColor];
         NSMutableDictionary *attrs = [NSMutableDictionary dictionary];
         if (font)
             attrs[@"NSFont"] = font;
@@ -495,7 +594,8 @@ static uint32_t
 server_flags(NSWindow *w)
 {
     return (w->_w.opaque && w->_alpha >= 1 ? FWS_WINDOW_OPAQUE : 0) | (w->_w.shadow ? FWS_WINDOW_SHADOW : 0) |
-           (w->_w.ignoresMouse ? FWS_WINDOW_IGNORES_MOUSE : 0) | FWS_WINDOW_SHARED;
+           (w->_w.ignoresMouse ? FWS_WINDOW_IGNORES_MOUSE : 0) | FWS_WINDOW_SHARED |
+           ((w->_style & NSWindowStyleMaskTitled) ? FWS_WINDOW_TITLED : 0);
 }
 
 - (uint32_t)_finchServerWindow

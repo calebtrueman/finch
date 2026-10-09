@@ -18,6 +18,7 @@
 #include "include/core/SkPathBuilder.h"
 #include "include/core/SkPixmap.h"
 #include "include/core/SkRRect.h"
+#include <strings.h>
 #include "include/core/SkSurface.h"
 #include <algorithm>
 #include <arpa/inet.h>
@@ -233,6 +234,33 @@ draw_cursor(SkCanvas *c)
     c->restore();
 }
 
+/*
+ * Fieldwork (docs/design/FIELDWORK.md), unless FINCH_THEME is Classic: a chalk
+ * desktop, and windows with 6-point top corners and 2-point bottom ones, a
+ * structural outline, and a shallow shadow (about two millimetres above the desk).
+ */
+static bool
+fieldwork(void)
+{
+    static int on = -1;
+    if (on < 0) {
+        const char *t = getenv("FINCH_THEME");
+        on = !(t && !strcasecmp(t, "Classic"));
+    }
+    return on;
+}
+
+static SkRRect
+window_shape(const SkRect &r, uint32_t flags)
+{
+    float s = (float)scale;
+    float top = (flags & FWS_WINDOW_TITLED) ? 6 * s : 4 * s, bottom = (flags & FWS_WINDOW_TITLED) ? 2 * s : 4 * s;
+    SkVector radii[4] = {{top, top}, {top, top}, {bottom, bottom}, {bottom, bottom}};
+    SkRRect rr;
+    rr.setRectRadii(r, radii);
+    return rr;
+}
+
 static void
 composite(void)
 {
@@ -243,7 +271,7 @@ composite(void)
     c->clipRect(SkRect::Make(damage));
     /* the desktop */
     SkPaint bg;
-    bg.setColor(SkColorSetRGB(0x2b, 0x3a, 0x4a));
+    bg.setColor(fieldwork() ? SkColorSetRGB(0xf0, 0xef, 0xe9) : SkColorSetRGB(0x2b, 0x3a, 0x4a));
     c->drawPaint(bg);
     for (Window *w : stacking()) {
         if (!w->buffer.ptr)
@@ -252,7 +280,23 @@ composite(void)
                                       (float)w->ph);
         if (!SkRect::Make(damage).intersects(dst.makeOutset(40, 40)))
             continue;
-        if (w->flags & FWS_WINDOW_SHADOW) {
+        bool shaped = fieldwork() && (w->flags & FWS_WINDOW_SHADOW);
+        if (shaped) {
+            /* a close contact shadow and a soft ambient one */
+            SkRRect shape = window_shape(dst, w->flags);
+            SkPaint ambient;
+            ambient.setColor(SkColorSetARGB((U8CPU)(34 * w->alpha), 0x24, 0x29, 0x25));
+            ambient.setMaskFilter(SkMaskFilter::MakeBlur(kNormal_SkBlurStyle, 8 * (float)scale));
+            SkRRect a = shape;
+            a.offset(0, 3 * (float)scale);
+            c->drawRRect(a, ambient);
+            SkPaint contact;
+            contact.setColor(SkColorSetARGB((U8CPU)(46 * w->alpha), 0x24, 0x29, 0x25));
+            contact.setMaskFilter(SkMaskFilter::MakeBlur(kNormal_SkBlurStyle, 1.5f * (float)scale));
+            SkRRect k = shape;
+            k.offset(0, 1 * (float)scale);
+            c->drawRRect(k, contact);
+        } else if (w->flags & FWS_WINDOW_SHADOW) {
             SkPaint sp;
             sp.setColor(SkColorSetARGB((U8CPU)(90 * w->alpha), 0, 0, 0));
             sp.setMaskFilter(SkMaskFilter::MakeBlur(kNormal_SkBlurStyle, 9 * (float)scale));
@@ -263,7 +307,24 @@ composite(void)
         sk_sp<SkImage> img = SkImages::RasterFromPixmap(SkPixmap(info, w->buffer.ptr, w->bpr), nullptr, nullptr);
         SkPaint wp;
         wp.setAlphaf((float)w->alpha);
-        c->drawImage(img, dst.x(), dst.y(), SkSamplingOptions(), &wp);
+        if (shaped) {
+            SkRRect shape = window_shape(dst, w->flags);
+            c->save();
+            c->clipRRect(shape, true);
+            c->drawImage(img, dst.x(), dst.y(), SkSamplingOptions(), &wp);
+            c->restore();
+            /* the structural outline: one device pixel, just inside the edge */
+            SkPaint outline;
+            outline.setAntiAlias(true);
+            outline.setStyle(SkPaint::kStroke_Style);
+            outline.setStrokeWidth(1);
+            outline.setColor(SkColorSetARGB((U8CPU)(0x40 * w->alpha), 0x24, 0x29, 0x25));
+            SkRRect in = shape;
+            in.inset(0.5f, 0.5f);
+            c->drawRRect(in, outline);
+        } else {
+            c->drawImage(img, dst.x(), dst.y(), SkSamplingOptions(), &wp);
+        }
     }
     draw_cursor(c);
     c->restore();
