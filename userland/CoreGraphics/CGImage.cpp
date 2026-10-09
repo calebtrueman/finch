@@ -602,3 +602,12 @@ CGImageCreateWithJPEGDataProvider(CGDataProviderRef source, const CGFloat *decod
 {
     return decode_with_codec(source, decode, shouldInterpolate, intent);
 }
+
+/* An image's HDR headroom (CoreGraphics SPI SwiftUI asks for): Finch's images are SDR, so none. */
+extern "C" __attribute__((visibility("default"))) bool
+CGImageGetHeadroom(CGImageRef image, float *headroom)
+{
+    if (headroom)
+        *headroom = 1;
+    return false;
+}

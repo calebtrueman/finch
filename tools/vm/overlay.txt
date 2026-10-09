@@ -159,4 +159,5 @@ build/userland/finch-textfinder-test /usr/local/bin/finch-textfinder-test
 build/userland/finch-ruler-test /usr/local/bin/finch-ruler-test
 build/userland/finch-textblock-test /usr/local/bin/finch-textblock-test
 build/userland/finch-combine-test /usr/local/bin/finch-combine-test
+build/userland/finch-cftokenizer-test /usr/local/bin/finch-cftokenizer-test
 userland/tests/table.rtf /usr/local/share/finch/table.rtf

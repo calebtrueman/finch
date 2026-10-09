@@ -16,9 +16,15 @@ UIFClass(const char *name)
     return objc_getClass(name);
 }
 
+/* A context set for text drawing (NSTextGraphicsContextProvider, UIFTextGraphicsContext.m), then AppKit's. */
+UIF_HIDDEN id UIFCurrentTextGraphicsContext(void);
+
 static id
 current_graphics_context(void)
 {
+    id text = UIFCurrentTextGraphicsContext();
+    if (text)
+        return text;
     Class c = UIFClass("NSGraphicsContext");
     return c && [c respondsToSelector:@selector(currentContext)] ? [c currentContext] : nil;
 }

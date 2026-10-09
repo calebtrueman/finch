@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /* CoreText's string constants, with Apple's values (read from macOS 26.4's CoreText). */
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CGBase.h>
 
 const CFStringRef kCTAdaptiveImageProviderAttributeName = CFSTR("CTAdaptiveImageProvider");
 const CFStringRef kCTBackgroundColorAttributeName = CFSTR("CTBackgroundColor");
@@ -132,3 +133,51 @@ const CFStringRef kCTUnderlineColorAttributeName = CFSTR("CTUnderlineColor");
 const CFStringRef kCTUnderlineStyleAttributeName = CFSTR("NSUnderline");
 const CFStringRef kCTVerticalFormsAttributeName = CFSTR("CTVerticalForms");
 const CFStringRef kCTWritingDirectionAttributeName = CFSTR("NSWritingDirection");
+
+/* Text styles, size categories, designs, weights and widths (CoreText SPI SwiftUI uses), with macOS 26.4's values. */
+const CFStringRef kCTFontContentSizeCategoryAccessibilityL = CFSTR("UICTContentSizeCategoryAccessibilityL");
+const CFStringRef kCTFontContentSizeCategoryAccessibilityM = CFSTR("UICTContentSizeCategoryAccessibilityM");
+const CFStringRef kCTFontContentSizeCategoryAccessibilityXL = CFSTR("UICTContentSizeCategoryAccessibilityXL");
+const CFStringRef kCTFontContentSizeCategoryAccessibilityXXL = CFSTR("UICTContentSizeCategoryAccessibilityXXL");
+const CFStringRef kCTFontContentSizeCategoryAccessibilityXXXL = CFSTR("UICTContentSizeCategoryAccessibilityXXXL");
+const CFStringRef kCTFontContentSizeCategoryL = CFSTR("UICTContentSizeCategoryL");
+const CFStringRef kCTFontContentSizeCategoryM = CFSTR("UICTContentSizeCategoryM");
+const CFStringRef kCTFontContentSizeCategoryS = CFSTR("UICTContentSizeCategoryS");
+const CFStringRef kCTFontContentSizeCategoryXL = CFSTR("UICTContentSizeCategoryXL");
+const CFStringRef kCTFontContentSizeCategoryXS = CFSTR("UICTContentSizeCategoryXS");
+const CFStringRef kCTFontContentSizeCategoryXXL = CFSTR("UICTContentSizeCategoryXXL");
+const CFStringRef kCTFontContentSizeCategoryXXXL = CFSTR("UICTContentSizeCategoryXXXL");
+const CFStringRef kCTFontGradeTrait = CFSTR("NSCTFontGradeTrait");
+const CFStringRef kCTFontLanguageAwareLineHeightRatioAttribute = CFSTR("CTFontLanguageAwareLineHeightRatioAttribute");
+const CFStringRef kCTFontLegibilityWeightAttribute = CFSTR("CTFontLegibilityWeightAttribute");
+const CFStringRef kCTFontUIFontDesignCompact = CFSTR("NSCTFontUIFontDesignCompact");
+const CFStringRef kCTFontUIFontDesignCompactRounded = CFSTR("NSCTFontUIFontDesignCompactRounded");
+const CFStringRef kCTFontUIFontDesignCompactSoft = CFSTR("NSCTFontUIFontDesignCompactSoft");
+const CFStringRef kCTFontUIFontDesignDefault = CFSTR("NSCTFontUIFontDesignDefault");
+const CFStringRef kCTFontUIFontDesignMonospaced = CFSTR("NSCTFontUIFontDesignMonospaced");
+const CFStringRef kCTFontUIFontDesignRounded = CFSTR("NSCTFontUIFontDesignRounded");
+const CFStringRef kCTFontUIFontDesignSerif = CFSTR("NSCTFontUIFontDesignSerif");
+const CFStringRef kCTFontUIFontDesignSoft = CFSTR("NSCTFontUIFontDesignSoft");
+const CFStringRef kCTFontUIFontDesignTrait = CFSTR("NSCTFontUIFontDesignTrait");
+const CFStringRef kCTTextScaleRatioAttributeName = CFSTR("NSTextScaleRatio");
+const CFStringRef kCTUIFontTextStyleBody = CFSTR("UICTFontTextStyleBody");
+const CFStringRef kCTUIFontTextStyleCallout = CFSTR("UICTFontTextStyleCallout");
+const CFStringRef kCTUIFontTextStyleCaption1 = CFSTR("UICTFontTextStyleCaption1");
+const CFStringRef kCTUIFontTextStyleCaption2 = CFSTR("UICTFontTextStyleCaption2");
+const CFStringRef kCTUIFontTextStyleCaption3 = CFSTR("UICTFontTextStyleCaption3");
+const CFStringRef kCTUIFontTextStyleExtraLargeTitle = CFSTR("UICTFontTextStyleExtraLargeTitle");
+const CFStringRef kCTUIFontTextStyleExtraLargeTitle2 = CFSTR("UICTFontTextStyleExtraLargeTitle2");
+const CFStringRef kCTUIFontTextStyleFootnote = CFSTR("UICTFontTextStyleFootnote");
+const CFStringRef kCTUIFontTextStyleFootnote2 = CFSTR("UICTFontTextStyleFootnote2");
+const CFStringRef kCTUIFontTextStyleHeadline = CFSTR("UICTFontTextStyleHeadline");
+const CFStringRef kCTUIFontTextStyleSubhead = CFSTR("UICTFontTextStyleSubhead");
+const CFStringRef kCTUIFontTextStyleTitle0 = CFSTR("UICTFontTextStyleTitle0");
+const CFStringRef kCTUIFontTextStyleTitle1 = CFSTR("UICTFontTextStyleTitle1");
+const CFStringRef kCTUIFontTextStyleTitle2 = CFSTR("UICTFontTextStyleTitle2");
+const CFStringRef kCTUIFontTextStyleTitle3 = CFSTR("UICTFontTextStyleTitle3");
+const CGFloat kCTFontWeightHeavy = 0.56000000238418579;
+const CGFloat kCTFontWeightRegular = 0;
+const CGFloat kCTFontWidthCompressed = -0.29999999999999999;
+const CGFloat kCTFontWidthCondensed = -0.20000000000000001;
+const CGFloat kCTFontWidthExpanded = 0.20000000000000001;
+const CGFloat kCTFontWidthStandard = 0;

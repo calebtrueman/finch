@@ -76,3 +76,6 @@ void CFLogTest(Boolean toConsole, CFStringRef format, ...) {
     }
     CFRelease(s);
 }
+
+/* CF's private "Mac zone" debugging switch (SwiftUI asks): never on in Finch. */
+CF_EXPORT Boolean _CFMZEnabled(void) { return false; }

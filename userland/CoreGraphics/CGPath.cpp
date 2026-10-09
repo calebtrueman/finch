@@ -605,6 +605,42 @@ CGPathApplyWithBlock(CGPathRef path, CGPathApplyBlock CF_NOESCAPE block)
     }
 }
 
+/* The private relatives SwiftUI's renderer uses: a block that can stop the walk, and the path's counts. */
+typedef void (^CGPathApplyBlock2)(const CGPathElement *element, bool *stop);
+
+extern "C" __attribute__((visibility("default"))) void
+CGPathApplyWithBlock2(CGPathRef path, CGPathApplyBlock2 CF_NOESCAPE block)
+{
+    if (!path || !block)
+        return;
+    std::vector<CGPathElem> elems = *path->elems;
+    bool stop = false;
+    for (auto &e : elems) {
+        CGPathElement el = {e.type, e.p};
+        block(&el, &stop);
+        if (stop)
+            break;
+    }
+}
+
+extern "C" __attribute__((visibility("default"))) size_t
+CGPathGetNumberOfElements(CGPathRef path)
+{
+    return path ? path->elems->size() : 0;
+}
+
+extern "C" __attribute__((visibility("default"))) size_t
+CGPathGetNumberOfPoints(CGPathRef path)
+{
+    size_t n = 0;
+    if (path)
+        for (auto &e : *path->elems)
+            n += e.type == kCGPathElementAddCurveToPoint ? 3 : e.type == kCGPathElementAddQuadCurveToPoint ? 2
+                 : e.type == kCGPathElementCloseSubpath                                                   ? 0
+                                                                                                          : 1;
+    return n;
+}
+
 #pragma mark - Hit testing
 
 /* Flatten the path into closed polygons (one per subpath). */
