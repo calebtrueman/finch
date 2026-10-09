@@ -382,6 +382,14 @@ FinchDrawCGImage(CGImageRef image, NSSize repSize, NSRect dst, NSRect src, NSCom
     [super dealloc];
 }
 
+/* NSImageRep's copy is bitwise: the copy holds the handler too. */
+- (id)copyWithZone:(NSZone *)zone
+{
+    NSCustomImageRep *r = [super copyWithZone:zone];
+    r->_handler = [_handler copy];
+    return r;
+}
+
 - (BOOL (^)(NSRect))drawingHandler { return _handler; }
 - (SEL)drawSelector { return _selector; }
 - (id)delegate { return _delegate; }

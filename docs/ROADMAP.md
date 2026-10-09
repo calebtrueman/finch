@@ -261,7 +261,7 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         and placeholders, transformers, `NSEditor` commits) for text fields, checkboxes, sliders,
         pop-up buttons, text views and views; `NSObjectController`, `NSArrayController`,
         `NSUserDefaultsController`; nib binding connectors; `NSFontManager` and a Finch-look
-        `NSFontPanel`. `finch-appkit-bindings-test` matches Apple's on the host (2026-10-09);
+        `NSFontPanel`. `finch-appkit-bindings-test` matches Apple's on the host and in the VM (2026-10-09);
         `NSTreeController`, table and outline view bindings, Core Data controllers to come
   - [x] Auto Layout and storyboards: `NSLayoutConstraint`, the visual format language, anchors and
         guides in a private CoreAutoLayout that Foundation re-exports, solved by Finch's own Cassowary

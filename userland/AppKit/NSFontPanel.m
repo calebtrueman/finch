@@ -340,3 +340,14 @@ add_list(NSFontPanel *self, NSView *content, NSRect frame, SEL action)
 }
 
 @end
+
+/*
+ * The font panel's effects bar (underline, strikethrough, colours, shadow),
+ * an NSBox subclass that apps' nibs can name. Finch's font panel draws no
+ * effects bar yet, so it decodes and behaves as a plain box.
+ */
+@interface NSFontEffectsBox : NSBox
+@end
+
+@implementation NSFontEffectsBox
+@end
