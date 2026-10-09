@@ -1,0 +1,49 @@
+CFBundle_Strings.c: read a table from <table>.loctable, the property list of every
+localization's table that macOS apps ship since macOS 14, when the bundle has no
+.strings or .stringsdict for it; the preferred localization among its keys is used.
+
+diff --git a/Sources/CoreFoundation/CFBundle_Strings.c b/Sources/CoreFoundation/CFBundle_Strings.c
+index 8cf1b3e..fd07d14 100644
+--- a/Sources/CoreFoundation/CFBundle_Strings.c
++++ b/Sources/CoreFoundation/CFBundle_Strings.c
+@@ -142,6 +142,40 @@ static CFStringRef _copyStringFromTable(CFBundleRef bundle, CFStringRef tableNam
+     if (stringsTableURL) CFRelease(stringsTableURL);
+     if (stringsDictTableURL) CFRelease(stringsDictTableURL);
+     
++    // Finch: a .loctable, the one property list holding every localization's table
++    // (as macOS has used since 14), when there is no .strings or .stringsdict.
++    if (!stringsTable) {
++        CFURLRef locURL = CFBundleCopyResourceURL(bundle, tableName, CFSTR("loctable"), NULL);
++        CFDataRef data = locURL ? _CFDataCreateFromURL(locURL, NULL) : NULL;
++        CFDictionaryRef all = data ? (CFDictionaryRef)CFPropertyListCreateWithData(CFGetAllocator(bundle), data, kCFPropertyListImmutable, NULL, NULL) : NULL;
++        if (data) CFRelease(data);
++        if (all && CFGetTypeID(all) == CFDictionaryGetTypeID()) {
++            CFDictionaryRef table = NULL;
++            if (localizationName) {
++                table = (CFDictionaryRef)CFDictionaryGetValue(all, localizationName);
++            } else {
++                CFIndex n = CFDictionaryGetCount(all);
++                const void **keys = malloc(sizeof(void *) * (n ? n : 1));
++                CFDictionaryGetKeysAndValues(all, keys, NULL);
++                CFMutableArrayRef locs = CFArrayCreateMutable(kCFAllocatorSystemDefault, n, &kCFTypeArrayCallBacks);
++                for (CFIndex i = 0; i < n; i++)
++                    if (!CFEqual(keys[i], CFSTR("LocProvenance"))) CFArrayAppendValue(locs, keys[i]);
++                free(keys);
++                CFArrayRef preferred = CFBundleCopyPreferredLocalizationsFromArray(locs);
++                if (preferred && CFArrayGetCount(preferred))
++                    table = (CFDictionaryRef)CFDictionaryGetValue(all, CFArrayGetValueAtIndex(preferred, 0));
++                if (preferred) CFRelease(preferred);
++                CFRelease(locs);
++            }
++            if (table && CFGetTypeID(table) == CFDictionaryGetTypeID()) {
++                stringsTable = (CFDictionaryRef)CFRetain(table);
++                if (outActualLocalizationFile && !*outActualLocalizationFile) *outActualLocalizationFile = CFRetain(locURL);
++            }
++        }
++        if (all) CFRelease(all);
++        if (locURL) CFRelease(locURL);
++    }
++
+     // Last resort: create an empty table
+     if (!stringsTable) {
+         os_log_debug(_CFBundleLocalizedStringLogger(), "Hit last resort and creating empty strings table");

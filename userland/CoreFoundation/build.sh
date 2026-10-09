@@ -4,7 +4,9 @@
 # The source is Apple's CF as published in swift-corelibs-foundation (Apache
 # 2.0, pinned below), built for the Objective-C runtime as Apple builds it
 # (DEPLOYMENT_RUNTIME_SWIFT=0, Apple's CF runtime ABI for CFSTR), against
-# Finch's libicucore (ICU, tools/build-oss.sh ICU). Finch's fixes are the
+# Finch's libicucore (ICU, tools/build-oss.sh ICU), which is Apple's ICU, so
+# CF's code for Apple's ICU additions is built (__HAS_APPLE_ICU__: localization
+# matching, 12/24-hour date formats). Finch's fixes are the
 # patch series in patches/ and finch_prefix.h; Finch's additions are the .c
 # and .m files in this directory.
 #
@@ -89,6 +91,7 @@ srcs+=" $(ls "${HERE}"/*.c "${HERE}"/*.m "${HERE}"/*.s 2>/dev/null || true)"
 
 CFLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g
     -DCF_BUILDING_CF -DDEPLOYMENT_RUNTIME_SWIFT=0 -DINCLUDE_OBJC=1 -DHAVE_STRUCT_TIMESPEC -DU_DISABLE_RENAMING=1
+    -D__HAS_APPLE_ICU__=1
     -I"${OBJ}/hdr" -I"${CF}/include" -I"${CF}/internalInclude" -I"${HERE}" -fno-objc-arc
     -include "${CF}/internalInclude/CoreFoundation_Prefix.h" -include "${HERE}/finch_prefix.h"
     -I"${OBJ}/icu" -I"${ICU}/common" -I"${ICU}/i18n" -I"${ICU}/io"
@@ -103,7 +106,7 @@ mkdir -p "${OBJ}/o"
 failed=0
 compile() {   # compile <source>: object into ${OBJ}/o, errors into <object>.log
     local o="${OBJ}/o/$(basename "${1%.*}").o"
-    [[ "$o" -nt "$1" && "$o" -nt "${HERE}/finch_prefix.h" && "$o" -nt "${HERE}/CFObjCDispatch_Finch.h" && "$o" -nt "${HERE}/CFObjCMessages_Finch.h" ]] && return 0
+    [[ "$o" -nt "$1" && "$o" -nt "${HERE}/finch_prefix.h" && "$o" -nt "${HERE}/CFObjCDispatch_Finch.h" && "$o" -nt "${HERE}/CFObjCMessages_Finch.h" && "$o" -nt "${HERE}/build.sh" ]] && return 0
     case "$1" in
     *.s) "${CC}" -arch arm64e -mmacosx-version-min=26.0 -c "$1" -o "$o" ;;
     *)   "${CC}" -x objective-c "${CFLAGS[@]}" -c "$1" -o "$o" ;;

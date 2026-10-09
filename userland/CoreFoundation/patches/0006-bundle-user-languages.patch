@@ -1,0 +1,23 @@
+CFBundle_Locale.c: read the user's languages from the AppleLanguages preference, as
+Apple's CoreFoundation does (swift-corelibs only reads the -AppleLanguages argument), so
+bundles pick the localization the user prefers.
+
+diff --git a/Sources/CoreFoundation/CFBundle_Locale.c b/Sources/CoreFoundation/CFBundle_Locale.c
+index dc78774..0949fbe 100644
+--- a/Sources/CoreFoundation/CFBundle_Locale.c
++++ b/Sources/CoreFoundation/CFBundle_Locale.c
+@@ -583,6 +583,14 @@ CF_PRIVATE CFArrayRef _CFBundleCopyUserLanguages() {
+     
+     if (_CFBundleUserLanguages == NULL) {
+         CFArrayRef preferencesArray = NULL;
++#if TARGET_OS_MAC
++        // Finch: the user's languages from the preferences, as Apple's CF reads them.
++        preferencesArray = (CFArrayRef)CFPreferencesCopyAppValue(CFSTR("AppleLanguages"), kCFPreferencesCurrentApplication);
++        if (preferencesArray && CFGetTypeID(preferencesArray) != CFArrayGetTypeID()) {
++            CFRelease(preferencesArray);
++            preferencesArray = NULL;
++        }
++#endif
+         if (__CFAppleLanguages) {
+             CFDataRef data;
+             CFIndex length = strlen((const char *)__CFAppleLanguages);
