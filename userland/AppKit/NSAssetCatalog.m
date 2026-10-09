@@ -354,7 +354,20 @@ FinchCatalogImageNamed(NSString *name, NSBundle *bundle)
     if (i)
         return i;
     NSString *path = [self pathForImageResource:name];
-    return path ? [[[NSImage alloc] initWithContentsOfFile:path] autorelease] : nil;
+    if (!path)
+        return nil;
+    NSImage *image = [[[NSImage alloc] initWithContentsOfFile:path] autorelease];
+    /* as Apple's: name@2x beside it is the same image at twice the pixels */
+    NSString *ext = path.pathExtension, *stem = path.stringByDeletingPathExtension;
+    if (image && ![stem hasSuffix:@"@2x"]) {
+        NSString *hi = [[stem stringByAppendingString:@"@2x"] stringByAppendingPathExtension:ext];
+        NSImageRep *rep = [[NSFileManager defaultManager] fileExistsAtPath:hi] ? [NSImageRep imageRepWithContentsOfFile:hi] : nil;
+        if (rep) {
+            [rep setSize:[image size]];
+            [image addRepresentation:rep];
+        }
+    }
+    return image;
 }
 
 - (NSString *)pathForImageResource:(NSImageName)name

@@ -495,10 +495,25 @@ mark_attributes(void)
     };
 }
 
+/* The Finch wordmark (branding/BRAND.md), as the brand generates it; Paper in Night. */
+static NSImage *
+wordmark(void)
+{
+    BOOL night = FinchThemeIsNight();
+    static NSImage *day, *dark;
+    NSImage **slot = night ? &dark : &day;
+    if (!*slot)
+        *slot = [[[NSBundle bundleForClass:[NSColor class]] imageForResource:night ? @"wordmark-dark" : @"wordmark"] retain];
+    return *slot;
+}
+
 static CGFloat
 mark_width(void)
 {
-    return fieldwork() ? ceil([@"FINCH" sizeWithAttributes:mark_attributes()].width) + 2 * BAR_PAD + 1 : 0;
+    if (!fieldwork())
+        return 0;
+    NSImage *w = wordmark();
+    return (w ? ceil([w size].width) : ceil([@"finch" sizeWithAttributes:mark_attributes()].width)) + 2 * BAR_PAD + 1;
 }
 
 - (void)layoutTitles
@@ -557,13 +572,20 @@ mark_width(void)
     [self setNeedsDisplay:YES];
 }
 
-/* FINCH, then a divider; on the right, the workbench and the time, in the technical face. */
+/* The Finch wordmark, then a divider; on the right, the workbench and the time, in the technical face. */
 - (void)_finchDrawInstruments
 {
     NSRect b = [self bounds];
-    NSDictionary *m = mark_attributes();
-    NSSize ms = [@"FINCH" sizeWithAttributes:m];
-    [@"FINCH" drawAtPoint:NSMakePoint(BAR_START + BAR_PAD, floor((BAR_HEIGHT - ms.height) / 2)) withAttributes:m];
+    NSImage *mark = wordmark();
+    if (mark) {
+        NSSize ms = [mark size];
+        [mark drawInRect:NSMakeRect(BAR_START + BAR_PAD, floor((BAR_HEIGHT - ms.height) / 2), ms.width, ms.height)
+                fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
+    } else {
+        NSDictionary *m = mark_attributes();
+        NSSize ms = [@"finch" sizeWithAttributes:m];
+        [@"finch" drawAtPoint:NSMakePoint(BAR_START + BAR_PAD, floor((BAR_HEIGHT - ms.height) / 2)) withAttributes:m];
+    }
     [[NSColor separatorColor] setFill];
     NSRectFill(NSMakeRect(BAR_START + mark_width() - 1, 6, 1, BAR_HEIGHT - 12));
     NSDictionary *quiet = @{

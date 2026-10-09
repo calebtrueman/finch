@@ -78,6 +78,7 @@ change the brand, edit the script and re-run it. Never edit the outputs by hand.
 | `icons/Finch.icns`, `icons/favicon.ico` | macOS icon bundle, favicon (16–64 px) |
 | `boot/boot-<w>x<h>.png` | Full-screen boot splashes for Apple Silicon panels and 4K/5K displays |
 | `boot/boot-logo.png`, `@2x`, `@3x` | Transparent boot mark (128/256/384 px) for code that draws its own background |
+| `ui/symbol*.png`, `ui/wordmark*.png` | The mark (28 pt) and wordmark (15 pt) at 1x and 2x, light and dark, for Finch's own interface (the Rail, the Instrument Bar) |
 | `social-preview.png` | 1280×640 GitHub / social card |
 | `brand-sheet.png` | The full brand sheet |
 | `mascot.png` | The mascot (1024², hand-drawn, not generated) |

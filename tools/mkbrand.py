@@ -603,6 +603,14 @@ def main():
 
     S = lambda n: os.path.join(svg, n)
     raster(S('logo.svg'), os.path.join(OUT, 'logo.png'), w=1600)
+    # UI assets for Finch's own interface (the Rail's mark, the Instrument Bar's wordmark), 1x and 2x
+    ui = os.path.join(OUT, 'ui')
+    os.makedirs(ui, exist_ok=True)
+    for tag in ('', '-dark'):
+        for k in (1, 2):
+            at = '@2x' if k == 2 else ''
+            raster(S(f'symbol{tag}.svg'), os.path.join(ui, f'symbol{tag}{at}.png'), w=28 * k)
+            raster(S(f'wordmark{tag}.svg'), os.path.join(ui, f'wordmark{tag}{at}.png'), h=15 * k)
     raster(S('logo-dark.svg'), os.path.join(OUT, 'logo-dark.png'), w=1600)
     raster(S('symbol.svg'), os.path.join(OUT, 'symbol.png'), w=1024)
     raster(S('symbol-dark.svg'), os.path.join(OUT, 'symbol-dark.png'), w=1024)

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /*
  * The Rail: Fieldwork's strip down the left edge of the screen, in place of a
- * Dock (docs/design/FIELDWORK.md). From the top: the Finch mark, the pinned
+ * Dock (docs/design/FIELDWORK.md). From the top: the Finch mark (branding/), the pinned
  * apps, the other running apps, and the workbench switcher at the bottom. It is
  * part of the desktop's frame, so it never floats or magnifies: a running app
  * has a slim accent mark beside its icon, segmented by its windows. Clicking an
@@ -34,29 +34,14 @@ enum { kWidth = 48, kMark = 44, kSlot = 44, kIcon = 32, kBench = 30 };
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstMouse:(NSEvent *)event { return YES; }
 
-/* The finch: a small round body, a head, a beak and a tail, in the accent colour. */
+/* The Finch mark (branding/BRAND.md): the symbol as the brand generates it, Paper on Ink in Night. */
 static void
 draw_finch(NSRect box)
 {
-    CGFloat cx = NSMidX(box), cy = NSMidY(box);
-    [[NSColor controlAccentColor] setFill];
-    NSBezierPath *body = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(cx - 8, cy - 4, 14, 10)];
-    [body fill];
-    [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(cx + 1, cy - 9, 8, 8)] fill];
-    NSBezierPath *beak = [NSBezierPath bezierPath];
-    [beak moveToPoint:NSMakePoint(cx + 8.5, cy - 6.5)];
-    [beak lineToPoint:NSMakePoint(cx + 12.5, cy - 4.5)];
-    [beak lineToPoint:NSMakePoint(cx + 8, cy - 3.5)];
-    [beak closePath];
-    [beak fill];
-    NSBezierPath *tail = [NSBezierPath bezierPath];
-    [tail moveToPoint:NSMakePoint(cx - 7, cy)];
-    [tail lineToPoint:NSMakePoint(cx - 13, cy - 3)];
-    [tail lineToPoint:NSMakePoint(cx - 11, cy + 3)];
-    [tail closePath];
-    [tail fill];
-    [[NSColor controlBackgroundColor] setFill];
-    [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(cx + 4.5, cy - 6.5, 2, 2)] fill];
+    BOOL night = [[NSAppearance currentDrawingAppearance].name rangeOfString:@"Dark"].location != NSNotFound;
+    NSImage *mark = [[NSBundle mainBundle] imageForResource:night ? @"symbol-dark" : @"symbol"];
+    NSRect r = NSMakeRect(floor(NSMidX(box) - 14), floor(NSMidY(box) - 14), 28, 28);
+    [mark drawInRect:r fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
 }
 
 - (NSRect)rectOfItem:(NSUInteger)i

@@ -61,5 +61,7 @@ ln -sfn Versions/Current/AppKit "${FW}/AppKit"
 # Themes (docs/design/FIELDWORK.md)
 mkdir -p "${FW}/Versions/C/Resources/Themes"
 cp "${HERE}"/Themes/*.plist "${FW}/Versions/C/Resources/Themes/"
+# the wordmark the Instrument Bar shows (branding/ui, made by tools/mkbrand.py)
+cp "${FINCH_ROOT}"/branding/ui/wordmark*.png "${FW}/Versions/C/Resources/"
 codesign -f -s - -i com.apple.AppKit "${FW}/Versions/C/AppKit" 2>/dev/null
 log "installed ${FW#"${FINCH_ROOT}/"}"
