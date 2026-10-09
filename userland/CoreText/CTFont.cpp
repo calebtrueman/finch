@@ -6,6 +6,7 @@
  * FreeType, and shaping (CTLine) from HarfBuzz over the same bytes.
  */
 #include "CTInternal.h"
+#include "CTRegistry.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
@@ -15,6 +16,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <algorithm>
 #include <map>
 #include <string>
 
@@ -210,11 +212,11 @@ CTFontCreateWithGraphicsFont(CGFontRef graphicsFont, CGFloat size, const CGAffin
     return font_from_graphics(graphicsFont, size, matrix);
 }
 
-/* The font used when a name finds nothing: the first of Finch's UI fonts that is installed. */
+/* The font used when a name finds nothing: Helvetica, as Apple's (Liberation Sans on Finch). */
 static CGFontRef
 default_graphics_font(void)
 {
-    static const char *names[] = {"Inter-Regular", "LiberationSans", "Helvetica", ".AppleSystemUIFont", "Roboto-Regular"};
+    static const char *names[] = {"Helvetica", "LiberationSans", "Inter-Regular", ".AppleSystemUIFont", "Roboto-Regular"};
     for (const char *n : names) {
         CFStringRef s = CFStringCreateWithCString(NULL, n, kCFStringEncodingUTF8);
         CGFontRef f = CTFontRegistryCopyGraphicsFont(s);
@@ -560,10 +562,24 @@ CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size, const CGAffineT
 {
     if (!font)
         return NULL;
-    CTFontSymbolicTraits want = (CTFontGetSymbolicTraits(font) & ~mask) | (value & mask);
-    if (want == CTFontGetSymbolicTraits(font))
+    CTFontSymbolicTraits have = CTFontGetSymbolicTraits(font);
+    CTFontSymbolicTraits want = (have & ~mask) | (value & mask);
+    if (want == have)
         return CTFontCreateCopyWithAttributes(font, size, matrix, NULL);
-    return NULL;  /* the family's other faces: with installed font families */
+    /* the family's other faces: bold and italic among the installed fonts */
+    const CTFontSymbolicTraits styles = kCTFontTraitBold | kCTFontTraitItalic;
+    if ((want ^ have) & ~styles)
+        return NULL;
+    CFStringRef family = CTFontCopyFamilyName(font);
+    CGFontRef cg = family ? CTFontRegistryCopyFamilyFace(family, want & kCTFontTraitBold, want & kCTFontTraitItalic)
+                          : NULL;
+    if (family)
+        CFRelease(family);
+    if (!cg)
+        return NULL;
+    CTFontRef f = font_from_graphics(cg, size > 0 ? size : font->size, matrix ? matrix : &font->matrix);
+    CFRelease(cg);
+    return f;
 }
 
 #pragma mark - Glyphs
@@ -939,28 +955,96 @@ covers(CTFontRef f, CFStringRef s, CFRange r)
     return CTFontGetGlyphsForCharacters(f, chars.data(), glyphs.data(), r.length);
 }
 
+/*
+ * Finch's fallback cascade, in order, as regular and bold faces: the system
+ * font, then Noto for wider Latin, Greek and Cyrillic and for other scripts,
+ * symbols and emoji. Each font is loaded once, at 12 points, to test
+ * coverage; the font returned is made at the asked size.
+ */
+static const char *const cascade_names[][2] = {
+    {"Inter-Regular", "Inter-Bold"},
+    {"NotoSans-Regular", "NotoSans-Bold"},
+    {"NotoSansArabic-Regular", "NotoSansArabic-Bold"},
+    {"NotoSansHebrew-Regular", "NotoSansHebrew-Bold"},
+    {"NotoSansCJKsc-Regular", "NotoSansCJKsc-Bold"},
+    {"NotoSansSymbols-Regular", NULL},
+    {"NotoSansSymbols2-Regular", NULL},
+    {"DejaVuSansMono", "DejaVuSansMono-Bold"},
+    {"NotoColorEmoji", NULL},
+    {"LiberationSans", "LiberationSans-Bold"},
+};
+enum { cascade_count = sizeof cascade_names / sizeof cascade_names[0], cascade_emoji = 8 };
+
+static CTFontRef
+cascade_font(size_t i, bool bold)
+{
+    static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+    static CTFontRef fonts[cascade_count][2];
+    static bool tried[cascade_count][2];
+    if (bold && !cascade_names[i][1])
+        bold = false;
+    pthread_mutex_lock(&lock);
+    if (!tried[i][bold]) {
+        tried[i][bold] = true;
+        CFStringRef name = CFStringCreateWithCString(NULL, cascade_names[i][bold], kCFStringEncodingUTF8);
+        CGFontRef cg = CTFontRegistryCopyGraphicsFont(name);
+        CFRelease(name);
+        if (cg) {
+            fonts[i][bold] = font_from_graphics(cg, 12, NULL);
+            CFRelease(cg);
+        }
+    }
+    CTFontRef f = fonts[i][bold];
+    pthread_mutex_unlock(&lock);
+    return f;
+}
+
+/* Text emoji-like enough to look for in the emoji font first: the emoji planes, or a variation selector 16. */
+static bool
+wants_emoji(CFStringRef s, CFRange r)
+{
+    UniChar c[3] = {0, 0, 0};
+    CFIndex n = std::min<CFIndex>(3, CFStringGetLength(s) - r.location);
+    CFStringGetCharacters(s, CFRangeMake(r.location, n), c);
+    uint32_t cp = c[0];
+    CFIndex next = 1;
+    if (n > 1 && CFStringIsSurrogateHighCharacter(c[0]) && CFStringIsSurrogateLowCharacter(c[1])) {
+        cp = CFStringGetLongCharacterForSurrogatePair(c[0], c[1]);
+        next = 2;
+    }
+    return (cp >= 0x1F000 && cp <= 0x1FAFF) || (next < n && c[next] == 0xFE0F);
+}
+
 CTFontRef
 CTFontCreateForString(CTFontRef current, CFStringRef string, CFRange range)
 {
     if (!current)
         return NULL;
-    if (!string || !range.length || covers(current, string, range))
+    if (!string || !range.length)
         return (CTFontRef)CFRetain(current);
-    /* the cascade: Finch's fallback fonts, in order */
-    static const char *fallbacks[] = {"Inter-Regular", "LiberationSans", "NotoSans-Regular", "NotoSansSymbols-Regular",
-                                      "NotoSansCJKjp-Regular", "NotoColorEmoji"};
-    for (const char *n : fallbacks) {
-        CFStringRef name = CFStringCreateWithCString(NULL, n, kCFStringEncodingUTF8);
-        CGFontRef cg = CTFontRegistryCopyGraphicsFont(name);
-        CFRelease(name);
-        if (!cg)
-            continue;
-        CTFontRef f = font_from_graphics(cg, current->size, &current->matrix);
-        CFRelease(cg);
-        if (f && covers(f, string, CFRangeMake(range.location, 1)))
-            return f;
-        if (f)
-            CFRelease(f);
+    /* the first character (a surrogate pair is one) */
+    UniChar first[2];
+    CFIndex len = range.length > 1 ? 2 : 1;
+    CFStringGetCharacters(string, CFRangeMake(range.location, len), first);
+    if (len == 2 && !(CFStringIsSurrogateHighCharacter(first[0]) && CFStringIsSurrogateLowCharacter(first[1])))
+        len = 1;
+    CFRange one = CFRangeMake(range.location, len);
+    bool emoji = wants_emoji(string, one);
+    /* the font covers how the string starts: it is the font for that much */
+    if (!emoji && covers(current, string, one))
+        return (CTFontRef)CFRetain(current);
+    bool bold = CTFontGetSymbolicTraits(current) & kCTFontTraitBold;
+    /* the emoji font first when the text asks for it */
+    size_t order[cascade_count], n = 0;
+    if (emoji)
+        order[n++] = cascade_emoji;
+    for (size_t i = 0; i < cascade_count; i++)
+        if (!emoji || i != cascade_emoji)
+            order[n++] = i;
+    for (size_t i : order) {
+        CTFontRef probe = cascade_font(i, bold);
+        if (probe && covers(probe, string, one))
+            return font_from_graphics(probe->cg, current->size, &current->matrix);
     }
     return (CTFontRef)CFRetain(current);
 }
@@ -974,20 +1058,77 @@ CTFontCreateForStringWithLanguage(CTFontRef current, CFStringRef string, CFRange
 CFArrayRef
 CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef languagePrefList)
 {
-    return CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
+    CFMutableArrayRef out = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    bool bold = font && (CTFontGetSymbolicTraits(font) & kCTFontTraitBold);
+    for (size_t i = 0; i < cascade_count; i++) {
+        CTFontRef f = cascade_font(i, bold);
+        if (!f)
+            continue;
+        CFStringRef ps = CTFontCopyPostScriptName(f);
+        if (font) {
+            CFStringRef mine = CTFontCopyPostScriptName(font);
+            bool same = mine && CFEqual(mine, ps);
+            if (mine)
+                CFRelease(mine);
+            if (same) {
+                CFRelease(ps);
+                continue;
+            }
+        }
+        CTFontDescriptorRef d = CTFontDescriptorCreateWithNameAndSize(ps, 0);
+        CFArrayAppendValue(out, d);
+        CFRelease(d);
+        CFRelease(ps);
+    }
+    return out;
 }
 
+/* Apple's UI fonts: the system font (Inter on Finch) at each use's size, emphasized ones bold. */
 CTFontRef
 CTFontCreateUIFontForLanguage(CTFontUIFontType uiType, CGFloat size, CFStringRef language)
 {
-    if (size <= 0)
-        size = uiType == kCTFontUIFontMiniSystem || uiType == kCTFontUIFontMiniEmphasizedSystem ? 9
-               : uiType == kCTFontUIFontSmallSystem || uiType == kCTFontUIFontSmallEmphasizedSystem ? 11
-                                                                                                    : 13;
-    bool bold = uiType == kCTFontUIFontEmphasizedSystem || uiType == kCTFontUIFontSmallEmphasizedSystem ||
-                uiType == kCTFontUIFontMiniEmphasizedSystem || uiType == kCTFontUIFontEmphasizedSystemDetail;
-    CTFontRef f = bold ? CTFontCreateWithName(CFSTR("Inter-Bold"), size, NULL) : NULL;
-    return f ? f : CTFontCreateWithName(CFSTR("Inter-Regular"), size, NULL);
+    static const struct {
+        CTFontUIFontType type;
+        CGFloat size;
+        const char *name;
+    } fonts[] = {
+        {kCTFontUIFontUser, 12, "Helvetica"},
+        {kCTFontUIFontUserFixedPitch, 10, "Menlo-Regular"},
+        {kCTFontUIFontSystem, 13, ".AppleSystemUIFont"},
+        {kCTFontUIFontEmphasizedSystem, 13, ".AppleSystemUIFontBold"},
+        {kCTFontUIFontSmallSystem, 11, ".AppleSystemUIFont"},
+        {kCTFontUIFontSmallEmphasizedSystem, 11, ".AppleSystemUIFontBold"},
+        {kCTFontUIFontMiniSystem, 9, ".AppleSystemUIFont"},
+        {kCTFontUIFontMiniEmphasizedSystem, 9, ".AppleSystemUIFontBold"},
+        {kCTFontUIFontViews, 12, ".AppleSystemUIFont"},
+        {kCTFontUIFontApplication, 13, ".AppleSystemUIFont"},
+        {kCTFontUIFontLabel, 10, ".AppleSystemUIFont"},
+        {kCTFontUIFontMenuTitle, 13, ".AppleSystemUIFont"},
+        {kCTFontUIFontMenuItem, 13, ".AppleSystemUIFont"},
+        {kCTFontUIFontMenuItemMark, 13, ".AppleSystemUIFont"},
+        {kCTFontUIFontMenuItemCmdKey, 13, ".Keyboard"},
+        {kCTFontUIFontWindowTitle, 13, ".AppleSystemUIFontBold"},
+        {kCTFontUIFontPushButton, 13, ".AppleSystemUIFont"},
+        {kCTFontUIFontUtilityWindowTitle, 11, ".AppleSystemUIFont"},
+        {kCTFontUIFontAlertHeader, 13, ".AppleSystemUIFontBold"},
+        {kCTFontUIFontSystemDetail, 9, ".AppleSystemUIFont"},
+        {kCTFontUIFontEmphasizedSystemDetail, 9, ".AppleSystemUIFontBold"},
+        {kCTFontUIFontToolbar, 11, ".AppleSystemUIFont"},
+        {kCTFontUIFontSmallToolbar, 10, ".AppleSystemUIFont"},
+        {kCTFontUIFontMessage, 13, ".AppleSystemUIFont"},
+        {kCTFontUIFontPalette, 11, ".AppleSystemUIFont"},
+        {kCTFontUIFontToolTip, 11, ".AppleSystemUIFont"},
+        {kCTFontUIFontControlContent, 12, ".AppleSystemUIFont"},
+    };
+    for (auto &u : fonts) {
+        if (u.type != uiType)
+            continue;
+        CFStringRef name = CFStringCreateWithCString(NULL, u.name, kCFStringEncodingUTF8);
+        CTFontRef f = CTFontCreateWithName(name, size > 0 ? size : u.size, NULL);
+        CFRelease(name);
+        return f;
+    }
+    return NULL;
 }
 
 CTFontUIFontType

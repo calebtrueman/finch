@@ -5,7 +5,7 @@ CC      := xcrun -sdk macosx clang
 CFLAGS  := -arch arm64e -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror
 CXX     := xcrun -sdk macosx clang++
 
-all: $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test $(OUT)/finch-debuggee $(OUT)/finch-introspect-test $(OUT)/finch-socket-test $(OUT)/finch-cf-test $(OUT)/finch-swift-hello $(OUT)/finch-dlopen $(OUT)/finch-pam-test $(OUT)/finch-compression-test $(OUT)/finch-bridge-test $(OUT)/finch-forward-test $(OUT)/finch-foundation-test $(OUT)/finch-runtime-test $(OUT)/finch-files-test $(OUT)/finch-intl-test $(OUT)/finch-kvc-test $(OUT)/finch-data-test $(OUT)/finch-archive-test $(OUT)/finch-collections-test $(OUT)/finch-misc-test $(OUT)/finch-streams-test $(OUT)/finch-predicate-test $(OUT)/finch-documents-test $(OUT)/finch-cg-test $(OUT)/finch-cg-draw-test $(OUT)/finch-ct-test $(OUT)/finch-ws-test $(OUT)/finch-measurement-test $(OUT)/finch-xmlparser-test $(OUT)/finch-imageio-test
+all: $(OUT)/finch-libsystem-test $(OUT)/finch-xpc-service-test $(OUT)/finch-launch-bench $(OUT)/finch-cxx-test $(OUT)/finch-objc-test $(OUT)/finch-crypto-test $(OUT)/finch-log-test $(OUT)/finch-hardened-test $(OUT)/finch-debuggee $(OUT)/finch-introspect-test $(OUT)/finch-socket-test $(OUT)/finch-cf-test $(OUT)/finch-swift-hello $(OUT)/finch-dlopen $(OUT)/finch-pam-test $(OUT)/finch-compression-test $(OUT)/finch-bridge-test $(OUT)/finch-forward-test $(OUT)/finch-foundation-test $(OUT)/finch-runtime-test $(OUT)/finch-files-test $(OUT)/finch-intl-test $(OUT)/finch-kvc-test $(OUT)/finch-data-test $(OUT)/finch-archive-test $(OUT)/finch-collections-test $(OUT)/finch-misc-test $(OUT)/finch-streams-test $(OUT)/finch-predicate-test $(OUT)/finch-documents-test $(OUT)/finch-cg-test $(OUT)/finch-cg-draw-test $(OUT)/finch-ct-test $(OUT)/finch-ctfonts-test $(OUT)/finch-ws-test $(OUT)/finch-measurement-test $(OUT)/finch-xmlparser-test $(OUT)/finch-imageio-test
 
 $(OUT)/finch-libsystem-test: libsystem-test.c
 	@mkdir -p $(OUT)
@@ -138,6 +138,13 @@ $(OUT)/finch-imageio-test: imageio-test.c
 $(OUT)/finch-ct-test: ct-test.c
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -Wno-deprecated-declarations -o $@ $< -framework CoreText -framework CoreGraphics -framework CoreFoundation
+
+# The fonts Finch ships and Apple's names for them. Finch-only: diff the
+# output with ctfonts-expected.txt (on the host, with FINCH_FONT_DIRS set to
+# build/root/System/Library/Fonts and DYLD_FRAMEWORK_PATH to build/root's).
+$(OUT)/finch-ctfonts-test: ctfonts-test.c
+	@mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -o $@ $< -framework CoreText -framework CoreGraphics -framework CoreFoundation
 
 # The window server and CoreGraphics' client for it (Finch-only: compare with ws-test.expected).
 $(OUT)/finch-ws-test: ws-test.c

@@ -319,11 +319,23 @@ itemize(CFAttributedStringRef string, CFRange range, const UniChar *chars, const
             CFIndex a = j;
             while (a < k) {
                 CFIndex len = CFStringIsSurrogateHighCharacter(chars[a - range.location]) && a + 1 < k ? 2 : 1;
+                UniChar c = chars[a - range.location];
+                UniChar next = a + len < k ? chars[a + len - range.location] : 0;
+                uint32_t cp = len == 2 ? CFStringGetLongCharacterForSurrogatePair(c, chars[a + 1 - range.location]) : c;
+                /* variation selectors, zero-width joiners, skin tones and tags stay with the character before */
+                bool joins = (cp >= 0xFE00 && cp <= 0xFE0F) || cp == 0x200D || (cp >= 0x1F3FB && cp <= 0x1F3FF) ||
+                             (cp >= 0xE0020 && cp <= 0xE007F);
+                if (joins && !out.empty() && out.back().attributes == attrs && out.back().level == lv &&
+                    out.back().range.location + out.back().range.length == a) {
+                    out.back().range.length += len;
+                    a += len;
+                    continue;
+                }
                 CTFontRef use = font;
                 CGGlyph g[2];
-                if (font && !CTFontGetGlyphsForCharacters(font, chars + (a - range.location), g, len) &&
-                    !CFCharacterSetIsCharacterMember(CFCharacterSetGetPredefined(kCFCharacterSetWhitespaceAndNewline),
-                                                     chars[a - range.location]))
+                /* where the font has no glyph, or the text asks for emoji presentation (U+FE0F) */
+                if (font && (next == 0xFE0F || !CTFontGetGlyphsForCharacters(font, chars + (a - range.location), g, len)) &&
+                    !CFCharacterSetIsCharacterMember(CFCharacterSetGetPredefined(kCFCharacterSetWhitespaceAndNewline), c))
                     use = CTFontCreateForString(font, s, CFRangeMake(a, len));
                 else if (font)
                     CFRetain(use);

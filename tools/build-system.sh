@@ -79,6 +79,8 @@ steps=(
     # Finch's CoreGraphics over Skia (docs/design/COREGRAPHICS.md)
     "skia|userland/skia/build.sh"
     "CoreGraphics|userland/CoreGraphics/build.sh"
+    # The open fonts Finch ships for Apple's (userland/fonts)
+    "fonts|userland/fonts/build.sh"
     "CoreText|userland/CoreText/build.sh"
     "WindowServer|userland/WindowServer/build.sh"
     "ImageIO|userland/ImageIO/build.sh"

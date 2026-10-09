@@ -1,0 +1,322 @@
+# Apple names: CoreText font, then metrics at 12 points, then CGFontCreateWithFontName
+Helvetica: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans
+Helvetica-Bold: LiberationSans-Bold (Liberation Sans) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 128.707
+  CGFont: LiberationSans-Bold
+Helvetica-Oblique: LiberationSans-Italic (Liberation Sans) size 12 weight 0 traits 0x1
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans-Italic
+Helvetica-BoldOblique: LiberationSans-BoldItalic (Liberation Sans) size 12 weight 0.4 traits 0x3
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 128.707
+  CGFont: LiberationSans-BoldItalic
+helvetica: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans
+Helvetica Neue: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans
+HelveticaNeue: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans
+HelveticaNeue-Bold: LiberationSans-Bold (Liberation Sans) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 128.707
+  CGFont: LiberationSans-Bold
+HelveticaNeue-Italic: LiberationSans-Italic (Liberation Sans) size 12 weight 0 traits 0x1
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans-Italic
+Arial: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans
+ArialMT: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans
+Arial-BoldMT: LiberationSans-Bold (Liberation Sans) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 128.707
+  CGFont: LiberationSans-Bold
+Arial-ItalicMT: LiberationSans-Italic (Liberation Sans) size 12 weight 0 traits 0x1
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: LiberationSans-Italic
+Arial-BoldItalicMT: LiberationSans-BoldItalic (Liberation Sans) size 12 weight 0.4 traits 0x3
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 128.707
+  CGFont: LiberationSans-BoldItalic
+Arial Bold: LiberationSans-Bold (Liberation Sans) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 128.707
+  CGFont: LiberationSans-Bold
+Times: LiberationSerif (Liberation Serif) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.6934 descent 2.5957 leading 0.509766 cap 7.85742 x 5.50781 width 110.766
+  CGFont: LiberationSerif
+Times-Roman: LiberationSerif (Liberation Serif) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.6934 descent 2.5957 leading 0.509766 cap 7.85742 x 5.50781 width 110.766
+  CGFont: LiberationSerif
+Times-Bold: LiberationSerif-Bold (Liberation Serif) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 10.6934 descent 2.5957 leading 0.509766 cap 7.85742 x 5.50781 width 117
+  CGFont: LiberationSerif-Bold
+Times New Roman: LiberationSerif (Liberation Serif) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.6934 descent 2.5957 leading 0.509766 cap 7.85742 x 5.50781 width 110.766
+  CGFont: LiberationSerif
+TimesNewRomanPSMT: LiberationSerif (Liberation Serif) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.6934 descent 2.5957 leading 0.509766 cap 7.85742 x 5.50781 width 110.766
+  CGFont: LiberationSerif
+TimesNewRomanPS-BoldMT: LiberationSerif-Bold (Liberation Serif) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 10.6934 descent 2.5957 leading 0.509766 cap 7.85742 x 5.50781 width 117
+  CGFont: LiberationSerif-Bold
+Courier: LiberationMono (Liberation Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 9.99023 descent 3.60352 leading 0 cap 7.9043 x 6.33984 width 144.023
+  CGFont: LiberationMono
+Courier-Bold: LiberationMono-Bold (Liberation Mono) size 12 weight 0.4 traits 0x402
+  upem 2048 ascent 9.99023 descent 3.60352 leading 0 cap 7.9043 x 6.33984 width 144.023
+  CGFont: LiberationMono-Bold
+Courier New: LiberationMono (Liberation Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 9.99023 descent 3.60352 leading 0 cap 7.9043 x 6.33984 width 144.023
+  CGFont: LiberationMono
+CourierNewPSMT: LiberationMono (Liberation Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 9.99023 descent 3.60352 leading 0 cap 7.9043 x 6.33984 width 144.023
+  CGFont: LiberationMono
+CourierNewPS-BoldMT: LiberationMono-Bold (Liberation Mono) size 12 weight 0.4 traits 0x402
+  upem 2048 ascent 9.99023 descent 3.60352 leading 0 cap 7.9043 x 6.33984 width 144.023
+  CGFont: LiberationMono-Bold
+Menlo: DejaVuSansMono (DejaVu Sans Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono
+Menlo-Regular: DejaVuSansMono (DejaVu Sans Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono
+Menlo-Bold: DejaVuSansMono-Bold (DejaVu Sans Mono) size 12 weight 0.4 traits 0x402
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono-Bold
+Menlo-Italic: DejaVuSansMono-Oblique (DejaVu Sans Mono) size 12 weight 0 traits 0x401
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono-Oblique
+Monaco: DejaVuSansMono (DejaVu Sans Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono
+SF Mono: DejaVuSansMono (DejaVu Sans Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono
+SFMono-Regular: DejaVuSansMono (DejaVu Sans Mono) size 12 weight 0 traits 0x400
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono
+SFMono-Bold: DejaVuSansMono-Bold (DejaVu Sans Mono) size 12 weight 0.4 traits 0x402
+  upem 2048 ascent 11.1387 descent 2.83008 leading 0 cap 8.74805 x 6.5625 width 144.492
+  CGFont: DejaVuSansMono-Bold
+.AppleSystemUIFont: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: Inter-Regular
+.AppleSystemUIFontBold: Inter-Bold (Inter) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 133.564
+  CGFont: Inter-Bold
+.SFNS-Regular: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: Inter-Regular
+.SFNS-Semibold: Inter-SemiBold (Inter) size 12 weight 0.3 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 131.742
+  CGFont: Inter-SemiBold
+.SFNS-Bold: Inter-Bold (Inter) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 133.564
+  CGFont: Inter-Bold
+System Font: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: Inter-Regular
+SF Pro: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: Inter-Regular
+SFProText-Regular: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: Inter-Regular
+SFProText-Medium: Inter-Medium (Inter) size 12 weight 0.23 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 129.949
+  CGFont: Inter-Medium
+SFProDisplay-Bold: Inter-Bold (Inter) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 133.564
+  CGFont: Inter-Bold
+LucidaGrande: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: Inter-Regular
+Lucida Grande: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: Inter-Regular
+LucidaGrande-Bold: Inter-Bold (Inter) size 12 weight 0.4 traits 0x2
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 133.564
+  CGFont: Inter-Bold
+Apple Color Emoji: NotoColorEmoji (Noto Color Emoji) size 12 weight 0 traits 0x400
+  upem 1000 ascent 22.8 descent 6 leading 0 cap 22.8 x 0 width 172.27
+  CGFont: NotoColorEmoji
+AppleColorEmoji: NotoColorEmoji (Noto Color Emoji) size 12 weight 0 traits 0x400
+  upem 1000 ascent 22.8 descent 6 leading 0 cap 22.8 x 0 width 172.27
+  CGFont: NotoColorEmoji
+Apple Symbols: NotoSansSymbols-Regular (Noto Sans Symbols) size 12 weight 0 traits 0x0
+  upem 1000 ascent 17.76 descent 6.84 leading 0 cap 8.568 x 6.432 width 129.396
+  CGFont: NotoSansSymbols-Regular
+PingFang SC: NotoSansCJKsc-Regular (Noto Sans CJK SC) size 12 weight 0 traits 0x0
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 126.18
+  CGFont: NotoSansCJKsc-Regular
+PingFangSC-Regular: NotoSansCJKsc-Regular (Noto Sans CJK SC) size 12 weight 0 traits 0x0
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 126.18
+  CGFont: NotoSansCJKsc-Regular
+PingFangSC-Semibold: NotoSansCJKsc-Bold (Noto Sans CJK SC) size 12 weight 0.4 traits 0x2
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 133.896
+  CGFont: NotoSansCJKsc-Bold
+PingFangTC-Regular: NotoSansCJKsc-Regular (Noto Sans CJK SC) size 12 weight 0 traits 0x0
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 126.18
+  CGFont: NotoSansCJKsc-Regular
+Hiragino Sans: NotoSansCJKsc-Regular (Noto Sans CJK SC) size 12 weight 0 traits 0x0
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 126.18
+  CGFont: NotoSansCJKsc-Regular
+HiraginoSans-W3: NotoSansCJKsc-Regular (Noto Sans CJK SC) size 12 weight 0 traits 0x0
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 126.18
+  CGFont: NotoSansCJKsc-Regular
+HiraginoSans-W6: NotoSansCJKsc-Bold (Noto Sans CJK SC) size 12 weight 0.4 traits 0x2
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 133.896
+  CGFont: NotoSansCJKsc-Bold
+HiraKakuProN-W3: NotoSansCJKsc-Regular (Noto Sans CJK SC) size 12 weight 0 traits 0x0
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 126.18
+  CGFont: NotoSansCJKsc-Regular
+Apple SD Gothic Neo: NotoSansCJKsc-Regular (Noto Sans CJK SC) size 12 weight 0 traits 0x0
+  upem 1000 ascent 13.92 descent 3.456 leading 0 cap 8.796 x 6.516 width 126.18
+  CGFont: NotoSansCJKsc-Regular
+Geeza Pro: NotoSansArabic-Regular (Noto Sans Arabic) size 12 weight 0 traits 0x0
+  upem 1000 ascent 16.488 descent 8.856 leading 0 cap 8.568 x 6.432 width 128.146
+  CGFont: NotoSansArabic-Regular
+GeezaPro-Bold: NotoSansArabic-Bold (Noto Sans Arabic) size 12 weight 0.4 traits 0x2
+  upem 1000 ascent 16.488 descent 8.856 leading 0 cap 8.568 x 6.552 width 132.728
+  CGFont: NotoSansArabic-Bold
+Arial Hebrew: NotoSansHebrew-Regular (Noto Sans Hebrew) size 12 weight 0 traits 0x0
+  upem 1000 ascent 12.816 descent 3.504 leading 0 cap 8.568 x 6.432 width 127.992
+  CGFont: NotoSansHebrew-Regular
+Inter: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 128.127
+  CGFont: NULL
+Inter-Medium: Inter-Medium (Inter) size 12 weight 0.23 traits 0x0
+  upem 2048 ascent 11.625 descent 2.89453 leading 0 cap 8.73047 x 6.55078 width 129.949
+  CGFont: Inter-Medium
+Liberation Sans: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: NULL
+Noto Sans: NotoSans-Regular (Noto Sans) size 12 weight 0 traits 0x0
+  upem 1000 ascent 12.828 descent 3.516 leading 0 cap 8.568 x 6.432 width 129.276
+  CGFont: NULL
+NoSuchFont: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+  upem 2048 ascent 10.8633 descent 2.54297 leading 0.392578 cap 8.25586 x 6.33984 width 120.738
+  CGFont: NULL
+# UI fonts (size 0: each one's own size)
+ui 0: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+ui 1: DejaVuSansMono (DejaVu Sans Mono) size 10 weight 0 traits 0x400
+ui 2: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 3: Inter-Bold (Inter) size 13 weight 0.4 traits 0x2
+ui 4: Inter-Regular (Inter) size 11 weight 0 traits 0x0
+ui 5: Inter-Bold (Inter) size 11 weight 0.4 traits 0x2
+ui 6: Inter-Regular (Inter) size 9 weight 0 traits 0x0
+ui 7: Inter-Bold (Inter) size 9 weight 0.4 traits 0x2
+ui 8: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+ui 9: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 10: Inter-Regular (Inter) size 10 weight 0 traits 0x0
+ui 11: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 12: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 13: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 14: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 15: Inter-Bold (Inter) size 13 weight 0.4 traits 0x2
+ui 16: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 17: Inter-Regular (Inter) size 11 weight 0 traits 0x0
+ui 18: Inter-Bold (Inter) size 13 weight 0.4 traits 0x2
+ui 19: Inter-Regular (Inter) size 9 weight 0 traits 0x0
+ui 20: Inter-Bold (Inter) size 9 weight 0.4 traits 0x2
+ui 21: Inter-Regular (Inter) size 11 weight 0 traits 0x0
+ui 22: Inter-Regular (Inter) size 10 weight 0 traits 0x0
+ui 23: Inter-Regular (Inter) size 13 weight 0 traits 0x0
+ui 24: Inter-Regular (Inter) size 11 weight 0 traits 0x0
+ui 25: Inter-Regular (Inter) size 11 weight 0 traits 0x0
+ui 26: Inter-Regular (Inter) size 12 weight 0 traits 0x0
+system at 20: Inter-Regular (Inter) size 20 weight 0 traits 0x0
+# the default font (a line with no font attribute)
+default: LiberationSans (Liberation Sans) size 12 weight 0 traits 0x0
+# bold and italic copies
+Helvetica +0x2: LiberationSans-Bold (Liberation Sans) size 12 weight 0.4 traits 0x2
+Helvetica +0x1: LiberationSans-Italic (Liberation Sans) size 12 weight 0 traits 0x1
+Helvetica +0x3: LiberationSans-BoldItalic (Liberation Sans) size 12 weight 0.4 traits 0x3
+Times +0x2: LiberationSerif-Bold (Liberation Serif) size 12 weight 0.4 traits 0x2
+Times +0x1: LiberationSerif-Italic (Liberation Serif) size 12 weight 0 traits 0x1
+Times +0x3: LiberationSerif-BoldItalic (Liberation Serif) size 12 weight 0.4 traits 0x3
+Courier +0x2: LiberationMono-Bold (Liberation Mono) size 12 weight 0.4 traits 0x402
+Courier +0x1: LiberationMono-Italic (Liberation Mono) size 12 weight 0 traits 0x401
+Courier +0x3: LiberationMono-BoldItalic (Liberation Mono) size 12 weight 0.4 traits 0x403
+Menlo +0x2: DejaVuSansMono-Bold (DejaVu Sans Mono) size 12 weight 0.4 traits 0x402
+Menlo +0x1: DejaVuSansMono-Oblique (DejaVu Sans Mono) size 12 weight 0 traits 0x401
+Menlo +0x3: DejaVuSansMono-BoldOblique (DejaVu Sans Mono) size 12 weight 0.4 traits 0x403
+.AppleSystemUIFont +0x2: Inter-Bold (Inter) size 12 weight 0.4 traits 0x2
+.AppleSystemUIFont +0x1: Inter-Italic (Inter) size 12 weight 0 traits 0x1
+.AppleSystemUIFont +0x3: Inter-BoldItalic (Inter) size 12 weight 0.4 traits 0x3
+Noto Sans +0x2: NotoSans-Bold (Noto Sans) size 12 weight 0.4 traits 0x2
+Noto Sans +0x1: NotoSans-Italic (Noto Sans) size 12 weight 0 traits 0x1
+Noto Sans +0x3: NotoSans-BoldItalic (Noto Sans) size 12 weight 0.4 traits 0x3
+# fallback: CTFontCreateForString for the first character, then the runs of a line
+Helvetica latin: LiberationSans | runs [0+12 LiberationSans] width 62.6895
+Helvetica latin extended: LiberationSans | runs [0+13 LiberationSans] width 75.3867
+Helvetica greek: LiberationSans | runs [0+5 LiberationSans] width 34.2891
+Helvetica cyrillic: LiberationSans | runs [0+6 LiberationSans] width 40.9688
+Helvetica chinese: NotoSansCJKsc-Regular | runs [0+2 NotoSansCJKsc-Regular] width 24
+Helvetica japanese: NotoSansCJKsc-Regular | runs [0+8 NotoSansCJKsc-Regular] width 96
+Helvetica korean: NotoSansCJKsc-Regular | runs [0+3 NotoSansCJKsc-Regular] width 33.12
+Helvetica arabic: NotoSansArabic-Regular | runs [0+5 NotoSansArabic-Regular rtl] width 25.248
+Helvetica hebrew: LiberationSans | runs [0+4 LiberationSans rtl] width 26.373
+Helvetica symbols: NotoSansSymbols2-Regular | runs [0+1 NotoSansSymbols2-Regular] [1+1 LiberationSans] [2+1 Inter-Regular] [3+2 LiberationSans] width 42.6797
+Helvetica emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.88
+Helvetica heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.94
+Helvetica zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.94
+Helvetica skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.94
+Helvetica mixed: LiberationSans | runs [0+3 LiberationSans] [3+1 NotoSansCJKsc-Regular] [4+1 LiberationSans] [5+2 NotoSansArabic-Regular rtl] [7+1 LiberationSans] [8+2 NotoColorEmoji] [10+1 LiberationSans] width 62.66
+Helvetica-Bold latin: LiberationSans-Bold | runs [0+12 LiberationSans-Bold] width 68.0039
+Helvetica-Bold latin extended: LiberationSans-Bold | runs [0+13 LiberationSans-Bold] width 79.998
+Helvetica-Bold greek: LiberationSans-Bold | runs [0+5 LiberationSans-Bold] width 36.5332
+Helvetica-Bold cyrillic: LiberationSans-Bold | runs [0+6 LiberationSans-Bold] width 43.7402
+Helvetica-Bold chinese: NotoSansCJKsc-Bold | runs [0+2 NotoSansCJKsc-Bold] width 24
+Helvetica-Bold japanese: NotoSansCJKsc-Bold | runs [0+8 NotoSansCJKsc-Bold] width 96
+Helvetica-Bold korean: NotoSansCJKsc-Bold | runs [0+3 NotoSansCJKsc-Bold] width 33.12
+Helvetica-Bold arabic: NotoSansArabic-Bold | runs [0+5 NotoSansArabic-Bold rtl] width 27.876
+Helvetica-Bold hebrew: LiberationSans-Bold | runs [0+4 LiberationSans-Bold rtl] width 28.7871
+Helvetica-Bold symbols: NotoSansSymbols2-Regular | runs [0+1 NotoSansSymbols2-Regular] [1+1 LiberationSans-Bold] [2+1 Inter-Bold] [3+2 LiberationSans-Bold] width 42.2871
+Helvetica-Bold emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.88
+Helvetica-Bold heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.94
+Helvetica-Bold zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.94
+Helvetica-Bold skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.94
+Helvetica-Bold mixed: LiberationSans-Bold | runs [0+3 LiberationSans-Bold] [3+1 NotoSansCJKsc-Bold] [4+1 LiberationSans-Bold] [5+2 NotoSansArabic-Bold rtl] [7+1 LiberationSans-Bold] [8+2 NotoColorEmoji] [10+1 LiberationSans-Bold] width 65.322
+Menlo latin: DejaVuSansMono | runs [0+12 DejaVuSansMono] width 86.6953
+Menlo latin extended: DejaVuSansMono | runs [0+13 DejaVuSansMono] width 93.9199
+Menlo greek: DejaVuSansMono | runs [0+5 DejaVuSansMono] width 36.123
+Menlo cyrillic: DejaVuSansMono | runs [0+6 DejaVuSansMono] width 43.3477
+Menlo chinese: NotoSansCJKsc-Regular | runs [0+2 NotoSansCJKsc-Regular] width 24
+Menlo japanese: NotoSansCJKsc-Regular | runs [0+8 NotoSansCJKsc-Regular] width 96
+Menlo korean: NotoSansCJKsc-Regular | runs [0+3 NotoSansCJKsc-Regular] width 33.12
+Menlo arabic: DejaVuSansMono | runs [0+5 DejaVuSansMono rtl] width 36.123
+Menlo hebrew: NotoSansHebrew-Regular | runs [0+4 NotoSansHebrew-Regular rtl] width 26.724
+Menlo symbols: DejaVuSansMono | runs [0+5 DejaVuSansMono] width 36.123
+Menlo emoji: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 29.88
+Menlo heart and vs16: NotoColorEmoji | runs [0+2 NotoColorEmoji] width 14.94
+Menlo zwj family: NotoColorEmoji | runs [0+8 NotoColorEmoji] width 14.94
+Menlo skin tone: NotoColorEmoji | runs [0+4 NotoColorEmoji] width 14.94
+Menlo mixed: DejaVuSansMono | runs [0+3 DejaVuSansMono] [3+1 NotoSansCJKsc-Regular] [4+1 DejaVuSansMono] [5+2 DejaVuSansMono rtl] [7+1 DejaVuSansMono] [8+2 NotoColorEmoji] [10+1 DejaVuSansMono] width 84.7369
+# the default cascade list
+cascade 0: Inter-Regular
+cascade 1: NotoSans-Regular
+cascade 2: NotoSansArabic-Regular
+cascade 3: NotoSansHebrew-Regular
+cascade 4: NotoSansCJKsc-Regular
+cascade 5: NotoSansSymbols-Regular
+cascade 6: NotoSansSymbols2-Regular
+cascade 7: DejaVuSansMono
+cascade 8: NotoColorEmoji
+# installed families
+family: DejaVu Sans Mono
+family: Inter
+family: Liberation Mono
+family: Liberation Sans
+family: Liberation Serif
+family: Noto Color Emoji
+family: Noto Sans
+family: Noto Sans Arabic
+family: Noto Sans CJK SC
+family: Noto Sans Hebrew
+family: Noto Sans Symbols
+family: Noto Sans Symbols 2
+family: Noto Serif

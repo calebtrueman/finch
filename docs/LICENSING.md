@@ -34,7 +34,8 @@ Contributions are accepted under the same dual license (inbound = outbound).
 | Skia (chrome/m155) | BSD-3 | Built and linked statically into Finch's CoreGraphics |
 | FreeType | FTL or GPL-2.0 | Taken under the FTL (BSD-style, with a credit clause), linked statically with Skia |
 | HarfBuzz, libpng, libjpeg-turbo, libwebp, wuffs, zlib (Chromium's), skcms | MIT / libpng / BSD-3 + IJG / BSD-3 / Apache 2.0 / Zlib / BSD-3 | Built with Skia, linked statically |
-| Open fonts (Inter, Liberation, Noto, ...) | OFL-1.1 | Shipped in place of Apple's fonts, which can't be redistributed |
+| Inter 4.1, Liberation 2.1.5, Noto Sans / Serif 2.015, Noto Sans Symbols 2.003 / Symbols 2 2.008 / Arabic 2.013 / Hebrew 3.001, Noto Sans CJK 2.004, Noto Color Emoji 2.051 | OFL-1.1 | Shipped unmodified (`userland/fonts/build.sh`, pinned by SHA-256) in place of Apple's fonts, which can't be redistributed. The OFL allows bundling with any software; the fonts may not be sold on their own, and a modified font must drop its Reserved Font Name. Finch doesn't modify them. |
+| DejaVu Sans Mono 2.37 | Bitstream Vera licence (DejaVu's changes public domain) | Shipped unmodified, as above. Permissive; a modified font must be renamed away from "Bitstream" and "Vera". |
 | m1n1 | MIT | Import |
 | Mesa (incl. asahi driver) | MIT | Import |
 | Asahi **documentation** (wiki, register notes) | Docs | Use as reference |
@@ -52,7 +53,8 @@ that embeds the code installs it. For example, `make -C userland/corecrypto
 install` installs OpenSSL's `LICENSE.txt` and `AUTHORS.md`. For projects built with
 `tools/build-oss.sh`, `userland/oss/<project>.notices` lists the source files to
 install (OpenBSM's and OpenPAM's `LICENSE`, ncurses' `COPYING`). libm's build
-installs CORE-MATH's and FreeBSD msun's notices. Where every source file
+installs CORE-MATH's and FreeBSD msun's notices. `userland/fonts/build.sh` installs each
+font family's licence (`OFL.txt`, `LICENSE`) at `/usr/share/finch/licenses/<family>/`. Where every source file
 carries its own notice (CORE-MATH's per-file authors, msun's mix of BSD and Sun
 fdlibm notices), `tools/collect-notices.py` collects them from exactly the
 files built in, listing each distinct notice once with the files it covers.

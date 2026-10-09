@@ -199,8 +199,12 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         Next: TIFF and HEIF, metadata (XMP), GIF writing.
   - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's.
         Fonts, lines, runs, typesetting and frames are done: `finch-ct-test` is
-        identical to Apple's on the host and in the VM (2026-10-08). Next: the open
-        fonts and Apple-name aliases, justification as Apple's.
+        identical to Apple's on the host and in the VM (2026-10-08). The open
+        fonts (`userland/fonts`: Inter, Liberation, DejaVu Sans Mono, Noto; 59 MB)
+        ship with Apple's font names aliased onto them, the UI fonts, the
+        default font and a fallback cascade for other scripts and emoji
+        (`finch-ctfonts-test`, Finch-only, 2026-10-08). Next: justification as
+        Apple's, colour glyphs (emoji) when drawing, font stylistic classes.
   - [ ] The window-server half of CoreGraphics (windows, events, displays)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
   - Display and input paths in Tier 2: [`docs/design/WINDOWSERVER-DISPLAY.md`](design/WINDOWSERVER-DISPLAY.md)

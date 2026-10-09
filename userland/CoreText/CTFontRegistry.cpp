@@ -2,10 +2,12 @@
 /*
  * The fonts CoreText knows: those registered in this process (CTFontManager,
  * and fonts made from CGFonts), and the installed ones under the system,
- * local and user font directories, indexed once by PostScript, full and
- * family name.
+ * local and user font directories (or FINCH_FONT_DIRS), indexed once by
+ * PostScript, full and family name. Apple's font names that match no font
+ * resolve to the open fonts Finch ships (../fonts/FinchFonts.h).
  */
 #include "CTRegistry.h"
+#include "../fonts/FinchFonts.h"
 #include <dirent.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -117,10 +119,8 @@ static void
 index_installed(void)
 {
     installed = new std::vector<CTInstalledFont>();
-    scan("/System/Library/Fonts", 0);
-    scan("/Library/Fonts", 0);
-    if (const char *home = getenv("HOME"))
-        scan(std::string(home) + "/Library/Fonts", 0);
+    for (const std::string &dir : finch_font_dirs())
+        scan(dir, 0);
 }
 
 const std::vector<CTInstalledFont> &
@@ -191,12 +191,10 @@ font_at(const std::string &path)
     return f;
 }
 
-CGFontRef
-CTFontRegistryCopyGraphicsFont(CFStringRef name)
+/* A registered or installed font by PostScript, full or family name. */
+static CGFontRef
+copy_named(const std::string &n)
 {
-    std::string n = utf8(name);
-    if (n.empty())
-        return NULL;
     pthread_mutex_lock(&lock);
     CGFontRef found = NULL;
     if (registered) {
@@ -220,4 +218,44 @@ CTFontRegistryCopyGraphicsFont(CFStringRef name)
         if (f.family == n && (!pick || f.style == "Regular"))
             pick = &f;
     return pick ? font_at(pick->path) : NULL;
+}
+
+CGFontRef
+CTFontRegistryCopyGraphicsFont(CFStringRef name)
+{
+    std::string n = utf8(name);
+    if (n.empty())
+        return NULL;
+    CGFontRef f = copy_named(n);
+    if (!f) {
+        if (const char *alias = finch_font_alias(n.c_str()))
+            f = copy_named(alias);
+    }
+    return f;
+}
+
+/* Is a style name (name ID 17 or 2) the face with these traits, at the family's regular width and weight? */
+static bool
+style_is(const std::string &style, bool bold, bool italic)
+{
+    static const char *plain[] = {"Regular", "Book", "Roman", "Normal", "Plain"};
+    static const char *bolds[] = {"Bold"};
+    static const char *italics[] = {"Italic", "Oblique"};
+    static const char *bold_italics[] = {"Bold Italic", "Bold Oblique", "BoldItalic", "BoldOblique"};
+    const char **list = bold && italic ? bold_italics : bold ? bolds : italic ? italics : plain;
+    size_t count = bold && italic ? 4 : bold ? 1 : italic ? 2 : 5;
+    for (size_t i = 0; i < count; i++)
+        if (!strcasecmp(style.c_str(), list[i]))
+            return true;
+    return false;
+}
+
+CGFontRef
+CTFontRegistryCopyFamilyFace(CFStringRef family, bool bold, bool italic)
+{
+    std::string fam = utf8(family);
+    for (auto &f : CTInstalledFonts())
+        if (f.family == fam && style_is(f.style, bold, italic))
+            return font_at(f.path);
+    return NULL;
 }

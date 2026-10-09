@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /*
  * The installed fonts, by PostScript name: the files under the system,
- * local and user font directories, indexed once on first use.
+ * local and user font directories (or FINCH_FONT_DIRS), indexed once on
+ * first use. Apple's font names that match no font resolve to the open fonts
+ * Finch ships, as in CoreText (../fonts/FinchFonts.h).
  */
 #include "CGFontInternal.h"
+#include "../fonts/FinchFonts.h"
 #include <dirent.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -100,10 +103,8 @@ static void
 build(void)
 {
     by_name = new std::map<std::string, std::string>();
-    scan("/System/Library/Fonts", 0);
-    scan("/Library/Fonts", 0);
-    if (const char *home = getenv("HOME"))
-        scan(std::string(home) + "/Library/Fonts", 0);
+    for (const std::string &dir : finch_font_dirs())
+        scan(dir, 0);
 }
 
 CFDataRef
@@ -114,6 +115,11 @@ CGFontRegistryCopyDataForName(CFStringRef name)
         return NULL;
     pthread_once(&once, build);
     auto it = by_name->find(buf);
+    if (it == by_name->end()) {
+        const char *alias = finch_font_alias(buf);
+        if (alias)
+            it = by_name->find(alias);
+    }
     if (it == by_name->end())
         return NULL;
     CGDataProviderRef p = CGDataProviderCreateWithFilename(it->second.c_str());

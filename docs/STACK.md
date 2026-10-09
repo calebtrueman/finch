@@ -13,9 +13,10 @@ built by Finch. Finch's CoreGraphics has begun, over Skia
 (`docs/design/COREGRAPHICS.md`): bitmap contexts draw paths, images,
 clips, shadows and transparency layers as Apple's do. Finch's ImageIO reads
 PNG, JPEG, GIF, BMP, ICO and WebP and writes PNG and JPEG over the open
-codecs Skia builds, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does.
-Finch's window server composites windows that apps draw with CoreGraphics
-into shared memory, and routes input to them (`docs/design/WINDOWSERVER.md`).
+codecs Skia builds, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does,
+in open fonts Finch ships in place of Apple's (Inter for the system font,
+Liberation for Helvetica, Arial, Times and Courier, DejaVu Sans Mono for
+Menlo, Noto for other scripts and emoji), which Apple's font names resolve to.
 
 ```mermaid
 block-beta
@@ -66,7 +67,7 @@ block-beta
         space4b[" "]
         tz["tzdata 2026c (IANA)"]
         skia["Skia m155 + FreeType, HarfBuzz,<br/>libpng, libjpeg-turbo, libwebp, wuffs<br/>(static, for CoreGraphics<br/>and ImageIO)"]
-        space4d[" "]
+        fonts["Open fonts (data, not code)<br/>Inter, Liberation, DejaVu Sans Mono,<br/>Noto Sans/Serif/CJK/Arabic/Hebrew,<br/>Symbols, Color Emoji, in place<br/>of Apple's, which can't ship"]
     end
     block:L3
         columns 4
@@ -120,9 +121,9 @@ block-beta
     class apps,shell,appkit,later,kexts,metal planned
     class desktop,cg,imageio,ctio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
-    class swift,codecs,cxx,qemu,tz,skia upstream
+    class swift,codecs,cxx,qemu,tz,skia,fonts upstream
     class vz firmware
-    class space6,space6b,space5,space5b,space5c,space4,space4b,space4d,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
+    class space6,space6b,space5,space5b,space5c,space4,space4b,space3,space3b,space3c,space3d,space2,space2b,space2c,space1 blank
 ```
 
 | Colour | Meaning |

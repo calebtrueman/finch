@@ -93,21 +93,97 @@ read and write those bytes directly.
 ## Fonts
 
 Apple's fonts can't be redistributed, so Finch ships open fonts and maps
-Apple's names to them:
+Apple's names to them. `userland/fonts/build.sh` downloads pinned upstream
+releases (each checked by SHA-256), installs the font files unmodified into
+`/System/Library/Fonts` and their licences into
+`/usr/share/finch/licenses/<family>/`. 51 files, 59 MB:
 
-| Apple font | Finch ships (licence) |
+| Font (version, licence) | Faces | Size | Stands in for |
+|---|---|---|---|
+| Inter 4.1 (OFL-1.1) | all 18 static faces, Thin to Black, upright and italic | 7.2 MB | the system font (SF Pro), Lucida Grande |
+| Liberation Sans, Serif, Mono 2.1.5 (OFL-1.1) | regular, bold, italic, bold italic | 4.2 MB | Helvetica, Helvetica Neue, Arial; Times, Times New Roman; Courier, Courier New (metric-compatible with Arial, Times New Roman and Courier New) |
+| DejaVu Sans Mono 2.37 (Bitstream Vera) | book, bold, oblique, bold oblique | 1.1 MB | Menlo, Monaco, SF Mono. Menlo is derived from DejaVu Sans Mono, so the metrics match Menlo's; JetBrains Mono doesn't. |
+| Noto Sans, Noto Serif 2.015 (OFL-1.1) | regular, bold, italic, bold italic | 3.6 MB | fallback for Latin, Greek, Cyrillic |
+| Noto Sans Symbols 2.003, Symbols 2 2.008 (OFL-1.1) | regular | 0.8 MB | Apple Symbols, symbol fallback |
+| Noto Sans Arabic 2.013, Noto Sans Hebrew 3.001 (OFL-1.1) | regular, bold | 0.3 MB | Geeza Pro, Arial Hebrew, right-to-left fallback |
+| Noto Sans CJK SC 2.004 (OFL-1.1) | regular, bold | 32 MB | PingFang, Hiragino, Apple SD Gothic Neo. Every Noto Sans CJK face covers Chinese, Japanese and Korean; the SC face because PingFang SC is Apple's default Han fallback. Japanese and Korean text gets Simplified Chinese glyph forms where they differ. |
+| Noto Color Emoji 2.051 (OFL-1.1) | CBDT colour bitmaps | 10.2 MB | Apple Color Emoji |
+
+The Noto fonts are the unhinted builds, as Finch draws glyphs unhinted.
+The fonts are installed into `build/root`, so the VM ramdisk carries them (it
+is 1 GiB, and about 470 MB was in use before the fonts).
+
+**Names.** `userland/fonts/FinchFonts.h` holds the alias table, shared by
+CoreText's registry (`CTFontCreateWithName`, descriptors) and CoreGraphics'
+(`CGFontCreateWithFontName`). A name resolves to an alias only when no
+registered or installed font has it, so a real font of that name (bundled by
+an app, or Apple's on a macOS host) always wins. Alias names compare
+ignoring case, as Apple's names do.
+
+| Apple names (PostScript, full and family) | Finch font |
 |---|---|
-| System font (SF Pro), `.AppleSystemUIFont` | Inter (OFL-1.1) |
-| SF Mono, Menlo, Monaco | JetBrains Mono or DejaVu Sans Mono (OFL / Bitstream Vera) |
-| Helvetica, Helvetica Neue, Arial | Liberation Sans (OFL-1.1, metric-compatible with Arial) |
-| Times, Times New Roman | Liberation Serif (OFL-1.1) |
-| Courier, Courier New | Liberation Mono (OFL-1.1) |
-| Apple Color Emoji | Noto Color Emoji (OFL-1.1) |
-| CJK, other scripts | Noto Sans / Serif families (OFL-1.1) |
+| Helvetica, Helvetica-Light, Helvetica Neue, HelveticaNeue(-UltraLight, -Thin, -Light, -Medium), Arial, ArialMT | LiberationSans |
+| Helvetica-Bold, HelveticaNeue-Bold, HelveticaNeue-CondensedBold, Arial-BoldMT, "Arial Bold" | LiberationSans-Bold |
+| Helvetica-Oblique, HelveticaNeue-Italic, Arial-ItalicMT | LiberationSans-Italic |
+| Helvetica-BoldOblique, HelveticaNeue-BoldItalic, Arial-BoldItalicMT | LiberationSans-BoldItalic |
+| Times, Times-Roman, Times New Roman, TimesNewRomanPSMT (and -Bold, -Italic, -BoldItalic forms) | LiberationSerif (and its faces) |
+| Courier, Courier New, CourierNewPSMT (and -Bold, -Oblique/-Italic forms) | LiberationMono (and its faces) |
+| Menlo, Menlo-Regular, Monaco, SF Mono, SFMono-Regular, .AppleSystemUIFontMonospaced | DejaVuSansMono |
+| Menlo-Bold, SFMono-Bold, SFMono-Semibold; Menlo-Italic; Menlo-BoldItalic | DejaVuSansMono-Bold; -Oblique; -BoldOblique |
+| .AppleSystemUIFont, System Font, .SF NS, .SFNS-Regular, SF Pro, SF Pro Text, SF Pro Display, SFProText-Regular, LucidaGrande, .Keyboard | Inter-Regular |
+| .AppleSystemUIFontBold, .SFNS-Bold, SFProText-Bold, LucidaGrande-Bold | Inter-Bold |
+| SF weights: Ultralight, Thin, Light, Medium, Semibold, Heavy, Black (.SFNS-, SFProText-, SFProDisplay-) | Inter-ExtraLight, -Thin, -Light, -Medium, -SemiBold, -ExtraBold, -Black |
+| Apple Color Emoji, AppleColorEmoji | NotoColorEmoji |
+| Apple Symbols | NotoSansSymbols-Regular |
+| PingFang SC/TC/HK and their faces, Hiragino Sans (W3), Hiragino Kaku Gothic ProN, Hiragino Mincho ProN, Apple SD Gothic Neo, Heiti SC | NotoSansCJKsc-Regular (Semibold, W6 and Bold faces: NotoSansCJKsc-Bold) |
+| Geeza Pro, SF Arabic; GeezaPro-Bold | NotoSansArabic-Regular; -Bold |
+| Arial Hebrew, SF Hebrew; ArialHebrew-Bold | NotoSansHebrew-Regular; -Bold |
+
+The full list is in `FinchFonts.h`. As on macOS, a name that matches nothing
+gets Helvetica (Liberation Sans), and so does text with no font attribute
+(`CTDefaultFont`, Helvetica 12). `CTFontCreateUIFontForLanguage` returns
+Apple's UI fonts at Apple's sizes (system 13, small 11, mini 9, views and
+control content 12, label 10, user font Helvetica 12, user fixed pitch Menlo
+10), emphasized ones bold: Inter-Regular or Inter-Bold. macOS refuses the
+system font's private names (`.SFNS-Regular` by name gets Times New Roman);
+Finch resolves them to Inter. `CTFontCreateCopyWithSymbolicTraits` finds a
+family's bold and italic faces among the installed fonts.
+
+**Fallback.** Where a font has no glyph, CoreText cascades through Inter,
+Noto Sans, Noto Sans Arabic, Noto Sans Hebrew, Noto Sans CJK SC, Noto Sans
+Symbols and Symbols 2, DejaVu Sans Mono, Noto Color Emoji and Liberation
+Sans, taking the bold face of each when the text is bold. Characters in the
+emoji planes, and any character followed by U+FE0F, go to the emoji font
+first; variation selectors, zero-width joiners, skin-tone modifiers and tag
+characters stay in the run of the character before them, so HarfBuzz shapes
+emoji sequences as one glyph. `CTFontCopyDefaultCascadeListForLanguages`
+returns the same list.
+
+**Font directories.** Both registries index `/System/Library/Fonts`,
+`/Library/Fonts` and `~/Library/Fonts`, as on macOS. `FINCH_FONT_DIRS`, a
+colon-separated list, replaces them, so Finch's frameworks can be run on
+the macOS host against `build/root/System/Library/Fonts` instead of Apple's
+fonts (it's ignored in set-id processes):
+
+    DYLD_FRAMEWORK_PATH=build/root/System/Library/Frameworks \
+    FINCH_FONT_DIRS=build/root/System/Library/Fonts \
+        build/userland/finch-ctfonts-test | diff userland/tests/ctfonts-expected.txt -
+
+`finch-ctfonts-test` prints what each Apple name resolves to (CoreText and
+CoreGraphics), its metrics, the UI fonts, the default font, bold and italic
+copies, and the fallback fonts and runs for Latin, Greek, Cyrillic, Chinese,
+Japanese, Korean, Arabic, Hebrew, symbols and emoji (including ZWJ and
+skin-tone sequences). Apple's run necessarily names Apple's fonts, so the
+output is compared with `ctfonts-expected.txt` rather than with Apple's.
 
 Text laid out in substituted fonts won't break lines in exactly the same
-places as on macOS. Apps that need exact metrics bundle their own fonts,
-and those load through `CTFontManager` as on macOS.
+places as on macOS (only Liberation is metric-compatible, and with Arial,
+Times New Roman and Courier New rather than Helvetica, Times and Courier).
+Apps that need exact metrics bundle their own fonts, and those load through
+`CTFontManager` as on macOS. Gaps: colour emoji are laid out but not drawn
+(CoreGraphics draws glyph outlines, and the emoji are bitmaps); fonts report
+no stylistic class (Apple sets `kCTFontSansSerifClass` and the like from the
+OS/2 table); only the first face of a `.ttc` collection is indexed.
 
 ## Testing
 
@@ -241,3 +317,10 @@ The tests follow Foundation's:
   compared), start and middle truncation are done as end truncation,
   font features (`CTFontCopyFeatures`) are empty, and the fonts Finch
   ships are still to come.
+- 2026-10-08: The open fonts (`userland/fonts`, 59 MB) and Apple's font
+  names aliased onto them in both CoreText and CoreGraphics (see "Fonts"):
+  the default font, the UI fonts, bold and italic faces of a family, and a
+  fallback cascade for other scripts and emoji. `FINCH_FONT_DIRS` points
+  both registries at `build/root`'s fonts on the host. `finch-ctfonts-test`
+  (Finch-only) matches `ctfonts-expected.txt`; `finch-ct-test` is still
+  identical to Apple's, with and without Finch's fonts.
