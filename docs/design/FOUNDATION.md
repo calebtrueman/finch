@@ -328,3 +328,10 @@ GNUstep is LGPL and isn't copied (`docs/LICENSING.md`).
   `finch-measurement-test` (522 lines: every unit, five locales, every style
   and option) and `finch-xmlparser-test` (811 lines) are identical to Apple's
   on the host. `NSXMLDocument` and the rest of the tree API aren't done.
+- 2026-10-09: NSURL's resource values (names, kinds, sizes, dates, permissions, type
+  identifiers) from lstat(2), with what each key answers for files, directories,
+  packages, symbolic links and missing files as macOS 26.4's. Type identifiers come from
+  Finch's UniformTypeIdentifiers (`userland/UniformTypeIdentifiers`): UTType over a table
+  of the system's declared types plus the app's own, and dynamic types whose `dyn.`
+  identifiers encode their tags as Apple's do. `finch-uti-test` matches Apple's on the
+  host.

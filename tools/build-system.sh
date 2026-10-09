@@ -75,6 +75,7 @@ steps=(
     "libxml2|oss libxml2"
     # Finch's Foundation (CF links it upward; docs/design/FOUNDATION.md)
     "Foundation|userland/Foundation/build.sh"
+    "UniformTypeIdentifiers|userland/UniformTypeIdentifiers/build.sh"
     "IOKit|userland/IOKit/build.sh"
     # Finch's CoreGraphics over Skia (docs/design/COREGRAPHICS.md)
     "skia|userland/skia/build.sh"
@@ -88,6 +89,7 @@ steps=(
     "ApplicationServices|userland/ApplicationServices/build.sh"
     "UIFoundation|userland/UIFoundation/build.sh"
     "AppKit|userland/AppKit/build.sh"
+    "RecapPerformanceTesting|userland/RecapPerformanceTesting/build.sh"
     "Cocoa|userland/Cocoa/build.sh"
     # Libraries Apple publishes that Finch's commands link (tools/check-closed.py).
     # libedit's generated headers come from its "make lists" target first.
