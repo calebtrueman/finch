@@ -72,6 +72,28 @@ last window the active app ordered front and asked to make key. Moving and
 resizing windows is the app's business (AppKit tracks the drag and sets the
 frame), as on macOS.
 
+## The host viewer
+
+`tools/vz/finch-viewer` (a host-side dev tool, built with
+`tools/vz/build-viewer.sh`; it uses the host's AppKit and is not part of
+Finch) is the other end of the TCP backend. It connects to the server's
+viewer port, retrying until the server is up and again if it goes away,
+opens a window the display's size in points, and applies each
+`FWS_VIEWER_FRAME` (a damaged rect in pixels and its BGRA rows) to a copy of
+the screen drawn at the window's backing scale. Mouse (moved, dragged,
+down and up for each button), scroll (points) and key events (down, up,
+flags changed: virtual key code, `CGEventFlags`, characters) go back as
+`FWS_VIEWER_INPUT` events in display points, y down; the server does click
+counts and draws the cursor, so the host's is hidden over the view.
+
+    finch-windowserver --viewer 5901 --size 1280x800 --scale 2   # in the VM or on the host
+    tools/vz/finch-viewer [host[:port]]                          # default 127.0.0.1:5901
+
+For tests, `--dump PATH [--frames N]` writes the view's rendering as a PNG
+after N frames and exits, and `--test-input X,Y` posts a click, a right
+click, a scroll and a shifted key press at X,Y through the view's event
+handlers, then exits.
+
 ## Status
 
 - 2026-10-08: design; server and client in progress.
@@ -83,3 +105,8 @@ frame), as on macOS.
   tests. Backends: headless, and the TCP viewer stream (the host viewer is
   next). `finch-ws-test` (Finch-only, against `ws-test.expected`) passes on
   the host and in the VM.
+- 2026-10-08: the host viewer, `tools/vz/finch-viewer`: frames (the full
+  screen on connect, then damaged rects) and input (mouse, scroll, keys)
+  work end to end against `finch-windowserver --viewer` on the host, with a
+  client drawing a window; it waits for the server and reconnects, taking a
+  new display size.

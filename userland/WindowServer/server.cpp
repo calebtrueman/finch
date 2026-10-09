@@ -818,6 +818,10 @@ main(int argc, char **argv)
     int listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     struct sockaddr_un addr = {};
     addr.sun_family = AF_UNIX;
+    if (strlen(socket_path) >= sizeof addr.sun_path) {
+        logf("socket path too long (at most %zu bytes): %s", sizeof addr.sun_path - 1, socket_path);
+        return 1;
+    }
     snprintf(addr.sun_path, sizeof addr.sun_path, "%s", socket_path);
     unlink(socket_path);
     if (bind(listen_fd, (struct sockaddr *)&addr, sizeof addr) < 0 || listen(listen_fd, 16) < 0) {

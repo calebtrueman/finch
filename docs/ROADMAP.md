@@ -209,7 +209,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         cursor, input routing (capture, click counts, key window), the window list,
         and a headless backend; CoreGraphics' `FWS*` client and its display and
         window-list API. `finch-ws-test` passes on the host and in the VM (2026-10-08).
-  - [ ] The host viewer (`tools/vz/finch-viewer`) for the TCP backend
+  - [x] The host viewer (`tools/vz/finch-viewer`) for the TCP backend: frames into
+        a host window at the display's scale, mouse, scroll and key input back,
+        reconnecting; tested end to end on the host (2026-10-08).
   - [ ] CGEvent, and the server on the Tier 2 display
 - [ ] AppKit
 - [ ] TextEdit or Calculator launches and is usable

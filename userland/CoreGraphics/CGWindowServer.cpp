@@ -161,7 +161,7 @@ connect_locked(void)
     struct sockaddr_un addr = {};
     addr.sun_family = AF_UNIX;
     snprintf(addr.sun_path, sizeof addr.sun_path, "%s", path);
-    if (fd < 0 || connect(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
+    if (fd < 0 || strlen(path) >= sizeof addr.sun_path || connect(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
         if (fd >= 0)
             close(fd);
         return false;
