@@ -71,7 +71,7 @@ decode_argb(const uint8_t *d, size_t n, size_t w, IIOPixels &out)
     if (o != ch.size())
         return false;
     out.alloc(w, w, 8, 32);
-    out.info = kCGImageAlphaLast | kCGBitmapByteOrderDefault;
+    out.info = kCGImageAlphaLast | kCGBitmapByteOrder32Big;
     out.set_space(CGColorSpaceCreateWithName(kCGColorSpaceSRGB));
     for (size_t k = 0; k < total; k++) {
         uint8_t *px = &out.data[k * 4];
@@ -136,8 +136,8 @@ struct ICNSCodec : IIOCodec {
                 d.i32(kCGImagePropertyPixelHeight, (int32_t)ic.pixels);
                 d.set(kCGImagePropertyProfileName, cf("sRGB IEC61966-2.1"));
             }
-            d.i32(kCGImagePropertyDPIWidth, ic.dpi);
-            d.i32(kCGImagePropertyDPIHeight, ic.dpi);
+            d.f64(kCGImagePropertyDPIWidth, ic.dpi);
+            d.f64(kCGImagePropertyDPIHeight, ic.dpi);
             d.set(CFSTR("kCGImagePropertyICNSIndexSelector"), cf(ic.type));
             count++;
             ready.push_back(true);
