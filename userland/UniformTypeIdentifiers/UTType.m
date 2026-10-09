@@ -522,3 +522,15 @@ _UTFinchLocalizedDescription(NSString *identifier)
         return [[[d substringToIndex:1] uppercaseString] stringByAppendingString:[d substringFromIndex:1]];
     return @"Document";
 }
+
+/* For LaunchServices' UTType C API: the dynamic identifier for a tag, conforming to a type or (nil) to none. */
+__attribute__((visibility("default"))) NSString *
+_UTFinchDynamicIdentifier(NSString *tagClass, NSString *tag, NSString *conformsTo)
+{
+    if (!tagClass || !tag)
+        return nil;
+    NSString *payload = [NSString stringWithFormat:@"%@%@=%@",
+                                                   conformsTo ? [NSString stringWithFormat:@"?0=%@:", escape(code_for(conformsTo))] : @"",
+                                                   escape(code_for(tagClass)), escape(tag)];
+    return encode(payload);
+}

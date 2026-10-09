@@ -1,0 +1,7 @@
+_SC*
+_kSC*
+_kCFErrorDomainSystemConfiguration
+_CNCopy*
+_CNSet*
+_CNMarkPortal*
+_DHCP*
