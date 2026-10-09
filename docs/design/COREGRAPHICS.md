@@ -222,3 +222,22 @@ The tests follow Foundation's:
   `CGFontCreateWithFontName` looks fonts up by PostScript name in the font
   directories. Skia is built with HarfBuzz now, for CoreText's shaping and
   PDF font subsetting.
+- 2026-10-08: CoreText (`userland/CoreText`), linked as Apple's (Versions/A,
+  877.4), with every public function and constant (Apple's 130 constant
+  values). CTFont reads metrics from the font's tables (OS/2 typographic
+  metrics when the font asks for them), CTLine shapes with HarfBuzz after
+  splitting by attributes, ICU bidi levels and font coverage, and the
+  typesetter cuts lines from text shaped once, as Apple's does, so a line
+  broken mid-word keeps its kerning. Details matched: caret offsets sit
+  halfway into the kerning and tracking after a glyph and divide
+  ligatures evenly; `kCTKernAttributeName` tracks every glyph; line ends
+  take the space glyph with no advance, tabs advance to twelve 28-point
+  stops, other controls show nothing; cluster breaks count trailing
+  whitespace and line breaks don't; frames round each line's ascent,
+  descent and leading and keep a line only when its descent fits.
+  `finch-ct-test` (fonts, lines, runs, frames, alignment, indents,
+  breaking) is identical to Apple's on the host and in the VM. Gaps:
+  justification spreads space differently from Apple's (not yet
+  compared), start and middle truncation are done as end truncation,
+  font features (`CTFontCopyFeatures`) are empty, and the fonts Finch
+  ships are still to come.

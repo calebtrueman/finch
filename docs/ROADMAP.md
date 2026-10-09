@@ -197,9 +197,13 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         destinations, and all 750 public property keys are done: `finch-imageio-test`
         is identical to Apple's on the host and in the VM (2026-10-08).
         Next: TIFF and HEIF, metadata (XMP), GIF writing.
-  - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's
+  - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's.
+        Fonts, lines, runs, typesetting and frames are done: `finch-ct-test` is
+        identical to Apple's on the host and in the VM (2026-10-08). Next: the open
+        fonts and Apple-name aliases, justification as Apple's.
   - [ ] The window-server half of CoreGraphics (windows, events, displays)
 - [ ] Finch window server and compositor (software rendering), on the Tier 2 display
+  - Display and input paths in Tier 2: [`docs/design/WINDOWSERVER-DISPLAY.md`](design/WINDOWSERVER-DISPLAY.md)
 - [ ] AppKit
 - [ ] TextEdit or Calculator launches and is usable
 

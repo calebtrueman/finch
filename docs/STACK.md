@@ -13,7 +13,7 @@ built by Finch. Finch's CoreGraphics has begun, over Skia
 (`docs/design/COREGRAPHICS.md`): bitmap contexts draw paths, images,
 clips, shadows and transparency layers as Apple's do. Finch's ImageIO reads
 PNG, JPEG, GIF, BMP, ICO and WebP and writes PNG and JPEG over the open
-codecs Skia builds, returning the CGImages and properties Apple's does.
+codecs Skia builds, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does.
 
 ```mermaid
 block-beta
@@ -32,7 +32,7 @@ block-beta
         cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms)"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
-        ctio["CoreText"]
+        ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]
         later["QuartzCore, Metal, SwiftUI, AV"]
         space6b[" "]
     end
@@ -115,8 +115,8 @@ block-beta
     classDef firmware fill:#fee2e2,stroke:#b91c1c,color:#450a0a
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
-    class apps,desktop,shell,appkit,ctio,later,kexts,metal planned
-    class cg,imageio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class apps,desktop,shell,appkit,later,kexts,metal planned
+    class cg,imageio,ctio,cf,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia upstream
     class vz firmware
@@ -147,6 +147,7 @@ flowchart LR
     gcore["GCoreFramework"]:::apple
     ffound["Foundation"]:::finch
     cgfw["CoreGraphics"]:::finch
+    ctfw["CoreText"]:::finch
     imageio["ImageIO"]:::finch
     skialib["Skia, FreeType<br/>(static)"]:::upstream
     cxxlib["libc++"]:::upstream
@@ -182,6 +183,10 @@ flowchart LR
     xml --> z
     iokit --> cf
     cgfw --> cf
+    ctfw --> cgfw
+    ctfw --> cf
+    ctfw --> icu
+    ctfw --> skialib
     cgfw --> skialib
     cgfw --> cxxlib
     imageio --> cgfw

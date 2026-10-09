@@ -193,6 +193,25 @@ CGFontCreateWithPlatformFont(void *ref)
     return NULL;
 }
 
+/*
+ * Finch's own (not Apple's API): the font's file data and variation
+ * coordinates, for CoreText, which shapes with the same bytes.
+ */
+extern "C" CFDataRef CGFontFinchCopyData(CGFontRef f, CFIndex *axisCount, double *coords, CFIndex maxCoords);
+
+CFDataRef
+CGFontFinchCopyData(CGFontRef f, CFIndex *axisCount, double *coords, CFIndex maxCoords)
+{
+    if (!f)
+        return NULL;
+    CFIndex n = f->coords ? (CFIndex)f->coords->size() : 0;
+    if (axisCount)
+        *axisCount = n;
+    for (CFIndex i = 0; coords && i < n && i < maxCoords; i++)
+        coords[i] = (*f->coords)[i];
+    return (CFDataRef)CFRetain(f->data);
+}
+
 CGFontRef CGFontRetain(CGFontRef f) { return f ? (CGFontRef)CFRetain(f) : NULL; }
 void CGFontRelease(CGFontRef f) { if (f) CFRelease(f); }
 
