@@ -187,8 +187,8 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         bitmap contexts and drawing (fills, strokes, dashes, clips, masks, images,
         blend modes, shadows, transparency layers) are done: `finch-cg-test` is
         identical to Apple's, and `finch-cg-draw-test` matches Apple's renders, on
-        the host and in the VM (2026-10-08). Next: gradients, shadings, patterns,
-        CGLayer, PDF.
+        the host and in the VM (2026-10-08). Gradients (linear, radial, conic),
+        shadings, patterns and CGLayer too (2026-10-08). Next: PDF.
   - [ ] ImageIO over Skia's codecs
   - [ ] CoreText over HarfBuzz and FreeType, with open fonts in place of Apple's
   - [ ] The window-server half of CoreGraphics (windows, events, displays)

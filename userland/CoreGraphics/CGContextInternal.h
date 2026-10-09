@@ -14,6 +14,7 @@
 struct CGGState {
     CGAffineTransform ctm;        /* user space to the context's default user space */
     CGColorRef fill, stroke;      /* retained */
+    CGColorSpaceRef fill_pattern_space, stroke_pattern_space;  /* set by a pattern colour space, until the pattern */
     CGFloat line_width, miter_limit, flatness;
     CGLineCap cap;
     CGLineJoin join;
@@ -63,6 +64,12 @@ struct CGContext {
     CGAffineTransform text_matrix;
     void *pdf;                    /* PDF context state */
 };
+
+/* Fill the clip with a shader given in user space, with the state's alpha, blend mode and shadow. */
+CG_PRIVATE void CGContextPaintShader(CGContextRef c, sk_sp<SkShader> shader);
+/* A colour's components converted to the context's drawing space, as Skia takes them. */
+CG_PRIVATE SkColor4f CGContextConvertComponents(CGContextRef c, CGColorSpaceRef space, const CGFloat *components);
+CG_PRIVATE CGAffineTransform CGContextUserToDevice(CGContextRef c);
 
 static inline CGGState &
 CGContextState(CGContextRef c)

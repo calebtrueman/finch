@@ -38,6 +38,10 @@ gstate_release(CGGState &g)
         CFRelease(g.shadow_color);
     if (g.font)
         CFRelease(g.font);
+    if (g.fill_pattern_space)
+        CFRelease(g.fill_pattern_space);
+    if (g.stroke_pattern_space)
+        CFRelease(g.stroke_pattern_space);
 }
 
 static void
@@ -51,6 +55,10 @@ gstate_retain(CGGState &g)
         CFRetain(g.shadow_color);
     if (g.font)
         CFRetain(g.font);
+    if (g.fill_pattern_space)
+        CFRetain(g.fill_pattern_space);
+    if (g.stroke_pattern_space)
+        CFRetain(g.stroke_pattern_space);
 }
 
 static void
@@ -371,8 +379,31 @@ set_space(CGColorRef *slot, CGColorSpaceRef space)
     }
 }
 
-void CGContextSetFillColorSpace(CGContextRef c, CGColorSpaceRef s) { if (c) set_space(&CGContextState(c).fill, s); }
-void CGContextSetStrokeColorSpace(CGContextRef c, CGColorSpaceRef s) { if (c) set_space(&CGContextState(c).stroke, s); }
+static void
+remember_pattern_space(CGColorSpaceRef *slot, CGColorSpaceRef s)
+{
+    if (*slot)
+        CFRelease(*slot);
+    *slot = s && s->kind == CG_SPACE_PATTERN ? (CGColorSpaceRef)CFRetain(s) : NULL;
+}
+
+void
+CGContextSetFillColorSpace(CGContextRef c, CGColorSpaceRef s)
+{
+    if (!c || !s)
+        return;
+    remember_pattern_space(&CGContextState(c).fill_pattern_space, s);
+    set_space(&CGContextState(c).fill, s);
+}
+
+void
+CGContextSetStrokeColorSpace(CGContextRef c, CGColorSpaceRef s)
+{
+    if (!c || !s)
+        return;
+    remember_pattern_space(&CGContextState(c).stroke_pattern_space, s);
+    set_space(&CGContextState(c).stroke, s);
+}
 
 static void
 set_components(CGColorRef *slot, const CGFloat *v)
@@ -681,13 +712,47 @@ CGContextColor(CGContextRef c, CGColorRef color)
     return SkColor4f{(float)out[0], (float)out[1], (float)out[2], (float)a};
 }
 
+SkColor4f
+CGContextConvertComponents(CGContextRef c, CGColorSpaceRef space, const CGFloat *v)
+{
+    size_t n = CGColorSpaceGetNumberOfComponents(space);
+    if (!c->draw_space)
+        return SkColor4f{0, 0, 0, (float)v[n]};
+    CGFloat out[CG_COLOR_MAX_COMPONENTS];
+    CGColorSpaceConvertComponents(space, v, c->draw_space, out);
+    if (CGColorSpaceGetModel(c->draw_space) == kCGColorSpaceModelMonochrome)
+        return SkColor4f{(float)out[0], (float)out[0], (float)out[0], (float)v[n]};
+    return SkColor4f{(float)out[0], (float)out[1], (float)out[2], (float)v[n]};
+}
+
+CGAffineTransform
+CGContextUserToDevice(CGContextRef c)
+{
+    return user_to_device(c);
+}
+
+CG_PRIVATE sk_sp<SkShader> CGPatternShader(CGContextRef c, CGColorRef color, const CGAffineTransform &to_canvas);
+CG_PRIVATE void CGPatternDrawCells(CGContextRef c, CGColorRef color, const SkPath &path, const SkPaint &paint,
+                                   const CGAffineTransform &default_to_canvas);
+
+/*
+ * The paint for a colour: `default_to_canvas` maps the default user space
+ * to the space the canvas will draw in (identity when filling in the
+ * default user space), which places pattern cells.
+ */
 static void
-base_paint(CGContextRef c, SkPaint &paint, CGColorRef color)
+base_paint(CGContextRef c, SkPaint &paint, CGColorRef color,
+           const CGAffineTransform &default_to_canvas = CGAffineTransformIdentity)
 {
     CGGState &g = CGContextState(c);
-    SkColor4f col = color ? CGContextColor(c, color) : SkColor4f{0, 0, 0, 1};
-    col.fA *= (float)g.alpha;
-    paint.setColor(col, c->skspace ? c->skspace->get() : nullptr);
+    if (color && CGColorGetPattern(color)) {
+        paint.setColor(SkColor4f{0, 0, 0, (float)g.alpha});
+        paint.setShader(CGPatternShader(c, color, default_to_canvas));
+    } else {
+        SkColor4f col = color ? CGContextColor(c, color) : SkColor4f{0, 0, 0, 1};
+        col.fA *= (float)g.alpha;
+        paint.setColor(col, c->skspace ? c->skspace->get() : nullptr);
+    }
     paint.setBlendMode(sk_blend(g.blend));
     paint.setAntiAlias(g.antialias && g.allows_antialias);
 }
@@ -831,14 +896,22 @@ draw_path(CGContextRef c, CGPathDrawingMode mode)
         SkPaint paint;
         base_paint(c, paint, g.fill);
         c->canvas->setMatrix(base);
-        draw_covering(c, fill_path, paint, bounds);
+        if (CGColorGetPattern(g.fill))
+            CGPatternDrawCells(c, g.fill, fill_path, paint, CGAffineTransformIdentity);
+        else
+            draw_covering(c, fill_path, paint, bounds);
     }
     if (stroke && !singular) {
         SkPaint paint;
-        base_paint(c, paint, g.stroke);
+        base_paint(c, paint, g.stroke, inv);
         stroke_paint(c, paint);
         c->canvas->setMatrix(user);
-        draw_covering(c, stroke_path, paint, bounds);
+        if (CGColorGetPattern(g.stroke)) {
+            SkPath outline = skpathutils::FillPathWithPaint(stroke_path, paint);
+            CGPatternDrawCells(c, g.stroke, outline, paint, inv);
+        } else {
+            draw_covering(c, stroke_path, paint, bounds);
+        }
     }
 }
 
@@ -957,6 +1030,22 @@ CGContextStrokeLineSegments(CGContextRef c, const CGPoint *points, size_t count)
     }
     draw_temporary(c, p, kCGPathStroke);
     CFRelease(p);
+}
+
+void
+CGContextPaintShader(CGContextRef c, sk_sp<SkShader> shader)
+{
+    if (!c || !c->canvas || !shader)
+        return;
+    CGGState &g = CGContextState(c);
+    Op op(c, SkRect::MakeWH((float)c->width, (float)c->height));
+    SkPaint paint;
+    paint.setShader(std::move(shader));
+    paint.setAlphaf((float)g.alpha);
+    paint.setBlendMode(sk_blend(g.blend));
+    paint.setDither(false);
+    c->canvas->setMatrix(CGSkMatrix(user_to_device(c)));
+    c->canvas->drawPaint(paint);
 }
 
 #pragma mark - Clipping

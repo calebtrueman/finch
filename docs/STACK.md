@@ -26,7 +26,7 @@ block-beta
         columns 4
         t6["App frameworks"]
         appkit["AppKit"]
-        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>colour spaces, clipping, shadows,<br/>layers (over Skia, skcms)"]
+        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, shadows,<br/>layers (over Skia, skcms)"]
         ctio["CoreText, ImageIO"]
         space6[" "]
         later["QuartzCore, Metal, SwiftUI, AV"]

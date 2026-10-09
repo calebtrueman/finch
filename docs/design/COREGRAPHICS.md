@@ -176,3 +176,13 @@ The tests follow Foundation's:
 - Known gap: CMYK. Apple converts CMYK through its Generic CMYK profile,
   which can't be shipped; Finch converts naively until an open CMYK profile
   is chosen. The draw test leaves CMYK out.
+- 2026-10-08: gradients, shadings, functions, patterns and CGLayer. CG
+  extends a gradient past each end independently, which Skia's tile modes
+  can't, so the gradient's domain is stretched past each end that extends
+  (a radial one only until its radius reaches 0) and left transparent past
+  the others. Gradients interpolate in their own colour space (sampled and
+  converted when the context draws in another). Pattern cells are recorded
+  as Skia pictures and drawn cell by cell, clipped to the shape, as Apple's
+  are: antialiased cell edges show where cells meet. Known gap: with
+  rotated pattern matrices, Apple's cells are spaced slightly differently
+  (some device-pixel snapping not yet worked out).

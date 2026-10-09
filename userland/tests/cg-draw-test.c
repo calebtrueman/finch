@@ -397,6 +397,179 @@ s_colors(CGContextRef c)
     CGColorSpaceRelease(p3);
 }
 
+
+static CGGradientRef
+rainbow(void)
+{
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+    CGFloat comps[] = {1, 0, 0, 1, 0, 1, 0, 0.6, 0, 0, 1, 1};
+    CGFloat locs[] = {0, 0.4, 1};
+    CGGradientRef g = CGGradientCreateWithColorComponents(rgb, comps, locs, 3);
+    CGColorSpaceRelease(rgb);
+    return g;
+}
+
+static void
+s_linear(CGContextRef c)
+{
+    CGGradientRef g = rainbow();
+    CGContextDrawLinearGradient(c, g, CGPointMake(16, 10), CGPointMake(48, 50), 0);
+    CGGradientRelease(g);
+}
+
+static void
+s_linear_extend(CGContextRef c)
+{
+    CGGradientRef g = rainbow();
+    CGContextDrawLinearGradient(c, g, CGPointMake(16, 10), CGPointMake(48, 50),
+                                kCGGradientDrawsBeforeStartLocation | kCGGradientDrawsAfterEndLocation);
+    CGGradientRelease(g);
+}
+
+static void
+s_linear_before(CGContextRef c)
+{
+    CGGradientRef g = rainbow();
+    CGContextAddEllipseInRect(c, CGRectMake(4, 4, 56, 56));
+    CGContextClip(c);
+    CGContextDrawLinearGradient(c, g, CGPointMake(20, 32), CGPointMake(44, 32), kCGGradientDrawsBeforeStartLocation);
+    CGGradientRelease(g);
+}
+
+static void
+s_radial(CGContextRef c)
+{
+    CGGradientRef g = rainbow();
+    CGContextDrawRadialGradient(c, g, CGPointMake(32, 32), 4, CGPointMake(32, 32), 26, 0);
+    CGGradientRelease(g);
+}
+
+static void
+s_radial_two(CGContextRef c)
+{
+    CGGradientRef g = rainbow();
+    CGContextDrawRadialGradient(c, g, CGPointMake(24, 26), 2, CGPointMake(36, 36), 22,
+                                kCGGradientDrawsBeforeStartLocation | kCGGradientDrawsAfterEndLocation);
+    CGGradientRelease(g);
+}
+
+static void
+s_radial_after(CGContextRef c)
+{
+    CGGradientRef g = rainbow();
+    CGContextDrawRadialGradient(c, g, CGPointMake(32, 32), 0, CGPointMake(32, 32), 16, kCGGradientDrawsAfterEndLocation);
+    CGGradientRelease(g);
+}
+
+static void
+s_gradient_colors(CGContextRef c)
+{
+    CGColorRef a = CGColorCreateSRGB(1, 1, 1, 1), b = CGColorCreateGenericGray(0.2, 1);
+    const void *cs[] = {a, b};
+    CFArrayRef arr = CFArrayCreate(NULL, cs, 2, &kCFTypeArrayCallBacks);
+    CGGradientRef g = CGGradientCreateWithColors(NULL, arr, NULL);
+    CGContextDrawLinearGradient(c, g, CGPointMake(0, 0), CGPointMake(64, 0), 0);
+    CGGradientRelease(g);
+    CFRelease(arr);
+    CGColorRelease(a);
+    CGColorRelease(b);
+}
+
+static void
+s_conic(CGContextRef c)
+{
+    CGGradientRef g = rainbow();
+    CGContextDrawConicGradient(c, g, CGPointMake(32, 32), M_PI / 4);
+    CGGradientRelease(g);
+}
+
+static void
+ramp(void *info, const CGFloat *in, CGFloat *out)
+{
+    CGFloat t = in[0];
+    out[0] = t, out[1] = 1 - t, out[2] = 0.5 + 0.5 * sin(t * 6), out[3] = 1;
+}
+
+static void
+s_shading(CGContextRef c)
+{
+    CGFloat domain[2] = {0, 1}, range[8] = {0, 1, 0, 1, 0, 1, 0, 1};
+    CGFunctionCallbacks cb = {0, ramp, NULL};
+    CGFunctionRef f = CGFunctionCreate(NULL, 1, domain, 4, range, &cb);
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+    CGShadingRef sh = CGShadingCreateAxial(rgb, CGPointMake(8, 8), CGPointMake(56, 30), f, false, true);
+    CGContextDrawShading(c, sh);
+    CGShadingRelease(sh);
+    sh = CGShadingCreateRadial(rgb, CGPointMake(20, 44), 2, CGPointMake(20, 44), 14, f, true, false);
+    CGContextDrawShading(c, sh);
+    CGShadingRelease(sh);
+    CGColorSpaceRelease(rgb);
+    CGFunctionRelease(f);
+}
+
+static void
+cell(void *info, CGContextRef c)
+{
+    CGContextSetRGBFillColor(c, 0.9, 0.5, 0.1, 1);
+    CGContextFillRect(c, CGRectMake(0, 0, 6, 6));
+    CGContextSetRGBFillColor(c, 0.1, 0.3, 0.8, 1);
+    CGContextFillEllipseInRect(c, CGRectMake(5, 5, 6, 6));
+}
+
+static void
+stencil_cell(void *info, CGContextRef c)
+{
+    CGContextFillRect(c, CGRectMake(0, 0, 4, 8));
+}
+
+static void
+s_pattern(CGContextRef c)
+{
+    CGPatternCallbacks cb = {0, cell, NULL};
+    CGPatternRef p = CGPatternCreate(NULL, CGRectMake(0, 0, 12, 12), CGAffineTransformMakeTranslation(2, 3), 12, 12,
+                                     kCGPatternTilingConstantSpacing, true, &cb);
+    CGColorSpaceRef ps = CGColorSpaceCreatePattern(NULL);
+    CGContextSetFillColorSpace(c, ps);
+    CGFloat alpha = 1;
+    CGContextSetFillPattern(c, p, &alpha);
+    CGContextScaleCTM(c, 2, 2);  /* the pattern isn't scaled with the CTM */
+    CGContextFillRect(c, CGRectMake(2, 2, 26, 26));
+    CGColorSpaceRelease(ps);
+    CGPatternRelease(p);
+}
+
+static void
+s_pattern_stencil(CGContextRef c)
+{
+    CGPatternCallbacks cb = {0, stencil_cell, NULL};
+    /* (rotated cells space slightly differently on Apple's: not compared) */
+    CGPatternRef p = CGPatternCreate(NULL, CGRectMake(0, 0, 8, 8), CGAffineTransformMake(1.5, 0, 0, 1.25, 3, 1), 8, 8,
+                                     kCGPatternTilingConstantSpacing, false, &cb);
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB(), ps = CGColorSpaceCreatePattern(rgb);
+    CGContextSetFillColorSpace(c, ps);
+    CGFloat comps[4] = {0.2, 0.6, 0.2, 1};
+    CGContextSetFillPattern(c, p, comps);
+    CGContextFillEllipseInRect(c, CGRectMake(4, 4, 56, 56));
+    CGColorSpaceRelease(ps);
+    CGColorSpaceRelease(rgb);
+    CGPatternRelease(p);
+}
+
+static void
+s_cglayer(CGContextRef c)
+{
+    CGLayerRef l = CGLayerCreateWithContext(c, CGSizeMake(16, 16), NULL);
+    CGContextRef lc = CGLayerGetContext(l);
+    CGContextSetRGBFillColor(lc, 0.7, 0.1, 0.4, 1);
+    CGContextFillEllipseInRect(lc, CGRectMake(0, 0, 16, 16));
+    CGContextSetRGBFillColor(lc, 1, 1, 1, 1);
+    CGContextFillRect(lc, CGRectMake(6, 6, 4, 4));
+    CGContextDrawLayerAtPoint(c, CGPointMake(4, 40), l);
+    CGContextDrawLayerAtPoint(c, CGPointMake(40, 4), l);
+    CGContextDrawLayerInRect(c, CGRectMake(20, 16, 24, 24), l);
+    CGLayerRelease(l);
+}
+
 typedef struct {
     const char *name;
     int fmt;
@@ -440,6 +613,19 @@ static const Scene scenes[] = {
     {"colours gray", FMT_GRAY, s_colors},
     {"image ARGB", FMT_ARGB, s_image_none},
     {"stroke 16-bit", FMT_RGBA16, s_stroke},
+    {"linear gradient", FMT_RGBA, s_linear},
+    {"linear gradient extended", FMT_RGBA, s_linear_extend},
+    {"linear gradient before start, clipped", FMT_RGBA, s_linear_before},
+    {"radial gradient", FMT_RGBA, s_radial},
+    {"radial gradient, two centres, extended", FMT_RGBA, s_radial_two},
+    {"radial gradient after end", FMT_RGBA, s_radial_after},
+    {"gradient from colours", FMT_RGBA, s_gradient_colors},
+    {"conic gradient", FMT_RGBA, s_conic},
+    {"shadings", FMT_RGBA, s_shading},
+    {"linear gradient gray", FMT_GRAY, s_linear},
+    {"coloured pattern", FMT_RGBA, s_pattern},
+    {"uncoloured pattern", FMT_RGBA, s_pattern_stencil},
+    {"CGLayer", FMT_RGBA, s_cglayer},
 };
 #define NSCENES (sizeof scenes / sizeof scenes[0])
 #define SIZE 64
