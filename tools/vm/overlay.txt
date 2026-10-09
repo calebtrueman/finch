@@ -59,6 +59,8 @@ userland/tests/ctfonts-expected.txt /usr/local/share/finch/ctfonts-expected.txt
 build/userland/finch-ws-test /usr/local/bin/finch-ws-test
 build/userland/finch-imageio-test /usr/local/bin/finch-imageio-test
 userland/tests/cg-draw-reference.bin /usr/local/share/finch/cg-draw-reference.bin
+build/userland/finch-cgpdf-test /usr/local/bin/finch-cgpdf-test
+userland/tests/cgpdf-reference.bin /usr/local/share/finch/cgpdf-reference.bin
 build/src/skia/resources/fonts/Roboto-Regular.ttf /usr/local/share/finch/test-fonts/Roboto-Regular.ttf
 build/src/skia/resources/fonts/Distortable.ttf /usr/local/share/finch/test-fonts/Distortable.ttf
 build/userland/finch-log-test /usr/local/bin/finch-log-test

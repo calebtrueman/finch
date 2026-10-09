@@ -26,6 +26,7 @@
 CG_PRIVATE void CGBitmapContextFinalize(CGContextRef c);
 CG_PRIVATE void CGContextSyncFromClient(CGContextRef c, const SkIRect &r);
 CG_PRIVATE void CGContextSyncToClient(CGContextRef c, const SkIRect &r);
+CG_PRIVATE void CGPDFContextFinalize(CGContextRef c);
 
 static void
 gstate_release(CGGState &g)
@@ -74,6 +75,8 @@ context_finalize(CFTypeRef cf)
         CFRelease(c->path);
     if (c->type == CG_CONTEXT_BITMAP)
         CGBitmapContextFinalize(c);
+    if (c->type == CG_CONTEXT_PDF)
+        CGPDFContextFinalize(c);
     delete c->surface;
     delete c->work;
     delete c->skspace;
@@ -190,6 +193,13 @@ user_to_device(CGContextRef c)
     return CGAffineTransformConcat(CGContextState(c).ctm, c->base_ctm);
 }
 
+/* What the context reports as device space: a PDF context's is the page's default user space. */
+static CGAffineTransform
+reported_device(CGContextRef c)
+{
+    return c->type == CG_CONTEXT_PDF ? CGContextState(c).ctm : user_to_device(c);
+}
+
 void
 CGContextScaleCTM(CGContextRef c, CGFloat sx, CGFloat sy)
 {
@@ -227,13 +237,13 @@ CGContextGetCTM(CGContextRef c)
 CGAffineTransform
 CGContextGetUserSpaceToDeviceSpaceTransform(CGContextRef c)
 {
-    return c ? user_to_device(c) : CGAffineTransformIdentity;
+    return c ? reported_device(c) : CGAffineTransformIdentity;
 }
 
 CGPoint
 CGContextConvertPointToDeviceSpace(CGContextRef c, CGPoint p)
 {
-    return c ? CGPointApplyAffineTransform(p, user_to_device(c)) : p;
+    return c ? CGPointApplyAffineTransform(p, reported_device(c)) : p;
 }
 
 /* Solved directly rather than through the inverse, as Apple's is (it rounds differently). */
@@ -242,7 +252,7 @@ CGContextConvertPointToUserSpace(CGContextRef c, CGPoint p)
 {
     if (!c)
         return p;
-    CGAffineTransform t = user_to_device(c);
+    CGAffineTransform t = reported_device(c);
     CGFloat det = t.a * t.d - t.b * t.c;
     if (det == 0)
         return p;
@@ -255,25 +265,25 @@ CGContextConvertPointToUserSpace(CGContextRef c, CGPoint p)
 CGSize
 CGContextConvertSizeToDeviceSpace(CGContextRef c, CGSize s)
 {
-    return c ? CGSizeApplyAffineTransform(s, user_to_device(c)) : s;
+    return c ? CGSizeApplyAffineTransform(s, reported_device(c)) : s;
 }
 
 CGSize
 CGContextConvertSizeToUserSpace(CGContextRef c, CGSize s)
 {
-    return c ? CGSizeApplyAffineTransform(s, CGAffineTransformInvert(user_to_device(c))) : s;
+    return c ? CGSizeApplyAffineTransform(s, CGAffineTransformInvert(reported_device(c))) : s;
 }
 
 CGRect
 CGContextConvertRectToDeviceSpace(CGContextRef c, CGRect r)
 {
-    return c ? CGRectApplyAffineTransform(r, user_to_device(c)) : r;
+    return c ? CGRectApplyAffineTransform(r, reported_device(c)) : r;
 }
 
 CGRect
 CGContextConvertRectToUserSpace(CGContextRef c, CGRect r)
 {
-    return c ? CGRectApplyAffineTransform(r, CGAffineTransformInvert(user_to_device(c))) : r;
+    return c ? CGRectApplyAffineTransform(r, CGAffineTransformInvert(reported_device(c))) : r;
 }
 
 void CGContextSetLineWidth(CGContextRef c, CGFloat w) { if (c && w >= 0) CGContextState(c).line_width = w; }
@@ -829,7 +839,7 @@ device_bounds(CGContextRef c, const SkPath &path, const SkMatrix &m, float strok
 static void
 draw_covering(CGContextRef c, const SkPath &path, SkPaint paint, const SkRect &device_bounds)
 {
-    if (paint.isAntiAlias()) {
+    if (paint.isAntiAlias() || c->type == CG_CONTEXT_PDF) {
         c->canvas->drawPath(path, paint);
         return;
     }
@@ -1174,7 +1184,7 @@ static SkSamplingOptions
 sampling(CGContextRef c, CGImageRef image)
 {
     CGInterpolationQuality q = CGContextState(c).interpolation;
-    if (q == kCGInterpolationNone || (image && !image->interpolate && q == kCGInterpolationDefault))
+    if (q == kCGInterpolationNone)  /* Apple's smooths at the default quality even when the image says not to */
         return SkSamplingOptions(SkFilterMode::kNearest);
     if (q == kCGInterpolationLow)
         return SkSamplingOptions(SkFilterMode::kLinear);

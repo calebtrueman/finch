@@ -69,7 +69,7 @@ fails if `libskia.a` references any `CG*` or `CT*` symbol.
 | CoreGraphics: contexts, paths, colours, images, gradients | Skia (`SkCanvas`, `SkPath`, `SkPaint`, shaders) |
 | CoreGraphics: colour spaces, ICC profiles | skcms (Skia's, BSD-3), with lcms2 (MIT) if it falls short |
 | CoreGraphics: `CGPDFContext` (writing) | Skia's PDF backend (`SkPDF`) |
-| CoreGraphics: `CGPDFDocument`, scanner (reading) | A Finch PDF parser (PDFium, BSD-3, is the fallback) |
+| CoreGraphics: `CGPDFDocument`, scanner, `CGContextDrawPDFPage` (reading) | A Finch PDF parser and interpreter (ISO 32000), zlib, Skia's codecs, FreeType |
 | CoreGraphics: `CGFont`, glyph drawing | FreeType (FTL) through Skia's FreeType typeface |
 | CoreText: font descriptors and collections, shaping, lines, frames | HarfBuzz (MIT) for shaping, FreeType for metrics, ICU (already built) for line breaking and bidi |
 | ImageIO: `CGImageSource`, `CGImageDestination` | Skia's codecs: libpng, libjpeg-turbo, libwebp, wuffs (GIF), BMP, ICO; then libtiff, and libheif for HEIC |
@@ -209,7 +209,7 @@ The tests follow Foundation's:
 2. ImageIO over Skia's codecs.
 3. CoreText over HarfBuzz and FreeType, with the open fonts.
 4. The window-server half of CoreGraphics, with Finch's window server (Tier 2).
-5. PDF reading.
+5. PDF reading (done, with PDF writing: see Status).
 
 ## Status
 
@@ -324,3 +324,57 @@ The tests follow Foundation's:
   both registries at `build/root`'s fonts on the host. `finch-ctfonts-test`
   (Finch-only) matches `ctfonts-expected.txt`; `finch-ct-test` is still
   identical to Apple's, with and without Finch's fonts.
+- 2026-10-08: PDF. `CGPDFContext` is a CGContext over a page canvas from
+  Skia's PDF backend, so all drawing works on it; glyphs filled in a plain
+  colour become PDF text in a subset of the font (HarfBuzz), the rest are
+  outlines. Skia only writes media boxes at the origin, so a final pass
+  reads its file back with Finch's parser and writes the document out as
+  Quartz's API describes it: page boxes (a media box away from the origin
+  through a translation prefixed to the content), links and destinations,
+  the information dictionary (text strings in UTF-16 when not ASCII,
+  keyword arrays joined as Apple's), outlines, XMP metadata, output intents,
+  and encryption with revision 4, AES-128, P bits as Apple's sets them.
+  Reading is Finch's own: cross-reference tables and streams, object
+  streams, incremental updates, a rebuilt table for broken files, Flate
+  (with predictors), LZW, ASCII, run-length and DCT data, the standard
+  security handler (revisions 2 to 6: RC4 and AES through CommonCrypto),
+  the page tree with inheritance, outlines, and the scanner. Apple's
+  behaviour, observed and matched: rotation as written (not normalized),
+  bleed, trim and art boxes default to the crop box and aren't clipped to
+  it, the drawing transform never scales up and treats a total rotation
+  that isn't a multiple of 90 as none, a locked document still hands out
+  its (undecrypted, then cached) objects, a wrong password locks an open
+  document, dates run on past December, outline items going to named
+  destinations are left out, the scanner only calls back for PDF's own
+  operators (operands pile up across unknown ones, and an inline image
+  arrives as "EI" with its stream on the stack), and a resource is looked
+  up in a content stream's parent only when it has no resources of its
+  own. `CGContextDrawPDFPage` interprets content through CGContext calls,
+  in the current user space with no clip: every colour space (separation
+  and DeviceN through tint transforms, indexed, ICC, calibrated, Lab), all
+  four function types, images with soft masks, stencils and colour keys,
+  inline images, shadings (axial and radial as CGShading; function-based
+  and mesh shadings by subdivision, aliased as Apple's), tiling and shading
+  patterns, forms and transparency groups, soft masks (drawn into a gray
+  bitmap at device resolution), and text in embedded TrueType, CFF and
+  Type 1 fonts, Type 3 fonts, and substitutes for the standard 14.
+  `finch-cgpdf-test` is identical to Apple's on the host: documents written
+  and read back by each CoreGraphics (information, boxes, links, outlines,
+  encryption and permissions), hand-written files printed object by object
+  and traced through the scanner, drawing transforms, scenes drawn into a
+  PDF and drawn back, and 16 hand-written pages against Apple's renders
+  (`cgpdf-reference.bin`). Apple's CG reads PDFs Finch writes, and Finch's
+  reads Apple's, with the same results. On the 743 PDFs under /System,
+  /Library and /Applications, structure matches Apple's reader everywhere
+  and first-page renders match closely. Two CG-wide fixes came with it:
+  images draw smoothed at the default quality even when they ask not to be
+  (as Apple's do), and a text-smoothing layer covers only its glyphs.
+- Known gaps (PDF): tagged PDF (`CGPDFContextBeginTag` and the structure
+  trees) is accepted but not written; drawing outside the media box is cut
+  off by Skia's page (Apple's keeps it in the content); encryption is
+  written as AES-128 whatever key length is asked for, and linearized output
+  isn't produced. JPEG 2000, JBIG2 and CCITT images aren't decoded,
+  predefined CJK CMaps other than Identity aren't available, and vertical
+  text advances horizontally. Apple's renderer converts Lab colours
+  differently from its own CGColorSpace, which Finch follows. Drawing
+  system PDFs takes about six times as long as Apple's.

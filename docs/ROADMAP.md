@@ -191,7 +191,13 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         identical to Apple's, and `finch-cg-draw-test` matches Apple's renders, on
         the host and in the VM (2026-10-08). Gradients (linear, radial, conic),
         shadings, patterns and CGLayer, and CGFont and glyph drawing
-        (font smoothing as Apple's) too (2026-10-08). Next: PDF.
+        (font smoothing as Apple's) too (2026-10-08). PDF: CGPDFContext writes
+        through Skia's PDF backend (page boxes, links, destinations, outlines,
+        metadata, output intents, AES-128 encryption added in a final pass), and
+        CGPDFDocument, CGPDFScanner and CGContextDrawPDFPage run on Finch's own
+        parser and interpreter (fonts through FreeType); `finch-cgpdf-test` is
+        identical to Apple's on the host, and each CG reads the other's PDFs as
+        its own (2026-10-08). Next: tagged PDF, the VM run.
   - [ ] ImageIO over Skia's codecs. Image sources (PNG, JPEG, GIF, BMP, ICO,
         WebP; properties, images, thumbnails, incremental loading), PNG and JPEG
         destinations, and all 750 public property keys are done: `finch-imageio-test`

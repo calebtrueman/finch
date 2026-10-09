@@ -6,6 +6,7 @@
  */
 #include "CGContextInternal.h"
 #include "CGFontInternal.h"
+#include "CGPDFInternal.h"
 #include "include/core/SkFont.h"
 #include "include/core/SkColorFilter.h"
 #include "include/core/SkPaint.h"
@@ -58,10 +59,13 @@ show(CGContextRef c, const CGGlyph *glyphs, const CGPoint *positions, size_t cou
 {
     if (!c || !glyphs || !positions || !count)
         return;
+    if (c->type == CG_CONTEXT_PDF && CGPDFContextShowGlyphs(c, glyphs, positions, count))
+        return;  /* PDF text */
     CGMutablePathRef path = glyph_path(c, glyphs, positions, count);
     CGTextDrawingMode mode = CGContextState(c).text_mode;
     bool layer = false;
-    if ((mode == kCGTextFill || mode == kCGTextFillClip) && c->canvas && CGContextState(c).smooth_fonts &&
+    if ((mode == kCGTextFill || mode == kCGTextFillClip) && c->canvas && c->type != CG_CONTEXT_PDF &&
+        CGContextState(c).smooth_fonts &&
         CGContextState(c).allows_smoothing) {
         static uint8_t table[256];
         static pthread_once_t once = PTHREAD_ONCE_INIT;
@@ -71,9 +75,14 @@ show(CGContextRef c, const CGGlyph *glyphs, const CGPoint *positions, size_t cou
         });
         SkPaint lp;
         lp.setColorFilter(SkColorFilters::TableARGB(table, nullptr, nullptr, nullptr));
+        /* the layer covers the glyphs only, unless a shadow falls outside them (a page-sized one per string is slow) */
+        CGRect box = CGRectApplyAffineTransform(CGPathGetBoundingBox(path), CGContextUserToDevice(c));
+        SkRect bounds = SkRect::MakeXYWH((float)box.origin.x, (float)box.origin.y, (float)box.size.width,
+                                         (float)box.size.height).makeOutset(2, 2);
         c->canvas->save();
         c->canvas->resetMatrix();
-        c->canvas->saveLayer(nullptr, &lp);
+        bool shadow = CGContextState(c).shadow_color && CGColorGetAlpha(CGContextState(c).shadow_color) > 0;
+        c->canvas->saveLayer(CGRectIsNull(box) || shadow ? nullptr : &bounds, &lp);
         layer = true;
     }
     switch (CGContextState(c).text_mode) {

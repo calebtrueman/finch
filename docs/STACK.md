@@ -11,7 +11,8 @@ classes, on a CoreFoundation that dispatches to Objective-C objects as Apple's
 does (`docs/design/FOUNDATION.md`); its NSXMLParser runs on Apple's libxml2,
 built by Finch. Finch's CoreGraphics has begun, over Skia
 (`docs/design/COREGRAPHICS.md`): bitmap contexts draw paths, images,
-clips, shadows and transparency layers as Apple's do. Finch's ImageIO reads
+clips, shadows and transparency layers as Apple's do, PDF contexts write
+through Skia's PDF backend, and Finch's own parser reads and draws PDF. Finch's ImageIO reads
 PNG, JPEG, GIF, BMP, ICO and WebP and writes PNG and JPEG over the open
 codecs Skia builds, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does,
 in open fonts Finch ships in place of Apple's (Inter for the system font,
@@ -37,7 +38,7 @@ block-beta
         columns 4
         t6["App frameworks"]
         appkit["AppKit, UIFoundation (begun);<br/>Cocoa and ApplicationServices<br/>umbrellas"]
-        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>window server client, displays"]
+        cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>PDF writing (SkPDF), PDF reading<br/>and drawing (own parser);<br/>window server client, displays"]
         imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
         space6[" "]
         ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]

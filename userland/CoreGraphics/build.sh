@@ -56,7 +56,7 @@ mkdir -p "${FW}/Versions/A"
     "${SKIA_OBJ}/libskia.a" "${SKIA_OBJ}/libskcms.a" "${SKIA_OBJ}/libfreetype2.a" \
     "${SKIA_OBJ}/libpng.a" "${SKIA_OBJ}/libjpeg.a" "${SKIA_OBJ}/libwebp.a" \
     "${SKIA_OBJ}/libwebp_sse41.a" "${SKIA_OBJ}/libwuffs.a" "${SKIA_OBJ}/libzlib.a" "${SKIA_OBJ}/libharfbuzz.a" \
-    -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -lc++ -lSystem
+    -F"${ROOT}/System/Library/Frameworks" -framework CoreFoundation -lz -lc++ -lSystem
 ln -sfn A "${FW}/Versions/Current"
 ln -sfn Versions/Current/CoreGraphics "${FW}/CoreGraphics"
 "${FINCH_ROOT}/tools/mkframeworkplist.sh" "${FW}" A CoreGraphics com.apple.CoreGraphics CoreGraphics 2.0 1965.4.5 English
