@@ -201,6 +201,10 @@ still link. That's the work list for "nothing closed". On 2026-10-08 it found 14
 - 2026-10-09: bundle language matching, `AppleLanguages`, and `.loctable`
   tables are supported. `finch-l10n-test` matched Apple's output on the host;
   the CF and Foundation comparison tests still matched (`52f174f`).
+- 2026-10-09: the current locale. swift-corelibs leaves out the preference lookup, so
+  `CFLocaleCopyCurrent` was the empty root locale. Patch 0008 reads `AppleLocale` and the
+  user's overrides (measurement and temperature units, first weekday, 12/24-hour time,
+  ICU format strings, languages, collation), as Apple's CoreFoundation does.
 
 ## Run-time loads of closed frameworks
 

@@ -64,9 +64,19 @@ clip_init(NSClipView *self)
 - (BOOL)copiesOnScroll { return _copiesOnScroll; }
 - (void)setCopiesOnScroll:(BOOL)flag { _copiesOnScroll = flag; }
 - (NSEdgeInsets)contentInsets { return _insets; }
+/* A text view fills what the clip view shows (NSTextView.m). */
+static void
+fit_document(NSClipView *self)
+{
+    NSView *doc = [self documentView];
+    if ([doc respondsToSelector:@selector(_finchFitClipView)])
+        [(id)doc _finchFitClipView];
+}
+
 - (void)setContentInsets:(NSEdgeInsets)insets
 {
     _insets = insets;
+    fit_document(self);
     [super setBoundsOrigin:[self constrainBoundsRect:[self bounds]].origin];
 }
 - (BOOL)automaticallyAdjustsContentInsets { return _adjustsInsets; }
@@ -149,6 +159,7 @@ reflect(NSClipView *self)
 - (void)setFrameSize:(NSSize)size
 {
     [super setFrameSize:size];
+    fit_document(self);
     if (_documentView)
         [super setBoundsOrigin:[self constrainBoundsRect:[self bounds]].origin];
     reflect(self);

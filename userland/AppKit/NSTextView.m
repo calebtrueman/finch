@@ -544,7 +544,6 @@ FLAG(importsGraphics, setImportsGraphics, imports)
 FLAG(allowsUndo, setAllowsUndo, allowsUndo)
 FLAG(usesFontPanel, setUsesFontPanel, usesFontPanel)
 FLAG(usesRuler, setUsesRuler, usesRuler)
-FLAG(isRulerVisible, setRulerVisible, rulerVisible)
 FLAG(smartInsertDeleteEnabled, setSmartInsertDeleteEnabled, smartInsert)
 FLAG(isContinuousSpellCheckingEnabled, setContinuousSpellCheckingEnabled, continuousSpelling)
 FLAG(isGrammarCheckingEnabled, setGrammarCheckingEnabled, grammar)
@@ -803,6 +802,304 @@ set_paragraph_value(NSTextView *self, NSRange range, void (^change)(NSMutablePar
 }
 - (void)setBaseWritingDirection:(NSWritingDirection)direction range:(NSRange)range {}
 
+#pragma mark - The ruler
+
+/*
+ * As Apple's: the ruler shows the selected paragraph's indents and tab stops as markers
+ * (represented by NSHeadIndentRulerMarkerTag, NSTailIndentRulerMarkerTag,
+ * NSFirstLineHeadIndentRulerMarkerTag and the NSTextTabs) over a 30-point format bar.
+ * Dragging a marker changes the selected paragraphs; clicking the marker area adds a tab,
+ * and dragging a tab off the ruler removes it.
+ */
+static NSString *const kHeadTag = @"NSHeadIndentRulerMarkerTag";
+static NSString *const kTailTag = @"NSTailIndentRulerMarkerTag";
+static NSString *const kFirstTag = @"NSFirstLineHeadIndentRulerMarkerTag";
+enum { kRulerAlignTag = 7101, kRulerSpacingTag = 7102 };
+
+static NSImage *
+marker_image(NSSize size, void (^draw)(NSBezierPath *p))
+{
+    return [NSImage imageWithSize:size flipped:YES drawingHandler:^BOOL(NSRect r) {
+      NSBezierPath *p = [NSBezierPath bezierPath];
+      draw(p);
+      [p closePath];
+      [[NSColor secondaryLabelColor] setFill];
+      [p fill];
+      return YES;
+    }];
+}
+
+static NSImage *
+indent_image(BOOL first)
+{
+    static NSImage *down, *up;
+    if (first) {
+        if (!down)
+            down = [marker_image(NSMakeSize(9, 10), ^(NSBezierPath *p) {
+              [p moveToPoint:NSMakePoint(0, 4)];
+              [p lineToPoint:NSMakePoint(9, 4)];
+              [p lineToPoint:NSMakePoint(4.5, 10)];
+            }) retain];
+        return down;
+    }
+    if (!up)
+        up = [marker_image(NSMakeSize(9, 6), ^(NSBezierPath *p) {
+          [p moveToPoint:NSMakePoint(4.5, 0)];
+          [p lineToPoint:NSMakePoint(9, 6)];
+          [p lineToPoint:NSMakePoint(0, 6)];
+        }) retain];
+    return up;
+}
+
+static NSImage *
+tab_image(void)
+{
+    static NSImage *img;
+    if (!img)
+        img = [marker_image(NSMakeSize(6, 9), ^(NSBezierPath *p) {
+          [p appendBezierPathWithRect:NSMakeRect(0, 0, 1.5, 9)];
+          [p appendBezierPathWithRect:NSMakeRect(0, 7.5, 6, 1.5)];
+        }) retain];
+    return img;
+}
+
+static NSView *
+ruler_accessory(NSTextView *tv)
+{
+    /* as Apple's: a box with no content view or title, holding the bar */
+    NSBox *box = [[[NSBox alloc] initWithFrame:NSMakeRect(0, 0, 400, 30)] autorelease];
+    [box setTitlePosition:NSNoTitle];
+    [box setContentView:nil];
+    [box setTransparent:YES];
+    NSView *bar = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 400, 30)] autorelease];
+    [bar setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    NSSegmentedControl *align = [NSSegmentedControl segmentedControlWithLabels:@[ @"Left", @"Center", @"Right", @"Justify" ]
+                                                                  trackingMode:NSSegmentSwitchTrackingSelectOne
+                                                                        target:tv
+                                                                        action:@selector(_finchRulerAlignment:)];
+    [align setTag:kRulerAlignTag];
+    [align setFrame:NSMakeRect(8, 4, 220, 22)];
+    [bar addSubview:align];
+    NSPopUpButton *spacing = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(236, 4, 72, 22) pullsDown:NO] autorelease];
+    [spacing addItemsWithTitles:@[ @"1.0", @"1.15", @"1.5", @"2.0" ]];
+    [spacing setTag:kRulerSpacingTag];
+    [spacing setTarget:tv];
+    [spacing setAction:@selector(_finchRulerSpacing:)];
+    [bar addSubview:spacing];
+    [box addSubview:bar];
+    return box;
+}
+
+static NSView *
+find_tagged(NSView *v, NSInteger tag)
+{
+    if ([v tag] == tag)
+        return v;
+    for (NSView *sub in [v subviews]) {
+        NSView *f = find_tagged(sub, tag);
+        if (f)
+            return f;
+    }
+    return nil;
+}
+
+/* Where the text starts, in the text view, and how wide its line fragments are. */
+static CGFloat
+ruler_left(NSTextView *self)
+{
+    return [self textContainerOrigin].x + [self->_container lineFragmentPadding];
+}
+
+static CGFloat
+ruler_width(NSTextView *self)
+{
+    return [self->_container size].width - 2 * [self->_container lineFragmentPadding];
+}
+
+- (BOOL)isRulerVisible { return _t.rulerVisible; }
+
+- (void)setRulerVisible:(BOOL)flag
+{
+    _t.rulerVisible = flag;
+    NSScrollView *sv = [self enclosingScrollView];
+    if (flag && _t.usesRuler) {
+        [sv setHasHorizontalRuler:YES];
+        [self updateRuler];
+    }
+    [sv setRulersVisible:flag];
+}
+
+- (void)toggleRuler:(id)sender { [self setRulerVisible:![self isRulerVisible]]; }
+
+- (void)updateRuler
+{
+    NSRulerView *ruler = [[self enclosingScrollView] horizontalRulerView];
+    if (!ruler || !_t.usesRuler)
+        return;
+    CGFloat left = ruler_left(self), width = ruler_width(self);
+    NSParagraphStyle *ps = paragraph_style_at(self, _sel.location);
+    if ([ruler clientView] != self) {
+        [ruler setClientView:self];
+        [ruler setReservedThicknessForAccessoryView:30];
+        [ruler setAccessoryView:ruler_accessory(self)];
+    }
+    [ruler setOriginOffset:left];
+    NSMutableArray *markers = [NSMutableArray array];
+    NSRulerMarker *m = [[[NSRulerMarker alloc] initWithRulerView:ruler markerLocation:left + [ps headIndent]
+                                                           image:indent_image(NO) imageOrigin:NSMakePoint(4, 0)] autorelease];
+    [m setRepresentedObject:kHeadTag];
+    [markers addObject:m];
+    CGFloat tail = [ps tailIndent];
+    m = [[[NSRulerMarker alloc] initWithRulerView:ruler markerLocation:left + (tail > 0 ? tail : width + tail)
+                                            image:indent_image(NO) imageOrigin:NSMakePoint(4, 0)] autorelease];
+    [m setRepresentedObject:kTailTag];
+    [markers addObject:m];
+    m = [[[NSRulerMarker alloc] initWithRulerView:ruler markerLocation:left + [ps firstLineHeadIndent]
+                                            image:indent_image(YES) imageOrigin:NSMakePoint(4, 0)] autorelease];
+    [m setRepresentedObject:kFirstTag];
+    [markers addObject:m];
+    for (NSTextTab *tab in [ps tabStops]) {
+        m = [[[NSRulerMarker alloc] initWithRulerView:ruler markerLocation:left + [tab location]
+                                                image:tab_image() imageOrigin:NSZeroPoint] autorelease];
+        [m setRepresentedObject:tab];
+        [m setRemovable:YES];
+        [markers addObject:m];
+    }
+    [ruler setMarkers:markers];
+    NSSegmentedControl *align = (NSSegmentedControl *)find_tagged([ruler accessoryView], kRulerAlignTag);
+    NSInteger seg = -1;
+    switch ([ps alignment]) {
+    case NSTextAlignmentLeft: case NSTextAlignmentNatural: seg = 0; break;
+    case NSTextAlignmentCenter: seg = 1; break;
+    case NSTextAlignmentRight: seg = 2; break;
+    case NSTextAlignmentJustified: seg = 3; break;
+    }
+    [align setSelectedSegment:seg];
+    NSPopUpButton *spacing = (NSPopUpButton *)find_tagged([ruler accessoryView], kRulerSpacingTag);
+    CGFloat mult = [ps lineHeightMultiple] > 0 ? [ps lineHeightMultiple] : 1;
+    NSInteger item = mult >= 1.9 ? 3 : mult >= 1.4 ? 2 : mult >= 1.1 ? 1 : 0;
+    [spacing selectItemAtIndex:item];
+}
+
+static void
+ruler_change(NSTextView *self, void (^change)(NSMutableParagraphStyle *ps))
+{
+    NSRange r = paragraph_range([self->_storage string], self->_sel);
+    if (![self isEditable] || ![self shouldChangeTextInRange:r replacementString:nil])
+        return;
+    set_paragraph_value(self, r, change);
+    [self didChangeText];
+    [self updateRuler];
+}
+
+- (void)_finchRulerAlignment:(NSSegmentedControl *)sender
+{
+    static const NSTextAlignment a[] = {NSTextAlignmentLeft, NSTextAlignmentCenter, NSTextAlignmentRight,
+                                        NSTextAlignmentJustified};
+    NSInteger i = [sender selectedSegment];
+    if (i < 0 || i > 3)
+        return;
+    ruler_change(self, ^(NSMutableParagraphStyle *ps) {
+      [ps setAlignment:a[i]];
+    });
+}
+
+- (void)_finchRulerSpacing:(NSPopUpButton *)sender
+{
+    CGFloat mult = [[sender titleOfSelectedItem] doubleValue];
+    ruler_change(self, ^(NSMutableParagraphStyle *ps) {
+      [ps setLineHeightMultiple:mult == 1 ? 0 : mult];
+    });
+}
+
+- (CGFloat)rulerView:(NSRulerView *)ruler willMoveMarker:(NSRulerMarker *)marker toLocation:(CGFloat)location
+{
+    CGFloat left = ruler_left(self);
+    return MAX(left, MIN(location, left + ruler_width(self)));
+}
+
+- (CGFloat)rulerView:(NSRulerView *)ruler willAddMarker:(NSRulerMarker *)marker atLocation:(CGFloat)location
+{
+    return [self rulerView:ruler willMoveMarker:marker toLocation:location];
+}
+
+- (BOOL)rulerView:(NSRulerView *)ruler shouldMoveMarker:(NSRulerMarker *)marker { return [self isEditable]; }
+- (BOOL)rulerView:(NSRulerView *)ruler shouldAddMarker:(NSRulerMarker *)marker { return [self isEditable]; }
+- (BOOL)rulerView:(NSRulerView *)ruler shouldRemoveMarker:(NSRulerMarker *)marker
+{
+    return [marker isRemovable] && [self isEditable];
+}
+
+/* The tab stops the ruler's tab markers now stand for. */
+static NSArray *
+ruler_tabs(NSTextView *self, NSRulerView *ruler)
+{
+    CGFloat left = ruler_left(self);
+    NSMutableArray *tabs = [NSMutableArray array];
+    for (NSRulerMarker *m in [ruler markers]) {
+        NSTextTab *o = (NSTextTab *)[m representedObject];
+        if (![o isKindOfClass:[NSTextTab class]])
+            continue;
+        NSTextTab *t = [[NSTextTab alloc] initWithTextAlignment:[o alignment] location:[m markerLocation] - left
+                                                        options:[o options]];
+        [tabs addObject:t];
+        [t release];
+    }
+    [tabs sortUsingComparator:^NSComparisonResult(NSTextTab *a, NSTextTab *b) {
+      return [@([a location]) compare:@([b location])];
+    }];
+    return tabs;
+}
+
+- (void)rulerView:(NSRulerView *)ruler didMoveMarker:(NSRulerMarker *)marker
+{
+    CGFloat left = ruler_left(self), width = ruler_width(self), at = [marker markerLocation] - left;
+    id what = (id)[marker representedObject];
+    NSArray *tabs = ruler_tabs(self, ruler);
+    ruler_change(self, ^(NSMutableParagraphStyle *ps) {
+      if ([what isEqual:kHeadTag])
+          [ps setHeadIndent:at];
+      else if ([what isEqual:kFirstTag])
+          [ps setFirstLineHeadIndent:at];
+      else if ([what isEqual:kTailTag])
+          [ps setTailIndent:at - width];
+      else
+          [ps setTabStops:tabs];
+    });
+}
+
+- (void)rulerView:(NSRulerView *)ruler didRemoveMarker:(NSRulerMarker *)marker
+{
+    NSArray *tabs = ruler_tabs(self, ruler);
+    ruler_change(self, ^(NSMutableParagraphStyle *ps) {
+      [ps setTabStops:tabs];
+    });
+}
+
+- (void)rulerView:(NSRulerView *)ruler didAddMarker:(NSRulerMarker *)marker
+{
+    [self rulerView:ruler didRemoveMarker:marker];
+}
+
+/* A click in the marker area adds a left tab there. */
+- (void)rulerView:(NSRulerView *)ruler handleMouseDown:(NSEvent *)event
+{
+    NSPoint p = [ruler convertPoint:[event locationInWindow] fromView:nil];
+    if (p.y < [ruler reservedThicknessForAccessoryView] || p.y > [ruler baselineLocation] || ![self isEditable])
+        return;
+    CGFloat loc = [self convertPoint:[ruler convertPoint:p toView:nil] fromView:nil].x;
+    NSTextTab *tab = [[[NSTextTab alloc] initWithTextAlignment:NSTextAlignmentLeft location:loc - ruler_left(self)
+                                                       options:@{}] autorelease];
+    NSRulerMarker *m = [[[NSRulerMarker alloc] initWithRulerView:ruler markerLocation:loc image:tab_image()
+                                                     imageOrigin:NSZeroPoint] autorelease];
+    [m setRepresentedObject:tab];
+    [m setRemovable:YES];
+    [ruler trackMarker:m withMouseEvent:event];
+}
+
+- (void)rulerView:(NSRulerView *)ruler willSetClientView:(NSView *)client {}
+
+
 - (void)alignLeft:(id)sender { [self setAlignment:NSTextAlignmentLeft range:_sel]; }
 - (void)alignRight:(id)sender { [self setAlignment:NSTextAlignmentRight range:_sel]; }
 - (void)alignCenter:(id)sender { [self setAlignment:NSTextAlignmentCenter range:_sel]; }
@@ -965,6 +1262,29 @@ set_paragraph_value(NSTextView *self, NSRange range, void (^change)(NSMutablePar
 - (void)viewDidMoveToSuperview
 {
     [super viewDidMoveToSuperview];
+    [self _finchFitClipView];
+}
+
+/*
+ * As Apple's: in a clip view, the text view's minimum size is what the clip view shows
+ * inside its insets, and the view fills it across a direction it can't resize in.
+ */
+- (void)_finchFitClipView
+{
+    NSClipView *clip = (NSClipView *)[self superview];
+    if (![clip isKindOfClass:[NSClipView class]] || [clip documentView] != self)
+        return;
+    NSEdgeInsets in = [clip contentInsets];
+    NSSize b = [clip bounds].size;
+    NSSize v = NSMakeSize(MAX(0, b.width - in.left - in.right), MAX(0, b.height - in.top - in.bottom));
+    _minSize = v;
+    NSSize f = [self frame].size;
+    f.width = _t.hResizable ? MAX(f.width, v.width) : v.width;
+    f.height = _t.vResizable ? v.height : f.height;
+    if (!NSEqualSizes(f, [self frame].size))
+        [self setFrameSize:f];
+    if (_t.hResizable || _t.vResizable)
+        [self sizeToFit];
 }
 
 #pragma mark - Geometry
@@ -1192,6 +1512,8 @@ sync_text_selections(NSTextView *self)
         postNotificationName:NSTextViewDidChangeSelectionNotification
                       object:self
                     userInfo:@{@"NSOldSelectedCharacterRange" : [NSValue valueWithRange:old]}];
+    if (_t.rulerVisible)
+        [self updateRuler];
 }
 
 - (void)setSelectedRange:(NSRange)range
@@ -2578,7 +2900,6 @@ start_blinking(NSTextView *self)
 
 - (void)complete:(id)sender {}
 - (void)toggleContinuousSpellChecking:(id)sender { _t.continuousSpelling = !_t.continuousSpelling; }
-- (void)toggleRuler:(id)sender { _t.rulerVisible = !_t.rulerVisible; }
 - (void)checkSpelling:(id)sender {}
 - (void)showGuessPanel:(id)sender {}
 - (void)changeFont:(id)sender {}

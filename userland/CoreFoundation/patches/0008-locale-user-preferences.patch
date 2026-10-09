@@ -1,0 +1,64 @@
+CFLocale.c: the current locale comes from the AppleLocale preference, with the
+user's locale overrides (measurement units, first weekday, 24-hour time and so on)
+from the preferences, as Apple's CoreFoundation reads them (swift-corelibs leaves
+the preference lookup out, so the current locale was the empty root locale).
+
+diff --git a/Sources/CoreFoundation/CFLocale.c b/Sources/CoreFoundation/CFLocale.c
+index 06f8617..ccc1a58 100644
+--- a/Sources/CoreFoundation/CFLocale.c
++++ b/Sources/CoreFoundation/CFLocale.c
+@@ -653,13 +653,31 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
+      */
+     
+     CFStringRef ident = NULL;
+-    // We cannot be helpful here, because it causes performance problems,
+-    // even though the preference lookup is relatively quick, as there are
+-    // things which call this function thousands or millions of times in
+-    // a short period.
++    CFDictionaryRef userPrefs = NULL;
++    // Finch: the user's locale and its overrides from the preferences, as Apple's CF reads them.
+     if (!name) {
+-#if 0 // TARGET_OS_MAC || TARGET_OS_WIN32 || TARGET_OS_LINUX || TARGET_OS_BSD
++#if TARGET_OS_MAC
+         name = (CFStringRef)CFPreferencesCopyAppValue(CFSTR("AppleLocale"), kCFPreferencesCurrentApplication);
++        if (!overridePrefs) {
++            static const CFStringRef keys[] = {
++                CFSTR("AppleLanguages"), CFSTR("AppleMetricUnits"), CFSTR("AppleMeasurementUnits"),
++                CFSTR("AppleTemperatureUnit"), CFSTR("AppleFirstWeekday"), CFSTR("AppleMinDaysInFirstWeek"),
++                CFSTR("AppleCollationOrder"), CFSTR("AppleICUForce24HourTime"), CFSTR("AppleICUForce12HourTime"),
++                CFSTR("AppleICUDateFormatStrings"), CFSTR("AppleICUTimeFormatStrings"), CFSTR("AppleICUNumberSymbols"),
++            };
++            CFMutableDictionaryRef d = CFDictionaryCreateMutable(kCFAllocatorSystemDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++            for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
++                CFPropertyListRef v = CFPreferencesCopyAppValue(keys[i], kCFPreferencesCurrentApplication);
++                if (v) {
++                    CFDictionarySetValue(d, keys[i], v);
++                    CFRelease(v);
++                }
++            }
++            if (CFDictionaryGetCount(d))
++                userPrefs = d;
++            else
++                CFRelease(d);
++        }
+ #endif
+     } else {
+         CFRetain(name);
+@@ -699,6 +717,7 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
+         }
+ 
+         if (cached) {
++            if (userPrefs) CFRelease(userPrefs);
+ #if DEPLOYMENT_RUNTIME_SWIFT
+             CFRetain(cached); // In Swift, this object isn't immortal and needs to be correctly memory-managed.
+ #endif
+@@ -707,7 +726,8 @@ static CFLocaleRef _CFLocaleCopyCurrentGuts(CFStringRef name, Boolean useCache,
+         }
+     }
+     
+-    CFDictionaryRef prefs = NULL;
++    CFDictionaryRef prefs = overridePrefs ? (CFDictionaryRef)CFRetain(overridePrefs) : userPrefs;
++    userPrefs = NULL;
+     
+     struct __CFLocale *locale;
+     uint32_t size = sizeof(struct __CFLocale) - sizeof(CFRuntimeBase);

@@ -692,3 +692,17 @@ draws (`userland/tests/app-test.c`).
   content (`findBarPosition`). `NSTextView` answers `performTextFinderAction:` and the
   older `performFindPanelAction:` through a finder of its own, so TextEdit's Find menu
   works. `finch-textfinder-test` matches Apple's run.
+- 2026-10-09: rulers. `NSRulerView` and `NSRulerMarker` (`NSRulerView.m`) match Apple's
+  defaults and thicknesses: a 17-point rule, 15 points for a horizontal ruler's markers,
+  the baseline where the rule meets the markers, and an exception when markers are added
+  before a client view. Units are registered by name (Inches, Centimeters, Points, Picas,
+  and `registerUnitWithName:`), and the default follows the locale. Hash marks and labels
+  are drawn in client coordinates from `originOffset`. Markers drag through the client
+  methods, and a removable marker pulled off the ruler goes. As on macOS, `NSScrollView`
+  floats its rulers over the content's top and leading edges and insets the clip view by
+  their thickness, with the scrollers below. `NSTextView`'s ruler shows the selected
+  paragraph's head, tail and first-line indents and its tab stops over a 30-point format
+  bar (alignment, line spacing). Dragging changes the paragraphs, and a click adds a tab.
+  A text view in a clip view now takes the visible size as its minimum and fills it, as
+  Apple's does. `finch-ruler-test` matches Apple's run, except for the inset that Apple's
+  scroll pockets add, which Finch doesn't have.

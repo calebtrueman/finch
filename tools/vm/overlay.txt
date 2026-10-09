@@ -156,3 +156,4 @@ userland/tests/assets-test.sh /usr/local/bin/finch-assets-test
 build/userland/finch-rtf-test /usr/local/bin/finch-rtf-test
 build/userland/finch-filecoordinator-test /usr/local/bin/finch-filecoordinator-test
 build/userland/finch-textfinder-test /usr/local/bin/finch-textfinder-test
+build/userland/finch-ruler-test /usr/local/bin/finch-ruler-test

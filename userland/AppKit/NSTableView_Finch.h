@@ -63,7 +63,7 @@ enum {
 
 /* NSScrollView's hooks for a document view with a header (NSTableHeaderView.m): put the header in its
    clip view above the content, and keep it scrolled with the content horizontally. */
-FINCH_PRIVATE void FinchScrollViewTileHeader(NSScrollView *scrollView, NSRect inner);
+FINCH_PRIVATE void FinchScrollViewTileHeader(NSScrollView *scrollView, NSRect inner, NSEdgeInsets rulers, BOOL setInsets);
 FINCH_PRIVATE void FinchScrollViewReflectHeader(NSScrollView *scrollView);
 
 /* The visible rect as Apple's tables and collection views see it (NSView's, through clip views). */

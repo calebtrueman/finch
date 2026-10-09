@@ -201,7 +201,7 @@ header_clip(NSScrollView *sv)
 }
 
 void
-FinchScrollViewTileHeader(NSScrollView *sv, NSRect inner)
+FinchScrollViewTileHeader(NSScrollView *sv, NSRect inner, NSEdgeInsets rulers, BOOL setInsets)
 {
     NSView *doc = [sv documentView];
     NSTableHeaderView *h = [doc isKindOfClass:[NSTableView class]] ? [(NSTableView *)doc headerView] : nil;
@@ -223,12 +223,13 @@ FinchScrollViewTileHeader(NSScrollView *sv, NSRect inner)
     } else if (hc) {
         [hc removeFromSuperview];
         objc_setAssociatedObject(sv, &headerClipKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    } else {
+    } else if (!setInsets) {
         return;
     }
     {
         NSEdgeInsets in = [sv contentInsets];
-        in.top += height;
+        in.top += height + rulers.top;
+        in.left += rulers.left;
         NSEdgeInsets cur = [content contentInsets];
         if (cur.top != in.top || cur.left != in.left || cur.bottom != in.bottom || cur.right != in.right) {
             /* the content moves with its inset, as Apple's does (then is held to the document) */

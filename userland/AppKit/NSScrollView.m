@@ -7,8 +7,8 @@
  * scrollers take their width from the clip view instead. Scrolling by the
  * wheel or trackpad moves the clip view by the event's deltas (points when
  * precise, lines otherwise), held to the document; magnification scales
- * the clip view's bounds. Rulers are recorded but not drawn: Finch has no
- * NSRulerView yet.
+ * the clip view's bounds. Rulers float over the top and leading edges, as
+ * on macOS, and the clip view takes their thickness as content insets.
  */
 #import "AppKit_Finch.h"
 #import "NSView_Finch.h"
@@ -48,7 +48,7 @@ static Class ruler_class;
     NSScrollerKnobStyle _knobStyle;
     NSScrollElasticity _hElasticity, _vElasticity;
     NSScrollViewFindBarPosition _findBarPosition;
-    BOOL _hasV, _hasH, _autohides, _predominantAxis, _allowsMagnification, _hasHRuler, _hasVRuler, _rulersVisible;
+    BOOL _hasV, _hasH, _autohides, _predominantAxis, _allowsMagnification, _hasHRuler, _hasVRuler, _rulersVisible, _rulerInsets;
     BOOL _adjustsInsets, _findBarVisible, _tiling;
     BOOL _insetsStale; /* the automatic insets need working out in the next layout pass */
 }
@@ -366,6 +366,25 @@ shows(NSScrollView *self, NSScroller *s, BOOL has)
             [_findBarView setHidden:YES];
         }
     }
+    /* the rulers lie over the content's top and leading edges; the clip view is inset by them */
+    NSEdgeInsets rulers = {0, 0, 0, 0};
+    BOOL hr = _rulersVisible && _hasHRuler && _hRuler, vr = _rulersVisible && _hasVRuler && _vRuler;
+    if (hr) {
+        rulers.top = [_hRuler requiredThickness];
+        if ([_hRuler superview] != self)
+            [self addSubview:_hRuler positioned:NSWindowAbove relativeTo:_contentView];
+        [_hRuler setFrame:NSMakeRect(NSMinX(inner), NSMinY(inner), NSWidth(inner), rulers.top)];
+    } else if ([_hRuler superview] == self) {
+        [_hRuler removeFromSuperview];
+    }
+    if (vr) {
+        rulers.left = [_vRuler requiredThickness];
+        if ([_vRuler superview] != self)
+            [self addSubview:_vRuler positioned:NSWindowAbove relativeTo:_contentView];
+        [_vRuler setFrame:NSMakeRect(NSMinX(inner), NSMinY(inner), rulers.left, NSHeight(inner))];
+    } else if ([_vRuler superview] == self) {
+        [_vRuler removeFromSuperview];
+    }
     BOOL v = shows(self, _vScroller, _hasV), h = shows(self, _hScroller, _hasH);
     CGFloat vw = v ? NSWidth([_vScroller frame]) : 0, hw = h ? NSHeight([_hScroller frame]) : 0;
     if (v && vw <= 0)
@@ -380,18 +399,23 @@ shows(NSScrollView *self, NSScroller *s, BOOL has)
     [_contentView setFrame:content];
     /* The scrollers sit on the trailing and bottom edges (the scroll view is flipped). */
     if (_vScroller) {
-        NSRect f = NSMakeRect(NSMaxX(inner) - vw, NSMinY(inner) + _scrollerInsets.top, vw,
-                              NSHeight(inner) - (h ? hw : 0) - _scrollerInsets.top - _scrollerInsets.bottom);
+        NSRect f = NSMakeRect(NSMaxX(inner) - vw, NSMinY(inner) + rulers.top + _scrollerInsets.top, vw,
+                              NSHeight(inner) - rulers.top - (h ? hw : 0) - _scrollerInsets.top - _scrollerInsets.bottom);
         [_vScroller setFrame:f];
         [_vScroller setHidden:!_hasV || [_vScroller isHidden]];
     }
     if (_hScroller) {
-        NSRect f = NSMakeRect(NSMinX(inner) + _scrollerInsets.left, NSMaxY(inner) - hw,
-                              NSWidth(inner) - (v ? vw : 0) - _scrollerInsets.left - _scrollerInsets.right, hw);
+        NSRect f = NSMakeRect(NSMinX(inner) + rulers.left + _scrollerInsets.left, NSMaxY(inner) - hw,
+                              NSWidth(inner) - rulers.left - (v ? vw : 0) - _scrollerInsets.left - _scrollerInsets.right, hw);
         [_hScroller setFrame:f];
         [_hScroller setHidden:!_hasH || [_hScroller isHidden]];
     }
-    FinchScrollViewTileHeader(self, inner); /* a table's header (NSTableHeaderView.m) */
+    NSRect below = inner;
+    below.origin.y += rulers.top;
+    below.size.height = MAX(0, below.size.height - rulers.top);
+    /* a table's header (NSTableHeaderView.m) goes under a ruler, and sets the clip view's insets */
+    FinchScrollViewTileHeader(self, below, rulers, hr || vr || _rulerInsets);
+    _rulerInsets = hr || vr;
     _tiling = NO;
     [self setNeedsDisplay:YES];
 }
@@ -447,6 +471,10 @@ axis_state(CGFloat docMin, CGFloat docLen, CGFloat visMin, CGFloat visLen, BOOL 
     if (clip != _contentView)
         return;
     FinchScrollViewReflectHeader(self);
+    if (_rulersVisible) {
+        [_hRuler setNeedsDisplay:YES];
+        [_vRuler setNeedsDisplay:YES];
+    }
     NSView *doc = [clip documentView];
     NSRect d = doc ? [doc frame] : NSZeroRect, b = [clip bounds];
     BOOL changed = NO;
@@ -684,27 +712,51 @@ apply_magnification(NSScrollView *self, CGFloat m, NSPoint (^origin)(NSSize size
     [self setMagnification:_magnification * (1 + [event magnification])];
 }
 
-#pragma mark - Rulers (recorded only)
+#pragma mark - Rulers
 
-+ (Class)rulerViewClass { return ruler_class; }
++ (Class)rulerViewClass { return ruler_class ?: [NSRulerView class]; }
 + (void)setRulerViewClass:(Class)rulerViewClass { ruler_class = rulerViewClass; }
 - (BOOL)rulersVisible { return _rulersVisible; }
-- (void)setRulersVisible:(BOOL)flag { _rulersVisible = flag; }
+- (void)setRulersVisible:(BOOL)flag
+{
+    if (flag == _rulersVisible)
+        return;
+    _rulersVisible = flag;
+    [self tile];
+}
 - (BOOL)hasHorizontalRuler { return _hasHRuler; }
-- (void)setHasHorizontalRuler:(BOOL)flag { _hasHRuler = flag; }
+- (void)setHasHorizontalRuler:(BOOL)flag
+{
+    _hasHRuler = flag;
+    if (flag && !_hRuler)
+        _hRuler = [[[[self class] rulerViewClass] alloc] initWithScrollView:self orientation:NSHorizontalRuler];
+    [self tile];
+}
 - (BOOL)hasVerticalRuler { return _hasVRuler; }
-- (void)setHasVerticalRuler:(BOOL)flag { _hasVRuler = flag; }
+- (void)setHasVerticalRuler:(BOOL)flag
+{
+    _hasVRuler = flag;
+    if (flag && !_vRuler)
+        _vRuler = [[[[self class] rulerViewClass] alloc] initWithScrollView:self orientation:NSVerticalRuler];
+    [self tile];
+}
 - (NSRulerView *)horizontalRulerView { return _hRuler; }
 - (void)setHorizontalRulerView:(NSRulerView *)ruler
 {
+    if ([_hRuler superview] == self)
+        [_hRuler removeFromSuperview];
     [_hRuler autorelease];
     _hRuler = [ruler retain];
+    [self tile];
 }
 - (NSRulerView *)verticalRulerView { return _vRuler; }
 - (void)setVerticalRulerView:(NSRulerView *)ruler
 {
+    if ([_vRuler superview] == self)
+        [_vRuler removeFromSuperview];
     [_vRuler autorelease];
     _vRuler = [ruler retain];
+    [self tile];
 }
 
 #pragma mark - Find bar
