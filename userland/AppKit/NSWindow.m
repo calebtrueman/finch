@@ -43,11 +43,18 @@ NSString *const NSBackingPropertyOldColorSpaceKey = @"NSBackingPropertyOldColorS
 
 /* Finch's title bar: 32 points, as macOS 26's; 24 for utility windows. */
 static CGFloat
-titlebar_height(NSWindowStyleMask style)
+bar_height(NSWindowStyleMask style)
 {
-    if (!(style & NSWindowStyleMaskTitled) || (style & NSWindowStyleMaskFullSizeContentView))
+    if (!(style & NSWindowStyleMaskTitled))
         return 0;
     return (style & NSWindowStyleMaskUtilityWindow) ? 24 : 32;
+}
+
+/* The title bar's share of the frame outside the content: none when the content is full size. */
+static CGFloat
+titlebar_height(NSWindowStyleMask style)
+{
+    return (style & NSWindowStyleMaskFullSizeContentView) ? 0 : bar_height(style);
 }
 
 /* The title bar and, when shown, the toolbar's row under it (NSToolbar.m). */
@@ -56,6 +63,16 @@ static CGFloat
 chrome_height(NSWindow *w)
 {
     CGFloat t = titlebar_height([w styleMask]);
+    if (t && [[w toolbar] isVisible])
+        t += FinchToolbarHeight;
+    return t;
+}
+
+/* The title bar and toolbar as drawn: over the content's top when the content is full size. */
+static CGFloat
+visible_chrome_height(NSWindow *w)
+{
+    CGFloat t = bar_height([w styleMask]);
     if (t && [[w toolbar] isVisible])
         t += FinchToolbarHeight;
     return t;
@@ -109,24 +126,38 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     CGContextRef cg = [[NSGraphicsContext currentContext] CGContext];
     if (!cg)
         return;
-    NSRect b = [self bounds];
     CGColorRef bg = [[w backgroundColor] CGColor];
     if (bg)
         CGContextSetFillColorWithColor(cg, bg);
     else
         CGContextSetRGBFillColor(cg, 0.925, 0.925, 0.925, 1);
     CGContextFillRect(cg, NSRectToCGRect(dirty));
-    CGFloat t = titlebar_height([w styleMask]);
+    if (titlebar_height([w styleMask]))
+        [self _finchDrawTitlebar:cg];
+}
+
+/*
+ * The title bar (and the toolbar's row): a band a little lighter than the
+ * background with a hairline under it, the buttons and the title, in the
+ * frame view's coordinates. Full-size content windows draw it from
+ * FinchTitlebarView, over the content.
+ */
+- (void)_finchDrawTitlebar:(CGContextRef)cg
+{
+    NSWindow *w = [self window];
+    NSRect b = [self bounds];
+    CGFloat t = bar_height([w styleMask]);
     if (t == 0)
         return;
-    /* the title bar (and toolbar): a band a little lighter than the background, and a hairline under it */
-    CGFloat chrome = chrome_height(w);
+    CGFloat chrome = visible_chrome_height(w);
     NSRect bar = NSMakeRect(0, NSMaxY(b) - chrome, b.size.width, chrome);
     BOOL key = [w isKeyWindow];
-    CGContextSetRGBFillColor(cg, key ? 0.965 : 0.945, key ? 0.965 : 0.945, key ? 0.965 : 0.945, 1);
-    CGContextFillRect(cg, NSRectToCGRect(bar));
-    CGContextSetRGBFillColor(cg, 0, 0, 0, 0.1);
-    CGContextFillRect(cg, CGRectMake(0, NSMinY(bar), b.size.width, 0.5));
+    if (![w titlebarAppearsTransparent]) {
+        CGContextSetRGBFillColor(cg, key ? 0.965 : 0.945, key ? 0.965 : 0.945, key ? 0.965 : 0.945, 1);
+        CGContextFillRect(cg, NSRectToCGRect(bar));
+        CGContextSetRGBFillColor(cg, 0, 0, 0, 0.1);
+        CGContextFillRect(cg, CGRectMake(0, NSMinY(bar), b.size.width, 0.5));
+    }
     NSWindowStyleMask style = [w styleMask];
     BOOL enabled[3] = {(style & NSWindowStyleMaskClosable) != 0, (style & NSWindowStyleMaskMiniaturizable) != 0,
                        (style & NSWindowStyleMaskResizable) != 0};
@@ -138,7 +169,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
         else
             fill_circle(cg, r, 0.82, 0.82, 0.82, 1);
     }
-    NSString *title = [w title];
+    NSString *title = [w titleVisibility] == NSWindowTitleHidden ? nil : [w title];
     if ([title length]) {
         id font = [(id)FINCH_CLASS(NSFont) respondsToSelector:@selector(titleBarFontOfSize:)]
                       ? [(id)FINCH_CLASS(NSFont) titleBarFontOfSize:0]
@@ -165,7 +196,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
 - (int)_buttonAt:(NSPoint)p
 {
     NSWindow *w = [self window];
-    CGFloat t = titlebar_height([w styleMask]);
+    CGFloat t = bar_height([w styleMask]);
     if (t == 0)
         return -1;
     for (int i = 0; i < 3; i++)
@@ -176,7 +207,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
 
 - (BOOL)_inTitlebar:(NSPoint)p
 {
-    CGFloat t = chrome_height([self window]);
+    CGFloat t = visible_chrome_height([self window]);
     return t > 0 && p.y >= NSMaxY([self bounds]) - t;
 }
 
@@ -215,6 +246,36 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
 
 @end
 
+#pragma mark - The title bar over full-size content
+
+/* Above a full-size content view (and under the toolbar's row): the frame view draws it and takes its clicks. */
+@interface FinchTitlebarView : NSView
+@end
+
+@implementation FinchTitlebarView
+
+- (void)drawRect:(NSRect)dirty
+{
+    CGContextRef cg = [[NSGraphicsContext currentContext] CGContext];
+    NSThemeFrame *frame = (NSThemeFrame *)[self superview];
+    if (!cg || !frame)
+        return;
+    NSPoint o = [self frame].origin;
+    CGContextSaveGState(cg);
+    CGContextTranslateCTM(cg, -o.x, -o.y);
+    [frame _finchDrawTitlebar:cg];
+    CGContextRestoreGState(cg);
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+    [[self superview] mouseDown:event];
+}
+
+- (BOOL)mouseDownCanMoveWindow { return YES; }
+
+@end
+
 #pragma mark - NSWindow
 
 @implementation NSWindow {
@@ -222,6 +283,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     NSWindowStyleMask _style;
     NSBackingStoreType _backing;
     NSThemeFrame *_frameView;
+    FinchTitlebarView *_titlebarView;  /* full-size content windows only */
     NSView *_contentView;  /* retained by the frame view */
     NSString *_title, *_representedFilename;
     NSURL *_representedURL;
@@ -350,6 +412,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     NSView *content = [[NSView alloc] initWithFrame:[self _contentFrameInFrameView]];
     [self setContentView:content];
     [content release];
+    [self _finchUpdateTitlebarView];
     if (!all_windows)
         all_windows = CFArrayCreateMutable(NULL, 0, NULL);
     CFArrayAppendValue(all_windows, self);
@@ -384,6 +447,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     [self _finchDestroyServerWindow];
     [_frameView _finchSetWindow:nil];
     [_frameView release];
+    [_titlebarView release];
     [_title release];
     [_representedFilename release];
     [_representedURL release];
@@ -635,7 +699,7 @@ server_flags(NSWindow *w)
     _contentView = view;
     if (view) {
         [view setFrame:[self _contentFrameInFrameView]];
-        [_frameView addSubview:view];
+        [_frameView addSubview:view positioned:NSWindowBelow relativeTo:nil];  /* under the title bar and toolbar */
         [view setNextResponder:self];
         if (_firstResponder == old && old)
             _firstResponder = self;
@@ -662,9 +726,12 @@ server_flags(NSWindow *w)
         [self setTitle:title];
 }
 
+/* The part of the frame the title bar and toolbar leave clear, also when the content runs under them. */
 - (NSRect)contentLayoutRect
 {
-    return [self _contentFrameInFrameView];
+    NSRect r = NSMakeRect(0, 0, _frame.size.width, _frame.size.height);
+    r.size.height -= visible_chrome_height(self);
+    return r;
 }
 
 - (NSLayoutGuide *)contentLayoutGuide { return nil; }
@@ -754,9 +821,10 @@ server_flags(NSWindow *w)
     _title = [title copy];
     if (_server)
         FWSSetWindowTitle(_server, [_title UTF8String]);
-    if (titlebar_height(_style))
-        [_frameView setNeedsDisplayInRect:NSMakeRect(0, _frame.size.height - titlebar_height(_style),
-                                                     _frame.size.width, titlebar_height(_style))];
+    if (bar_height(_style))
+        [_frameView setNeedsDisplayInRect:NSMakeRect(0, _frame.size.height - bar_height(_style),
+                                                     _frame.size.width, bar_height(_style))];
+    [_titlebarView setNeedsDisplay:YES];
 }
 
 - (NSString *)subtitle { return @""; }
@@ -771,9 +839,19 @@ server_flags(NSWindow *w)
     [self setTitle:[filename lastPathComponent]];
 }
 - (NSWindowTitleVisibility)titleVisibility { return _w.titleHidden ? NSWindowTitleHidden : NSWindowTitleVisible; }
-- (void)setTitleVisibility:(NSWindowTitleVisibility)v { _w.titleHidden = v == NSWindowTitleHidden; }
+- (void)setTitleVisibility:(NSWindowTitleVisibility)v
+{
+    _w.titleHidden = v == NSWindowTitleHidden;
+    [_frameView setNeedsDisplay:YES];
+    [_titlebarView setNeedsDisplay:YES];
+}
 - (BOOL)titlebarAppearsTransparent { return _w.titlebarTransparent; }
-- (void)setTitlebarAppearsTransparent:(BOOL)flag { _w.titlebarTransparent = flag; }
+- (void)setTitlebarAppearsTransparent:(BOOL)flag
+{
+    _w.titlebarTransparent = flag;
+    [_frameView setNeedsDisplay:YES];
+    [_titlebarView setNeedsDisplay:YES];
+}
 - (NSWindowStyleMask)styleMask { return _style; }
 
 - (void)setStyleMask:(NSWindowStyleMask)style
@@ -782,7 +860,7 @@ server_flags(NSWindow *w)
     _style = style;
     _frame = [self frameRectForContentRect:content];
     [self setFrame:_frame display:YES];
-    [_contentView setFrame:[self _contentFrameInFrameView]];
+    [self _finchToolbarChangedFrom:chrome_height(self)];  /* the toolbar's row and the title bar overlay */
 }
 
 - (id<NSWindowDelegate>)delegate { return _delegate; }
@@ -965,10 +1043,10 @@ server_flags(NSWindow *w)
 - (void)_finchToolbarChangedFrom:(CGFloat)before
 {
     NSView *row = [_toolbar _finchView];
-    CGFloat t = titlebar_height(_style);
+    CGFloat t = bar_height(_style);
     BOOL shown = t && [_toolbar isVisible];
     if (before < 0)
-        before = t + (shown ? 0 : FinchToolbarHeight);
+        before = titlebar_height(_style) ? t + (shown ? 0 : FinchToolbarHeight) : 0;
     CGFloat after = chrome_height(self);
     if (after != before) {
         NSRect f = _frame;
@@ -984,8 +1062,32 @@ server_flags(NSWindow *w)
     } else {
         [row removeFromSuperview];
     }
+    [self _finchUpdateTitlebarView];
     [_contentView setFrame:[self _contentFrameInFrameView]];
     [_frameView setNeedsDisplay:YES];
+}
+
+/* The overlay title bar of a full-size content window, sized to the title bar and toolbar, under the toolbar's row. */
+- (void)_finchUpdateTitlebarView
+{
+    BOOL want = (_style & NSWindowStyleMaskFullSizeContentView) && bar_height(_style);
+    if (!want) {
+        [_titlebarView removeFromSuperview];
+        [_titlebarView release];
+        _titlebarView = nil;
+        return;
+    }
+    if (!_titlebarView)
+        _titlebarView = [[FinchTitlebarView alloc] initWithFrame:NSZeroRect];
+    CGFloat h = visible_chrome_height(self);
+    [_titlebarView setFrame:NSMakeRect(0, _frame.size.height - h, _frame.size.width, h)];
+    [_titlebarView setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+    NSView *row = [_toolbar isVisible] ? [_toolbar _finchView] : nil;
+    if ([row superview] == _frameView)
+        [_frameView addSubview:_titlebarView positioned:NSWindowBelow relativeTo:row];
+    else
+        [_frameView addSubview:_titlebarView positioned:NSWindowAbove relativeTo:nil];
+    [_titlebarView setNeedsDisplay:YES];
 }
 
 - (IBAction)toggleToolbarShown:(id)sender

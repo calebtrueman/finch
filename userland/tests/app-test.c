@@ -18,9 +18,11 @@
  *   cmd:CHAR          press Command-CHAR
  *   sample:X,Y,LABEL  print the screen's colour at X,Y in the current window
  *   windows           print the window list (titles and sizes)
+ *   screenshot:PATH   save the screen as a PNG
  *   output            print what the app has written since the last time
  */
 #include <CoreGraphics/CoreGraphics.h>
+#include <ImageIO/ImageIO.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <spawn.h>
@@ -165,6 +167,18 @@ main(int argc, char **argv)
                                 (size_t)((current.x + x) * scale) * 4;
             printf("%s: %d %d %d\n", label, px[2], px[1], px[0]);
             CFRelease(d);
+            CGImageRelease(im);
+        } else if (!strncmp(s, "screenshot:", 11)) {
+            usleep(200000);
+            CGImageRef im = FWSCopyScreenImage();
+            CFURLRef url = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8 *)s + 11, (CFIndex)strlen(s + 11), false);
+            CGImageDestinationRef d = CGImageDestinationCreateWithURL(url, CFSTR("public.png"), 1, NULL);
+            if (d) {
+                CGImageDestinationAddImage(d, im, NULL);
+                printf("screenshot %s: %s\n", s + 11, CGImageDestinationFinalize(d) ? "saved" : "failed");
+                CFRelease(d);
+            }
+            CFRelease(url);
             CGImageRelease(im);
         } else if (!strcmp(s, "windows")) {
             uint32_t count = 0;

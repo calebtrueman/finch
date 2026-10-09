@@ -341,6 +341,7 @@ decode_size(NSCoder *coder, NSString *key)
     NSToolbarDisplayMode _displayMode;
     NSToolbarSizeMode _sizeMode;
     BOOL _visible, _allowsUserCustomization, _autosaves, _showsBaseline, _allowsExtensionItems, _loaded;
+    NSDictionary *_ibItems;  /* the nib's items by identifier, for the delegate's identifiers */
     NSToolbarItemIdentifier _selected;
     NSWindow *_window;  /* not retained */
     FinchToolbarView *_view;
@@ -374,6 +375,8 @@ decode_size(NSCoder *coder, NSString *key)
         _autosaves = [coder decodeBoolForKey:@"NSToolbarAutosavesConfiguration"];
         _visible = ![coder containsValueForKey:@"NSToolbarPrefersToBeShown"] || [coder decodeBoolForKey:@"NSToolbarPrefersToBeShown"];
         NSDictionary *byID = [coder decodeObjectForKey:@"NSToolbarIBIdentifiedItems"];
+        if ([byID isKindOfClass:[NSDictionary class]])
+            _ibItems = [byID copy];
         for (NSString *ident in [coder decodeObjectForKey:@"NSToolbarIBDefaultItems"]) {
             NSToolbarItem *item = [byID[ident] isKindOfClass:[NSToolbarItem class]] ? byID[ident] : nil;
             if (item) {
@@ -392,6 +395,7 @@ decode_size(NSCoder *coder, NSString *key)
 {
     [_identifier release];
     [_items release];
+    [_ibItems release];
     [_selected release];
     [_view release];
     [super dealloc];
@@ -399,7 +403,15 @@ decode_size(NSCoder *coder, NSString *key)
 
 - (NSToolbarIdentifier)identifier { return _identifier; }
 - (id<NSToolbarDelegate>)delegate { return _delegate; }
-- (void)setDelegate:(id<NSToolbarDelegate>)delegate { _delegate = delegate; }
+- (void)setDelegate:(id<NSToolbarDelegate>)delegate
+{
+    _delegate = delegate;
+    /* a toolbar with nothing in it yet asks its new delegate when next shown */
+    if (![_items count] && _loaded) {
+        _loaded = NO;
+        [self _finchChanged];
+    }
+}
 - (NSToolbarDisplayMode)displayMode { return _displayMode; }
 - (void)setDisplayMode:(NSToolbarDisplayMode)m { _displayMode = m; [self _finchChanged]; }
 - (NSToolbarSizeMode)sizeMode { return _sizeMode; }
@@ -441,6 +453,10 @@ decode_size(NSCoder *coder, NSString *key)
     /* As Apple's: the standard items are made by the toolbar, not the delegate. */
     if ([identifier hasPrefix:@"NSToolbar"])
         return [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
+    /* an item the nib defines is used as it is, the first time it's placed */
+    NSToolbarItem *ib = _ibItems[identifier];
+    if ([ib isKindOfClass:[NSToolbarItem class]] && ![_items containsObject:ib])
+        return ib;
     if ([(id)_delegate respondsToSelector:@selector(toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:)])
         item = [_delegate toolbar:self itemForItemIdentifier:identifier willBeInsertedIntoToolbar:YES];
     if (!item && ([identifier hasPrefix:@"NSToolbar"]))

@@ -168,7 +168,7 @@ $(OUT)/finch-ctfonts-test: ctfonts-test.c
 # The window server and CoreGraphics' client for it (Finch-only: compare with ws-test.expected).
 $(OUT)/finch-ws-test: ws-test.c
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -o $@ $< ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics -framework CoreFoundation
+	$(CC) $(CFLAGS) -o $@ $< ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics -framework CoreFoundation -framework ImageIO
 
 # AppKit's core without a screen: responders, events, views, windows, actions (diff Apple's run and Finch's).
 $(OUT)/finch-appkit-core-test: appkit-core-test.m

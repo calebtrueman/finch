@@ -430,3 +430,10 @@ window server, Finch-only.
   palette label, tool tip, title, image, view, target and action, tag, enabled, autovalidates, bordered,
   navigational, visibility priority, min and max sizes), and Apple's private `NSToolbarFlexibleSpaceItem`,
   `NSToolbarSpaceItem` and `NSToolbarSeparatorItem` that nibs archive for the standard items.
+- 2026-10-09: full-size content windows (`NSWindowStyleMaskFullSizeContentView`, as Image Capture's):
+  the content fills the frame and Finch's title bar and toolbar row are drawn over it by an overlay
+  view (`FinchTitlebarView`), honouring `titlebarAppearsTransparent` and `titleVisibility`;
+  `contentLayoutRect` leaves the title bar and toolbar out, as Apple's does. Window templates attach
+  the toolbar archived under `NSViewClass`; a toolbar uses the nib's items for the identifiers its
+  delegate names, and asks a delegate set after it was first shown. Not yet: Apple's unified
+  toolbar style (title and items in one 52-point row) and scroll views insetting themselves under it.

@@ -624,6 +624,10 @@ enum {
     NSView *content = [coder decodeObjectForKey:@"NSWindowView"];
     if (content)
         [w setContentView:content];
+    /* the window's toolbar, under a key with an old name */
+    id toolbar = [coder decodeObjectForKey:@"NSViewClass"];
+    if ([toolbar isKindOfClass:[NSToolbar class]])
+        [w setToolbar:toolbar];
     [w setReleasedWhenClosed:!(flags & WT_NOT_RELEASED_ON_CLOSE)];
     [w setHidesOnDeactivate:(flags & WT_HIDES_ON_DEACTIVATE) != 0];
     [w setOneShot:(flags & WT_ONE_SHOT) != 0];
