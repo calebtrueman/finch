@@ -30,7 +30,7 @@ log() { echo "==> $*"; }
 COMMON=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g -fno-common -fblocks
     -Wall -Wextra -Werror -Wno-unused-parameter -Wno-deprecated-declarations)
 CFLAGS=("${COMMON[@]}" -std=c17)
-CXXFLAGS=("${COMMON[@]}" -std=c++20 -fno-exceptions -fno-rtti -I"${SKIA_SRC}"
+CXXFLAGS=("${COMMON[@]}" -std=c++20 -fno-exceptions -fno-rtti -Wno-missing-field-initializers -I"${SKIA_SRC}"
     -DSK_RELEASE -DSK_CPU_ONLY -DSK_GANESH=0)
 
 log "compiling"

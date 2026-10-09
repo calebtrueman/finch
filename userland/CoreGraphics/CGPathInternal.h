@@ -35,7 +35,7 @@ CGPathElemPointCount(CGPathElementType type)
     }
 }
 
-void CGPathFlatten(CGPathRef path, const CGAffineTransform *m, CGFloat tolerance,
+CG_PRIVATE void CGPathFlatten(CGPathRef path, const CGAffineTransform *m, CGFloat tolerance,
                    std::vector<std::vector<CGPoint>> &out);
 
 #endif

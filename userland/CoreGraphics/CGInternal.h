@@ -14,6 +14,9 @@
 extern "C" {
 #endif
 
+/* Internal to the framework (the export list exports every other CG* symbol). */
+#define CG_PRIVATE __attribute__((visibility("hidden")))
+
 /* Finch's CoreFoundation's runtime (swift-corelibs CFRuntime.h layout). */
 typedef struct {
     uintptr_t cfisa;
@@ -44,11 +47,14 @@ CFTypeRef _CFRuntimeCreateInstance(CFAllocatorRef allocator, CFTypeID typeID, CF
  * Instances are created with CGTypeCreateInstance(typeID, sizeof(struct)):
  * the struct starts with a CGRuntimeBase, and the rest is zeroed.
  */
-CFTypeID CGTypeRegister(const CGRuntimeClass *cls, CFTypeID *slot);
-void *CGTypeCreateInstance(CFTypeID type, size_t size);
+CG_PRIVATE CFTypeID CGTypeRegister(const CGRuntimeClass *cls, CFTypeID *slot);
+CG_PRIVATE void *CGTypeCreateInstance(CFTypeID type, size_t size);
 
 /* "<CGFoo 0x...>" plus an optional suffix, as Apple's descriptions start. */
-CFStringRef CGTypeCopyDescriptionPrefix(CFTypeRef cf, const char *name);
+CG_PRIVATE CFStringRef CGTypeCopyDescriptionPrefix(CFTypeRef cf, const char *name);
+
+/* Write to a data consumer. */
+CG_PRIVATE size_t CGDataConsumerPutBytesInternal(CGDataConsumerRef c, const void *bytes, size_t count);
 
 #ifdef __cplusplus
 }

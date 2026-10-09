@@ -410,6 +410,232 @@ paths(void)
     CGPathRelease(copy);
 }
 
+static void
+cfstr(const char *label, CFStringRef str)
+{
+    char buf[256] = "NULL";
+    if (str)
+        CFStringGetCString(str, buf, sizeof buf, kCFStringEncodingUTF8);
+    printf("%s: %s\n", label, buf);
+}
+
+static void
+space_info(const char *label, CGColorSpaceRef cs)
+{
+    if (!cs) {
+        printf("%s: NULL\n", label);
+        return;
+    }
+    CFStringRef name = CGColorSpaceCopyName(cs);
+    char nbuf[128] = "NULL";
+    if (name)
+        CFStringGetCString(name, nbuf, sizeof nbuf, kCFStringEncodingUTF8);
+    CFDataRef icc = CGColorSpaceCopyICCData(cs);
+    printf("%s: name=%s getname=%d model=%d n=%zu wide=%d hdr=%d pq=%d hlg=%d extended=%d output=%d icc=%d base=%d table=%zu\n",
+           label, nbuf, CGColorSpaceGetName(cs) != NULL, CGColorSpaceGetModel(cs),
+           CGColorSpaceGetNumberOfComponents(cs), CGColorSpaceIsWideGamutRGB(cs), CGColorSpaceIsHDR(cs),
+           CGColorSpaceIsPQBased(cs), CGColorSpaceIsHLGBased(cs), CGColorSpaceUsesExtendedRange(cs),
+           CGColorSpaceSupportsOutput(cs), icc != NULL, CGColorSpaceGetBaseColorSpace(cs) != NULL,
+           CGColorSpaceGetColorTableCount(cs));
+    if (name)
+        CFRelease(name);
+    if (icc)
+        CFRelease(icc);
+}
+
+static void
+color_info(const char *label, CGColorRef c)
+{
+    if (!c) {
+        printf("%s: NULL\n", label);
+        return;
+    }
+    size_t n = CGColorGetNumberOfComponents(c);
+    const CGFloat *v = CGColorGetComponents(c);
+    CFStringRef sname = CGColorSpaceCopyName(CGColorGetColorSpace(c));
+    char nbuf[128] = "NULL";
+    if (sname)
+        CFStringGetCString(sname, nbuf, sizeof nbuf, kCFStringEncodingUTF8);
+    printf("%s: space=%s n=%zu alpha=%.4f (", label, nbuf, n, CGColorGetAlpha(c));
+    for (size_t i = 0; i < n; i++)
+        printf("%s%.4f", i ? " " : "", fabs(v[i]) < 5e-5 ? 0 : v[i]);
+    printf(")\n");
+    if (sname)
+        CFRelease(sname);
+}
+
+static void
+colors(void)
+{
+    CFStringRef names[] = {
+        kCGColorSpaceGenericGray, kCGColorSpaceGenericRGB, kCGColorSpaceGenericCMYK, kCGColorSpaceDisplayP3,
+        kCGColorSpaceGenericRGBLinear, kCGColorSpaceAdobeRGB1998, kCGColorSpaceSRGB, kCGColorSpaceGenericGrayGamma2_2,
+        kCGColorSpaceGenericXYZ, kCGColorSpaceGenericLab, kCGColorSpaceACESCGLinear, kCGColorSpaceITUR_709,
+        kCGColorSpaceITUR_709_PQ, kCGColorSpaceITUR_709_HLG, kCGColorSpaceITUR_2020, kCGColorSpaceITUR_2020_sRGBGamma,
+        kCGColorSpaceROMMRGB, kCGColorSpaceDCIP3, kCGColorSpaceLinearITUR_2020, kCGColorSpaceExtendedITUR_2020,
+        kCGColorSpaceExtendedLinearITUR_2020, kCGColorSpaceLinearDisplayP3, kCGColorSpaceExtendedDisplayP3,
+        kCGColorSpaceExtendedLinearDisplayP3, kCGColorSpaceITUR_2100_PQ, kCGColorSpaceITUR_2100_HLG,
+        kCGColorSpaceDisplayP3_PQ, kCGColorSpaceDisplayP3_HLG, kCGColorSpaceExtendedSRGB, kCGColorSpaceLinearSRGB,
+        kCGColorSpaceExtendedLinearSRGB, kCGColorSpaceExtendedGray, kCGColorSpaceLinearGray,
+        kCGColorSpaceExtendedLinearGray, kCGColorSpaceCoreMedia709, CFSTR("kCGColorSpaceDeviceRGB"),
+        CFSTR("kCGColorSpaceDeviceGray"), CFSTR("kCGColorSpaceDeviceCMYK"), CFSTR("bogus"),
+    };
+    for (unsigned i = 0; i < sizeof names / sizeof names[0]; i++) {
+        char l[160];
+        CFStringGetCString(names[i], l, sizeof l, kCFStringEncodingUTF8);
+        CGColorSpaceRef cs = CGColorSpaceCreateWithName(names[i]);
+        space_info(l, cs);
+        if (cs) {
+            CGColorSpaceRef lin = CGColorSpaceCreateLinearized(cs), ext = CGColorSpaceCreateExtended(cs);
+            CGColorSpaceRef el = CGColorSpaceCreateExtendedLinearized(cs), std = CGColorSpaceCreateCopyWithStandardRange(cs);
+            char m[200];
+            snprintf(m, sizeof m, "  %s linearized", l), space_info(m, lin);
+            snprintf(m, sizeof m, "  %s extended", l), space_info(m, ext);
+            snprintf(m, sizeof m, "  %s extended linearized", l), space_info(m, el);
+            snprintf(m, sizeof m, "  %s standard range", l), space_info(m, std);
+            CGColorSpaceRelease(lin), CGColorSpaceRelease(ext), CGColorSpaceRelease(el), CGColorSpaceRelease(std);
+            CGColorSpaceRelease(cs);
+        }
+    }
+    CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB(), gray = CGColorSpaceCreateDeviceGray();
+    CGColorSpaceRef cmyk = CGColorSpaceCreateDeviceCMYK();
+    space_info("device rgb", rgb);
+    space_info("device gray", gray);
+    space_info("device cmyk", cmyk);
+    printf("device rgb shared: %d\n", rgb == CGColorSpaceCreateDeviceRGB());
+    CGColorSpaceRef srgb1 = CGColorSpaceCreateWithName(kCGColorSpaceSRGB), srgb2 = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    printf("named shared: %d equal: %d\n", srgb1 == srgb2, CFEqual(srgb1, srgb2));
+    printf("type ids: %d %d\n", CFGetTypeID(rgb) == CGColorSpaceGetTypeID(), CGColorSpaceGetTypeID() != CGPathGetTypeID());
+    printf("rgb == srgb: %d\n", CFEqual(rgb, srgb1));
+    CGFloat white[3] = {0.9505, 1.0, 1.089}, black[3] = {0, 0, 0}, gamma[3] = {1.8, 1.8, 1.8};
+    CGFloat matrix[9] = {0.4497, 0.2446, 0.0252, 0.3163, 0.6720, 0.1412, 0.1845, 0.0833, 0.9227};
+    space_info("calibrated rgb", CGColorSpaceCreateCalibratedRGB(white, black, gamma, matrix));
+    space_info("calibrated gray", CGColorSpaceCreateCalibratedGray(white, black, 2.2));
+    CGFloat range[4] = {-100, 100, -100, 100};
+    space_info("lab", CGColorSpaceCreateLab(white, black, range));
+    unsigned char table[6] = {255, 0, 0, 0, 0, 255};
+    CGColorSpaceRef indexed = CGColorSpaceCreateIndexed(rgb, 1, table);
+    space_info("indexed", indexed);
+    unsigned char back[6] = {0};
+    CGColorSpaceGetColorTable(indexed, back);
+    printf("indexed table: %d %d %d %d %d %d\n", back[0], back[1], back[2], back[3], back[4], back[5]);
+    space_info("indexed bad", CGColorSpaceCreateIndexed(rgb, 300, table));
+    space_info("pattern", CGColorSpaceCreatePattern(rgb));
+    space_info("pattern uncolored", CGColorSpaceCreatePattern(NULL));
+    CFDataRef icc = CGColorSpaceCopyICCData(srgb1);
+    CGColorSpaceRef fromicc = CGColorSpaceCreateWithICCData(icc);
+    space_info("from srgb icc", fromicc);
+    CFDataRef garbage = CFDataCreate(NULL, (const UInt8 *)"not an icc profile at all", 25);
+    space_info("from garbage icc", CGColorSpaceCreateWithICCData(garbage));
+    CFPropertyListRef plist = CGColorSpaceCopyPropertyList(srgb1);
+    printf("srgb plist type: %s\n", !plist ? "NULL" : CFGetTypeID(plist) == CFStringGetTypeID() ? "string" :
+           CFGetTypeID(plist) == CFDataGetTypeID() ? "data" : CFGetTypeID(plist) == CFDictionaryGetTypeID() ? "dict" : "other");
+    if (plist && CFGetTypeID(plist) == CFStringGetTypeID())
+        cfstr("srgb plist", plist);
+    space_info("from plist", plist ? CGColorSpaceCreateWithPropertyList(plist) : NULL);
+
+    /* colors */
+    CGFloat comps[4] = {1, 0.5, 0.25, 0.75};
+    color_info("create rgb", CGColorCreate(rgb, comps));
+    color_info("create gray", CGColorCreate(gray, comps));
+    color_info("create null space", CGColorCreate(NULL, comps));
+    color_info("generic rgb", CGColorCreateGenericRGB(0.2, 0.4, 0.6, 0.8));
+    color_info("generic gray", CGColorCreateGenericGray(0.3, 1));
+    color_info("generic cmyk", CGColorCreateGenericCMYK(0.1, 0.2, 0.3, 0.4, 0.5));
+    color_info("gray gamma 2.2", CGColorCreateGenericGrayGamma2_2(0.5, 1));
+    color_info("srgb", CGColorCreateSRGB(1, 0, 0, 1));
+    color_info("srgb extended", CGColorCreateSRGB(1.5, -0.2, 0, 2));
+    color_info("constant white", CGColorGetConstantColor(kCGColorWhite));
+    color_info("constant black", CGColorGetConstantColor(kCGColorBlack));
+    color_info("constant clear", CGColorGetConstantColor(kCGColorClear));
+    color_info("constant bogus", CGColorGetConstantColor(CFSTR("bogus")));
+    cfstr("kCGColorWhite", kCGColorWhite);
+    cfstr("kCGColorSpaceSRGB", kCGColorSpaceSRGB);
+    cfstr("kCGColorSpaceDisplayP3", kCGColorSpaceDisplayP3);
+    cfstr("kCGColorSpaceExtendedRange", kCGColorSpaceExtendedRange);
+    CGColorRef red = CGColorCreateSRGB(1, 0, 0, 1);
+    color_info("copy with alpha", CGColorCreateCopyWithAlpha(red, 0.25));
+    color_info("copy with alpha 2", CGColorCreateCopyWithAlpha(red, 2));
+    printf("equal: %d %d %d\n", CGColorEqualToColor(red, CGColorCreateSRGB(1, 0, 0, 1)),
+           CGColorEqualToColor(red, CGColorCreateSRGB(1, 0, 0, 0.5)),
+           CGColorEqualToColor(red, CGColorCreateGenericRGB(1, 0, 0, 1)));
+    printf("color type: %d\n", CFGetTypeID(red) == CGColorGetTypeID());
+    CGColorSpaceRef p3 = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+    CGColorSpaceRef linear = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
+    CGColorSpaceRef ext = CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB);
+    CGColorSpaceRef gen = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
+    CGColorSpaceRef ggray = CGColorSpaceCreateWithName(kCGColorSpaceGenericGrayGamma2_2);
+    CGColorSpaceRef lgray = CGColorSpaceCreateWithName(kCGColorSpaceLinearGray);
+    CGColorSpaceRef adobe = CGColorSpaceCreateWithName(kCGColorSpaceAdobeRGB1998);
+    CGColorSpaceRef targets[] = {p3, linear, ext, gen, ggray, lgray, adobe, srgb1, rgb, gray};
+    const char *tnames[] = {"p3", "linear srgb", "extended srgb", "generic rgb", "gray 2.2", "linear gray",
+                            "adobe", "srgb", "device rgb", "device gray"};
+    CGColorRef sources[] = {red, CGColorCreateSRGB(0.5, 0.5, 0.5, 1), CGColorCreateSRGB(0.2, 0.7, 0.9, 0.5),
+                            CGColorCreateGenericGray(0.5, 1)};
+    for (unsigned si = 0; si < 4; si++)
+        for (unsigned ti = 0; ti < sizeof targets / sizeof targets[0]; ti++) {
+            char l[80];
+            if (si == 0 && targets[ti] == gen)
+                continue;  /* sRGB red is outside Generic RGB: clipping out-of-gamut colour is the CMM's choice */
+            snprintf(l, sizeof l, "match %u to %s", si, tnames[ti]);
+            color_info(l, CGColorCreateCopyByMatchingToColorSpace(targets[ti], kCGRenderingIntentDefault, sources[si], NULL));
+        }
+    CGColorRef p3red = CGColorCreate(p3, (CGFloat[]){1, 0, 0, 1});
+    color_info("p3 red to srgb", CGColorCreateCopyByMatchingToColorSpace(srgb1, kCGRenderingIntentDefault, p3red, NULL));
+    color_info("p3 red to extended srgb", CGColorCreateCopyByMatchingToColorSpace(ext, kCGRenderingIntentDefault, p3red, NULL));
+    /* descriptions and property lists */
+    CFStringRef dnames[] = {kCGColorSpaceSRGB, kCGColorSpaceDisplayP3, kCGColorSpaceExtendedSRGB, kCGColorSpaceGenericRGB,
+                            kCGColorSpaceGenericGray, kCGColorSpaceGenericGrayGamma2_2, kCGColorSpaceGenericCMYK,
+                            kCGColorSpaceGenericLab, kCGColorSpaceGenericXYZ, kCGColorSpaceITUR_2100_PQ,
+                            kCGColorSpaceLinearGray, kCGColorSpaceCoreMedia709, CFSTR("kCGColorSpaceDisplayP3_PQ_EOTF")};
+    for (unsigned i = 0; i < sizeof dnames / sizeof dnames[0]; i++) {
+        char l[160], m[200];
+        CFStringGetCString(dnames[i], l, sizeof l, kCFStringEncodingUTF8);
+        CGColorSpaceRef cs = CGColorSpaceCreateWithName(dnames[i]);
+        snprintf(m, sizeof m, "desc %s", l);
+        cfdesc(m, cs);
+        CFPropertyListRef pl = CGColorSpaceCopyPropertyList(cs);
+        snprintf(m, sizeof m, "plist %s", l);
+        if (pl && CFGetTypeID(pl) == CFNumberGetTypeID()) {
+            int id;
+            CFNumberGetValue(pl, kCFNumberIntType, &id);
+            printf("%s: number %d\n", m, id);
+        } else if (pl && CFGetTypeID(pl) == CFStringGetTypeID()) {
+            cfstr(m, pl);
+        } else {
+            printf("%s: %s\n", m, !pl ? "NULL" : CFGetTypeID(pl) == CFDataGetTypeID() ? "data" : "other");
+        }
+        CGColorSpaceRef back = pl ? CGColorSpaceCreateWithPropertyList(pl) : NULL;
+        printf("%s round trip: %d\n", m, back == cs);
+        CFStringRef nm = CGColorSpaceCopyName(cs);
+        snprintf(m, sizeof m, "name %s", l);
+        cfstr(m, nm);
+    }
+    cfdesc("desc device rgb", rgb);
+    cfdesc("desc device gray", gray);
+    cfdesc("desc device cmyk", cmyk);
+    cfdesc("desc indexed", indexed);
+    cfdesc("desc pattern", CGColorSpaceCreatePattern(NULL));
+    cfdesc("desc calibrated gray", CGColorSpaceCreateCalibratedGray(white, black, 2.2));
+    for (int k = 0; k < 3; k++) {
+        CGColorSpaceRef dev = k == 0 ? rgb : k == 1 ? gray : cmyk;
+        CFPropertyListRef pl = CGColorSpaceCopyPropertyList(dev);
+        printf("device plist %d: ", k);
+        if (pl && CFGetTypeID(pl) == CFStringGetTypeID())
+            cfstr("string", pl);
+        else
+            printf("%s\n", pl ? "other" : "NULL");
+    }
+    cfdesc("desc color srgb", CGColorCreateSRGB(1, 0.5, 0.25, 1));
+    cfdesc("desc color device", CGColorCreate(rgb, comps));
+    cfdesc("desc color white", CGColorGetConstantColor(kCGColorWhite));
+    cfdesc("desc color generic gray", CGColorCreateGenericGray(0.3, 1));
+    cfdesc("desc color cmyk", CGColorCreateGenericCMYK(0.1, 0.2, 0.3, 0.4, 0.5));
+    cfdesc("desc color extended", CGColorCreate(ext, (CGFloat[]){0.123456789, 1.5, -0.2, 1}));
+    cfdesc("desc color p3", CGColorCreate(p3, (CGFloat[]){0.5, 1, 0.2, 1}));
+    color_info("p3 red to srgb perceptual", CGColorCreateCopyByMatchingToColorSpace(srgb1, kCGRenderingIntentPerceptual, p3red, NULL));
+}
+
 int
 main(int argc, char **argv)
 {
@@ -420,5 +646,6 @@ main(int argc, char **argv)
     geometry();
     transforms();
     paths();
+    colors();
     return 0;
 }
