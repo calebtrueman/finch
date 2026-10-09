@@ -675,8 +675,8 @@ wake_event(void)
         return _appearance;
     static NSAppearance *system;
     if (!system) {
-        BOOL dark = [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"]
-                        caseInsensitiveCompare:@"Dark"] == NSOrderedSame;
+        NSString *style = [[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"];
+        BOOL dark = style && [style caseInsensitiveCompare:@"Dark"] == NSOrderedSame;
         if ([[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSRequiresAquaSystemAppearance"] boolValue])
             dark = NO;
         system = [[NSAppearance appearanceNamed:dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua] retain];

@@ -425,6 +425,10 @@ protections under Finch's own keys).
     - [x] Drawn by each app's menu bar: FINCH, the menus, the workbench and the clock (2026-10-09).
     - [ ] A system process owning it (network, battery, the launcher behind FINCH).
   - [ ] The Rail, in place of the Dock.
+    - [x] `Rail.app` (`userland/shell/Rail`): the finch mark, pinned and running apps with
+          per-window marks, the workbench switcher. Apps' visible frame leaves it out, and
+          `FINCH_SHELL` starts it with the session in the VM (2026-10-09).
+    - [ ] Hover names, drag to pin, retracting for full-screen apps.
   - [ ] Workbenches: named, persistent, defined in text files.
   - [ ] Window behaviour: alignment guides, layout zones, fill the workbench.
   - [ ] Illustrated icons, and the mascot in onboarding, empty states and About.

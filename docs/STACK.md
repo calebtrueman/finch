@@ -33,6 +33,8 @@ including TextKit 2 and Auto Layout, match Apple's on the host and in the VM.
 AppKit and the window server draw in Fieldwork, Finch's own design language
 (`docs/design/FIELDWORK.md`), from a theme file of tokens; the Classic theme keeps
 Aqua-compatible values for apps that need them and for the comparison tests.
+The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
+Finch app down the left edge that replaces the Dock.
 
 CoreFoundation's local notification center shares observers with Foundation's
 default `NSNotificationCenter`. Bundles read `.loctable` files and choose their
@@ -67,7 +69,7 @@ block-beta
         t7["Apps and desktop"]
         apps["Image Capture (unmodified)<br/>launches with Finch frameworks<br/>on the host; no devices yet"]
         desktop["finch-windowserver<br/>windows over shared memory,<br/>Skia compositor, cursor,<br/>input routing (headless, viewer)"]
-        shell["Dock / Finder-alikes"]
+        shell["Fieldwork shell: the Rail<br/>(pinned and running apps,<br/>workbench switcher);<br/>file manager to come"]
     end
     block:L6
         columns 4
@@ -165,9 +167,9 @@ block-beta
     classDef testapp fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
     classDef blank fill:none,stroke:none
     class t7,t6,t5,t4,t3,t2,t1,t0 layer
-    class shell,later,kexts,metal planned
+    class later,kexts,metal planned
     class apps testapp
-    class uti,appkit,quartzcore,coreservices,coreui,security,sysconfig,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
+    class shell,uti,appkit,quartzcore,coreservices,coreui,security,sysconfig,imagecap,desktop,cg,imageio,ctio,cf,autolayout,foundation,od,comp,pamunix,ess,xpc,cc,stubs,init,logd finch
     class icu,objc,iokit,gcore,osslibs,pam,libc,kernlib,dyld,daemons,cmds,xnu apple
     class swift,codecs,cxx,qemu,tz,skia,fonts upstream
     class vz firmware

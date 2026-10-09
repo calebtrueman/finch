@@ -5,6 +5,7 @@
  * out.
  */
 #import "NSView_Finch.h"
+#import "FinchTheme.h"
 
 NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenColorSpaceDidChangeNotification";
 
@@ -57,9 +58,11 @@ static NSScreen *main_screen;
 - (NSWindowDepth)depth { return NSWindowDepthTwentyfourBitRGB; }
 - (NSRect)frame { return NSMakeRect(0, 0, _info.width, _info.height); }
 
+/* Fieldwork's Rail runs down the left edge (docs/design/FIELDWORK.md), as macOS's Dock takes an edge. */
 - (NSRect)visibleFrame
 {
-    return NSMakeRect(0, 0, _info.width, _info.height - menu_bar_height);
+    CGFloat rail = FinchThemeIsClassic() ? 0 : FinchThemeMetric(@"railWidth", 48);
+    return NSMakeRect(rail, 0, _info.width - rail, _info.height - menu_bar_height);
 }
 
 - (NSDictionary<NSDeviceDescriptionKey, id> *)deviceDescription

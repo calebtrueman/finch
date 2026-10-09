@@ -7,7 +7,8 @@
  * what the screen shows. Finch-only; compare with the expected output.
  *
  *   finch-app-test SERVER APP-EXECUTABLE STEP...
- *   (FINCH_APP_ARGS="file ..." passes arguments to the app; commas separate them too)
+ *   (FINCH_APP_ARGS="file ..." passes arguments to the app; commas separate them too;
+ *   FINCH_SHELL=EXECUTABLE starts a shell process first, such as the Rail)
  *
  * Steps (points; window-relative ones are from the top left of the named
  * window, title bar included):
@@ -122,6 +123,15 @@ main(int argc, char **argv)
     for (int i = 0; i < 100 && !FWSConnect(); i++)
         usleep(20000);
     FWSSetCursorVisible(false);
+    /* FINCH_SHELL: the desktop's own process (the Rail), started before the app */
+    pid_t shell = 0;
+    const char *shell_path = getenv("FINCH_SHELL");
+    if (shell_path && *shell_path) {
+        char *shargs[] = {(char *)shell_path, NULL};
+        if (posix_spawn(&shell, shell_path, NULL, NULL, shargs, environ))
+            shell = 0;
+        usleep(1500000);
+    }
     int pipefd[2];
     pipe(pipefd);
     posix_spawn_file_actions_t fa;
@@ -246,6 +256,8 @@ main(int argc, char **argv)
     drain_output(true);
     int status = 0;
     kill(app, SIGTERM);
+    if (shell)
+        kill(shell, SIGTERM);
     waitpid(app, &status, 0);
     kill(server, SIGTERM);
     waitpid(server, NULL, 0);
