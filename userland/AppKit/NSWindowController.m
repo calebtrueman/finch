@@ -51,6 +51,8 @@
 
 - (instancetype)initWithWindowNibName:(NSNibName)name owner:(id)owner
 {
+    if (!owner)
+        [NSException raise:NSInternalInconsistencyException format:@"Invalid parameter not satisfying: owner"];
     self = [self initWithWindow:nil];
     if (self) {
         _nibName = [name copy];
@@ -61,6 +63,8 @@
 
 - (instancetype)initWithWindowNibPath:(NSString *)path owner:(id)owner
 {
+    if (!owner)
+        [NSException raise:NSInternalInconsistencyException format:@"Invalid parameter not satisfying: owner"];
     self = [self initWithWindow:nil];
     if (self) {
         _nibPath = [path copy];
@@ -106,7 +110,8 @@
 - (void)setShouldCloseDocument:(BOOL)flag { _c.closesDocument = flag; }
 - (NSStoryboard *)storyboard { return _storyboard; }
 
-- (BOOL)isWindowLoaded { return _window != nil; }
+/* As Apple's: with no nib to load, the window counts as loaded. */
+- (BOOL)isWindowLoaded { return _window != nil || (!_nibName && !_nibPath); }
 
 - (NSWindow *)window
 {

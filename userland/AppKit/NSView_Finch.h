@@ -23,6 +23,7 @@
 @end
 
 FINCH_PRIVATE CGFloat FinchDefaultBackingScale(void);
+FINCH_PRIVATE NSViewController *FinchViewControllerOf(NSView *view);
 FINCH_PRIVATE CGFloat FinchViewBackingScale(NSView *view);
 FINCH_PRIVATE CGAffineTransform FinchViewToBase(NSView *view);
 FINCH_PRIVATE NSRect FinchViewRectBeingDrawn(NSView *view);

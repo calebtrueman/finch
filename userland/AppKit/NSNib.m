@@ -422,6 +422,25 @@ nib_class(FinchNibDecoder *self, NSUInteger clsIndex)
         _decoded[index] = nil;
     } else {
         Class c = nib_class(self, _objects[index].cls);
+        if ([name isEqualToString:@"NSClassSwapper"]) {
+            /* Allocate the app's class itself, so objects that refer back to it while it decodes get it. */
+            NibValue *initFlag = [self nibValueForKey:@"NSInitializeWithInit"];
+            NSString *cname = [self decodeObjectForKey:@"NSClassName"];
+            NSString *original = [self decodeObjectForKey:@"NSOriginalClassName"];
+            _current = index;
+            c = NSClassFromString(cname);
+            if (!c) {
+                NSLog(@"Unknown class '%@', using '%@' instead. Encountered in Interface Builder file.", cname,
+                      original);
+                c = NSClassFromString(original) ?: [NSObject class];
+            }
+            if (initFlag && initFlag->type == V_TRUE) {
+                result = [[c alloc] init];
+                _current = saved;
+                _decoded[index] = result ?: [[NSNull null] retain];
+                return result;
+            }
+        }
         id obj = [c alloc];
         _decoded[index] = [obj retain];  /* so references back to it while it decodes find it */
         id inited = [obj initWithCoder:self];

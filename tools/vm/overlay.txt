@@ -61,6 +61,9 @@ build/userland/finch-appkit-core-test /usr/local/bin/finch-appkit-core-test
 build/userland/finch-appkit-window-test /usr/local/bin/finch-appkit-window-test
 build/userland/finch-nib-test /usr/local/bin/finch-nib-test
 build/userland/nib-test.nib /usr/local/share/finch/nib-test.nib
+build/userland/finch-appkit-document-test /usr/local/bin/finch-appkit-document-test
+build/userland/doc-test.nib /usr/local/share/finch/doc-test.nib
+build/userland/vc-test.nib /usr/local/share/finch/vc-test.nib
 build/userland/finch-imageio-test /usr/local/bin/finch-imageio-test
 userland/tests/cg-draw-reference.bin /usr/local/share/finch/cg-draw-reference.bin
 build/userland/finch-cgpdf-test /usr/local/bin/finch-cgpdf-test

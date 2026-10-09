@@ -143,3 +143,12 @@ window server, Finch-only.
   outlet and action connectors. `finch-appkit-core-test` and `finch-nib-test` print
   the same as Apple's AppKit on the host (the core test also in the VM);
   `finch-appkit-window-test` runs a window end to end on a headless server.
+- 2026-10-08: the document architecture: `NSDocument` (reading and writing through
+  URLs, file wrappers or data, untitled names as Apple numbers them, the change count
+  and its undo-manager tracking, window controllers, saving) and `NSDocumentController`
+  (the shared controller, document types from `CFBundleDocumentTypes`, making and
+  opening documents, recents). `NSViewController` joins the responder chain between
+  its view and the superview, and the nib decoder allocates `NSClassSwapper`
+  classes directly so objects that refer back to them get the real object.
+  `finch-appkit-document-test` matches Apple's on the host. Open and save panels are
+  still to come.

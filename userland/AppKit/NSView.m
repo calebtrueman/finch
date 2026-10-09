@@ -157,7 +157,14 @@ did_move_to_window(NSView *view, NSWindow *window)
         i++;
     [_subviews insertObject:view atIndex:i];
     view->_superview = self;
-    [view setNextResponder:self];
+    /* a view controller goes between its view and the superview, as on macOS */
+    NSViewController *vc = FinchViewControllerOf(view);
+    if (vc) {
+        [vc setNextResponder:self];
+        [view setNextResponder:vc];
+    } else {
+        [view setNextResponder:self];
+    }
     [self didAddSubview:view];
     if (view->_window != _window)
         did_move_to_window(view, _window);
