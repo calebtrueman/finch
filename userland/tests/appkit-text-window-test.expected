@@ -1,0 +1,30 @@
+first responder is the text view 0
+after click: first responder is the text view 1, selection {0, 0}
+typed 'Hello world' selection {11, 0}
+left 3, typed: 'Hello woXrld' selection {9, 0}
+option-left: selection {6, 0}
+shift-right twice: selection {6, 2}
+delete: 'Hello Xrld' selection {6, 0}
+return, typed: 'Hello \nnextXrld'
+up: selection {4, 0}
+click at the start: selection {0, 0}
+double click: selection {0, 5} 'Hello'
+drag: selection {0, 6}
+copy, paste at the end: 'Hello \nnextXrldHello '
+undo: 'Hello \nnextXrld'
+select all: selection {0, 15}
+delegate: didBegin
+first line, all selected: text yes selection yes
+below the text: text no selection no
+first line, no selection: text yes selection no
+text view frame {{0, 0}, {300, 640}} visible {{0, 0}, {300, 200}}
+scroller enabled 1 proportion 0.312 value 0.000
+top before scrolling: text yes selection no
+scroller knob drawn 1
+scrolled: visible {{0, 100}, {300, 200}}
+top after scrolling: text yes selection no
+what is drawn changed 1
+knob moved off the top 1
+scrolled to the end: visible {{0, 440}, {300, 200}} value 1.000
+back 30: visible {{0, 410}, {300, 200}}
+typed at the start: visible {{0, 0}, {300, 200}} text starts 'Aline 1'

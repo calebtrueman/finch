@@ -383,6 +383,9 @@ type_names(NSDictionary *t)
 
 - (BOOL)validateUserInterfaceItem:(id<NSValidatedUserInterfaceItem>)item
 {
+    /* as Apple's: with no document types, there is nothing to make or open */
+    if ([item action] == @selector(newDocument:) || [item action] == @selector(openDocument:))
+        return [[self documentClassNames] count] > 0;
     if ([item action] == @selector(saveAllDocuments:))
         return [self hasEditedDocuments];
     if ([item action] == @selector(clearRecentDocuments:))

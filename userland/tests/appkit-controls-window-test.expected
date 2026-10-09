@@ -1,0 +1,34 @@
+default button is OK 1, first responder window
+default button: accent
+other button: light
+other button title: ink
+checkbox off: light
+radio A on: accent
+radio B off: light
+label: ink
+text field background: light
+text field text: ink
+segment one (selected): accent
+segment two: light
+progress filled: accent
+progress empty: other
+check state 1
+radios 0 1
+clicks: check: Check state 1; radio: Radio B state 1; push: Other state 1
+press and drag off: 
+checkbox on: accent
+radio A off: light
+radio B on: accent
+return: push: OK state 1
+slider moved to about 75
+segment 2
+segment: segment 2
+segment three (selected): accent
+segment one: light
+field editor yes
+editing 1 first responder is the editor 1
+field value while editing 'hi'
+typed and return: didBeginEditing; didChange 'h'; didChange 'hi'; didEndEditing 'hi'; field: NSTextField 'hi'
+field 'hi'
+tab: field: NSTextField 'hi'
+editing after tab 0

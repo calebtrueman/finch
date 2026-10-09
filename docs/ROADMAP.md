@@ -237,7 +237,17 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         drives a window through the server (drawing, clicks, keys, dragging, closing) (2026-10-08)
   - [ ] Controls and cells, menus, nib loading. Nibs load (ibtool's NIBArchive format and keyed
         archives; custom objects and views, outlets, actions, windows): `finch-nib-test` matches
-        Apple's (2026-10-08)
+        Apple's (2026-10-08); controls and cells (buttons, text fields, sliders, steppers, progress
+        and level indicators, segmented controls, colour wells, image views, boxes) load from nibs
+        and work: `finch-appkit-controls-test` matches Apple's on the host and in the VM,
+        `finch-appkit-controls-window-test` drives them through the server (2026-10-08); menus
+        (`NSMenu`, `NSMenuItem`, validation, key equivalents, nib main menus), a Finch-drawn menu bar,
+        context and pop-up menus, `NSPopUpButton`: `finch-appkit-menu-test` matches Apple's on the
+        host and in the VM, `finch-appkit-menu-window-test` drives them through the server (2026-10-08)
+  - [x] Text editing and scrolling: `NSTextView` and the field editor (TextKit 1), `NSScrollView`,
+        `NSClipView`, `NSScroller`, an in-process `NSPasteboard`. `finch-appkit-text-test` matches
+        Apple's on the host and in the VM; `finch-appkit-text-window-test` types, clicks and scrolls
+        through the server (2026-10-08); rich-text pasteboard types, find and spelling to come
 - [ ] TextEdit or Calculator launches and is usable
 
 **Exit:** an unmodified Mac app draws a window on Finch's own frameworks and

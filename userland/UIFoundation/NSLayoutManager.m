@@ -42,6 +42,11 @@ typedef struct {
 }
 @end
 
+/* A text view hearing about edits to its storage (AppKit's NSTextView). */
+@interface NSObject (UIFTextViewEditing)
+- (void)_finchTextStorageEdited:(NSTextStorageEditActions)mask range:(NSRange)range changeInLength:(NSInteger)delta;
+@end
+
 @implementation NSLayoutManager
 
 + (BOOL)supportsSecureCoding { return YES; }
@@ -80,6 +85,37 @@ discard_layout(NSLayoutManager *self)
     [_temporary release];
     free(_rectArray);
     [super dealloc];
+}
+
+#pragma mark Archiving
+
+/* As Apple archives it (in nibs): the text storage, the containers, NSLMFlags, the delegate. */
+enum { LM_ALLOWS_NONCONTIGUOUS = 1 << 7 };
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    if (!(self = [self init]))
+        return nil;
+    int flags = [coder decodeIntForKey:@"NSLMFlags"];
+    _allowsNonContiguous = (flags & LM_ALLOWS_NONCONTIGUOUS) != 0;
+    _delegate = [coder decodeObjectForKey:@"NSDelegate"];
+    NSArray *containers = [coder decodeObjectForKey:@"NSTextContainers"];
+    for (NSTextContainer *c in containers)
+        if ([c isKindOfClass:[NSTextContainer class]] && [_containers indexOfObjectIdenticalTo:c] == NSNotFound)
+            [self addTextContainer:c];
+    NSTextStorage *ts = [coder decodeObjectForKey:@"NSTextStorage"];
+    if ([ts isKindOfClass:[NSTextStorage class]])
+        [ts addLayoutManager:self];
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+    [coder encodeConditionalObject:_textStorage forKey:@"NSTextStorage"];
+    [coder encodeObject:_containers forKey:@"NSTextContainers"];
+    [coder encodeInt:0x66 | (_allowsNonContiguous ? LM_ALLOWS_NONCONTIGUOUS : 0) forKey:@"NSLMFlags"];
+    if (_delegate)
+        [coder encodeConditionalObject:_delegate forKey:@"NSDelegate"];
 }
 
 #pragma mark Text storage and containers
@@ -247,6 +283,12 @@ redisplay(NSLayoutManager *self)
     }
     [self invalidate];
     redisplay(self);
+    /* Text views follow edits made to the storage (their selection, their size). */
+    for (NSTextContainer *c in [[_containers copy] autorelease]) {
+        id tv = c.textView;
+        if ([tv respondsToSelector:@selector(_finchTextStorageEdited:range:changeInLength:)])
+            [tv _finchTextStorageEdited:editMask range:newCharRange changeInLength:delta];
+    }
 }
 
 - (void)textStorage:(NSTextStorage *)str
@@ -284,6 +326,8 @@ redisplay(NSLayoutManager *self)
                              start, YES, YES, c.maximumNumberOfLines};
         /* An empty text has the typing font: the end of the text's, or Helvetica 12. */
         NSDictionary *typing = len ? [s attributesAtIndex:len - 1 effectiveRange:NULL] : @{};
+        if (!len && [c.textView respondsToSelector:@selector(typingAttributes)])
+            typing = [(id)c.textView typingAttributes] ?: typing;
         cl->layout = UIFLayoutString(s, typing, p);
         if (!len && cl->layout.count) {
             cl->layout.lines[0].extra = YES;
@@ -644,6 +688,21 @@ range_rect_in_line(ContainerLayout *cl, size_t i, NSRange range)
         return NSZeroRect;
     NSRect r = NSZeroRect;
     BOOL any = NO;
+    /* An empty range: the insertion point there, zero wide (the extra line's at the very end). */
+    if (!glyphRange.length) {
+        NSUInteger loc = glyphRange.location;
+        for (size_t i = 0; i < cl->layout.count; i++) {
+            UIFLine *ln = &cl->layout.lines[i];
+            BOOL last = i + 1 == cl->layout.count || cl->layout.lines[i + 1].extra;
+            if (ln->extra ? loc == ln->range.location
+                          : (NSLocationInRange(loc, ln->range) || (last && loc == NSMaxRange(ln->range)))) {
+                NSRect f = fragment_rect(cl, i);
+                CGFloat x = ln->extra ? cl->padding + ln->x : cl->padding + ln->x + offset_in_line(ln, loc);
+                return NSMakeRect(x, f.origin.y, 0, f.size.height);
+            }
+        }
+        return NSZeroRect;
+    }
     for (size_t i = 0; i < cl->layout.count; i++) {
         UIFLine *ln = &cl->layout.lines[i];
         if (ln->extra || !NSIntersectionRange(ln->range, glyphRange).length)

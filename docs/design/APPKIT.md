@@ -152,3 +152,107 @@ window server, Finch-only.
   classes directly so objects that refer back to them get the real object.
   `finch-appkit-document-test` matches Apple's on the host. Open and save panels are
   still to come.
+- 2026-10-08: controls and cells. `NSCell` (types, states and the mixed-state cycle,
+  values and their conversions with Apple's string forms, formatters, which setters imply
+  which, tracking, editing through the field editor), `NSActionCell`, `NSControl` (its
+  own tag, value and target without a cell; value accessors that end editing; action
+  routing; mouse tracking; the field editor's delegate, turned into the
+  `NSControlTextEditingDelegate` methods and notifications), `NSButton`/`NSButtonCell`
+  (every button type's `highlightsBy`/`showsStateBy`, the state as the value, titles,
+  images and positions, bezel styles, key equivalents, the factories, radio groups by
+  superview and action, the window's default button), `NSTextField`/`NSTextFieldCell`
+  (labels and fields, the factories, placeholders, bezels, editing with action on Return
+  and end editing, Tab to the next key view), `NSSecureTextField` (bullets; the field
+  editor still shows the text while editing), `NSSlider`, `NSStepper`,
+  `NSProgressIndicator`, `NSSegmentedControl`, `NSColorWell` (no colour panel yet),
+  `NSImageView`/`NSImageCell`, `NSBox`, `NSLevelIndicator`, and the nib classes
+  `NSCustomResource`, `NSButtonImageSource` and `NSSegmentItem`. Each decodes Apple's
+  nib keys; the cell and button flag bits, learned from ibtool's output, are in
+  `NSControl_Finch.h` and `NSButtonCell.m`. Controls are drawn in Finch's own flat look
+  (rounded bezels, the accent colour for the default button and for "on"); sizes follow
+  Apple's where layout depends on them (push buttons 24 high, text fields 24, labels a
+  line). `finch-appkit-controls-test` (cells, values, states, actions, every control, a
+  nib of controls) prints the same as Apple's AppKit on the host and in the VM;
+  `finch-appkit-controls-window-test` clicks, drags and types at a window of controls
+  on a headless server and samples what they draw. The window now offers key
+  equivalents without Command (Return, Escape) when nothing else takes the key, lets a
+  text field hand first responder on to its field editor, and doesn't give the focus to
+  a clicked button or slider. Not yet: `NSMatrix`, `NSForm`, `NSSearchField`,
+  `NSComboBox`, `NSTokenField`, `NSDatePicker`, `NSPathControl`, `NSSwitch`, the colour
+  panel, image dragging into image views, periodic events for continuous buttons.
+- 2026-10-08: text editing and scrolling. `NSClipView` (the document view, flipped as
+  it is; `-scrollToPoint:` goes where asked while `-setBoundsOrigin:` is held to the
+  document and its content insets by `-constrainBoundsRect:`; follows the document's
+  frame), `NSScrollView` (overlay scrollers by default, legacy ones taking room; borders;
+  autohiding; line and page amounts; precise and line scroll-wheel deltas,
+  predominant-axis scrolling, handing the wheel on when it can't scroll; content insets;
+  magnification about the centre, a point or a rect; the size class methods; rulers
+  recorded but not drawn), `NSScroller` (Finch's flat overlay knob, dragging and
+  jump-to-click; value, proportion and target kept by the scroller itself), `NSText` and
+  `NSTextView` over UIFoundation's TextKit 1 (editing through
+  `shouldChangeTextInRange:`/`didChangeText` with Apple's delegate and notification order,
+  including ending editing after each change when not first responder; selection with
+  delegate vetting, still-selecting drags, typing-attribute updates; every
+  `NSStandardKeyBindingResponding` movement, selection, deletion, kill/yank, transpose,
+  case and newline/tab action, with Apple's goal column, upstream affinity at wrapped
+  line ends, which-end-moves and stop-at-anchor rules; undo of typing (coalesced),
+  deletes, cut and paste through the window's or delegate's undo manager; clicks,
+  shift-clicks, double and triple clicks and drags; the blinking insertion point;
+  sizing (`sizeToFit`, min/max size, resizable axes, container inset and tracking);
+  Command-X/C/V/A/Z when no menu takes them; `NSTextInputClient` with simple marked
+  text; nib decoding with Apple's keys, including `NSTextViewSharedData`'s flags), the
+  field editor (`-[NSWindow fieldEditor:forObject:]`, `-endEditingFor:`; Return, Tab and
+  Backtab end editing with their `NSTextMovement`), and a minimal in-process
+  `NSPasteboard`/`NSPasteboardItem` (named pasteboards, strings, data and property lists,
+  Apple's type and name constants; nothing crosses processes yet). UIFoundation's text
+  system gained what the text view needs: insertion-point rects for empty ranges from
+  `boundingRectForGlyphRange:`, the text view's typing attributes for empty text, edit
+  callbacks to text views, `NSLayoutManager` and `NSTextStorage` archiving, and the
+  default container height when a nib leaves it out. `finch-appkit-text-test` (editing,
+  movement, selection, undo, delegate order, pasteboard, field editor, clip and scroll
+  view geometry, magnification, a nib) prints the same as Apple's AppKit on the host and
+  in the VM; `finch-appkit-text-window-test` clicks, types, uses arrows and the
+  equivalents, and scrolls a text view on a headless server, sampling what it draws. Not
+  yet: rich-text pasteboard types (RTF), the font and colour panels, spelling, find,
+  rulers, smart insert/delete and substitutions, multiple selections, TextKit 2, a
+  pasteboard server.
+- 2026-10-08: menus. `NSMenu` and `NSMenuItem` (all of the public API; `NSMenu.m`,
+  `NSMenuItem.m`) behave as Apple's, as measured: building and indexes, submenus and
+  supermenus (an item's submenu takes `submenuAction:` and the submenu as target when it has
+  no action), the add/remove/change notifications (which setters post, which don't),
+  states, indentation and modifier masks clamped as Apple's, `isEnabled` false under a
+  disabled parent item, copying, and archives with Apple's keys (`NSTitle`, `NSKeyEquiv`,
+  `NSKeyEquivModMask`, `NSIsDisabled`, ...). Validation (`-update`) asks
+  `-[NSApp targetForAction:to:from:]` for each item, then `validateMenuItem:` or
+  `validateUserInterfaceItem:`; items with submenus are enabled, separators left alone.
+  Key equivalents: delegates' `menuHasKeyEquivalent:...` first, then each menu validates
+  and matches `charactersIgnoringModifiers` exactly with the same Command, Option and
+  Control (Shift doesn't count, as Apple's with synthesized events); disabled matches are
+  consumed. Nib menus named `_NSMainMenu`, `_NSWindowsMenu`, `_NSServicesMenu`,
+  `_NSHelpMenu` become NSApp's (`NSCustomResource` and `NSIBHelpConnector` were added for
+  the state images and tool tips nibs carry). `NSApplication` validates Hide and Show All;
+  `-targetForAction:to:from:` returns an explicit target as Apple's, and `-sendAction:` no
+  longer goes through the overridable method. The menu bar and menus are drawn by the app
+  (`FinchMenuWindow.m`; Finch has no system UI): a 24-point bar at `NSMainMenuWindowLevel`
+  with the app name in bold, shown while the app is active once it has launched and redrawn
+  when the main menu changes; menus are pop-up-level windows in Finch's own flat look
+  (state marks, images, indentation, right-aligned key equivalents with ⌃⌥⇧⌘,
+  submenu arrows, greyed items, separators, alternates swapped in by the modifier keys).
+  Tracking: press-drag-release or click-to-open and click-to-choose, hover highlighting,
+  submenus, moving across the bar, arrows/Return/Escape, a click outside cancels; the
+  delegate fills a menu in as it opens (`menuNeedsUpdate:`, `numberOfItemsInMenu:`...),
+  `menuWillOpen:`/`menuDidClose:`, the tracking notifications, the Windows menu lists the
+  windows. Context menus (`+popUpContextMenu:...`, `NSView`'s right click) and
+  `-popUpMenuPositioningItem:atLocation:inView:` use the same windows. `NSMenuItemCell`,
+  `NSPopUpButtonCell` and `NSPopUpButton` (pop-up and pull-down, selection and state,
+  titles, nib keys `NSMenu`, `NSMenuItem`, `NSPullDown`, `NSPreferredEdge`,
+  `NSAltersState`, `NSArrowPosition`...) on the controls' `NSButtonCell`.
+  `finch-appkit-menu-test` (building, notifications, validation along the chain, key
+  equivalents, delegates, archiving, a main-menu nib with pop-up buttons) prints the same
+  against Apple's AppKit and Finch's on the host, and in the VM;
+  `finch-appkit-menu-window-test` (the bar draws, clicking a title opens its menu, clicks,
+  drags, keys and submenus choose, Command keys fire, right click, positioned menus, a
+  pop-up button) matches `appkit-menu-window-test.expected` on the host and in the VM.
+  Not yet: Services, the Help menu's search field, menu item views drawn in menus (they
+  take their height only), badges, palette menus, scrolling long menus, tear-offs,
+  `NSStatusBar`, Apple's automatic Edit and Window menu items (dictation, emoji, tabs).

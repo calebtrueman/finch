@@ -677,7 +677,9 @@ server_flags(NSWindow *w)
         return YES;
     if (![responder becomeFirstResponder])
         return NO;
-    _firstResponder = responder;
+    /* Unless becoming first responder handed it on (a text field to its field editor). */
+    if (_firstResponder == self)
+        _firstResponder = responder;
     return YES;
 }
 
@@ -1434,7 +1436,10 @@ server_flags(NSWindow *w)
             _mouseDownView = nil;
             break;
         }
-        if (type == NSEventTypeLeftMouseDown && view != _firstResponder && [view acceptsFirstResponder])
+        /* Controls that don't edit text (buttons, sliders) don't take the focus on a click (NSControl.m). */
+        if (type == NSEventTypeLeftMouseDown && view != _firstResponder && [view acceptsFirstResponder] &&
+            (![view respondsToSelector:@selector(_finchBecomesFirstResponderOnClick)] ||
+             ((BOOL (*)(id, SEL))objc_msgSend)(view, @selector(_finchBecomesFirstResponderOnClick))))
             [self makeFirstResponder:view];
         _mouseDownView = view;
         if (type == NSEventTypeLeftMouseDown)
@@ -1530,6 +1535,9 @@ server_flags(NSWindow *w)
 - (void)keyDown:(NSEvent *)event
 {
     if ([self _finchKeyViewNavigation:event])
+        return;
+    /* Keys nothing took: key equivalents without Command (Return for the default button, Escape for Cancel). */
+    if ([self performKeyEquivalent:event])
         return;
     NSString *chars = [event charactersIgnoringModifiers];
     if ([chars length] == 1 && [chars characterAtIndex:0] == 0x1b) {

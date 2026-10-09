@@ -163,7 +163,9 @@ changed(NSTextContainer *self, NSLayoutManager *lm)
 
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
-    CGSize size = CGSizeMake([coder decodeDoubleForKey:@"NSWidth"], [coder decodeDoubleForKey:@"NSHeight"]);
+    /* ibtool leaves out a height (or width) that is the default, 10000000 */
+    CGSize size = CGSizeMake([coder containsValueForKey:@"NSWidth"] ? [coder decodeDoubleForKey:@"NSWidth"] : 10000000,
+                             [coder containsValueForKey:@"NSHeight"] ? [coder decodeDoubleForKey:@"NSHeight"] : 10000000);
     if ([coder containsValueForKey:@"NSSize"])
         size = [coder decodeSizeForKey:@"NSSize"];
     if ((self = [self initWithSize:size])) {

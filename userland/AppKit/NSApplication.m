@@ -9,7 +9,7 @@
  * mode asked for until a matching event is queued; windows that need it
  * are redrawn before the run loop waits, as on macOS.
  */
-#import "NSView_Finch.h"
+#import "NSMenu_Finch.h"
 
 id NSApp = nil;
 
@@ -469,6 +469,7 @@ take_matching(NSEventMask mask, BOOL dequeue)
     [nc postNotificationName:NSApplicationWillFinishLaunchingNotification object:self];
     if (_policy == NSApplicationActivationPolicyRegular)
         [self activateIgnoringOtherApps:YES];
+    FinchMenuBarDidLaunch();  /* the menu bar shows from now on (FinchMenuWindow.m) */
     [nc postNotificationName:NSApplicationDidFinishLaunchingNotification
                       object:self
                     userInfo:@{NSApplicationLaunchIsDefaultLaunchKey : @YES}];
@@ -744,17 +745,20 @@ search_window(NSWindow *w, SEL action)
     return t;
 }
 
-- (id)targetForAction:(SEL)action to:(id)target from:(id)sender
+/* As Apple's, an explicit target is returned as it is; -sendAction:to:from: resolves without calling the
+ * (overridable) -targetForAction:to:from:. */
+static id
+resolve_target(NSApplication *self, SEL action, id target)
 {
     if (!action)
         return nil;
     if (target)
-        return [target respondsToSelector:action] ? target : nil;
+        return target;
     id t = search_window([self keyWindow], action);
     if (!t && [self mainWindow] != [self keyWindow])
         t = search_window([self mainWindow], action);
     if (!t)
-        t = responds(self, action) ?: responds(_delegate, action);
+        t = responds(self, action) ?: responds(self->_delegate, action);
     if (!t) {
         Class dc = FINCH_CLASS(NSDocumentController);
         id shared = dc ? [dc sharedDocumentController] : nil;
@@ -763,10 +767,15 @@ search_window(NSWindow *w, SEL action)
     return t;
 }
 
+- (id)targetForAction:(SEL)action to:(id)target from:(id)sender
+{
+    return resolve_target(self, action, target);
+}
+
 - (BOOL)sendAction:(SEL)action to:(id)target from:(id)sender
 {
-    id t = [self targetForAction:action to:target from:sender];
-    if (!t)
+    id t = resolve_target(self, action, target);
+    if (!t || ![t respondsToSelector:action])
         return NO;
     ((void (*)(id, SEL, id))objc_msgSend)(t, action, sender);
     return YES;
@@ -791,7 +800,12 @@ search_window(NSWindow *w, SEL action)
 #pragma mark - Menus and the icon
 
 - (NSMenu *)mainMenu { return _mainMenu; }
-- (void)setMainMenu:(NSMenu *)menu { [_mainMenu autorelease]; _mainMenu = [menu retain]; }
+- (void)setMainMenu:(NSMenu *)menu
+{
+    [_mainMenu autorelease];
+    _mainMenu = [menu retain];
+    FinchMenuBarUpdate();  /* redraws the menu bar, once launched (FinchMenuWindow.m) */
+}
 - (NSMenu *)windowsMenu { return _windowsMenu; }
 - (void)setWindowsMenu:(NSMenu *)menu { [_windowsMenu autorelease]; _windowsMenu = [menu retain]; }
 - (NSMenu *)servicesMenu { return _servicesMenu; }

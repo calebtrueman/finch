@@ -1,0 +1,42 @@
+active 1 key 1 visible frame {{0, 0}, {800, 576}}
+menu bar:
+  bar background (780,12): 245 245 245
+  bar bottom line (780,23.5): 204 204 204
+  under the bar (780,40): 43 58 74
+File open:
+  File title highlighted (77,12): 41 112 239
+  menu background (102,49): 247 247 247
+  check mark (Save, on) (84,98.5): 26 26 26
+  New highlighted (80,40): 41 112 240
+  Open (disabled) not highlighted (80,62): 247 247 247
+  still open after clicking a disabled item (102,49): 247 247 247
+click New: willOpen File; didClose File; newDoc: from New
+  closed (102,49): 43 58 74
+  title no longer highlighted (77,12): 245 245 245
+  Save highlighted by the keyboard (91,87): 41 112 240
+keys down down return: willOpen File; didClose File; save: from Save
+escape: willOpen File; didClose File
+  closed by escape (102,49): 43 58 74
+submenu opened right of the menu 1
+  Doc A highlighted (221,117): 41 112 240
+  Recent still highlighted (80,117): 41 112 240
+submenu: willOpen File; didClose File; docA: from Doc A in Recent
+drag to Paste: pasteIt: from Paste
+Window menu: Minimize, ---, Main (on)
+switch to Window: willOpen File; didClose File
+cmd-n cmd-q cmd-x: newDoc: from New; quitIt: from Quit Menus
+context menu:
+  menu at the pointer (180,365): 247 247 247
+  view beside it (120,360): 255 255 255
+context menu: view willOpenMenu Context; willOpen Context; didClose Context; pasteIt: from Paste; view didCloseMenu Context
+  Paste row (at the location) (190,471): 41 112 240
+  Copy row above it (190,449): 247 247 247
+popUpMenuPositioningItem returned 1
+positioned menu: willOpen Context; didClose Context; copyIt: from Copy
+pop-up menu:
+  Two highlighted over the button (269,331): 41 112 240
+  Three below it (350,360): 247 247 247
+pop-up: popChanged: selected 2 'Three'
+pop-up selected 2 title 'Three' states 001
+  Window title gone (166,12): 245 245 245
+  no main menu: no bar (780,12): 43 58 74

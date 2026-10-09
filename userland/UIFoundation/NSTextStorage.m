@@ -145,6 +145,100 @@
 
 - (Class)classForCoder { return [NSTextStorage class]; }
 
+#pragma mark Archiving
+
+/*
+ * As Apple archives text storages (in nibs): NSString, then NSAttributes,
+ * one dictionary when the text has one run of attributes, else an array of
+ * them with NSAttributeInfo, varint pairs of a run's length and its
+ * dictionary's index.
+ */
+static BOOL
+read_varint(const uint8_t **p, const uint8_t *end, NSUInteger *out)
+{
+    NSUInteger v = 0;
+    for (int shift = 0; *p < end && shift < 63; shift += 7) {
+        uint8_t b = *(*p)++;
+        v |= (NSUInteger)(b & 0x7f) << shift;
+        if (!(b & 0x80)) {
+            *out = v;
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static void
+write_varint(NSMutableData *d, NSUInteger v)
+{
+    do {
+        uint8_t b = v & 0x7f;
+        v >>= 7;
+        if (v)
+            b |= 0x80;
+        [d appendBytes:&b length:1];
+    } while (v);
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    if (!(self = [self init]))
+        return nil;
+    NSString *string = [coder decodeObjectForKey:@"NSString"];
+    if (![string isKindOfClass:[NSString class]])
+        string = @"";
+    id attrs = [coder decodeObjectForKey:@"NSAttributes"];
+    NSData *info = [coder decodeObjectForKey:@"NSAttributeInfo"];
+    _delegate = [coder decodeObjectForKey:@"NSDelegate"];
+    [self beginEditing];
+    [self replaceCharactersInRange:NSMakeRange(0, 0) withString:string];
+    NSUInteger len = string.length;
+    if ([attrs isKindOfClass:[NSDictionary class]]) {
+        if (len)
+            [self setAttributes:attrs range:NSMakeRange(0, len)];
+    } else if ([attrs isKindOfClass:[NSArray class]] && [info isKindOfClass:[NSData class]]) {
+        const uint8_t *p = info.bytes, *end = p + info.length;
+        NSUInteger at = 0, run, index;
+        while (at < len && read_varint(&p, end, &run) && read_varint(&p, end, &index)) {
+            run = MIN(run, len - at);
+            id a = index < [attrs count] ? attrs[index] : nil;
+            if ([a isKindOfClass:[NSDictionary class]] && run)
+                [self setAttributes:a range:NSMakeRange(at, run)];
+            at += run;
+        }
+    }
+    [self endEditing];
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+    NSUInteger len = self.length;
+    [coder encodeObject:[[self.string mutableCopy] autorelease] forKey:@"NSString"];
+    NSMutableArray *dicts = [NSMutableArray array];
+    NSMutableData *info = [NSMutableData data];
+    for (NSUInteger at = 0; at < len;) {
+        NSRange r;
+        NSDictionary *a = [self attributesAtIndex:at effectiveRange:&r];
+        NSUInteger i = [dicts indexOfObject:a];
+        if (i == NSNotFound) {
+            i = dicts.count;
+            [dicts addObject:a];
+        }
+        write_varint(info, NSMaxRange(r) - at);
+        write_varint(info, i);
+        at = NSMaxRange(r);
+    }
+    if (dicts.count == 1) {
+        [coder encodeObject:dicts[0] forKey:@"NSAttributes"];
+    } else if (dicts.count > 1) {
+        [coder encodeObject:dicts forKey:@"NSAttributes"];
+        [coder encodeObject:info forKey:@"NSAttributeInfo"];
+    }
+    if (_delegate)
+        [coder encodeConditionalObject:_delegate forKey:@"NSDelegate"];
+}
+
 @end
 
 @implementation NSConcreteTextStorage {
