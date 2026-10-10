@@ -20,6 +20,7 @@ struct SwiftUIGalleryApp: App {
 
 struct Gallery: View {
     @State private var drag = CGSize.zero
+    @State private var longPresses = 0
     @State private var on = true
     @State private var level = 0.4
     @State private var name = "Finch"
@@ -84,6 +85,7 @@ struct Gallery: View {
                     Button("Right") {}
                 }
                 Text("Glass").padding(.horizontal, 10).padding(.vertical, 4).glassEffect(.regular.tint(.blue))
+                Text("Long-pressed \(longPresses)").onLongPressGesture { longPresses += 1 }
             }
             HStack {
                 Text("Styled").foregroundStyle(.purple).italic()

@@ -612,6 +612,13 @@ set_color(CGColorRef *slot, CGColorRef c)
         [_delegate displayLayer:self];
         return;
     }
+    /* as Core Animation's: contents are drawn only by a layer that draws (its class overrides
+       -drawInContext:, or its delegate draws it); otherwise they are whatever was set */
+    BOOL draws = method_getImplementation(class_getInstanceMethod([self class], @selector(drawInContext:))) !=
+                     method_getImplementation(class_getInstanceMethod([CALayer class], @selector(drawInContext:))) ||
+                 [(id)_delegate respondsToSelector:@selector(drawLayer:inContext:)];
+    if (!draws)
+        return;
     if ([(id)_delegate respondsToSelector:@selector(layerWillDraw:)])
         [_delegate layerWillDraw:self];
     size_t w = (size_t)ceil(_bounds.size.width * _contentsScale), h = (size_t)ceil(_bounds.size.height * _contentsScale);

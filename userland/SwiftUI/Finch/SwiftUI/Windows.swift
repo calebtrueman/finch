@@ -30,6 +30,13 @@ enum _FinchWindows {
         defer { Update.end() }
         let hostingVC = NSHostingController(rootView: item.value.view.rootEnvironment())
         let windowVC = WindowController(hostingVC)
+        let title: String
+        if case let .windowGroup(configuration) = item.value, let text = configuration.title {
+            title = text._resolveText(in: EnvironmentValues())
+        } else {
+            title = currentAppName()
+        }
+        windowVC.window?.title = title
         windowVC.showWindow(nil)
         // the window at its content's size, centered (a window opened later doesn't take it
         // from its controller by itself)
@@ -40,11 +47,8 @@ enum _FinchWindows {
                 window.center()
             }
         }
-        if case let .windowGroup(configuration) = item.value, let title = configuration.title {
-            windowVC.window?.title = title._resolveText(in: EnvironmentValues())
-        } else {
-            windowVC.window?.title = currentAppName()
-        }
+        // and again: showing the window titles it after its controller
+        windowVC.window?.title = title
         open.removeAll { $0.controller.window?.isVisible != true }
         open.append((item.id, windowVC))
         return windowVC

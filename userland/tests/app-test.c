@@ -17,6 +17,7 @@
  *   click:X,Y         click at X,Y in the current window
  *   rclick:X,Y        right-click at X,Y in the current window
  *   drag:X1,Y1,X2,Y2  press at X1,Y1, drag in ten steps to X2,Y2 and let go (current window)
+ *   hold:X,Y,MS       press at X,Y, hold for MS milliseconds and let go (current window)
  *   scroll:X,Y,DX,DY  scroll by DX,DY points (a wheel's deltas) at X,Y in the current window
  *   type:TEXT         type TEXT (ASCII)
  *   key:CODE,CHAR     press a key (macOS virtual key code, character as a number)
@@ -183,6 +184,12 @@ main(int argc, char **argv)
             double sx = current.x + x, sy = current.y + y;
             post(FWS_EVENT_MOUSE_MOVED, sx, sy, 0, 0, 0);
             post(FWS_EVENT_LEFT_DOWN, sx, sy, 0, 0, 0);
+            post(FWS_EVENT_LEFT_UP, sx, sy, 0, 0, 0);
+        } else if (sscanf(s, "hold:%lf,%lf,%d", &x, &y, &n) == 3) {
+            double sx = current.x + x, sy = current.y + y;
+            post(FWS_EVENT_MOUSE_MOVED, sx, sy, 0, 0, 0);
+            post(FWS_EVENT_LEFT_DOWN, sx, sy, 0, 0, 0);
+            usleep((useconds_t)n * 1000);
             post(FWS_EVENT_LEFT_UP, sx, sy, 0, 0, 0);
         } else if (sscanf(s, "drag:%lf,%lf,%lf,%lf", &x, &y, &dx, &dy) == 4) {
             double sx = current.x + x, sy = current.y + y, ex = current.x + dx, ey = current.y + dy;

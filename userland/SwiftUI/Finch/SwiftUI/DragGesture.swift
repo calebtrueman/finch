@@ -112,3 +112,85 @@ public struct DragGesture: Gesture, PrimitiveGesture {
 }
 
 @available(*, unavailable) extension DragGesture: Sendable {}
+
+// MARK: - LongPressGesture
+
+/// A press held for a minimum time without moving more than a distance: it ends (true) as the
+/// time is reached, as Apple's does, and fails if the pointer goes up first or moves too far.
+@available(OpenSwiftUI_v1_0, *)
+public struct LongPressGesture: Gesture, PrimitiveGesture {
+    public var minimumDuration: Double
+    var _maximumDistance: CGFloat
+
+    public var maximumDistance: CGFloat {
+        get { _maximumDistance }
+        set { _maximumDistance = newValue }
+    }
+
+    public init(minimumDuration: Double = 0.5, maximumDistance: CGFloat = 10) {
+        self.minimumDuration = minimumDuration
+        self._maximumDistance = maximumDistance
+    }
+
+    /// When the press began (the event's time: the graph's time doesn't move between events
+    /// that nothing was drawn between).
+    private struct PressState: GestureStateProtocol {
+        var start: Double?
+        init() {}
+    }
+
+    private struct Child: Rule {
+        @Attribute var gesture: LongPressGesture
+
+        var value: some Gesture<Bool> {
+            let minimum = gesture.minimumDuration
+            let pressed = EventListener<SpatialEvent>()
+                .gated(by: DistanceGesture(maximumDistance: gesture.maximumDistance).coordinateSpace(.global))
+            return PressState.gesture(content: pressed) { state, phase in
+                func held(_ event: SpatialEvent) -> Bool {
+                    let now = event.timestamp.seconds
+                    let start = state.start ?? now
+                    state.start = start
+                    return now - start >= minimum
+                }
+                return switch phase {
+                case let .possible(event):
+                    event.map { _ = held($0); return .possible(false) } ?? .possible(nil)
+                // held long enough: it ends there; or, if the time passed with no event, as it's let go
+                case let .active(event): held(event) ? .ended(true) : .possible(false)
+                case let .ended(event): held(event) ? .ended(true) : .failed
+                case .failed: .failed
+                }
+            }
+        }
+    }
+
+    nonisolated public static func _makeGesture(gesture: _GraphValue<LongPressGesture>, inputs: _GestureInputs) -> _GestureOutputs<Bool> {
+        let child = Attribute(Child(gesture: gesture.value))
+        return Child.Value.makeDebuggableGesture(gesture: _GraphValue(child), inputs: inputs)
+    }
+
+    public typealias Value = Bool
+    public typealias Body = Never
+}
+
+@available(*, unavailable) extension LongPressGesture: Sendable {}
+
+@available(OpenSwiftUI_v1_0, *)
+extension View {
+    /// (pressing isn't told yet.)
+    @_disfavoredOverload
+    nonisolated public func onLongPressGesture(minimumDuration: Double = 0.5, maximumDistance: CGFloat = 10,
+                                               pressing: ((Bool) -> Void)? = nil,
+                                               perform action: @escaping () -> Void) -> some View {
+        gesture(LongPressGesture(minimumDuration: minimumDuration, maximumDistance: maximumDistance).onEnded { _ in action() })
+    }
+
+    @_alwaysEmitIntoClient
+    nonisolated public func onLongPressGesture(minimumDuration: Double = 0.5, maximumDistance: CGFloat = 10,
+                                               perform action: @escaping () -> Void,
+                                               onPressingChanged: ((Bool) -> Void)? = nil) -> some View {
+        onLongPressGesture(minimumDuration: minimumDuration, maximumDistance: maximumDistance,
+                           pressing: onPressingChanged, perform: action)
+    }
+}

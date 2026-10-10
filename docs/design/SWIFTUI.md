@@ -272,5 +272,7 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     window as it launches; openWindow(id:) opens a window for the scene with that id after
     the current update, sized to its content and centered (a Window scene's is brought to the
     front if open). windowResizability and defaultSize change nothing yet.
-  - Next: ScrollViewReader (needs views' frames by identity), long presses, Table,
-    ShareLink.
+  - LongPressGesture and onLongPressGesture, timed by the events' own timestamps (the
+    graph's time doesn't move between events nothing was drawn between). `pressing` isn't
+    told yet. finch-app-test has a `hold:` step.
+  - Next: ScrollViewReader (needs views' frames by identity), Table, ShareLink.
