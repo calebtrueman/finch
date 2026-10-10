@@ -19,6 +19,8 @@ REPLACED = [
     'SwiftUI/View/Control/Button/Button.swift',   # an empty placeholder upstream
     'SwiftUI/View/Toggle/Toggle.swift',           # resolves through unfinished toggle styles
     'SwiftUI/View/Control/Slider/SystemSliderStyle.swift',   # draws nothing upstream
+    'SwiftUI/View/Control/Button/ButtonStyle/TODO/BorderlessButtonStyle.swift',   # Finch's ButtonStyles.swift
+    'SwiftUI/View/Control/Button/ButtonStyle/TODO/PlainButtonStyle.swift',
 ]
 
 # (file, upstream declaration, Apple's): the kind and frozenness of Apple's declarations, which
@@ -70,6 +72,27 @@ FIXES = [
      '''        window = NSWindow(contentViewController: hostingVC)
         window?.layoutIfNeeded()
         window?.center()'''),
+    ('SwiftUICore/Graphic/Color/AccentColor.swift', '// MARK: - Color + accentColor',
+     'import Foundation\nimport CoreGraphics\n\n// MARK: - Color + accentColor'),
+    # the system accent colour without CoreUI's asset catalogue: AppKit's control accent
+    # colour (Finch's accent), looked up at run time, as SwiftUICore doesn't link AppKit
+    ('SwiftUICore/Graphic/Color/AccentColor.swift',
+     '''        let colorName = systemAccentValueProvider.accentColorName(value: systemAccentValue)
+        guard let color = appearance(allowsVibrantBlending: nil)
+            .asset(for: colorName)?
+            .0
+        else {
+            return .blue
+        }
+        return Color(color)''',
+     '''        _ = systemAccentValueProvider
+        guard let nsColor = (NSClassFromString("NSColor") as? NSObject.Type)?
+            .perform(NSSelectorFromString("controlAccentColor"))?.takeUnretainedValue() as? NSObject,
+            let cgColor = nsColor.perform(NSSelectorFromString("CGColor"))?.takeUnretainedValue()
+        else {
+            return .blue
+        }
+        return Color(cgColor: cgColor as! CGColor)'''),
     # a stroked path's outline, through CoreGraphics (dashed first when the style has dashes)
     ('SwiftUICore/Shape/Path.swift',
      '''    public func strokedPath(_ style: StrokeStyle) -> Path {

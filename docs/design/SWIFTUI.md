@@ -165,4 +165,12 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - CoreText: a font descriptor's traits now choose the face: weight (the bold trait is
     semibold on the system font, as Apple's), italic, and the monospaced and serif designs.
 
-  Next: the bordered button, scrolling lists, then larger apps.
+- 2026-10-09: button styles. `buttonStyle(_:)` (primitive and plain styles, stacked so a
+  style's `Button(configuration)` is the button as the outer styles make it), and the
+  system styles as on macOS: automatic and bordered (the push button, its bezel drawn by
+  AppKit's button cell so it matches Finch's), bordered prominent, borderless, plain, link.
+  Buttons track the mouse as AppKit's do: pressed while it is down over them, the action on
+  release over them. The system accent colour comes from AppKit's `controlAccentColor`
+  (upstream reads CoreUI's asset catalogue).
+
+  Next: scrolling lists, then larger apps.

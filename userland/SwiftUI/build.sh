@@ -68,7 +68,26 @@ OBJS="${PKG}/build/arm64e-apple-macosx/release"
 ROOT="${FINCH_ROOT}/build/root"
 SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 FWS="${ROOT}/System/Library/Frameworks"
-objs() { for m in "$@"; do [[ -d "${OBJS}/${m}.build" ]] || { echo "missing ${m}" >&2; exit 1; }; find "${OBJS}/${m}.build" -name '*.o'; done; }
+# a target's objects; a Swift target's only for the sources it has now (its output file map),
+# not those of sources since removed (upstream files Finch's replace)
+objs() {
+    for m in "$@"; do
+        local dir="${OBJS}/${m}.build"
+        [[ -d "${dir}" ]] || { echo "missing ${m}" >&2; exit 1; }
+        python3 - "${dir}" <<'PY'
+import json, os, sys
+d = sys.argv[1]
+current = set()
+if os.path.exists(os.path.join(d, 'output-file-map.json')):
+    current = {e.get('object') for e in json.load(open(os.path.join(d, 'output-file-map.json'))).values()}
+for root, _, files in os.walk(d):
+    for f in files:
+        path = os.path.join(root, f)
+        if f.endswith('.o') and (not f.endswith('.swift.o') or path in current):
+            print(path)
+PY
+    done
+}
 link() {   # link NAME VERSION objects... -- extra flags
     local name="$1" version="$2"; shift 2
     local fw="${FWS}/${name}.framework" files=() flags=()

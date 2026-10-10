@@ -44,6 +44,9 @@ struct Gallery: View {
             ProgressView(value: level)
             HStack {
                 Button("Button") {}
+                Button("Prominent") {}.buttonStyle(.borderedProminent)
+                Button("Borderless") {}.buttonStyle(.borderless)
+                Button("Link") {}.buttonStyle(.link)
                 Spacer()
                 Text("Level \(level, specifier: "%.2f")")
             }
