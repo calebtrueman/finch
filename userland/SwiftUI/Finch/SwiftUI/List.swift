@@ -96,6 +96,9 @@ extension List: Sendable {}
 struct _FinchListRoot<Value: Hashable>: _VariadicView_UnaryViewRoot {
     var selection: _FinchListSelection<Value>
 
+    /// Section headers and footers come marked, to draw as such.
+    static var _viewListOptions: Int { _finchSectionedViewListOptions }
+
     func body(children: _VariadicView.Children) -> some View {
         _FinchListRows(children: children, selection: selection)
     }
@@ -113,7 +116,29 @@ struct _FinchListRows<Value: Hashable>: View {
         let inset: CGFloat = style.kind == .plain ? 0 : 6
         let radius: CGFloat = style.kind == .plain ? 0 : 5
         _FinchClipScroll(content: VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(children.enumerated()), id: \.element.id) { index, child in
+            ForEach(Array(children.enumerated()), id: \.offset) { index, child in
+                switch _FinchSectionPart(child) {
+                case .header:
+                    child.font(.subheadline.weight(.semibold)).foregroundStyle(Color.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8 + inset).padding(.top, index == 0 ? 2 : 10).padding(.bottom, 2)
+                case .footer:
+                    child.font(.footnote).foregroundStyle(Color.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8 + inset).padding(.vertical, 2)
+                case .row:
+                    row(child, index: index, inset: inset, radius: radius)
+                }
+            }
+        }
+        .padding(.vertical, style.kind == .plain ? 0 : 6))
+        .background(background)
+        .overlay(style.kind == .bordered ? Rectangle().stroke(Color(nsColor: .separatorColor)) : nil)
+        .clipped()
+    }
+
+    @ViewBuilder
+    private func row(_ child: _VariadicView.Children.Element, index: Int, inset: CGFloat, radius: CGFloat) -> some View {
                 let value = _finchTag(of: child, as: Value.self)
                 let selected = value.map(selection.isSelected) ?? false
                 let alternate = style.alternatesRowBackgrounds && index % 2 == 1
@@ -131,12 +156,6 @@ struct _FinchListRows<Value: Hashable>: View {
                     .onTapGesture {
                         if let value { selection.select(value) }
                     }
-            }
-        }
-        .padding(.vertical, style.kind == .plain ? 0 : 6))
-        .background(background)
-        .overlay(style.kind == .bordered ? Rectangle().stroke(Color(nsColor: .separatorColor)) : nil)
-        .clipped()
     }
 
     private var background: Color {

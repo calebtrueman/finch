@@ -209,4 +209,8 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     the views that read it. SwiftUI compiles against Finch's own build of the module (whose
     interface has the SPI SwiftUI uses; the SDK's doesn't), and shares its access list
     through the runtime's thread-local slot for it, as Apple's does.
-  - Next: the style modifiers, Section, Form, Menu, sheets and toolbars.
+  - List and picker styles (`listStyle`, `pickerStyle`; the picker as a pop-up button,
+    segmented control or radio buttons), Section (headers and footers marked by the
+    section traits, as upstream's group lists make them), Form and the form styles
+    (columns, grouped). `SwiftUIForms` tests them.
+  - Next: text field styles, Menu, sheets and toolbars.
