@@ -1446,6 +1446,13 @@ server_flags(NSWindow *w)
         return;
     }
     BOOL appearing = !_w.visible;
+    if (appearing && ([self styleMask] & NSWindowStyleMaskTitled)) {
+        /* as Apple's: a titled window placed onscreen keeps its title bar below the menu bar */
+        NSScreen *screen = [self screen] ? [self screen] : [NSScreen mainScreen];
+        NSRect constrained = [self constrainFrameRect:_frame toScreen:screen];
+        if (!NSEqualRects(constrained, _frame))
+            [self setFrame:constrained display:NO];
+    }
     _w.visible = YES;
     /* a window is laid out as it appears, which can resize it to fit its content */
     if (appearing)

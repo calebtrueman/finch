@@ -338,7 +338,8 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] Apple's unmodified Stickies runs in the Finch VM (`FINCH_HOST_APPS=Stickies`): its
         XPC migration service starts on demand from the app bundle, NSUnarchiver is there
         for its old database, and it loads its sample notes from RTFD with their text and
-        colours (2026-10-10). Its windows don't yet keep below the menu bar.
+        colours (2026-10-10). Its notes are untitled windows, placed where its saved state
+        puts them (as on a Mac); titled windows now keep below the menu bar as they appear.
   - [x] Apple's unmodified TextEdit launches in the Finch VM (copied from the Mac at image
         build time with `FINCH_HOST_APPS=TextEdit tools/vm/mkramdisk.sh`; nothing of Apple's
         is committed), opens an untitled document and takes typing (2026-10-09). It reads and saves RTF;
