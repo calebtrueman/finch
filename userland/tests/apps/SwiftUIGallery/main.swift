@@ -54,6 +54,18 @@ struct Gallery: View {
                 LinearGradient(colors: [.black, .gray], startPoint: .leading, endPoint: .trailing)
                     .frame(width: 40, height: 20)
             }
+            HStack(alignment: .top) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 24))], spacing: 4) {
+                    ForEach(0 ..< 9) { index in
+                        RoundedRectangle(cornerRadius: 4).fill(Color(hue: Double(index) / 9, saturation: 0.6, brightness: 0.9))
+                            .frame(height: 16)
+                    }
+                }
+                .frame(width: 120)
+                LazyHStack(spacing: 6) {
+                    ForEach(["Lazy", "stack", "of", "words"], id: \.self) { Text($0) }
+                }
+            }
             HStack {
                 Text("Styled").foregroundStyle(.purple).italic()
                 Text("Mono").font(.system(.body, design: .monospaced))

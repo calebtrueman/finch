@@ -245,4 +245,7 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     AngularGradient) as shape styles and views. A paint that isn't a color is drawn by
     CoreGraphics, clipped to the shape (filled or stroked), into its layer's contents. Upstream's
     layer helper and style renderer had no paint path.
-  - Next: `onSubmit`, ScrollViewReader, lazy stacks and grids, DragGesture and commands.
+  - Lazy stacks (as the stacks they're lazy about) and lazy grids (a Layout sizing tracks
+    as Apple's: fixed, then flexible and adaptive sharing the rest), GridItem and
+    PinnedScrollableViews. Every view is made; headers aren't pinned yet.
+  - Next: `onSubmit`, ScrollViewReader, DragGesture and commands.
