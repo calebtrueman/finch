@@ -110,3 +110,12 @@ handlers, then exits.
   work end to end against `finch-windowserver --viewer` on the host, with a
   client drawing a window; it waits for the server and reconnects, taking a
   new display size.
+- 2026-10-10: the viewer over a serial line (`--viewer-tty PATH`): the emulated M4 has no
+  network, so `tools/vm/desktop.sh` puts the window server on the guest's tunnel UART
+  (`/dev/cu.qemuport0`, a TCP port on the host through QEMU) and `finch-viewer --line`
+  shows it live. Until a viewer attaches the server sends a beacon every two seconds, and
+  the viewer sends nothing before it hears one. Bytes sent before the guest opens its end
+  are lost, and filling the guest's receive FIFO stalls the line's input. Then ATTACH, a
+  sync marker, HELLO and the whole screen. Frames on the line are deflated (raw deflate);
+  the line carries about 350 KB/s, so the VM's display is at 1x. The line is opened with
+  CLOCAL so a viewer leaving doesn't hang it up.

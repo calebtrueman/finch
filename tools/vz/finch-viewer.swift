@@ -42,6 +42,9 @@ var port = UInt16(FWS_VIEWER_PORT)
 var dumpPath: String?
 var dumpFrames = 1
 var testInput: NSPoint?
+/// The server is at the other end of a serial line (the VM's tunnel UART behind QEMU's TCP
+/// port): attach to it, find the sync marker, and take deflated frames.
+var lineMode = false
 
 do {
     var args = CommandLine.arguments.dropFirst()
@@ -51,6 +54,7 @@ do {
     }
     while let a = args.popFirst() {
         switch a {
+        case "--line": lineMode = true
         case "--dump": dumpPath = next(a)
         case "--frames": dumpFrames = max(1, Int(next(a)) ?? 1)
         case "--test-input":
@@ -58,7 +62,7 @@ do {
             guard xy.count == 2 else { die("--test-input takes X,Y") }
             testInput = NSPoint(x: xy[0], y: xy[1])
         case "-h", "--help":
-            print("usage: finch-viewer [host[:port]] [--dump PATH [--frames N]] [--test-input X,Y]")
+            print("usage: finch-viewer [host[:port]] [--line] [--dump PATH [--frames N]] [--test-input X,Y]")
             exit(0)
         default:
             if a.hasPrefix("-") { die("unknown option \(a)") }
@@ -177,7 +181,12 @@ final class Connection {
         while let a = ai {
             let s = socket(a.pointee.ai_family, a.pointee.ai_socktype, a.pointee.ai_protocol)
             if s >= 0 {
+                // a send/receive timeout bounds the connect as well
+                var limit = timeval(tv_sec: 3, tv_usec: 0)
+                setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
                 if Darwin.connect(s, a.pointee.ai_addr, a.pointee.ai_addrlen) == 0 {
+                    var none = timeval(tv_sec: 0, tv_usec: 0)
+                    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &none, socklen_t(MemoryLayout<timeval>.size))
                     var one: Int32 = 1
                     setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &one, socklen_t(MemoryLayout<Int32>.size))
                     setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
@@ -206,14 +215,42 @@ final class Connection {
             fd = s
             lock.unlock()
             onState(true)
-            session(s)
+            if !lineMode || attach(s) {
+                session(s)
+            }
             lock.lock()
             fd = -1
             lock.unlock()
             close(s)
-            log("disconnected")
+            if !lineMode { log("disconnected") }
             onState(false)
             usleep(500_000)
+        }
+    }
+
+    /// On a serial line: waits for the server's beacon (sending nothing before it: see
+    /// FWS_VIEWER_BEACON), asks for the display, and reads up to the sync marker.
+    private func attach(_ s: Int32) -> Bool {
+        let beacon = Array(FWS_VIEWER_BEACON.utf8), sync = Array(FWS_VIEWER_SYNC.utf8)
+        var tail = [UInt8]()
+        while true {
+            var byte: UInt8 = 0
+            let n = read(s, &byte, 1)
+            if n <= 0 {
+                if n < 0 && errno == EINTR { continue }
+                return false
+            }
+            tail.append(byte)
+            if tail.count > 8 { tail.removeFirst() }
+            if tail == beacon {
+                var h = FWSViewerHeader(type: UInt32(FWS_VIEWER_ATTACH), length: 0)
+                guard write(s, &h, MemoryLayout<FWSViewerHeader>.size) == MemoryLayout<FWSViewerHeader>.size else {
+                    return false
+                }
+            } else if tail == sync {
+                log("attached to the window server on the line")
+                return true
+            }
         }
     }
 
@@ -248,6 +285,21 @@ final class Connection {
                     continue
                 }
                 onFrame()
+            case UInt32(FWS_VIEWER_FRAME_DEFLATED) where length >= MemoryLayout<FWSViewerFrame>.size:
+                var f = FWSViewerFrame()
+                guard readStruct(s, &f) else { return }
+                let n = length - MemoryLayout<FWSViewerFrame>.size
+                var packed = Data(count: n)
+                guard packed.withUnsafeMutableBytes({ readFully(s, $0.baseAddress!, n) }) else { return }
+                guard let raw = try? (packed as NSData).decompressed(using: .zlib) as Data,
+                      raw.count == Int(f.width) * Int(f.height) * 4 else {
+                    log("bad deflated frame \(f.x),\(f.y) \(f.width)x\(f.height)")
+                    continue
+                }
+                let ok = raw.withUnsafeBytes {
+                    screen.apply(x: Int(f.x), y: Int(f.y), width: Int(f.width), height: Int(f.height), rows: $0)
+                }
+                if ok { onFrame() }
             default:
                 guard skip(s, length) else { return }
             }

@@ -45,6 +45,16 @@ echo y | ./fix_perms.sh firmware/ramdisk.dmg
 - Automated smoke test: `expect tools/vm/smoke.exp`. It boots to the root shell, runs
   `uname -a` and `sysctl`, and quits.
 
+## The desktop, live
+
+`tools/vm/desktop.sh [--size WxH] [APP ...]` boots the VM with Finch's window server on the
+guest's tunnel UART (`QEMUPORT`, 2100 by default) and shows its display in `finch-viewer` on the
+host, which sends mouse and keys back. The apps named start in the VM, e.g.
+`tools/vm/desktop.sh /Applications/SwiftUIGallery.app/Contents/MacOS/SwiftUIGallery`. The
+console stays yours (Ctrl-A x quits). With `DESKTOP_SECONDS` it stops by itself, and
+`VIEWER_ARGS="--dump PATH --frames N"` saves the display. The line carries about 350 KB/s, so
+the display is at 1x (`DESKTOP_SCALE=2` for 2x) and a full screen takes a few seconds.
+
 ## Finch userland in the VM
 
 ```sh

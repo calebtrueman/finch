@@ -1,0 +1,44 @@
+#!/usr/bin/expect -f
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Boot the emulated M4 with Finch's window server on the guest's tunnel UART, so that
+# finch-viewer on the host shows its display and sends it input (tools/vm/desktop.sh runs
+# both). The apps named are started on it. After that the console is handed to you (quit
+# with Ctrl-A x), or, with DESKTOP_SECONDS set, the VM stops after that many seconds. The
+# display is at 1x unless DESKTOP_SCALE says otherwise: the line carries about 350 KB/s.
+#   QEMUPORT=2100 expect tools/vm/desktop.exp [SIZE] [APP ...]
+set timeout 300
+log_user 1
+set root [file normalize [file dirname [info script]]/../..]
+set prompt {[#$] $}
+set size [expr {[llength $argv] > 0 ? [lindex $argv 0] : "1280x800"}]
+set apps [lrange $argv 1 end]
+
+spawn $root/tools/vm/run.sh
+expect {
+  -re $prompt {}
+  "panic" { puts "\n### PANIC"; exit 2 }
+  timeout {
+    send "\r"
+    expect {
+      -timeout 20
+      -re $prompt {}
+      timeout { puts "\n### TIMEOUT waiting for shell"; exit 1 }
+    }
+  }
+}
+set scale [expr {[info exists env(DESKTOP_SCALE)] ? $env(DESKTOP_SCALE) : 1}]
+send "/usr/libexec/finch-windowserver --viewer-tty /dev/cu.qemuport0 --size $size --scale $scale > /tmp/finch-windowserver.log 2>&1 &\r"
+expect -re $prompt
+foreach app $apps {
+  send "sleep 1; $app > /tmp/[file tail $app].log 2>&1 &\r"
+  expect -re $prompt
+}
+if {[info exists env(DESKTOP_SECONDS)]} {
+  sleep $env(DESKTOP_SECONDS)
+  send "cat /tmp/finch-windowserver.log\r"
+  expect -re $prompt
+  send "\x01x"
+  expect eof
+} else {
+  interact
+}

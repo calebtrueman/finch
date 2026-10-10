@@ -249,6 +249,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
   - [x] The host viewer (`tools/vz/finch-viewer`) for the TCP backend: frames into
         a host window at the display's scale, mouse, scroll and key input back,
         reconnecting; tested end to end on the host (2026-10-08).
+  - [x] Finch's desktop live from the emulated M4: `tools/vm/desktop.sh [APP ...]` runs the
+        window server on the guest's tunnel UART and shows it in `finch-viewer` on the host,
+        input going back the same way (2026-10-10).
   - [ ] CGEvent, and the server on the Tier 2 display
 - [ ] AppKit ([`docs/design/APPKIT.md`](design/APPKIT.md))
   - [x] Framework skeletons as Apple splits them: AppKit re-exporting a private

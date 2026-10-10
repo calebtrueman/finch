@@ -13,6 +13,9 @@
 #   DEBUG=1          expose a GDB stub on :1234 and wait for the debugger
 #   GDB=1            expose a GDB stub on :1234 without waiting (to attach to a running VM,
 #                    as tools/vm/catch-stall.exp does)
+#   QEMUPORT=PORT    connect the guest's /dev/cu.qemuport0 to a TCP server on the host's
+#                    localhost:PORT (darwin-vm's tunnel UART; finch-viewer uses it for the
+#                    window server's display)
 # Quit with Ctrl-A x.
 set -euo pipefail
 
@@ -43,6 +46,7 @@ args=(
 [[ -f "${FW}/sptm" ]] && args+=(-sptm "${FW}/sptm" -txm "${FW}/txm")
 [[ "${DEBUG:-0}" == 1 ]] && args+=(-s -S)
 [[ "${GDB:-0}" == 1 && "${DEBUG:-0}" != 1 ]] && args+=(-s)
+[[ -n "${QEMUPORT:-}" ]] && args+=(-chardev "socket,id=s0,host=localhost,server=on,wait=off,port=${QEMUPORT}" -serial chardev:s0)
 
 trap 'stty sane 2>/dev/null || true' EXIT
 "${QEMU}" "${args[@]}"
