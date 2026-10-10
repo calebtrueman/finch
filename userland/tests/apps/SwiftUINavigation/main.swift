@@ -15,6 +15,7 @@ let fruits = [Fruit(name: "Apple", colour: "red"), Fruit(name: "Banana", colour:
 
 struct FruitDetail: View {
     var fruit: Fruit
+    @State private var showsMore = false
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(fruit.name).font(.title)
@@ -23,8 +24,12 @@ struct FruitDetail: View {
             NavigationLink("About \(fruit.name)") {
                 Text("All about \(fruit.name)").padding().navigationTitle("About")
             }
+            Button("More") { showsMore = true }
         }
         .padding()
+        .navigationDestination(isPresented: $showsMore) {
+            Text("More on \(fruit.name)").padding().navigationTitle("More")
+        }
         .navigationTitle(fruit.name)
     }
 }

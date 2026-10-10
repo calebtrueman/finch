@@ -281,29 +281,42 @@ struct _FinchDestinationRegistrar<D: Hashable, C: View>: NSViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: RegistrarView, context: Context) -> CGSize? { .zero }
 }
 
-/// Pushes a view while a binding is set, and clears it when popped.
-struct _FinchPresentedDestination<V: View>: View {
+/// Pushes a view while a binding is set, and clears it when popped. (An AppKit view, so it's
+/// updated whenever the view it's behind is.)
+struct _FinchPresentedDestination<V: View>: NSViewRepresentable {
     var isPresented: Binding<Bool>
     var destination: V
-    @Environment(\._finchNavigator) private var navigator
-    @State private var pushed = false
 
-    var body: some View {
-        let isPresented = isPresented
-        return EmptyView()
-            .onChange(of: isPresented.wrappedValue, initial: true) { _, presented in
-                if presented, !pushed {
-                    pushed = true
-                    navigator?.pushView(AnyView(destination.onDisappear {
-                        pushed = false
-                        isPresented.wrappedValue = false
-                    }))
-                } else if !presented, pushed {
-                    pushed = false
-                    navigator?.pop()
-                }
-            }
+    final class Coordinator {
+        var pushed = false
     }
+
+    final class PresenterView: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> PresenterView { PresenterView() }
+
+    func updateNSView(_ view: PresenterView, context: Context) {
+        let coordinator = context.coordinator, isPresented = isPresented
+        guard let navigator = context.environment._finchNavigator else { return }
+        // after this update: pushing changes the stack's state
+        if isPresented.wrappedValue, !coordinator.pushed {
+            coordinator.pushed = true
+            let page = AnyView(destination.onDisappear {
+                coordinator.pushed = false
+                if isPresented.wrappedValue { isPresented.wrappedValue = false }
+            })
+            DispatchQueue.main.async { navigator.pushView(page) }
+        } else if !isPresented.wrappedValue, coordinator.pushed {
+            coordinator.pushed = false
+            DispatchQueue.main.async { navigator.pop() }
+        }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: PresenterView, context: Context) -> CGSize? { .zero }
 }
 
 @available(OpenSwiftUI_v4_0, *)
