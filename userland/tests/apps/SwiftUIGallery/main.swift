@@ -140,7 +140,7 @@ struct Gallery: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(height: 70)
-                    Text("Jump to 15").underline().onTapGesture { proxy.scrollTo(15, anchor: .top) }
+                    Button("Jump to 15") { proxy.scrollTo(15, anchor: .top) }
                 }
             }
             List {

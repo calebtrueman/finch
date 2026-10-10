@@ -284,10 +284,11 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     rects hung the app). Compute grew its data region by remapping it elsewhere, and values
     reached through pointers into the old mapping diverged (about 40 rows of buttons crashed);
     it now reserves 512 MB up front.
-  - Open: in SwiftUIGallery, a Button inside the ScrollViewReader's HStack makes the first
-    render crash. `PlatformViewDisplayList<…_FinchTextField>` under an opacity effect, in
-    `_FinchStyledTextField`'s `if`, reads a value whose pointer has tag bits in its high bits.
-    Whether it happens depends on the rest of the gallery (removing any of several rows
-    hides it), and a small app with the same views is fine. The gallery uses a tappable Text
-    there for now.
+  - Open (worked around): in SwiftUIGallery, a Button inside the ScrollViewReader's HStack
+    made the first render crash. `PlatformViewDisplayList<…_FinchTextField>`, inside
+    `_FinchStyledTextField`'s `if`, read a value whose pointer had tag bits in its high bits.
+    It depended on the rest of the gallery, and a small app with the same views was fine.
+    The styled text field now builds its branches as AnyView, which avoids it. Suspect:
+    Compute's handling of large values (more than half a 512-byte page get pages of their
+    own) in a conditional's storage.
   - Next: Table, ShareLink.
