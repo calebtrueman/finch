@@ -39,6 +39,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
+#include <sys/time.h>
+#include <sys/sysctl.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -416,6 +418,42 @@ print_banner(void)
 
 void os_trace_set_mode(uint32_t mode);   /* libsystem_trace SPI */
 
+/*
+ * The clock, when no real-time clock set it: the emulated M4 has none, so the kernel's
+ * time starts at the epoch. The VM's launcher passes the host's time as the boot-arg
+ * finch_time=SECONDS, and the clock is set from it if it's behind. On a Mac the RTC
+ * driver sets the clock, and the boot-arg isn't there.
+ */
+static void
+set_clock_from_boot_args(void)
+{
+	char args[1024];
+	size_t len = sizeof(args);
+	const char *arg;
+	struct timeval now, boot;
+
+	if (sysctlbyname("kern.bootargs", args, &len, NULL, 0) != 0) {
+		return;
+	}
+	args[sizeof(args) - 1] = '\0';
+	for (arg = strstr(args, "finch_time="); arg; arg = strstr(arg + 1, "finch_time=")) {
+		if (arg == args || arg[-1] == ' ') {
+			break;
+		}
+	}
+	if (!arg) {
+		return;
+	}
+	boot.tv_sec = strtol(arg + strlen("finch_time="), NULL, 10);
+	boot.tv_usec = 0;
+	if (gettimeofday(&now, NULL) == 0 && now.tv_sec >= boot.tv_sec) {
+		return;
+	}
+	if (settimeofday(&boot, NULL) != 0) {
+		logmsg("can't set the clock: %s", strerror(errno));
+	}
+}
+
 int
 main(void)
 {
@@ -433,6 +471,7 @@ main(void)
 	os_trace_set_mode(0x100);
 
 	attach_console();
+	set_clock_from_boot_args();
 	publish_os_version();
 	setup_environment();
 	print_banner();

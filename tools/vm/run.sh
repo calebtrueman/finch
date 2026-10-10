@@ -35,6 +35,8 @@ fi
 
 boot_args="rd=md0 serial=3 -v -noprogress wdt=-1 wlan-olyhal-abort"
 [[ "${FINCH_INIT:-0}" == 1 ]] && boot_args+=" launchdsuffix=finch"
+# no RTC in the emulated M4: finch-init sets the clock from the host's time
+boot_args+=" finch_time=$(date +%s)"
 [[ -n "${BOOT_ARGS_EXTRA:-}" ]] && boot_args+=" ${BOOT_ARGS_EXTRA}"
 
 args=(

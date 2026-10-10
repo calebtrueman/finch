@@ -64,6 +64,9 @@ tools/vm/run.sh                   # boot with finch-init as PID 1 (launchdsuffix
 expect tools/vm/smoke.exp
 ```
 
+The emulated M4 has no real-time clock. `tools/vm/run.sh` passes the host's time as the
+boot-arg `finch_time=SECONDS`, and finch-init sets the clock from it when the clock is behind.
+
 `tools/vm/run.sh` uses `build/vm/ramdisk.dmg` when it exists. Otherwise it uses darwin-vm's
 base ramdisk.
 
