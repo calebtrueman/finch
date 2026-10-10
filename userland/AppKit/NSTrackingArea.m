@@ -8,6 +8,7 @@
     id _owner;  /* not retained, as Apple's */
     NSDictionary *_userInfo;
     NSView *_view;  /* not retained */
+    BOOL _inside;   /* whether the pointer was in it at the last move (NSWindow) */
 }
 
 - (instancetype)initWithRect:(NSRect)rect options:(NSTrackingAreaOptions)options owner:(id)owner
@@ -46,5 +47,7 @@
 - (NSDictionary *)userInfo { return _userInfo; }
 - (void)_finchSetView:(NSView *)view { _view = view; }
 - (NSView *)_finchView { return _view; }
+- (BOOL)_finchInside { return _inside; }
+- (void)_finchSetInside:(BOOL)inside { _inside = inside; }
 
 @end

@@ -11,6 +11,8 @@
 #   BOOT_ARGS_EXTRA  extra boot-args to append
 #   KC / RAMDISK / TC  override images (defaults: darwin-vm bootkc, build/vm ramdisk if built)
 #   DEBUG=1          expose a GDB stub on :1234 and wait for the debugger
+#   GDB=1            expose a GDB stub on :1234 without waiting (to attach to a running VM,
+#                    as tools/vm/catch-stall.exp does)
 # Quit with Ctrl-A x.
 set -euo pipefail
 
@@ -40,6 +42,7 @@ args=(
 )
 [[ -f "${FW}/sptm" ]] && args+=(-sptm "${FW}/sptm" -txm "${FW}/txm")
 [[ "${DEBUG:-0}" == 1 ]] && args+=(-s -S)
+[[ "${GDB:-0}" == 1 && "${DEBUG:-0}" != 1 ]] && args+=(-s)
 
 trap 'stty sane 2>/dev/null || true' EXIT
 "${QEMU}" "${args[@]}"

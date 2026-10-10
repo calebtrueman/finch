@@ -17,6 +17,15 @@
 		<key>com.apple.logd</key>
 		<true/>
 	</dict>
+	<!-- The log server mustn't log through itself: its first os_log message, which
+	     may come before main, would register it with the firehose service that it
+	     hasn't checked in for yet, and once that queue is full the send never
+	     returns (docs/DEV_VM.md, "New processes stall after the jobs load"). -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>OS_ACTIVITY_MODE</key>
+		<string>disable</string>
+	</dict>
 	<key>KeepAlive</key>
 	<true/>
 	<key>ThrottleInterval</key>

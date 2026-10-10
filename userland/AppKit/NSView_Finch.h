@@ -39,6 +39,8 @@
 
 @interface NSTrackingArea (Finch)
 - (void)_finchSetView:(NSView *)view;
+- (BOOL)_finchInside;
+- (void)_finchSetInside:(BOOL)inside;
 - (NSView *)_finchView;
 @end
 

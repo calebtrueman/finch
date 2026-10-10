@@ -1679,38 +1679,47 @@ server_flags(NSWindow *w)
     return [_frameView hitTest:p];
 }
 
+/* Tracking areas, as AppKit's: by geometry, not by what is hit. On each move, every area in the
+ * window whose rect (in its view) the pointer has come into or gone out of tells its owner it
+ * entered or exited, and one that asks for moves hears them while the pointer is in it. */
+static void
+track(NSView *view, NSPoint inWindow, NSEvent *event, NSInteger window, BOOL inWindowAtAll)
+{
+    if ([view isHidden])
+        inWindowAtAll = NO;
+    NSArray *areas = [view trackingAreas];
+    if ([areas count]) {
+        NSPoint p = [view convertPoint:inWindow fromView:nil];
+        for (NSTrackingArea *a in areas) {
+            NSTrackingAreaOptions o = [a options];
+            BOOL inside = inWindowAtAll && NSPointInRect(p, [a rect]);
+            id owner = [a owner];
+            if (inside != [a _finchInside]) {
+                [a _finchSetInside:inside];
+                SEL selector = inside ? @selector(mouseEntered:) : @selector(mouseExited:);
+                if ((o & NSTrackingMouseEnteredAndExited) && [owner respondsToSelector:selector]) {
+                    NSEvent *e = [NSEvent enterExitEventWithType:inside ? NSEventTypeMouseEntered : NSEventTypeMouseExited
+                                                        location:inWindow modifierFlags:[event modifierFlags]
+                                                       timestamp:[event timestamp] windowNumber:window context:nil
+                                                     eventNumber:0 trackingNumber:(NSInteger)a
+                                                        userData:[a userInfo] ? (void *)[a userInfo] : NULL];
+                    [owner performSelector:selector withObject:e];
+                }
+            } else if (inside && (o & NSTrackingMouseMoved) && [owner respondsToSelector:@selector(mouseMoved:)]) {
+                [owner mouseMoved:event];
+            }
+        }
+    }
+    for (NSView *sub in [view subviews])
+        track(sub, inWindow, event, window, inWindowAtAll);
+}
+
 - (void)_finchMouseEntered:(NSView *)view event:(NSEvent *)event
 {
-    /* Tracking areas: entered and exited for the views the pointer crosses into or out of. */
-    NSView *old = _lastMouseView;
-    if (old == view)
-        return;
     _lastMouseView = view;
     NSPoint p = [event locationInWindow];
-    for (NSView *v = old; v; v = [v superview]) {
-        if (view && [view isDescendantOf:v])
-            break;
-        for (NSTrackingArea *a in [v trackingAreas]) {
-            if (([a options] & NSTrackingMouseEnteredAndExited) && [[a owner] respondsToSelector:@selector(mouseExited:)]) {
-                NSEvent *e = [NSEvent enterExitEventWithType:NSEventTypeMouseExited location:p modifierFlags:[event modifierFlags]
-                                                   timestamp:[event timestamp] windowNumber:_number context:nil
-                                                 eventNumber:0 trackingNumber:(NSInteger)a userData:[a userInfo] ? (void *)[a userInfo] : NULL];
-                [[a owner] mouseExited:e];
-            }
-        }
-    }
-    for (NSView *v = view; v; v = [v superview]) {
-        if (old && [old isDescendantOf:v])
-            break;
-        for (NSTrackingArea *a in [v trackingAreas]) {
-            if (([a options] & NSTrackingMouseEnteredAndExited) && [[a owner] respondsToSelector:@selector(mouseEntered:)]) {
-                NSEvent *e = [NSEvent enterExitEventWithType:NSEventTypeMouseEntered location:p modifierFlags:[event modifierFlags]
-                                                   timestamp:[event timestamp] windowNumber:_number context:nil
-                                                 eventNumber:0 trackingNumber:(NSInteger)a userData:[a userInfo] ? (void *)[a userInfo] : NULL];
-                [[a owner] mouseEntered:e];
-            }
-        }
-    }
+    BOOL inside = NSPointInRect(p, NSMakeRect(0, 0, _frame.size.width, _frame.size.height));
+    track(_frameView, p, event, _number, inside);
 }
 
 - (void)sendEvent:(NSEvent *)event

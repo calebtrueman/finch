@@ -1,0 +1,19 @@
+CFKnownLocations.c: a user's preferences are in the home directory's Library/Preferences.
+The path was absolute (/Library/Preferences), so the home directory it was made
+relative to was ignored and every user's defaults went to the system folder, which
+isn't writable: nothing an app set was kept. (Apple's CoreFoundation doesn't use
+this code; cfprefsd stores preferences.)
+
+diff --git a/Sources/CoreFoundation/CFKnownLocations.c b/Sources/CoreFoundation/CFKnownLocations.c
+index 4ed726b..a8d5743 100644
+--- a/Sources/CoreFoundation/CFKnownLocations.c
++++ b/Sources/CoreFoundation/CFKnownLocations.c
+@@ -43,7 +43,7 @@ CFURLRef _Nullable _CFKnownLocationCreatePreferencesURLForUser(CFKnownLocationUs
+             // passthrough to:
+         case _kCFKnownLocationUserByName: {
+             CFURLRef home = CFCopyHomeDirectoryURLForUser(username);
+-            location = CFURLCreateWithFileSystemPathRelativeToBase(kCFAllocatorSystemDefault, CFSTR("/Library/Preferences"), kCFURLPOSIXPathStyle, true, home);
++            location = CFURLCreateWithFileSystemPathRelativeToBase(kCFAllocatorSystemDefault, CFSTR("Library/Preferences"), kCFURLPOSIXPathStyle, true, home);
+             CFRelease(home);
+             
+             break;

@@ -11,10 +11,19 @@ set root [file normalize [file dirname [info script]]/../..]
 set prompt {[#$] $}
 
 spawn $root/tools/vm/run.sh
+# A kernel message printed just after the prompt hides it from the pattern (which wants the
+# prompt last): on a timeout, ask the shell for a fresh prompt before calling it a stall.
 expect {
   -re $prompt {}
   "panic" { puts "\n### PANIC"; exit 2 }
-  timeout { puts "\n### TIMEOUT waiting for shell"; exit 1 }
+  timeout {
+    send "\r"
+    expect {
+      -timeout 20
+      -re $prompt {}
+      timeout { puts "\n### TIMEOUT waiting for shell"; exit 1 }
+    }
+  }
 }
 set cmds $argv
 if {[llength $cmds] == 0} {

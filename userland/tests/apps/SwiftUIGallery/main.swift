@@ -17,6 +17,9 @@ struct Gallery: View {
     @State private var level = 0.4
     @State private var name = "Finch"
     @State private var choice = 1
+    @AppStorage("galleryPresses") private var presses = 0
+    @State private var taskRan = "task: waiting"
+    @State private var hovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -49,6 +52,15 @@ struct Gallery: View {
                 Button("Link") {}.buttonStyle(.link)
                 Spacer()
                 Text("Level \(level, specifier: "%.2f")")
+            }
+            HStack {
+                Button("Stored \(presses)") { presses += 1 }
+                Text(taskRan).task { taskRan = "task: ran" }
+                Text(hovering ? "hovering" : "hover me")
+                    .padding(4)
+                    .background(hovering ? Color.yellow : Color.clear)
+                    .onHover { hovering = $0 }
+                    .help("A tooltip")
             }
             ScrollView {
                 VStack(alignment: .leading) {

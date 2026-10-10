@@ -129,23 +129,20 @@ c
 
 ## Known intermittent boot failures
 
-Smoke runs fail now and then in two ways, both seen in every session's logs
+Smoke runs failed now and then in two ways, both seen in every session's logs
 since Phase 1 (2026-10-06 onward: roughly 1 in 12 runs over several hundred).
-Rerunning boots normally.
 
-- **New processes stall after the jobs load.** `smoke.exp` reports
-  `TIMEOUT waiting for shell`. Tracing finch-init on 2026-10-08 showed that the
-  console shell is forked and exec'd, and syslogd and dynamic_pager are
-  exec'd too (AMFI logs them), but none of the three reaches its first
-  bootstrap request. Every process makes that lookup of logd early in
-  libSystem's initialization, so the stall is between exec and libSystem init:
-  in the kernel, dyld, or the emulated TXM/SPTM path. finch-init and its
-  bootstrap server stay responsive. It was seen in about 1 boot in 3 with
-  dynamic_pager's job and none in 10 without it, which suggests
-  timing (more concurrent execs) more than dynamic_pager itself. That job
-  only exits in the VM. The next step is the QEMU gdb stub
-  (`DEBUG=1 tools/vm/run.sh`) on a stalled boot, to see where the kernel
-  threads of those processes wait.
+- **New processes stall after the jobs load.** Fixed 2026-10-10. `tools/vm/catch-stall.exp`
+  boots until one stalls, then dumps the kernel's view through QEMU's GDB stub and XNU's lldb
+  macros (`build/vm/stall-*.txt`). Every new process registers with the log service
+  (firehose `register`, msgid 11600) as it starts; finch-init holds that port until
+  finch-logd checks in, and its queue held 5 messages. When five processes beat finch-logd to
+  it, the queue was full, every later sender blocked, and so did finch-logd itself, which
+  registered with its own service from a log message before `main` and so never checked in.
+  finch-logd now runs with `OS_ACTIVITY_MODE=disable` (it doesn't log through itself), and
+  the service ports finch-init holds take 1024 messages. 22 boots after the fix: no stall.
+  `smoke.exp` and `catch-stall.exp` also ask the shell for a fresh prompt before calling a
+  boot stalled, as a kernel message printed after the prompt hides it from the pattern.
 - **QEMU exits during the boot banner.** `smoke.exp` reports `send: spawn id
   ... not open`. The console stops mid-banner, right after
   `load_init_program`, and the emulator process is gone. Not yet

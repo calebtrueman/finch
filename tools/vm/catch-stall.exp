@@ -1,0 +1,65 @@
+#!/usr/bin/expect -f
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Boot the VM until a boot stalls before the console shell (docs/DEV_VM.md, "Known
+# intermittent boot failures"), then attach lldb to the running kernel through QEMU's GDB
+# stub and dump the kernel stacks of the processes that should have started.
+#   expect tools/vm/catch-stall.exp [MAX-BOOTS] [OUT]
+# OUT (default build/vm/stall.txt) gets the task list and the stacks.
+set timeout 300
+log_user 1
+set root [file normalize [file dirname [info script]]/../..]
+set prompt {[#$] $}
+set max [expr {[llength $argv] > 0 ? [lindex $argv 0] : 12}]
+set out [expr {[llength $argv] > 1 ? [lindex $argv 1] : "$root/build/vm/stall.txt"}]
+
+set kc $root/build/kc/finch-0.0.1.t8132.development
+set dsym $root/build/xnu-work/build/xnu.sym/kernel.development.t8132.dSYM
+set commands [file join [file dirname $out] stall.lldb]
+set f [open $commands w]
+# lldb finds the kernel's dSYM itself; its macros are imported once connected (letting lldb
+# load them from the symbol file, or adding the dSYM by hand, stalls the batch run)
+puts $f "target create --arch arm64e $kc"
+puts $f "target modules load --file [file tail $kc] --slide 0x20000000"
+puts $f "gdb-remote 127.0.0.1:1234"
+puts $f "command script import $dsym/Contents/Resources/Python/kernel_development.py"
+puts $f "showalltasks"
+# the ports with messages waiting, and who receives them: a stalled process waits on a full queue
+puts $f "showallbusyports"
+puts $f "showbusyportsummary"
+foreach name {launchd.finch finch-logd notifyd syslogd dynamic_pager zsh sh bash login} {
+    puts $f "showtaskstacks -F $name"
+}
+puts $f "process detach"
+puts $f "quit"
+close $f
+
+for {set i 1} {$i <= $max} {incr i} {
+    puts "\n### boot $i of $max"
+    spawn env GDB=1 $root/tools/vm/run.sh
+    set stalled 0
+    expect {
+        -re $prompt {}
+        "panic" { puts "\n### PANIC on boot $i"; send "\x01x"; expect eof; exit 2 }
+        timeout {
+            # a prompt hidden by a later kernel message isn't a stall (as in smoke.exp)
+            send "\r"
+            expect {
+                -timeout 20
+                -re $prompt {}
+                timeout { set stalled 1 }
+            }
+        }
+    }
+    if {!$stalled} {
+        send "\x01x"
+        expect eof
+        continue
+    }
+    puts "\n### boot $i stalled: dumping kernel stacks to $out"
+    catch {exec lldb -b -s $commands > $out 2>&1}
+    send "\x01x"
+    expect eof
+    exit 0
+}
+puts "\n### no stall in $max boots"
+exit 1

@@ -314,6 +314,12 @@ bootstrapd_declare(mach_port_t domain, const char *name, void *owner)
 		mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
 		return ENOMEM;
 	}
+	/* Messages wait here until the job checks in: every process registers with the log
+	 * service as it starts, for one. A full queue (5 messages by default) would block
+	 * them all, and the job too, if it sends to its own service before checking in. */
+	mach_port_limits_t limits = {.mpl_qlimit = MACH_PORT_QLIMIT_LARGE};
+	(void)mach_port_set_attributes(mach_task_self(), port, MACH_PORT_LIMITS_INFO, (mach_port_info_t)&limits,
+	    MACH_PORT_LIMITS_INFO_COUNT);
 	strlcpy(s->name, name, sizeof(s->name));
 	s->port = port;
 	s->owner = owner;

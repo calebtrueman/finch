@@ -12,6 +12,9 @@
  */
 #include "CFObjCClasses_Finch.h"
 #include <crt_externs.h>
+#include <dispatch/dispatch.h>
+#include <pthread.h>
+#include <stdlib.h>
 #include "CFPreferences.h"
 
 @interface NSObject (FinchDefaults)
@@ -151,9 +154,55 @@ static NSUserDefaults *standard;
     return (id)CFDictionaryGetValue(_registration, key);
 }
 
+/* The domains changed since they were last written, and whether a write is scheduled. Apple's
+ * defaults reach disk on their own (cfprefsd writes them); apps seldom call -synchronize. A
+ * change schedules a write a moment later, one for a burst of changes, and exit writes what
+ * is left. */
+static CFMutableSetRef unsaved;
+static bool write_scheduled;
+static pthread_mutex_t unsaved_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void
+write_unsaved(void)
+{
+    pthread_mutex_lock(&unsaved_lock);
+    CFSetRef domains = unsaved ? CFSetCreateCopy(NULL, unsaved) : NULL;
+    if (unsaved)
+        CFSetRemoveAllValues(unsaved);
+    write_scheduled = false;
+    pthread_mutex_unlock(&unsaved_lock);
+    if (!domains)
+        return;
+    CFIndex n = CFSetGetCount(domains);
+    const void **names = malloc((size_t)n * sizeof(void *));
+    CFSetGetValues(domains, names);
+    for (CFIndex i = 0; i < n; i++)
+        CFPreferencesAppSynchronize((CFStringRef)names[i]);
+    free(names);
+    CFRelease(domains);
+}
+
+static void
+schedule_write(CFStringRef domain)
+{
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ atexit(write_unsaved); });
+    pthread_mutex_lock(&unsaved_lock);
+    if (!unsaved)
+        unsaved = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+    CFSetAddValue(unsaved, domain);
+    bool schedule = !write_scheduled;
+    write_scheduled = true;
+    pthread_mutex_unlock(&unsaved_lock);
+    if (schedule)
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC),
+                       dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ write_unsaved(); });
+}
+
 static void
 changed(NSUserDefaults *self)
 {
+    schedule_write(self->_app);
     Class center = objc_getClass("NSNotificationCenter");
     [[center defaultCenter] postNotificationName:(id)CFSTR("NSUserDefaultsDidChangeNotification") object:self];
 }
