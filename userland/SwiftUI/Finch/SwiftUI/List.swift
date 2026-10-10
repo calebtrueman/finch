@@ -97,28 +97,54 @@ struct _FinchListRoot<Value: Hashable>: _VariadicView_UnaryViewRoot {
     var selection: _FinchListSelection<Value>
 
     func body(children: _VariadicView.Children) -> some View {
+        _FinchListRows(children: children, selection: selection)
+    }
+}
+
+/// The rows as the list style in force draws them: inset (rounded selections, inset from
+/// the edges, the default), plain (edge to edge), sidebar (on the sidebar's background) or
+/// bordered (in a border), alternating row backgrounds when the style asks.
+struct _FinchListRows<Value: Hashable>: View {
+    var children: _VariadicView.Children
+    var selection: _FinchListSelection<Value>
+    @Environment(\._finchListStyle) private var style
+
+    var body: some View {
+        let inset: CGFloat = style.kind == .plain ? 0 : 6
+        let radius: CGFloat = style.kind == .plain ? 0 : 5
         _FinchClipScroll(content: VStack(alignment: .leading, spacing: 0) {
-            ForEach(children) { child in
+            ForEach(Array(children.enumerated()), id: \.element.id) { index, child in
                 let value = _finchTag(of: child, as: Value.self)
                 let selected = value.map(selection.isSelected) ?? false
+                let alternate = style.alternatesRowBackgrounds && index % 2 == 1
                 child
                     .foregroundStyle(selected ? Color.white : Color.primary)
                     .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
                     .padding(.horizontal, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(selected ? Color.accentColor : Color.clear)
+                        RoundedRectangle(cornerRadius: radius)
+                            .fill(selected ? Color.accentColor
+                                           : alternate ? Color.primary.opacity(0.04) : Color.clear)
                     )
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, inset)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         if let value { selection.select(value) }
                     }
             }
         }
-        .padding(.vertical, 6))
-        .background(Color(nsColor: .controlBackgroundColor))
+        .padding(.vertical, style.kind == .plain ? 0 : 6))
+        .background(background)
+        .overlay(style.kind == .bordered ? Rectangle().stroke(Color(nsColor: .separatorColor)) : nil)
         .clipped()
+    }
+
+    private var background: Color {
+        switch style.kind {
+        case .plain: Color.clear
+        case .sidebar: Color(nsColor: .underPageBackgroundColor)
+        case .inset, .bordered: Color(nsColor: .controlBackgroundColor)
+        }
     }
 }
 

@@ -51,6 +51,18 @@ struct Gallery: View {
                 Text("One").tag(1)
                 Text("Two").tag(2)
             }
+            HStack(alignment: .top) {
+                Picker("Segmented", selection: $choice) {
+                    Text("One").tag(1)
+                    Text("Two").tag(2)
+                }
+                .pickerStyle(.segmented)
+                Picker("Radio", selection: $choice) {
+                    Text("One").tag(1)
+                    Text("Two").tag(2)
+                }
+                .pickerStyle(.radioGroup)
+            }
             ProgressView(value: level)
             HStack {
                 Button("Button") {}
@@ -80,6 +92,7 @@ struct Gallery: View {
             List {
                 ForEach(1...8, id: \.self) { Text("Row \($0)") }
             }
+            .listStyle(.bordered)
             .frame(height: 60)
         }
         .padding()

@@ -65,12 +65,36 @@ struct _FinchPickerRoot<Value: Hashable>: _VariadicView_UnaryViewRoot {
             _FinchPopUpItem(title: index < titles.count ? titles[index] : nil,
                             fallback: values[index].map { String(describing: $0) } ?? "")
         }
-        return _FinchPopUpButton(items: items,
-                                 selectedIndex: selected.count == 1 ? values.firstIndex { $0 == selected.first } : nil,
-                                 select: { index in
-                                     if let value = values[index] { selection.set(value) }
-                                 })
-            .fixedSize()
+        return _FinchPickerOptions(items: items,
+                                   selectedIndex: selected.count == 1 ? values.firstIndex { $0 == selected.first } : nil,
+                                   select: { index in
+                                       if let value = values[index] { selection.set(value) }
+                                   })
+    }
+}
+
+/// The options as the picker style in force shows them: a pop-up button (the menu style),
+/// a segmented control, or radio buttons (the radio group and inline styles).
+struct _FinchPickerOptions: View {
+    var items: [_FinchPopUpItem]
+    var selectedIndex: Int?
+    var select: (Int) -> Void
+    @Environment(\._finchPickerStyle) private var style
+
+    var body: some View {
+        switch style {
+        case .menu:
+            _FinchPopUpButton(items: items, selectedIndex: selectedIndex, select: select).fixedSize()
+        case .segmented:
+            _FinchSegmentedControl(items: items, selectedIndex: selectedIndex, select: select).fixedSize()
+        case .radioGroup, .inline:
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(items.indices, id: \.self) { index in
+                    _FinchRadioButton(item: items[index], isOn: index == selectedIndex, select: { select(index) })
+                        .fixedSize()
+                }
+            }
+        }
     }
 }
 

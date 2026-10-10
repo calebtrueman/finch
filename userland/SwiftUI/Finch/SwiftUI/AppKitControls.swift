@@ -133,6 +133,73 @@ struct _FinchPopUpButton: NSViewRepresentable {
     }
 }
 
+/// A segmented control over NSSegmentedControl, for a segmented picker: a segment for each
+/// option, the selected one selected.
+struct _FinchSegmentedControl: NSViewRepresentable {
+    var items: [_FinchPopUpItem]
+    var selectedIndex: Int?
+    var select: (Int) -> Void
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(labels: [], trackingMode: .selectOne, target: context.coordinator,
+                                         action: #selector(Coordinator.changed(_:)))
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        let titles = items.map { $0.title?._resolveText(in: context.environment) ?? $0.fallback }
+        if control.segmentCount != titles.count {
+            control.segmentCount = titles.count
+        }
+        for (index, title) in titles.enumerated() where control.label(forSegment: index) != title {
+            control.setLabel(title, forSegment: index)
+        }
+        let index = selectedIndex ?? -1
+        if control.selectedSegment != index { control.selectedSegment = index }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject {
+        var parent: _FinchSegmentedControl
+        init(_ parent: _FinchSegmentedControl) { self.parent = parent }
+
+        @objc func changed(_ sender: NSSegmentedControl) {
+            let index = sender.selectedSegment
+            if index >= 0 && index < parent.items.count { parent.select(index) }
+        }
+    }
+}
+
+/// A radio button over NSButton, for a radio group picker's option.
+struct _FinchRadioButton: NSViewRepresentable {
+    var item: _FinchPopUpItem
+    var isOn: Bool
+    var select: () -> Void
+
+    func makeNSView(context: Context) -> NSButton {
+        NSButton(radioButtonWithTitle: "", target: context.coordinator, action: #selector(Coordinator.clicked(_:)))
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.parent = self
+        let title = item.title?._resolveText(in: context.environment) ?? item.fallback
+        if button.title != title { button.title = title }
+        let state: NSControl.StateValue = isOn ? .on : .off
+        if button.state != state { button.state = state }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject {
+        var parent: _FinchRadioButton
+        init(_ parent: _FinchRadioButton) { self.parent = parent }
+
+        @objc func clicked(_ sender: NSButton) { parent.select() }
+    }
+}
+
 /// What a TextField edits: its text (through get and set, so formatted values work too),
 /// its placeholder, and what to tell as editing begins, ends and is committed.
 struct _FinchTextFieldModel {
