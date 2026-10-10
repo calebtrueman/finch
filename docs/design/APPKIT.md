@@ -665,6 +665,16 @@ draws (`userland/tests/app-test.c`).
   Sound loading and playback, sharing-service discovery and execution, and their UI still
   need separate work. The completed controls, containers and support classes above do not
   mean that every item in that earlier plan, or AppKit as a whole, is finished.
+- 2026-10-10: `NSSharingService` and `NSSharingServicePicker` (`NSSharingService.m`). Finch's
+  services are those it can perform itself: Copy (the items onto the general pasteboard),
+  Open (URL items, each through NSWorkspace) and Email (a `mailto:` URL with the
+  recipients, subject and the items' text as the body, offered when an app handles
+  `mailto:`). `+sharingServiceNamed:` answers nil for services with no Finch counterpart
+  (AirDrop, Messages, the photo apps). The picker shows its services as a menu at the rect,
+  asks its delegate for the list and for each service's delegate, reports the choice
+  (or nil when the menu closes without one), and gives `standardShareMenuItem` the same
+  menu as a submenu. SwiftUI's ShareLink drives it; the copy round trip was checked through
+  the pasteboard. NSSound is still to do.
 - 2026-10-09: AppKit's Swift overlay. Apple compiles AppKit's Swift half
   (module AppKit) into AppKit.framework, and Swift apps import it from there
   (TextEdit imports `CGRect.fill(using:)` and `CGRect.frame(withWidth:using:)`).
