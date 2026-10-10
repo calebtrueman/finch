@@ -265,5 +265,8 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     group, or replaces it; CommandMenu adds a menu before Window. Commands are read from
     their content as menus are, keyboard shortcuts becoming key equivalents. Upstream's
     commands graph never reached the menu.
-  - Next: ScrollViewReader (needs views' frames by identity), long presses, Window scenes,
-    ContentUnavailableView, DisclosureGroup, ControlGroup.
+  - DisclosureGroup, ControlGroup (one bordered strip), ContentUnavailableView,
+    scrollIndicators and contentMargins (scroll views honour both), Glass and glassEffect
+    (a translucent fill of the shape, no refraction).
+  - Next: ScrollViewReader (needs views' frames by identity), long presses, Window scenes
+    and openWindow, Table, ShareLink.

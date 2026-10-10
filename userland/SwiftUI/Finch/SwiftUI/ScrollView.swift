@@ -131,15 +131,24 @@ struct _FinchScrollView<Content: View>: NSViewRepresentable {
     func updateNSView(_ scrollView: ScrollView, context: Context) {
         // the values the content inherits; not the whole environment, which holds the
         // outer graph's own state
+        // the configuration's insets and the content margins around it
+        let margins = context.environment._finchContentMargins
+        let insets = EdgeInsets(top: configuration.contentInsets.top + margins.top,
+                                leading: configuration.contentInsets.leading + margins.leading,
+                                bottom: configuration.contentInsets.bottom + margins.bottom,
+                                trailing: configuration.contentInsets.trailing + margins.trailing)
         scrollView.controller?.rootView = AnyView(
             content
-                .padding(configuration.contentInsets)
+                .padding(insets)
                 ._finchInheriting(context.environment)
         )
         scrollView.axes = configuration.axes
-        scrollView.insets = configuration.contentInsets
+        scrollView.insets = insets
+        let hidden = context.environment._finchHiddenScrollIndicators
         scrollView.hasVerticalScroller = configuration.axes.contains(.vertical) && configuration.showsIndicators
+            && !hidden.contains(.vertical)
         scrollView.hasHorizontalScroller = configuration.axes.contains(.horizontal) && configuration.showsIndicators
+            && !hidden.contains(.horizontal)
         scrollView.tile()
     }
 
@@ -149,7 +158,7 @@ struct _FinchScrollView<Content: View>: NSViewRepresentable {
         // content's ideal size, when nothing is)
         let fit = scrollView.contentSize(width: axes.contains(.horizontal) ? nil : proposal.width,
                                          height: axes.contains(.vertical) ? nil : proposal.height)
-        let insets = configuration.contentInsets
+        let insets = scrollView.insets
         return CGSize(width: axes.contains(.horizontal) ? (proposal.width ?? fit.width + insets.leading + insets.trailing)
                                                         : fit.width + insets.leading + insets.trailing,
                       height: axes.contains(.vertical) ? (proposal.height ?? fit.height + insets.top + insets.bottom)

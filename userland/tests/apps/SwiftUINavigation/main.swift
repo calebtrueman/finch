@@ -50,7 +50,7 @@ struct ContentView: View {
                 }
             }
         } detail: {
-            Text("Pick a fruit").foregroundStyle(.secondary)
+            ContentUnavailableView("No Fruit", systemImage: "leaf", description: Text("Pick a fruit from the list."))
                 .navigationTitle("Fruits")
         }
         .frame(width: 560, height: 320)

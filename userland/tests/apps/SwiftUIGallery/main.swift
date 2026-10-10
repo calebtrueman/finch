@@ -75,6 +75,16 @@ struct Gallery: View {
                     .gesture(DragGesture().onChanged { drag = $0.translation })
                 Text("drag \(Int(drag.width)),\(Int(drag.height))")
             }
+            HStack(alignment: .top) {
+                DisclosureGroup("Details") {
+                    Text("Hidden until opened")
+                }
+                ControlGroup {
+                    Button("Left") {}
+                    Button("Right") {}
+                }
+                Text("Glass").padding(.horizontal, 10).padding(.vertical, 4).glassEffect(.regular.tint(.blue))
+            }
             HStack {
                 Text("Styled").foregroundStyle(.purple).italic()
                 Text("Mono").font(.system(.body, design: .monospaced))
