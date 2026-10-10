@@ -46,6 +46,30 @@ FIXES = [
             storage = .either(type.type,''',
      '''            let type = conditionalStorageType(metadata.genericType(at: 0), metadata.genericType(at: 1))
             storage = .either(type,'''),
+    # the first window: its content at its own size (not upstream's placeholder 500 x 300
+    # frame), titled by its scene or else by the app, as Apple's untitled windows are
+    ('SwiftUI/App/App/AppKit/AppKitAppDelegate.swift',
+     '''        let view = items[0].value.view
+        let hostingVC = NSHostingController(rootView: view.frame(width: 500, height: 300).rootEnvironment())''',
+     '''        let item = items[0].value
+        let hostingVC = NSHostingController(rootView: item.view.rootEnvironment())'''),
+    ('SwiftUI/App/App/AppKit/AppKitAppDelegate.swift',
+     '''        let windowVC = WindowController(hostingVC)
+        windowVC.showWindow(nil)''',
+     '''        let windowVC = WindowController(hostingVC)
+        if case let .windowGroup(configuration) = item, let title = configuration.title {
+            windowVC.window?.title = title._resolveText(in: EnvironmentValues())
+        } else {
+            windowVC.window?.title = currentAppName()
+        }
+        windowVC.showWindow(nil)'''),
+    # centred at its laid-out size, as Apple's new windows are
+    ('SwiftUI/App/App/AppKit/AppWindowsController.swift',
+     '''        window = NSWindow(contentViewController: hostingVC)
+        window?.center()''',
+     '''        window = NSWindow(contentViewController: hostingVC)
+        window?.layoutIfNeeded()
+        window?.center()'''),
     # a stroked path's outline, through CoreGraphics (dashed first when the style has dashes)
     ('SwiftUICore/Shape/Path.swift',
      '''    public func strokedPath(_ style: StrokeStyle) -> Path {

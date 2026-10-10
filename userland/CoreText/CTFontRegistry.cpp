@@ -9,6 +9,7 @@
 #include "CTRegistry.h"
 #include "../fonts/FinchFonts.h"
 #include <dirent.h>
+#include <math.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -290,4 +291,48 @@ CTFontRegistryCopyFamilyFace(CFStringRef family, bool bold, bool italic)
         if (f.family == fam && style_is(f.style, bold, italic))
             return font_at(f.path);
     return NULL;
+}
+
+/* A style name's weight, on CoreText's scale (-1 to 1, regular 0), and whether it is italic. */
+static CGFloat
+style_weight(const std::string &style, bool *italic)
+{
+    std::string s;
+    for (char c : style)
+        if (c != ' ' && c != '-')
+            s += (char)tolower((unsigned char)c);
+    *italic = s.find("italic") != std::string::npos || s.find("oblique") != std::string::npos;
+    static const struct {
+        const char *word;
+        CGFloat weight;
+    } weights[] = {
+        {"extralight", -0.6}, {"ultralight", -0.6}, {"thin", -0.8},   {"light", -0.4},
+        {"semibold", 0.3},    {"demibold", 0.3},    {"extrabold", 0.56}, {"ultrabold", 0.56},
+        {"heavy", 0.56},      {"black", 0.62},      {"medium", 0.23},  {"bold", 0.4},
+    };
+    for (auto &w : weights)
+        if (s.find(w.word) != std::string::npos)
+            return w.weight;
+    return 0;
+}
+
+CGFontRef
+CTFontRegistryCopyNearestFace(CFStringRef family, CGFloat weight, bool italic, CGFloat *distance)
+{
+    std::string fam = utf8(family);
+    const CTInstalledFont *best = NULL;
+    CGFloat bestDistance = 0;
+    for (auto &f : CTInstalledFonts()) {
+        if (f.family != fam)
+            continue;
+        bool faceItalic;
+        CGFloat d = fabs(style_weight(f.style, &faceItalic) - weight) + (faceItalic != italic ? 10 : 0);
+        if (!best || d < bestDistance) {
+            best = &f;
+            bestDistance = d;
+        }
+    }
+    if (distance)
+        *distance = best ? bestDistance : INFINITY;
+    return best ? font_at(best->path) : NULL;
 }

@@ -16,4 +16,8 @@ CT_PRIVATE std::vector<std::string> CTFontRegistryRegisteredNames(void);
 /* The installed face of a family with these traits (bold, italic), or NULL. */
 CT_PRIVATE CGFontRef CTFontRegistryCopyFamilyFace(CFStringRef family, bool bold, bool italic);
 
+/* The installed face of a family nearest a weight (-1 to 1) and slant, how far from it it is
+ * (10 more when the slant differs), or NULL when the family has no faces. */
+CT_PRIVATE CGFontRef CTFontRegistryCopyNearestFace(CFStringRef family, CGFloat weight, bool italic, CGFloat *distance);
+
 #endif

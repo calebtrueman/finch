@@ -160,5 +160,9 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - OpenRenderBox released a path by the address of its own handle rather than its
     storage, and couldn't turn a path into a CGPath (`patches/OpenRenderBox`).
 
-  Next: window sizing (the window is shorter than its content), fonts (bold, italic,
-  monospaced, text styles), the bordered button, scrolling lists, then larger apps.
+  - The first window takes its content's size (upstream gave it a placeholder 500 x 300
+    frame), is centred once laid out, and is titled by its scene or the app.
+  - CoreText: a font descriptor's traits now choose the face: weight (the bold trait is
+    semibold on the system font, as Apple's), italic, and the monospaced and serif designs.
+
+  Next: the bordered button, scrolling lists, then larger apps.

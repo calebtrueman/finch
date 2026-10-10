@@ -249,6 +249,79 @@ CTFontCreateWithNameAndOptions(CFStringRef name, CGFloat size, const CGAffineTra
     return CTFontCreateWithName(name, size, matrix);
 }
 
+extern "C" bool CTFontIsSystemUIFont(CTFontRef font);
+extern "C" CGFloat CTFontGetWeight(CTFontRef font);
+extern "C" const CFStringRef kCTFontUIFontDesignTrait, kCTFontUIFontDesignMonospaced, kCTFontUIFontDesignSerif;
+
+/* The face a descriptor's traits ask for, of the font its name or family gives: its weight
+ * (or the bold trait: semibold for the system font, as Apple's), its slant, and the
+ * monospaced or serif design. NULL when the font already is that face. */
+static CTFontRef
+copy_with_descriptor_traits(CTFontRef font, CTFontDescriptorRef descriptor, CGFloat size, const CGAffineTransform *m)
+{
+    CFDictionaryRef traits = (CFDictionaryRef)CTFontDescriptorCopyAttribute(descriptor, kCTFontTraitsAttribute);
+    if (!traits || CFGetTypeID(traits) != CFDictionaryGetTypeID()) {
+        if (traits)
+            CFRelease(traits);
+        return NULL;
+    }
+    uint32_t symbolic = 0;
+    CFNumberRef n = (CFNumberRef)CFDictionaryGetValue(traits, kCTFontSymbolicTrait);
+    if (n)
+        CFNumberGetValue(n, kCFNumberSInt32Type, &symbolic);
+    CGFloat weight = 0;
+    bool hasWeight = false;
+    n = (CFNumberRef)CFDictionaryGetValue(traits, kCTFontWeightTrait);
+    if (n && CFGetTypeID(n) == CFNumberGetTypeID())
+        hasWeight = CFNumberGetValue(n, kCFNumberCGFloatType, &weight);
+    CFStringRef design = (CFStringRef)CFDictionaryGetValue(traits, kCTFontUIFontDesignTrait);
+    bool system = CTFontIsSystemUIFont(font);
+    bool mono = (symbolic & kCTFontMonoSpaceTrait) ||
+                (design && CFGetTypeID(design) == CFStringGetTypeID() && CFEqual(design, kCTFontUIFontDesignMonospaced));
+    bool serif = design && CFGetTypeID(design) == CFStringGetTypeID() && CFEqual(design, kCTFontUIFontDesignSerif);
+    bool italic = (symbolic & kCTFontItalicTrait) != 0;
+    if (!hasWeight && (symbolic & kCTFontBoldTrait))
+        weight = system ? 0.3 : 0.4, hasWeight = true;
+    CFRelease(traits);
+    if (!hasWeight && !italic && !(mono && !(CTFontGetSymbolicTraits(font) & kCTFontMonoSpaceTrait)) && !serif)
+        return NULL;
+    if (!hasWeight)
+        weight = CTFontGetWeight(font);
+
+    /* the families to choose from: the font's own, or the system's monospaced or serif ones */
+    std::vector<CFStringRef> families;
+    if (mono && system) {
+        families.push_back(CFSTR("Fragment Mono"));
+        families.push_back(CFSTR("DejaVu Sans Mono"));
+    } else if (serif && system) {
+        families.push_back(CFSTR("Liberation Serif"));
+    } else {
+        CFStringRef own = CTFontCopyFamilyName(font);
+        if (!own)
+            return NULL;
+        families.push_back((CFStringRef)CFAutorelease(own));
+    }
+    CGFontRef best = NULL;
+    CGFloat bestDistance = INFINITY;
+    for (CFStringRef family : families) {
+        CGFloat d;
+        CGFontRef cg = CTFontRegistryCopyNearestFace(family, weight, italic, &d);
+        if (cg && d < bestDistance - 0.01) {
+            if (best)
+                CFRelease(best);
+            best = cg;
+            bestDistance = d;
+        } else if (cg) {
+            CFRelease(cg);
+        }
+    }
+    if (!best)
+        return NULL;
+    CTFontRef out = font_from_graphics(best, size > 0 ? size : CTFontGetSize(font), m);
+    CFRelease(best);
+    return out;
+}
+
 CTFontRef
 CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat size, const CGAffineTransform *matrix)
 {
@@ -275,6 +348,11 @@ CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat size, con
     CTFontRef f = CTFontCreateWithName(name, size, &m);
     if (name)
         CFRelease(name);
+    CTFontRef styled = f ? copy_with_descriptor_traits(f, descriptor, size, &m) : NULL;
+    if (styled) {
+        CFRelease(f);
+        f = styled;
+    }
     if (f) {
         ((struct __CTFont *)f)->descriptor = (CTFontDescriptorRef)CFRetain(descriptor);
     }
