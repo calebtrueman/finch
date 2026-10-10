@@ -51,21 +51,20 @@ FIXES = [
             storage = .either(type,'''),
     # the first window: its content at its own size (not upstream's placeholder 500 x 300
     # frame), titled by its scene or else by the app, as Apple's untitled windows are
+    # (Finch's Windows.swift opens windows for scenes; the first as the app launches)
     ('SwiftUI/App/App/AppKit/AppKitAppDelegate.swift',
-     '''        let view = items[0].value.view
-        let hostingVC = NSHostingController(rootView: view.frame(width: 500, height: 300).rootEnvironment())''',
-     '''        let item = items[0].value
-        let hostingVC = NSHostingController(rootView: item.view.rootEnvironment())'''),
-    ('SwiftUI/App/App/AppKit/AppKitAppDelegate.swift',
-     '''        let windowVC = WindowController(hostingVC)
-        windowVC.showWindow(nil)''',
-     '''        let windowVC = WindowController(hostingVC)
-        if case let .windowGroup(configuration) = item, let title = configuration.title {
-            windowVC.window?.title = title._resolveText(in: EnvironmentValues())
-        } else {
-            windowVC.window?.title = currentAppName()
+     '''        let items = AppGraph.shared?.rootSceneList?.items ?? []
+        let view = items[0].value.view
+        let hostingVC = NSHostingController(rootView: view.frame(width: 500, height: 300).rootEnvironment())
+        /* OpenSwiftUI Addition Begin */
+        if let rendererConfiguration = graph.rendererConfiguration {
+            hostingVC._rendererConfiguration = rendererConfiguration
         }
-        windowVC.showWindow(nil)'''),
+        /* OpenSwiftUI Addition End */
+        let windowVC = WindowController(hostingVC)
+        windowVC.showWindow(nil)
+        self.windowVC = windowVC''',
+     '''        self.windowVC = _FinchWindows.openFirst()'''),
     # centred at its laid-out size, as Apple's new windows are
     ('SwiftUI/App/App/AppKit/AppWindowsController.swift',
      '''        window = NSWindow(contentViewController: hostingVC)
@@ -139,7 +138,7 @@ public struct Gradient {
             layer.borderColor = nil
             layer.borderWidth = 0
             layer.cornerRadius = 0
-            layer.contentsScale = contentsScale
+            layer.contentsScale = contentsScale > 0 ? contentsScale : 2
             layer.contents = (paint as? _FinchCGPaint).flatMap {
                 _finchRasterize($0, shapeType: shapeType, path: path, origin: origin, paintBounds: paintBounds,
                                 eoFill: style.isEOFilled, scale: contentsScale)
@@ -168,7 +167,9 @@ func _finchRasterize(_ paint: _FinchCGPaint, shapeType: ShapeType, path: Path, o
     case .other:
         clip = path.cgPath
     }
-    // the layer's bounds: the path's (ShapeLayerHelper.makeLayerBounds)
+    // the layer's bounds: the path's (ShapeLayerHelper.makeLayerBounds); a scale not yet
+    // known is taken as 2, the scale of Apple Silicon Macs' displays
+    let scale = scale > 0 ? scale : 2
     let layerSize = path.boundingRect.isNull ? .zero : path.boundingRect.size
     let width = Int(ceil(layerSize.width * scale)), height = Int(ceil(layerSize.height * scale))
     guard width > 0, height > 0, width < 16384, height < 16384,

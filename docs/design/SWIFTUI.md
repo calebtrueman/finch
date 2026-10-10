@@ -268,5 +268,9 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - DisclosureGroup, ControlGroup (one bordered strip), ContentUnavailableView,
     scrollIndicators and contentMargins (scroll views honour both), Glass and glassEffect
     (a translucent fill of the shape, no refraction).
-  - Next: ScrollViewReader (needs views' frames by identity), long presses, Window scenes
-    and openWindow, Table, ShareLink.
+  - Window scenes, openWindow and dismissWindow: the app opens its first window scene's
+    window as it launches; openWindow(id:) opens a window for the scene with that id after
+    the current update, sized to its content and centered (a Window scene's is brought to the
+    front if open). windowResizability and defaultSize change nothing yet.
+  - Next: ScrollViewReader (needs views' frames by identity), long presses, Table,
+    ShareLink.

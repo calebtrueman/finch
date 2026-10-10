@@ -16,6 +16,7 @@ struct FormsView: View {
     @State private var showAlert = false
     @State private var showDialog = false
     @State private var showPopover = false
+    @Environment(\.openWindow) private var openWindow
     var body: some View {
         VStack(alignment: .leading) {
         HStack {
@@ -51,6 +52,7 @@ struct FormsView: View {
                     Button("Mail") { lastAction = "mail" }
                     Button("Messages") { lastAction = "messages" }
                 }
+            Button("About") { openWindow(id: "about") }
             Button("Popover") { showPopover = true }
                 .popover(isPresented: $showPopover, arrowEdge: .bottom) {
                     Text("Hello from a popover").padding()
@@ -122,6 +124,7 @@ struct SheetView: View {
 @main struct FormsApp: App {
     var body: some Scene {
         WindowGroup("Forms") { FormsView() }
+            .windowResizability(.contentSize)
             .commands {
                 CommandMenu("Tools") {
                     Button("Bump") { appModel.commandCount += 1 }
@@ -131,5 +134,8 @@ struct SheetView: View {
                     Button("New Thing") { appModel.commandCount += 10 }
                 }
             }
+        Window("About Forms", id: "about") {
+            Text("Forms, a Finch test app").padding(40)
+        }
     }
 }
