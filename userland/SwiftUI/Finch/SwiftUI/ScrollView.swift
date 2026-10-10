@@ -172,6 +172,11 @@ struct _FinchScrollView<Content: View>: NSViewRepresentable {
                 .environment(\._finchReportsScrollTargets, reader != nil)
                 // the document's own frame, measured as the targets are: theirs are taken from it
                 .background(_FinchScrollRootReporter(enabled: reader != nil))
+                // content shorter (or narrower) than the scroll view starts at its top (or leading)
+                .frame(maxWidth: configuration.axes.contains(.horizontal) ? .infinity : nil,
+                       maxHeight: configuration.axes.contains(.vertical) ? .infinity : nil,
+                       alignment: configuration.axes == .horizontal ? .leading
+                           : configuration.axes == .vertical ? .top : .topLeading)
                 .onPreferenceChange(_FinchScrollTargetsKey.self) { [weak scrollView] targets in
                     MainActor.assumeIsolated {
                         let root = targets[_FinchScrollRootReporter.id]?.origin ?? .zero

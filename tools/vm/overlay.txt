@@ -174,3 +174,6 @@ build/userland/apps/SwiftUIForms.app/Contents/PkgInfo /Applications/SwiftUIForms
 build/userland/apps/SwiftUINavigation.app/Contents/MacOS/SwiftUINavigation /Applications/SwiftUINavigation.app/Contents/MacOS/SwiftUINavigation
 build/userland/apps/SwiftUINavigation.app/Contents/Info.plist /Applications/SwiftUINavigation.app/Contents/Info.plist
 build/userland/apps/SwiftUINavigation.app/Contents/PkgInfo /Applications/SwiftUINavigation.app/Contents/PkgInfo
+build/userland/apps/SwiftUITable.app/Contents/MacOS/SwiftUITable /Applications/SwiftUITable.app/Contents/MacOS/SwiftUITable
+build/userland/apps/SwiftUITable.app/Contents/Info.plist /Applications/SwiftUITable.app/Contents/Info.plist
+build/userland/apps/SwiftUITable.app/Contents/PkgInfo /Applications/SwiftUITable.app/Contents/PkgInfo

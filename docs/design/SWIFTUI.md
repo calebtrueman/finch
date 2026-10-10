@@ -294,4 +294,11 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     recycling was also wrong: it took only exact sizes (a reversed subtraction), and the
     remainder after aligning a block's end could wrap around, writing a free-list header
     over live bytes. The styled text field builds its branches as a conditional again.
-  - Next: Table, ShareLink.
+  - Table, TableColumn (titles, `value:` key paths, `sortUsing:` comparators, widths), rows
+    from data or TableRow builders (with `if`), single or multiple selection and a sort order
+    binding. Drawn as a header of titles over rows of cells, alternating, the selection in
+    the accent color; a sortable title sorts by its column when clicked, again to reverse.
+    The columns and rows are read from the content, as menus are. Test app: SwiftUITable.
+  - ScrollView content shorter than the scroll view starts at its top, as Apple's does
+    (it was centred).
+  - Next: ShareLink.
