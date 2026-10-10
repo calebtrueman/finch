@@ -59,6 +59,11 @@ show("range", "Hello, world".range(of: "world").map { "Hello, world"[$0] } ?? "n
 show("NSRange", NSRange("Hello, world".range(of: "world")!, in: "Hello, world"))
 show("format", String(format: "%d-%@-%.2f", 42, "x", 3.14159))
 show("anyhashable", AnyHashable("k") == AnyHashable("k" as NSString))
+// a native Swift string beyond ASCII, copied into a mutable CF string (as attributed strings do)
+var native = "Plain"; native += " \u{2014} dash \u{1F426}"
+let appended = NSMutableString(); appended.append(native)
+show("append non-ASCII", appended as String == native)
+show("attributed non-ASCII", NSMutableAttributedString(string: native).string == native)
 
 // MARK: Data
 print("== data")

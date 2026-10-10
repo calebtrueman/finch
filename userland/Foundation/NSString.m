@@ -126,7 +126,21 @@ cf_copy_of(NSString *s)
     CFRelease(c);
     return e;
 }
-- (BOOL)_encodingCantBeStoredInEightBitCFString { return NO; }
+/* Whether CF must keep the string's characters as UTF-16 when it copies them into one of
+ * its own (a mutable string's append and replace): anything beyond ASCII. */
+- (BOOL)_encodingCantBeStoredInEightBitCFString
+{
+    NSUInteger length = [self length];
+    unichar buf[256];
+    for (NSUInteger at = 0; at < length; at += 256) {
+        NSUInteger n = length - at < 256 ? length - at : 256;
+        [self getCharacters:buf range:NSMakeRange(at, n)];
+        for (NSUInteger i = 0; i < n; i++)
+            if (buf[i] > 0x7f)
+                return YES;
+    }
+    return NO;
+}
 - (BOOL)_getCString:(char *)buffer maxLength:(NSUInteger)max encoding:(CFStringEncoding)encoding
 {
     CFStringRef c = cf_copy_of(self);

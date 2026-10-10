@@ -17,11 +17,47 @@ MODULE = re.compile(r'(?<!@_spi\()\bOpenSwiftUI(Core)?\b(?!\+)')
 # upstream files that Finch's sources replace (relative to Sources/, after the module renames)
 REPLACED = [
     'SwiftUI/View/Control/Button/Button.swift',   # an empty placeholder upstream
+    'SwiftUI/View/Toggle/Toggle.swift',           # resolves through unfinished toggle styles
+    'SwiftUI/View/Control/Slider/SystemSliderStyle.swift',   # draws nothing upstream
 ]
 
-# (file, upstream declaration, Apple's)
+# (file, upstream declaration, Apple's): the kind and frozenness of Apple's declarations, which
+# decide every mangled name and how values are passed
 KINDS = [
     ('SwiftUI/App/Scene/SceneBuilder.swift', 'public enum SceneBuilder', 'public struct SceneBuilder'),
+    ('SwiftUICore/Data/Binding/Binding.swift', '@dynamicMemberLookup\npublic struct Binding<Value> {',
+     '@dynamicMemberLookup\n@frozen\npublic struct Binding<Value> {'),
+]
+
+
+# (file, upstream code, Finch's): fixes to upstream code
+FIXES = [
+    # the storage type's metadata accessor was called through a C function pointer made from
+    # its address, which isn't signed on arm64e: ask for the type through a generic instead
+    ('SwiftUICore/Runtime/ConditionalMetadata.swift',
+     '''            typealias Accessor =  @convention(c) (UInt, Metadata, Metadata) -> Metadata
+            let nominal = Metadata(_ConditionalContent<Void, Void>.Storage.self).nominalDescriptor!
+            let accessorRelativePointer = nominal.advanced(by: 12)
+            let accessor = unsafeBitCast(
+                accessorRelativePointer.advanced(by:Int(accessorRelativePointer.assumingMemoryBound(to: Int32.self).pointee)),
+                to: Accessor.self
+            )
+            let type = accessor(0, Metadata(metadata.genericType(at: 0)), Metadata(metadata.genericType(at: 1)))
+            storage = .either(type.type,''',
+     '''            let type = conditionalStorageType(metadata.genericType(at: 0), metadata.genericType(at: 1))
+            storage = .either(type,'''),
+    ('SwiftUICore/Runtime/ConditionalMetadata.swift', '\nextension Optional {',
+     '''
+/// `_ConditionalContent<T, F>.Storage`, for the true and false content types.
+private func conditionalStorageType(_ t: any Any.Type, _ f: any Any.Type) -> any Any.Type {
+    func withTrue<T>(_: T.Type) -> any Any.Type {
+        func withFalse<F>(_: F.Type) -> any Any.Type { _ConditionalContent<T, F>.Storage.self }
+        return _openExistential(f, do: withFalse)
+    }
+    return _openExistential(t, do: withTrue)
+}
+
+extension Optional {'''),
 ]
 
 
@@ -61,7 +97,7 @@ def main():
     for rel in REPLACED:
         os.remove(os.path.join(src, rel))
     # kinds Apple's declarations have (the kind is part of every mangled name)
-    for rel, old, new in KINDS:
+    for rel, old, new in KINDS + FIXES:
         path = os.path.join(src, rel)
         t = open(path).read()
         assert old in t, (rel, old)

@@ -134,5 +134,21 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     2025 sets to dyld's `VersionMap.h`. Foundation also gained
     `+preferredLocalizationsFromArray:forPreferences:` and the `localization:` string lookups.
 
-  Next: window placement (it is centred while still empty), Text styles and fonts, then
-  larger apps.
+- 2026-10-09: controls. `Toggle`, `TextField`, `Slider` and `ProgressView` draw and respond,
+  each as Apple's does on macOS: an AppKit control (checkbox, text field, slider) in an
+  `NSViewRepresentable`, bound to the SwiftUI state (`userland/SwiftUI/Finch/SwiftUI/`).
+  - AppKit hosts representable views as Apple's SwiftUI expects:
+    `_NSConstraintBasedLayoutHostingView` and `-measureMin:max:ideal:stretchingPriority:`
+    (a view's sizes from its intrinsic size, hugging and compression resistance).
+  - `Binding` is `@frozen`, as Apple's is: apps copy it inline.
+  - Pointer authentication: Compute now re-signs every Swift closure that reaches its C entry
+    points (tuple buffers, field and enum visitors, graph searches, subgraph walks), and its
+    main-thread trampoline is a plain C function on both sides. Conditional content asks for
+    its storage type through a generic instead of calling a metadata accessor through an
+    unsigned pointer (`adapt.py`).
+  - Foundation: Swift strings with characters beyond ASCII lost them when copied into a
+    mutable CF string (`NSMutableString` appends, attributed strings), because `NSString`
+    told CF they fit in eight bits.
+
+  Next: `Picker`, `List` and tag traits (for `SwiftUIGallery`), window placement (it is
+  centred while still empty), Text styles and fonts, then larger apps.

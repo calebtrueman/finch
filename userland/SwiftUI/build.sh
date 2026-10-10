@@ -39,7 +39,10 @@ for dir in "${HERE}"/patches/*/; do
     checkout="${PKG}/build/checkouts/$(basename "${dir}")"
     for p in "${dir}"*.patch; do
         chmod -R u+w "${checkout}/Sources"
-        git -C "${checkout}" apply -R --check "${p}" 2>/dev/null || git -C "${checkout}" apply "${p}"
+        git -C "${checkout}" apply -R --check "${p}" 2>/dev/null && continue
+        # not applied, or an earlier version of it is: start from the checkout as it came
+        git -C "${checkout}" apply --check "${p}" 2>/dev/null || { git -C "${checkout}" checkout -q -- Sources; git -C "${checkout}" clean -qfd Sources; }
+        git -C "${checkout}" apply "${p}"
     done
 done
 # Compute reads Swift metadata through its own copy of the runtime's headers (release/6.3);
@@ -87,7 +90,7 @@ xcrun clang -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -O2 -f
     -c "${HERE}/stubs.c" -o "${PKG}/stubs.o"
 xcrun clang++ -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -O2 -std=c++17 \
     -c "${HERE}/demangle.cpp" -o "${PKG}/demangle.o"
-mapfile -t core < <(objs SwiftUICore COpenSwiftUI OpenSwiftUI_SPI Compute ComputeCxx ComputeCxxSwiftSupport Platform Utilities \
+core=(); while IFS= read -r o; do core+=("$o"); done < <(objs SwiftUICore COpenSwiftUI OpenSwiftUI_SPI Compute ComputeCxx ComputeCxxSwiftSupport Platform Utilities \
     OpenAttributeGraphShims OpenCoreGraphicsShims OpenObservation OpenObservationCxx OpenQuartzCoreShims \
     OpenRenderBox OpenRenderBoxCxx OpenRenderBoxShims OpenRenderBoxShimsCxx)
 # SwiftUICore names two of SwiftUI's protocols (Scene, Commands); SwiftUI, which re-exports it,
@@ -95,7 +98,7 @@ mapfile -t core < <(objs SwiftUICore COpenSwiftUI OpenSwiftUI_SPI Compute Comput
 link SwiftUICore 7.4.26 "${core[@]}" "${PKG}/stubs.o" "${PKG}/demangle.o" -- -Wl,-not_for_dyld_shared_cache -Wl,-U,'_$s7SwiftUI5SceneMp' -Wl,-U,'_$s7SwiftUI8CommandsMp' \
     -lz -framework AppKit -framework QuartzCore -framework CoreText \
     -framework Combine -framework CoreGraphics -framework Foundation -lc++
-mapfile -t ui < <(objs SwiftUI)
+ui=(); while IFS= read -r o; do ui+=("$o"); done < <(objs SwiftUI)
 link SwiftUI 7.4.26 "${ui[@]}" "${PKG}/stubs.o" -- -Wl,-reexport_framework,SwiftUICore -framework AppKit -framework QuartzCore \
     -framework Combine -framework Foundation
 

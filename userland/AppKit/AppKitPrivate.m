@@ -64,16 +64,38 @@ FinchViewGeometryInWindowDidChange(NSView *view)
 
 - (NSResponder *)_nextResponderForEvent:(NSEvent *)event { return [self nextResponder]; }
 
-/* As Apple's: the smallest size the view's constraints allow, unbounded above, and that as ideal. */
+/*
+ * As Apple's: per axis, a view with an intrinsic length is held at least at it when its
+ * compression resistance outranks the stretching priority, and at most when its hugging
+ * does; its ideal is that length. A view without one measures by its constraints' fitting
+ * size, and stretches without limit.
+ */
 - (void)measureMin:(CGSize *)min max:(CGSize *)max ideal:(CGSize *)ideal stretchingPriority:(float)priority
 {
+    NSSize intrinsic = [self intrinsicContentSize];
     NSSize fit = [self fittingSize];
+    CGFloat lo[2], hi[2], id[2];
+    for (int axis = 0; axis < 2; axis++) {
+        CGFloat v = axis ? intrinsic.height : intrinsic.width;
+        NSLayoutConstraintOrientation o = axis ? NSLayoutConstraintOrientationVertical : NSLayoutConstraintOrientationHorizontal;
+        if (v == NSViewNoIntrinsicMetric) {
+            CGFloat f = axis ? fit.height : fit.width;
+            lo[axis] = f;
+            id[axis] = f;
+            hi[axis] = CGFLOAT_MAX;
+        } else {
+            v = MAX(v, 0);
+            id[axis] = v;
+            lo[axis] = [self contentCompressionResistancePriorityForOrientation:o] > priority ? v : 0;
+            hi[axis] = [self contentHuggingPriorityForOrientation:o] > priority ? v : CGFLOAT_MAX;
+        }
+    }
     if (min)
-        *min = NSSizeToCGSize(fit);
+        *min = CGSizeMake(lo[0], lo[1]);
     if (max)
-        *max = CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX);
+        *max = CGSizeMake(hi[0], hi[1]);
     if (ideal)
-        *ideal = NSSizeToCGSize(fit);
+        *ideal = CGSizeMake(id[0], id[1]);
 }
 
 - (void)measureMin:(CGSize *)min max:(CGSize *)max ideal:(CGSize *)ideal
@@ -153,4 +175,149 @@ static char progress_font_key, image_description_key;
 @implementation NSGestureRecognizer (FinchPrivateSPI)
 - (void)_updateForActiveEvents {}
 - (BOOL)_hasUnmetFailureRequirements { return NO; }
+@end
+
+#pragma mark - Constraint-based layout hosting
+
+/* Whether a view hosts its own layout engine (private; Finch's engine is per root). */
+static char hosts_engine_key;
+
+@implementation NSView (FinchLayoutEngineHosting)
+- (void)_setHostsLayoutEngine:(BOOL)flag
+{
+    objc_setAssociatedObject(self, &hosts_engine_key, flag ? @YES : nil, OBJC_ASSOCIATION_RETAIN);
+}
+- (BOOL)_hostsLayoutEngine { return objc_getAssociatedObject(self, &hosts_engine_key) != nil; }
+@end
+
+typedef struct {
+    CGFloat firstTextBaseline;
+    CGFloat lastTextBaseline;
+} FinchBaselineOffset;
+
+/*
+ * A view that holds one hosted view pinned to its edges and measures it through Auto
+ * Layout: SwiftUI hosts AppKit views (NSViewRepresentable) in one.
+ */
+__attribute__((visibility("default")))
+@interface _NSConstraintBasedLayoutHostingView : NSView {
+    BOOL _hasAddedConstraints;
+}
+@property (retain, nullable) NSView *hostedView;
+- (instancetype)initWithHostedView:(NSView *)view;
+@end
+
+@implementation _NSConstraintBasedLayoutHostingView {
+    NSView *_hosted;
+    NSArray *_pins;
+}
+
++ (BOOL)requiresConstraintBasedLayout { return YES; }
+
+- (instancetype)initWithHostedView:(NSView *)view
+{
+    if ((self = [super initWithFrame:view ? [view frame] : NSZeroRect]))
+        [self setHostedView:view];
+    return self;
+}
+
+- (void)dealloc
+{
+    [_pins release];
+    [_hosted release];
+    [super dealloc];
+}
+
+- (NSView *)hostedView { return _hosted; }
+
+- (void)setHostedView:(NSView *)view
+{
+    if (view == _hosted)
+        return;
+    if (_pins)
+        [NSLayoutConstraint deactivateConstraints:_pins];
+    [_pins release];
+    _pins = nil;
+    [_hosted removeFromSuperview];
+    [_hosted release];
+    _hosted = [view retain];
+    _hasAddedConstraints = NO;
+    if (view) {
+        [view setTranslatesAutoresizingMaskIntoConstraints:NO];
+        [self addSubview:view];
+        [self setNeedsUpdateConstraints:YES];
+    }
+    [self invalidateIntrinsicContentSize];
+}
+
+- (void)updateConstraints
+{
+    if (_hosted && !_hasAddedConstraints) {
+        _pins = [@[
+            [[_hosted leadingAnchor] constraintEqualToAnchor:[self leadingAnchor]],
+            [[_hosted trailingAnchor] constraintEqualToAnchor:[self trailingAnchor]],
+            [[_hosted topAnchor] constraintEqualToAnchor:[self topAnchor]],
+            [[_hosted bottomAnchor] constraintEqualToAnchor:[self bottomAnchor]],
+        ] retain];
+        [NSLayoutConstraint activateConstraints:_pins];
+        _hasAddedConstraints = YES;
+    }
+    [super updateConstraints];
+}
+
+- (void)willRemoveSubview:(NSView *)subview
+{
+    if (subview == _hosted) {
+        if (_pins)
+            [NSLayoutConstraint deactivateConstraints:_pins];
+        [_pins release];
+        _pins = nil;
+        _hasAddedConstraints = NO;
+    }
+    [super willRemoveSubview:subview];
+}
+
+/* The hosted view's size within `fits`: its fitting size, with the fixed axes (bit 0 the
+   width, bit 1 the height) held at the proposal. */
+- (CGSize)_layoutSizeThatFits:(CGSize)fits fixedAxes:(unsigned long long)axes
+{
+    if (!_hosted)
+        return CGSizeZero;
+    NSSize intrinsic = [_hosted intrinsicContentSize];
+    NSSize fit = [_hosted fittingSize];
+    CGSize s = CGSizeMake(intrinsic.width != NSViewNoIntrinsicMetric ? intrinsic.width : fit.width,
+                          intrinsic.height != NSViewNoIntrinsicMetric ? intrinsic.height : fit.height);
+    if (axes & 1)
+        s.width = fits.width;
+    if (axes & 2)
+        s.height = fits.height;
+    return s;
+}
+
+- (CGSize)sizeThatFits:(CGSize)fits { return [self _layoutSizeThatFits:fits fixedAxes:0]; }
+- (void)sizeToFit { [self setFrameSize:NSSizeFromCGSize([self sizeThatFits:CGSizeZero])]; }
+- (BOOL)_layoutHeightDependsOnWidth { return NO; }
+- (NSSize)intrinsicContentSize { return _hosted ? [_hosted intrinsicContentSize] : [super intrinsicContentSize]; }
+- (NSEdgeInsets)alignmentRectInsets { return _hosted ? [_hosted alignmentRectInsets] : [super alignmentRectInsets]; }
+
+- (void)_setFrameWithAlignmentRect:(CGRect)rect
+{
+    [self setFrame:[self frameForAlignmentRect:NSRectFromCGRect(rect)]];
+}
+
+- (FinchBaselineOffset)_baselineOffsetsAtSize:(CGSize)size
+{
+    FinchBaselineOffset b = {0, 0};
+    if (_hosted) {
+        b.firstTextBaseline = [_hosted firstBaselineOffsetFromTop];
+        b.lastTextBaseline = [_hosted lastBaselineOffsetFromBottom];
+    }
+    return b;
+}
+
+- (void)_intrinsicContentSizeInvalidatedForChildView:(NSView *)view { [self invalidateIntrinsicContentSize]; }
+- (void)_layoutMetricsInvalidatedForHostedView { [self invalidateIntrinsicContentSize]; }
+- (void)_informContainerThatSubviewsNeedUpdateConstraints { [self setNeedsUpdateConstraints:YES]; }
+- (void)constraintsDidChangeInEngine:(id)engine {}
+
 @end
