@@ -198,6 +198,22 @@ index 5710b86..f684d2e 100644
  }
  
  void print(std::string &output, ValueLayout layout) {
+diff --git a/Sources/ComputeCxx/Data/Table.cpp b/Sources/ComputeCxx/Data/Table.cpp
+index 3b3cfae..8664768 100644
+--- a/Sources/ComputeCxx/Data/Table.cpp
++++ b/Sources/ComputeCxx/Data/Table.cpp
+@@ -44,7 +44,10 @@ std::unique_ptr<void, table::malloc_zone_deleter> table::alloc_persistent(size_t
+ }
+ 
+ table::table() {
+-    constexpr vm_size_t initial_size = 32 * pages_per_map * page_size;
++    // Finch: the data space is reserved whole up front (pages are committed as they're used).
++    // Growing it remaps the region elsewhere, and values reached through pointers into the old
++    // mapping then diverge from the new one: a graph of a few thousand attributes crashed.
++    constexpr vm_size_t initial_size = 16384 * pages_per_map * page_size;  // 512 MB
+ 
+ #if TARGET_OS_MAC
+     void *region = mmap(nullptr, initial_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 diff --git a/Sources/ComputeCxx/Graph/Graph.cpp b/Sources/ComputeCxx/Graph/Graph.cpp
 index 8084e12..7f9680d 100644
 --- a/Sources/ComputeCxx/Graph/Graph.cpp

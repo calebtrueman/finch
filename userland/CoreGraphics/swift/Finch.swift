@@ -20,7 +20,12 @@ extension CGRect {
     @_alwaysEmitIntoClient public var maxY: CGFloat { return Swift.max(origin.y, origin.y + size.height) }
     @_alwaysEmitIntoClient public var width: CGFloat { return Swift.abs(size.width) }
     @_alwaysEmitIntoClient public var height: CGFloat { return Swift.abs(size.height) }
-    @_alwaysEmitIntoClient public func equalTo(_ rect2: CGRect) -> Bool { return standardized == rect2.standardized }
+    /// As CGRectEqualToRect: the standardized rects' fields (not ==, which is defined by this).
+    @_alwaysEmitIntoClient public func equalTo(_ rect2: CGRect) -> Bool {
+        let a = standardized, b = rect2.standardized
+        return a.origin.x == b.origin.x && a.origin.y == b.origin.y && a.size.width == b.size.width
+            && a.size.height == b.size.height
+    }
     @_alwaysEmitIntoClient public var standardized: CGRect {
         if isNull { return .null }
         return CGRect(x: minX, y: minY, width: width, height: height)

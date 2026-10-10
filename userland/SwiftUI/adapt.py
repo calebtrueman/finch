@@ -235,6 +235,23 @@ enum ShapeType {'''),
      '''    func applicationWillFinishLaunching(_ notification: Notification) {
         _FinchMainMenu.install()
         Update.begin()'''),
+    # an identified view reports its frame where a ScrollViewReader asks (ScrollTargets.swift)
+    ('SwiftUICore/View/DynamicView/IDView.swift',
+     '''            var inputs = inputs
+            inputs.viewPhase = Attribute(phase)
+            return Content.makeDebuggableView(view: view[offset: { .of(&$0.content)}], inputs: inputs)''',
+     '''            var inputs = inputs
+            inputs.viewPhase = Attribute(phase)
+            return ModifiedContent<Content, _FinchScrollTargetModifier>.makeDebuggableView(
+                view: _GraphValue(_FinchReportedContent(view: view.value)), inputs: inputs)'''),
+    ('SwiftUICore/View/DynamicView/IDView.swift',
+     '''        inputs.base.pushStableID(id)
+        let view = _GraphValue(CachedView(view: view, id: id))
+        return Content.makeDebuggableViewList(view: view, inputs: inputs)''',
+     '''        inputs.base.pushStableID(id)
+        let cached = Attribute(CachedView(view: view, id: id))
+        let reported = _GraphValue(_FinchReportedChild(content: cached, id: AnyHashable(id)))
+        return ModifiedContent<Content, _FinchScrollTargetModifier>.makeDebuggableViewList(view: reported, inputs: inputs)'''),
     # whether a rounded rectangle holds a point, by its geometry: OpenRenderBox's path
     # storage can't take elements yet, and hit testing a rounded shape built one to ask
     ('SwiftUICore/Shape/RoundedCornerStyle.swift',

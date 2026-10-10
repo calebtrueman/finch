@@ -131,13 +131,18 @@ struct Gallery: View {
                     .onHover { hovering = $0 }
                     .help("A tooltip")
             }
-            ScrollView {
-                VStack(alignment: .leading) {
-                    ForEach(1...20, id: \.self) { Text("Scrolled line \($0)") }
+            ScrollViewReader { proxy in
+                HStack(alignment: .top) {
+                    ScrollView {
+                        VStack(alignment: .leading) {
+                            ForEach(1...20, id: \.self) { Text("Scrolled line \($0)").id($0) }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 70)
+                    Text("Jump to 15").underline().onTapGesture { proxy.scrollTo(15, anchor: .top) }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 70)
             List {
                 ForEach(1...8, id: \.self) { Text("Row \($0)") }
             }

@@ -275,4 +275,19 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - LongPressGesture and onLongPressGesture, timed by the events' own timestamps (the
     graph's time doesn't move between events nothing was drawn between). `pressing` isn't
     told yet. finch-app-test has a `hold:` step.
-  - Next: ScrollViewReader (needs views' frames by identity), Table, ShareLink.
+  - ScrollViewReader and ScrollViewProxy. Inside a reader, identified views (IDView, so
+    `id(_:)`) report their frames in the scroll view's document. scrollTo finds the view and
+    scrolls just enough to show it, or puts its anchor at the same anchor of the visible area.
+    Lists, which scroll in the graph, don't scroll to an id yet.
+  - Two crashes found on the way: CoreGraphics' Swift `CGRect.equalTo` called `==`, which
+    calls `equalTo`, so any comparison of rects looped forever (preference values holding
+    rects hung the app). Compute grew its data region by remapping it elsewhere, and values
+    reached through pointers into the old mapping diverged (about 40 rows of buttons crashed);
+    it now reserves 512 MB up front.
+  - Open: in SwiftUIGallery, a Button inside the ScrollViewReader's HStack makes the first
+    render crash. `PlatformViewDisplayList<…_FinchTextField>` under an opacity effect, in
+    `_FinchStyledTextField`'s `if`, reads a value whose pointer has tag bits in its high bits.
+    Whether it happens depends on the rest of the gallery (removing any of several rows
+    hides it), and a small app with the same views is fine. The gallery uses a tappable Text
+    there for now.
+  - Next: Table, ShareLink.

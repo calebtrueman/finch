@@ -80,8 +80,33 @@ struct _FinchScrollView<Content: View>: NSViewRepresentable {
     var content: Content
     var configuration: _FinchScrollConfiguration
 
-    final class ScrollView: NSScrollView {
+    final class ScrollView: NSScrollView, _FinchScrollTargetView {
         var controller: NSHostingController<AnyView>?
+        /// Where the identified views are, in the document (when a reader asks).
+        var targets: [AnyHashable: CGRect] = [:]
+
+        /// Scrolls to show a rect of the document: just enough, or with its anchor at the
+        /// visible area's.
+        func scroll(toShow rect: CGRect, anchor: UnitPoint?) {
+            let visible = contentView.bounds
+            var origin = visible.origin
+            if let anchor {
+                origin.x = rect.minX + anchor.x * rect.width - anchor.x * visible.width
+                origin.y = rect.minY + anchor.y * rect.height - anchor.y * visible.height
+            } else {
+                if rect.maxY > visible.maxY { origin.y = rect.maxY - visible.height }
+                if rect.minY < origin.y { origin.y = rect.minY }
+                if rect.maxX > visible.maxX { origin.x = rect.maxX - visible.width }
+                if rect.minX < origin.x { origin.x = rect.minX }
+            }
+            let size = documentView?.frame.size ?? .zero
+            origin.x = max(0, min(origin.x, size.width - visible.width))
+            origin.y = max(0, min(origin.y, size.height - visible.height))
+            if !axes.contains(.horizontal) { origin.x = visible.origin.x }
+            if !axes.contains(.vertical) { origin.y = visible.origin.y }
+            contentView.scroll(to: origin)
+            reflectScrolledClipView(contentView)
+        }
         var axes: Axis.Set = .vertical
         var insets = EdgeInsets()
 
@@ -137,10 +162,22 @@ struct _FinchScrollView<Content: View>: NSViewRepresentable {
                                 leading: configuration.contentInsets.leading + margins.leading,
                                 bottom: configuration.contentInsets.bottom + margins.bottom,
                                 trailing: configuration.contentInsets.trailing + margins.trailing)
+        // in a reader: the identified views say where they are, and the reader can find us
+        let reader = context.environment._finchScrollReader
+        reader?.register(scrollView)
         scrollView.controller?.rootView = AnyView(
             content
                 .padding(insets)
                 ._finchInheriting(context.environment)
+                .environment(\._finchReportsScrollTargets, reader != nil)
+                // the document's own frame, measured as the targets are: theirs are taken from it
+                .background(_FinchScrollRootReporter(enabled: reader != nil))
+                .onPreferenceChange(_FinchScrollTargetsKey.self) { [weak scrollView] targets in
+                    MainActor.assumeIsolated {
+                        let root = targets[_FinchScrollRootReporter.id]?.origin ?? .zero
+                        scrollView?.targets = targets.mapValues { $0.offsetBy(dx: -root.x, dy: -root.y) }
+                    }
+                }
         )
         scrollView.axes = configuration.axes
         scrollView.insets = insets
@@ -184,5 +221,19 @@ extension View {
             .environment(\._finchFormStyles, environment._finchFormStyles)
             .environment(\._finchListStyle, environment._finchListStyle)
             .environment(\._finchPickerStyle, environment._finchPickerStyle)
+    }
+}
+
+/// Reports the scroll view's document root frame, under its own id.
+struct _FinchScrollRootReporter: View {
+    static let id = AnyHashable("org.finch.SwiftUI.scrollRoot")
+    var enabled: Bool
+
+    var body: some View {
+        if enabled {
+            GeometryReader { proxy in
+                Color.clear.preference(key: _FinchScrollTargetsKey.self, value: [Self.id: proxy.frame(in: .global)])
+            }
+        }
     }
 }
