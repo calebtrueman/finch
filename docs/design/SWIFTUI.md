@@ -260,4 +260,10 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - DragGesture: built from upstream's gesture parts (a spatial event listener in a
     coordinate space, under a gesture state that tracks the start, distance and velocity).
     finch-app-test has a `drag:` step.
-  - Next: ScrollViewReader (needs views' frames by identity), long presses, commands.
+  - The main menu and commands: SwiftUI apps get Apple's menus (the app menu, File, Edit,
+    View, Window, Help), each a run of command groups. CommandGroup adds before or after a
+    group, or replaces it; CommandMenu adds a menu before Window. Commands are read from
+    their content as menus are, keyboard shortcuts becoming key equivalents. Upstream's
+    commands graph never reached the menu.
+  - Next: ScrollViewReader (needs views' frames by identity), long presses, Window scenes,
+    ContentUnavailableView, DisclosureGroup, ControlGroup.

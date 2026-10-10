@@ -3,6 +3,10 @@
 // sheets, alerts, a confirmation dialog, a popover, a toolbar
 // and a navigation title, built against Apple's SDK as Xcode would.
 import SwiftUI
+import Observation
+
+@Observable final class AppModel { var commandCount = 0 }
+let appModel = AppModel()
 struct FormsView: View {
     @State private var on = true
     @State private var name = "Finch"
@@ -23,6 +27,7 @@ struct FormsView: View {
                     Button("Archive") { lastAction = "archive" }
                 }
             }
+            Text("Commands: \(appModel.commandCount)")
             Text("Last: \(lastAction)")
                 .padding(4)
                 .contextMenu {
@@ -114,4 +119,17 @@ struct SheetView: View {
         .padding(20)
     }
 }
-@main struct FormsApp: App { var body: some Scene { WindowGroup("Forms") { FormsView() } } }
+@main struct FormsApp: App {
+    var body: some Scene {
+        WindowGroup("Forms") { FormsView() }
+            .commands {
+                CommandMenu("Tools") {
+                    Button("Bump") { appModel.commandCount += 1 }
+                        .keyboardShortcut("b")
+                }
+                CommandGroup(after: .newItem) {
+                    Button("New Thing") { appModel.commandCount += 10 }
+                }
+            }
+    }
+}

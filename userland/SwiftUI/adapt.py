@@ -21,6 +21,7 @@ REPLACED = [
     'SwiftUI/View/Control/Slider/SystemSliderStyle.swift',   # draws nothing upstream
     'SwiftUI/View/Control/Button/ButtonStyle/TODO/BorderlessButtonStyle.swift',   # Finch's ButtonStyles.swift
     'SwiftUI/View/Control/Button/ButtonStyle/TODO/PlainButtonStyle.swift',
+    'SwiftUI/App/Commands/CommandGroup.swift',   # Finch's MainMenu.swift
 ]
 
 # (file, upstream declaration, Apple's): the kind and frozenness of Apple's declarations, which
@@ -219,6 +220,20 @@ enum ShapeType {'''),
             break
         }
     }'''),
+    # Scene.commands is Finch's (MainMenu.swift)
+    ('SwiftUI/App/Commands/Commands.swift',
+     '''    nonisolated public func commands<Content>(
+        @CommandsBuilder content: () -> Content
+    ) -> some Scene where Content: Commands {
+        modifier(CommandsModifier(content: content()))
+    }''', ''),
+    # the main menu, as the app finishes launching
+    ('SwiftUI/App/App/AppKit/AppKitAppDelegate.swift',
+     '''    func applicationWillFinishLaunching(_ notification: Notification) {
+        Update.begin()''',
+     '''    func applicationWillFinishLaunching(_ notification: Notification) {
+        _FinchMainMenu.install()
+        Update.begin()'''),
     # whether a rounded rectangle holds a point, by its geometry: OpenRenderBox's path
     # storage can't take elements yet, and hit testing a rounded shape built one to ask
     ('SwiftUICore/Shape/RoundedCornerStyle.swift',

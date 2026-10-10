@@ -28,6 +28,18 @@ struct _FinchMenuItem {
     var fallback = ""
     var isDestructive = false
     var isCancel = false
+    var shortcut: KeyboardShortcut?
+}
+
+/// A view with a keyboard shortcut (keyboardShortcut(_:) writes it into the environment).
+protocol _FinchShortcutCarrier {
+    var _finchShortcut: KeyboardShortcut? { get }
+}
+
+extension ModifiedContent: _FinchShortcutCarrier where Modifier == _EnvironmentKeyWritingModifier<KeyboardShortcut?> {
+    var _finchShortcut: KeyboardShortcut? {
+        modifier.keyPath == \EnvironmentValues.keyboardShortcut ? modifier.value : nil
+    }
 }
 
 /// A view that is one or more menu items.
@@ -44,7 +56,11 @@ func _finchMenuItemsOf(_ content: Any) -> [_FinchMenuItem] {
         return sequence._finchViews.flatMap(_finchMenuItemsOf)
     }
     if let modified = content as? _FinchModifiedView {
-        return _finchMenuItemsOf(modified._finchContent)
+        var items = _finchMenuItemsOf(modified._finchContent)
+        if let shortcut = (content as? _FinchShortcutCarrier)?._finchShortcut {
+            for index in items.indices where items[index].shortcut == nil { items[index].shortcut = shortcut }
+        }
+        return items
     }
     if content is Divider {
         return [_FinchMenuItem(kind: .separator)]
@@ -166,6 +182,15 @@ func _finchMenu(_ items: [_FinchMenuItem], environment: EnvironmentValues) -> NS
             let menuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             menuItem.isEnabled = false
             menu.addItem(menuItem)
+        }
+        if let shortcut = item.shortcut, let added = menu.items.last {
+            added.keyEquivalent = String(shortcut.key.character).lowercased()
+            var mask: NSEvent.ModifierFlags = []
+            if shortcut.modifiers.contains(.command) { mask.insert(.command) }
+            if shortcut.modifiers.contains(.shift) { mask.insert(.shift) }
+            if shortcut.modifiers.contains(.option) { mask.insert(.option) }
+            if shortcut.modifiers.contains(.control) { mask.insert(.control) }
+            added.keyEquivalentModifierMask = mask
         }
         lastWasSeparator = false
     }
