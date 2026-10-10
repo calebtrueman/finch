@@ -285,8 +285,27 @@ leb128(NSMutableData *d, NSUInteger v)
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-    if (![coder allowsKeyedCoding])
-        FinchRaise(NSInvalidArgumentException, "*** -[NSAttributedString encodeWithCoder:]: only keyed coders are supported");
+    if (![coder allowsKeyedCoding]) {
+        /* Apple's: the string, then each run as its attributes' number (from 1;
+         * a new number is followed by the dictionary) and its length */
+        [coder encodeObject:[self string]];
+        NSMutableArray *seen = [NSMutableArray array];
+        NSUInteger len = [self length];
+        for (NSUInteger i = 0; i < len;) {
+            NSRange r;
+            NSDictionary *attrs = [[[self attributesAtIndex:i effectiveRange:&r] copy] autorelease];
+            if (!attrs) attrs = @{};
+            NSUInteger end = MIN(NSMaxRange(r), len), index = [seen indexOfObject:attrs];
+            BOOL isNew = index == NSNotFound;
+            if (isNew) { index = [seen count]; [seen addObject:attrs]; }
+            int number = (int)index + 1;
+            unsigned length = (unsigned)(end - i);
+            [coder encodeValuesOfObjCTypes:"iI", &number, &length];
+            if (isNew) [coder encodeObject:attrs];
+            i = end;
+        }
+        return;
+    }
     [coder encodeObject:[self string] forKey:@"NSString"];
     NSMutableArray *dicts = [NSMutableArray array];
     NSMutableData *info = [NSMutableData data];
@@ -324,6 +343,28 @@ read_leb128(const uint8_t **p, const uint8_t *end, NSUInteger *out)
 
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
+    if (![coder allowsKeyedCoding]) {
+        NSString *str = [coder decodeObject];
+        if (![str isKindOfClass:[NSString class]]) { [self release]; return nil; }
+        NSMutableAttributedString *m = [[[NSMutableAttributedString alloc] initWithString:str] autorelease];
+        NSMutableArray *seen = [NSMutableArray array];
+        for (NSUInteger at = 0; at < [str length];) {
+            int number = 0;
+            unsigned length = 0;
+            [coder decodeValuesOfObjCTypes:"iI", &number, &length];
+            if (number == (int)[seen count] + 1) {
+                NSDictionary *attrs = [coder decodeObject];
+                [seen addObject:attrs ? attrs : @{}];
+            }
+            if (number < 1 || number > (int)[seen count] || length == 0 || at + length > [str length]) {
+                [self release];
+                return nil;
+            }
+            [m setAttributes:[seen objectAtIndex:(NSUInteger)number - 1] range:NSMakeRange(at, length)];
+            at += length;
+        }
+        return [self initWithAttributedString:m];
+    }
     NSSet *values = [coder allowedClasses];
     NSSet *plist = [NSSet setWithObjects:[NSArray class], [NSDictionary class], [NSString class], [NSNumber class], [NSDate class],
         [NSData class], [NSURL class], [NSValue class], nil];

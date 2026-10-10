@@ -330,6 +330,25 @@ optional attribute providers; it does not load a missing UI framework.
   is a `q`; CF's small-integer cache made it an `i`), and unsigned values
   above `LLONG_MAX` are `Q`. `finch-data-test` is identical to Apple's on
   the host and in the VM.
+- 2026-10-10: typedstream. `NSArchiver` and `NSUnarchiver` (`NSArchiver.m`) write
+  and read NeXT's non-keyed archive format byte for byte as Apple's do: the
+  header (version 4, "streamtyped", system version 1000), a type string per
+  call (or per `encodeValuesOfObjCTypes:` group), integers in one byte for
+  -110..127 and tagged 2-, 4- and 8-byte forms past it, floats as integers
+  when integral, shared strings (types, class names, selectors) and one
+  object table (objects, classes with their versions and superclass chains,
+  C strings by pointer), with references counted from 0x92. Root objects take
+  two passes so conditional objects appear only if encoded unconditionally;
+  big-endian NeXT archives ("typedstream") read too. The classes' non-keyed
+  coding follows Apple's: NSArray and NSDictionary counts are `i`, NSData is
+  `encodeDataObject:` (and decoding NSData gives the coder's mutable data, as
+  Apple's), NSURL is a has-base `c`, the base and the relative string,
+  attributed strings are runs of `iI` (attributes' number from 1, length)
+  with each new dictionary after its first run, NSNumber decodes as a number,
+  geometry is floats (`ff`, `ffff`), and NSString and NSMutableString are at
+  class version 1. `finch-typedstream-test` matches Apple's 77 lines,
+  including decoding and re-archiving an archive Apple's NSArchiver made.
+  Stickies' migration service needed it.
 - 2026-10-08: archiving. `NSCoder` (the unkeyed API from its primitives,
   secure decoding, geometry keys), `NSKeyedArchiver` and `NSKeyedUnarchiver`
   writing and reading Apple's archive format: objects numbered as Apple's

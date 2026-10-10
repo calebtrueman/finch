@@ -102,7 +102,7 @@ requires_keyed(NSCoder *coder, id self, SEL _cmd)
 - (void)encodeWithCoder:(NSCoder *)coder
 {
     if ([coder allowsKeyedCoding]) [coder _finchEncodePlist:[NSData dataWithData:self] forKey:@"NS.data"];
-    else [coder encodeBytes:[self bytes] length:[self length]];
+    else [coder encodeDataObject:self];   /* Apple's: an int count, then the bytes as a char array */
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
@@ -116,9 +116,12 @@ requires_keyed(NSCoder *coder, id self, SEL _cmd)
             d = b ? [NSData dataWithBytes:b length:n] : [NSData data];
         }
     } else {
-        NSUInteger n = 0;
-        void *b = [coder decodeBytesWithReturnedLength:&n];
-        d = [NSData dataWithBytes:b length:n];
+        d = [coder decodeDataObject];
+        if (self == [NSData allocWithZone:NULL]) {   /* the immutable placeholder */
+            /* as Apple's: the coder's data object itself (mutable) */
+            [self release];
+            return [d retain];
+        }
     }
     return [self initWithData:d];
 }
@@ -154,8 +157,8 @@ decode_objects(NSCoder *coder, NSString *key, NSString *legacyPrefix)
 - (void)encodeWithCoder:(NSCoder *)coder
 {
     if (![coder allowsKeyedCoding]) {
-        unsigned n = (unsigned)[self count];
-        [coder encodeValueOfObjCType:@encode(unsigned) at:&n];
+        int n = (int)[self count];
+        [coder encodeValueOfObjCType:@encode(int) at:&n];
         for (id o in self) [coder encodeObject:o];
         return;
     }
@@ -168,10 +171,10 @@ decode_objects(NSCoder *coder, NSString *key, NSString *legacyPrefix)
     if ([coder allowsKeyedCoding]) {
         a = decode_objects(coder, @"NS.objects", @"NS.object.");
     } else {
-        unsigned n = 0;
-        [coder decodeValueOfObjCType:@encode(unsigned) at:&n size:sizeof(n)];
-        NSMutableArray *m = [NSMutableArray arrayWithCapacity:n];
-        for (unsigned i = 0; i < n; i++) {
+        int n = 0;
+        [coder decodeValueOfObjCType:@encode(int) at:&n size:sizeof(n)];
+        NSMutableArray *m = [NSMutableArray arrayWithCapacity:n > 0 ? (NSUInteger)n : 0];
+        for (int i = 0; i < n; i++) {
             id o = [coder decodeObject];
             if (o) [m addObject:o];
         }
@@ -198,9 +201,9 @@ decode_objects(NSCoder *coder, NSString *key, NSString *legacyPrefix)
     NSMutableArray *values = [NSMutableArray arrayWithCapacity:[keys count]];
     for (id k in keys) [values addObject:[self objectForKey:k]];
     if (![coder allowsKeyedCoding]) {
-        unsigned n = (unsigned)[keys count];
-        [coder encodeValueOfObjCType:@encode(unsigned) at:&n];
-        for (NSUInteger i = 0; i < n; i++) {
+        int n = (int)[keys count];
+        [coder encodeValueOfObjCType:@encode(int) at:&n];
+        for (NSUInteger i = 0; i < (NSUInteger)n; i++) {
             [coder encodeObject:[keys objectAtIndex:i]];
             [coder encodeObject:[values objectAtIndex:i]];
         }
@@ -217,10 +220,10 @@ decode_objects(NSCoder *coder, NSString *key, NSString *legacyPrefix)
         keys = decode_objects(coder, @"NS.keys", @"NS.key.");
         values = decode_objects(coder, @"NS.objects", @"NS.object.");
     } else {
-        unsigned n = 0;
-        [coder decodeValueOfObjCType:@encode(unsigned) at:&n size:sizeof(n)];
+        int n = 0;
+        [coder decodeValueOfObjCType:@encode(int) at:&n size:sizeof(n)];
         NSMutableArray *k = [NSMutableArray array], *v = [NSMutableArray array];
-        for (unsigned i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
             id key = [coder decodeObject], value = [coder decodeObject];
             if (key && value) { [k addObject:key]; [v addObject:value]; }
         }
@@ -318,16 +321,33 @@ decode_objects(NSCoder *coder, NSString *key, NSString *legacyPrefix)
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-    requires_keyed(coder, self, _cmd);
+    if (![coder allowsKeyedCoding]) {
+        /* Apple's: whether there's a base, the base, then the relative string */
+        NSURL *base = [self baseURL];
+        char hasBase = base != nil;
+        [coder encodeValueOfObjCType:@encode(char) at:&hasBase];
+        if (base) [coder encodeObject:base];
+        [coder encodeObject:[self relativeString]];
+        return;
+    }
     [coder encodeObject:[self baseURL] forKey:@"NS.base"];
     [coder encodeObject:[self relativeString] forKey:@"NS.relative"];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
-    requires_keyed(coder, self, _cmd);
-    NSURL *base = [coder decodeObjectOfClass:[NSURL class] forKey:@"NS.base"];
-    NSString *relative = [coder decodeObjectOfClass:[NSString class] forKey:@"NS.relative"];
+    NSURL *base = nil;
+    NSString *relative;
+    if (![coder allowsKeyedCoding]) {
+        char hasBase = 0;
+        [coder decodeValueOfObjCType:@encode(char) at:&hasBase size:sizeof(hasBase)];
+        if (hasBase) base = [coder decodeObject];
+        relative = [coder decodeObject];
+        if (!relative) { [self release]; return nil; }
+        return [self initWithString:relative relativeToURL:base];
+    }
+    base = [coder decodeObjectOfClass:[NSURL class] forKey:@"NS.base"];
+    relative = [coder decodeObjectOfClass:[NSString class] forKey:@"NS.relative"];
     if (!relative) { [self release]; return nil; }
     return [self initWithString:relative relativeToURL:base];
 }
@@ -343,6 +363,38 @@ enum {
     SPECIAL_RANGE = 4,
     SPECIAL_EDGE_INSETS = 12,
 };
+
+/* A number from a non-keyed coder: the value's type (a C string), then the
+ * value. Returned retained. */
+static NSNumber *
+decode_number(NSCoder *coder)
+{
+    char *type = NULL;
+    [coder decodeValueOfObjCType:@encode(char *) at:&type size:sizeof(type)];
+    if (!type) return nil;
+    NSString *keep = [NSString stringWithUTF8String:type];
+    union { char c; unsigned char C; short s; unsigned short S; int i; unsigned I; long l; unsigned long L;
+            long long q; unsigned long long Q; float f; double d; BOOL B; } v = { 0 };
+    [coder decodeValueOfObjCType:[keep UTF8String] at:&v size:sizeof(v)];
+    NSNumber *n;
+    switch ([keep UTF8String][0]) {
+    case 'c': n = [NSNumber numberWithChar:v.c]; break;
+    case 'C': n = [NSNumber numberWithUnsignedChar:v.C]; break;
+    case 'B': n = [NSNumber numberWithBool:v.B]; break;
+    case 's': n = [NSNumber numberWithShort:v.s]; break;
+    case 'S': n = [NSNumber numberWithUnsignedShort:v.S]; break;
+    case 'i': n = [NSNumber numberWithInt:v.i]; break;
+    case 'I': n = [NSNumber numberWithUnsignedInt:v.I]; break;
+    case 'l': n = [NSNumber numberWithLong:v.l]; break;
+    case 'L': n = [NSNumber numberWithUnsignedLong:v.L]; break;
+    case 'q': n = [NSNumber numberWithLongLong:v.q]; break;
+    case 'Q': n = [NSNumber numberWithUnsignedLongLong:v.Q]; break;
+    case 'f': n = [NSNumber numberWithFloat:v.f]; break;
+    case 'd': n = [NSNumber numberWithDouble:v.d]; break;
+    default: n = nil;
+    }
+    return [n retain];
+}
 
 @implementation NSValue (FinchCoding)
 
@@ -432,6 +484,11 @@ enum {
             return nil;
         }
     }
+    if ([self isKindOfClass:objc_getClass("NSPlaceholderNumber")]) {
+        /* [NSNumber alloc]'s placeholder is a value placeholder */
+        [self release];
+        return decode_number(coder);
+    }
     char *type = NULL;
     [coder decodeValueOfObjCType:@encode(char *) at:&type size:sizeof(type)];
     if (!type) { [self release]; return nil; }
@@ -449,6 +506,13 @@ enum {
 
 @implementation NSNumber (FinchCoding)
 - (Class)classForCoder { return [NSNumber class]; }
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    if ([coder allowsKeyedCoding]) return [super initWithCoder:coder];
+    [self release];
+    return decode_number(coder);
+}
 @end
 
 /* MARK: - NSError, NSException */

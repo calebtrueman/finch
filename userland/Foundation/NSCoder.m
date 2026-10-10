@@ -252,12 +252,40 @@ all_kind_of(id<NSFastEnumeration> objects, NSSet *classes)
 /* MARK: - Geometry */
 
 @implementation NSCoder (NSGeometryCoding)
-- (void)encodePoint:(NSPoint)point { [self encodeValueOfObjCType:@encode(NSPoint) at:&point]; }
-- (NSPoint)decodePoint { NSPoint p; [self decodeValueOfObjCType:@encode(NSPoint) at:&p size:sizeof(p)]; return p; }
-- (void)encodeSize:(NSSize)size { [self encodeValueOfObjCType:@encode(NSSize) at:&size]; }
-- (NSSize)decodeSize { NSSize s; [self decodeValueOfObjCType:@encode(NSSize) at:&s size:sizeof(s)]; return s; }
-- (void)encodeRect:(NSRect)rect { [self encodeValueOfObjCType:@encode(NSRect) at:&rect]; }
-- (NSRect)decodeRect { NSRect r; [self decodeValueOfObjCType:@encode(NSRect) at:&r size:sizeof(r)]; return r; }
+/* As Apple's: floats, in one group ("ff", "ffff"). */
+- (void)encodePoint:(NSPoint)point
+{
+    float x = (float)point.x, y = (float)point.y;
+    [self encodeValuesOfObjCTypes:"ff", &x, &y];
+}
+- (NSPoint)decodePoint
+{
+    float x = 0, y = 0;
+    [self decodeValuesOfObjCTypes:"ff", &x, &y];
+    return NSMakePoint(x, y);
+}
+- (void)encodeSize:(NSSize)size
+{
+    float w = (float)size.width, h = (float)size.height;
+    [self encodeValuesOfObjCTypes:"ff", &w, &h];
+}
+- (NSSize)decodeSize
+{
+    float w = 0, h = 0;
+    [self decodeValuesOfObjCTypes:"ff", &w, &h];
+    return NSMakeSize(w, h);
+}
+- (void)encodeRect:(NSRect)rect
+{
+    float x = (float)rect.origin.x, y = (float)rect.origin.y, w = (float)rect.size.width, h = (float)rect.size.height;
+    [self encodeValuesOfObjCTypes:"ffff", &x, &y, &w, &h];
+}
+- (NSRect)decodeRect
+{
+    float x = 0, y = 0, w = 0, h = 0;
+    [self decodeValuesOfObjCTypes:"ffff", &x, &y, &w, &h];
+    return NSMakeRect(x, y, w, h);
+}
 @end
 
 @implementation NSCoder (NSGeometryKeyedCoding)
