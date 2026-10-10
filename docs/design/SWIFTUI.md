@@ -248,4 +248,13 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - Lazy stacks (as the stacks they're lazy about) and lazy grids (a Layout sizing tracks
     as Apple's: fixed, then flexible and adaptive sharing the rest), GridItem and
     PinnedScrollableViews. Every view is made; headers aren't pinned yet.
-  - Next: `onSubmit`, ScrollViewReader, DragGesture and commands.
+  - `mask` (_MaskEffect, _MaskAlignmentEffect): the mask view is laid out in the content's
+    frame and its display list masks the content's. Finch's AppKit now draws a view's mask
+    view (and QuartzCore a layer's mask) as a destination-in layer, which they kept but
+    didn't use before.
+  - `onSubmit` (a text field runs the submit actions around it when Return commits it),
+    `submitScope`, SubmitLabel; list rows' backgrounds and insets (row traits), the minimum
+    row height, `scrollContentBackground`, `menuIndicator`. Row and section separators and
+    `textSelection` change nothing yet: macOS lists draw no separators, and Finch's text
+    can't be selected.
+  - Next: ScrollViewReader, DragGesture and commands.

@@ -244,6 +244,7 @@ struct _FinchTextField: NSViewRepresentable {
             if field.drawsBackground { field.drawsBackground = false }
         }
         context.coordinator.parent = self
+        context.coordinator.environment = context.environment
         let text = model.get()
         // don't disturb the field while it is being edited to the same text
         if field.stringValue != text { field.stringValue = text }
@@ -255,6 +256,7 @@ struct _FinchTextField: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: _FinchTextField
+        var environment = EnvironmentValues()
         init(_ parent: _FinchTextField) { self.parent = parent }
 
         func controlTextDidBeginEditing(_ obj: Notification) { parent.model.onEditingChanged(true) }
@@ -269,6 +271,7 @@ struct _FinchTextField: NSViewRepresentable {
         @objc func commit(_ sender: NSTextField) {
             parent.model.set(sender.stringValue)
             parent.model.onCommit()
+            environment._finchSubmit(.text)
         }
     }
 }

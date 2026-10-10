@@ -53,6 +53,10 @@ struct Gallery: View {
                     .frame(width: 40, height: 20)
                 LinearGradient(colors: [.black, .gray], startPoint: .leading, endPoint: .trailing)
                     .frame(width: 40, height: 20)
+                Rectangle().fill(.blue).frame(width: 20, height: 20).mask { Circle() }
+                LinearGradient(colors: [.red, .blue], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 60, height: 20)
+                    .mask { Text("Mask").bold() }
             }
             HStack(alignment: .top) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 24))], spacing: 4) {

@@ -111,6 +111,8 @@ struct _FinchListRows<Value: Hashable>: View {
     var children: _VariadicView.Children
     var selection: _FinchListSelection<Value>
     @Environment(\._finchListStyle) private var style
+    @Environment(\.defaultMinListRowHeight) private var minRowHeight
+    @Environment(\._finchScrollContentBackground) private var contentBackground
 
     var body: some View {
         let inset: CGFloat = style.kind == .plain ? 0 : 6
@@ -142,14 +144,19 @@ struct _FinchListRows<Value: Hashable>: View {
                 let value = _finchTag(of: child, as: Value.self)
                 let selected = value.map(selection.isSelected) ?? false
                 let alternate = style.alternatesRowBackgrounds && index % 2 == 1
+                let insets = child[ListRowInsetsTraitKey.self]
+                let rowBackground = child[ListRowBackgroundTraitKey.self]
                 child
                     .foregroundStyle(selected ? Color.white : Color.primary)
-                    .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
-                    .padding(.horizontal, 8)
+                    .frame(maxWidth: .infinity, minHeight: minRowHeight, alignment: .leading)
+                    .padding(insets ?? EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8))
                     .background(
-                        RoundedRectangle(cornerRadius: radius)
-                            .fill(selected ? Color.accentColor
-                                           : alternate ? Color.primary.opacity(0.04) : Color.clear)
+                        ZStack {
+                            if let rowBackground, !selected { rowBackground }
+                            RoundedRectangle(cornerRadius: radius)
+                                .fill(selected ? Color.accentColor
+                                               : alternate && rowBackground == nil ? Color.primary.opacity(0.04) : Color.clear)
+                        }
                     )
                     .padding(.horizontal, inset)
                     .contentShape(Rectangle())
@@ -159,7 +166,8 @@ struct _FinchListRows<Value: Hashable>: View {
     }
 
     private var background: Color {
-        switch style.kind {
+        if contentBackground == .hidden { return Color.clear }
+        return switch style.kind {
         case .plain: Color.clear
         case .sidebar: Color(nsColor: .underPageBackgroundColor)
         case .inset, .bordered: Color(nsColor: .controlBackgroundColor)

@@ -329,7 +329,7 @@ did_move_to_window(NSView *view, NSWindow *window)
 - (void)setFlipped:(BOOL)flag { _f.flipped = flag; }
 - (BOOL)ignoreHitTest { return _f.ignoreHitTest; }
 - (void)setIgnoreHitTest:(BOOL)flag { _f.ignoreHitTest = flag; }
-/* A mask view is kept (Finch doesn't mask with it yet). */
+/* A mask view: what's drawn under its transparent parts isn't shown (draw_view). */
 - (NSView *)maskView { return _mask; }
 - (void)setMaskView:(NSView *)v
 {
@@ -1348,7 +1348,10 @@ draw_view(NSView *view, CGContextRef cg, NSRect rect, CGAffineTransform base)
     NSRect r = clips ? NSIntersectionRect(rect, bounds) : rect;
     if (NSIsEmptyRect(r) && clips)
         return;
-    if (alpha < 1) {
+    /* a view with a mask (its maskView) is drawn apart, then the mask's alpha is applied */
+    NSView *mask = [view maskView];
+    BOOL layered = alpha < 1 || mask;
+    if (layered) {
         CGContextSaveGState(cg);
         CGContextSetAlpha(cg, alpha);
         CGContextBeginTransparencyLayer(cg, NULL);
@@ -1388,7 +1391,24 @@ draw_view(NSView *view, CGContextRef cg, NSRect rect, CGAffineTransform base)
             CGAffineTransformConcat(FinchViewToBase(sub), CGAffineTransformInvert(FinchViewToBase(view))), base);
         draw_view(sub, cg, inSub, t);
     }
-    if (alpha < 1) {
+    if (mask) {
+        /* the mask in the view's space (its frame in the view's bounds), kept where it's opaque */
+        NSRect frame = [mask frame], mb = [mask bounds];
+        CGAffineTransform local = CGAffineTransformMakeTranslation(frame.origin.x - bounds.origin.x,
+                                                                   frame.origin.y - bounds.origin.y);
+        if ([mask isFlipped] != [view isFlipped])
+            local = CGAffineTransformConcat(CGAffineTransformConcat(CGAffineTransformMakeScale(1, -1),
+                                                                    CGAffineTransformMakeTranslation(0, frame.size.height)),
+                                            local);
+        local = CGAffineTransformConcat(CGAffineTransformMakeTranslation(-mb.origin.x, -mb.origin.y), local);
+        CGContextSaveGState(cg);
+        CGContextSetBlendMode(cg, kCGBlendModeDestinationIn);
+        CGContextBeginTransparencyLayer(cg, NULL);
+        draw_view(mask, cg, mb, CGAffineTransformConcat(local, base));
+        CGContextEndTransparencyLayer(cg);
+        CGContextRestoreGState(cg);
+    }
+    if (layered) {
         CGContextEndTransparencyLayer(cg);
         CGContextRestoreGState(cg);
     }

@@ -55,6 +55,7 @@ struct FormsView: View {
             Form {
                 Section("Account") {
                     TextField("Name", text: $name)
+                        .onSubmit { lastAction = "submitted \(name)" }
                     Toggle("Notifications", isOn: $on)
                 }
                 Section("Fields") {

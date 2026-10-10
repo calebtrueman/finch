@@ -746,6 +746,16 @@ rounded(CGRect r, CGFloat radius)
         CGPathRelease(inner);
     }
     CGPathRelease(shape);
+    if (_mask) {
+        /* the mask, in this layer's space, keeps what's under its opaque parts */
+        CGContextSaveGState(cg);
+        CGContextSetBlendMode(cg, kCGBlendModeDestinationIn);
+        CGContextBeginTransparencyLayer(cg, NULL);
+        CGContextConcatCTM(cg, to_super(_mask));
+        [_mask _finchRenderInContext:cg];
+        CGContextEndTransparencyLayer(cg);
+        CGContextRestoreGState(cg);
+    }
     CGContextEndTransparencyLayer(cg);
     CGContextRestoreGState(cg);
 }

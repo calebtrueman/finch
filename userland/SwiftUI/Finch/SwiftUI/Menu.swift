@@ -273,6 +273,9 @@ struct _FinchMenuButton: NSViewRepresentable {
                         at: 0)
         button.menu = menu
         button.isBordered = bordered
+        // a hidden menu indicator: no arrow
+        let arrow: NSPopUpButton.ArrowPosition = context.environment.menuIndicatorVisibility == .hidden ? .noArrow : .arrowAtBottom
+        if let cell = button.cell as? NSPopUpButtonCell, cell.arrowPosition != arrow { cell.arrowPosition = arrow }
     }
 }
 

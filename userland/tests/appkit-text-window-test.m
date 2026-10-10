@@ -58,17 +58,20 @@ pixel(double x, double y)
     return CFDataGetBytePtr(screen) + (size_t)(y * 2) * screen_bpr + (size_t)(x * 2) * 4;
 }
 
-/* How many pixels in a rect (server points, y down) are dark (text) or selection blue. */
+/* How many pixels in a rect (server points, y down) are dark (text) or the selection's color. */
 static void
 count(const char *label, double x, double y, double w, double h)
 {
     int dark = 0, blue = 0;
+    /* the theme's selection color (Fieldwork's green, the classic theme's blue) */
+    NSColor *sc = [[NSColor selectedTextBackgroundColor] colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+    int sr = (int)([sc redComponent] * 255), sg = (int)([sc greenComponent] * 255), sb = (int)([sc blueComponent] * 255);
     for (double yy = y; yy < y + h; yy += 0.5)
         for (double xx = x; xx < x + w; xx += 0.5) {
             const uint8_t *p = pixel(xx, yy);
             if (p[2] < 128 && p[1] < 128 && p[0] < 128)
                 dark++;
-            if (p[0] > 220 && p[2] < 200 && p[2] > 150)
+            if (abs(p[2] - sr) < 16 && abs(p[1] - sg) < 16 && abs(p[0] - sb) < 16)
                 blue++;
         }
     printf("%s: text %s selection %s\n", label, dark > 20 ? "yes" : dark ? "few" : "no", blue > 50 ? "yes" : "no");
