@@ -44,8 +44,7 @@ Carbon events and key translation, CoreAnalytics (which collects nothing), libSc
 ColorSync (ICC profiles, Apple's named ones written by Finch, and transforms over skcms),
 HIServices (the accessibility client API, which reports no trust until Finch has an
 accessibility server, Universal Access settings and the Process Manager) and
-DataDetectorsCore (links, addresses, phone numbers and IP addresses found in text). With them, every symbol
-Terminal imports on arm64 resolves against Finch's frameworks. Foundation carries the URL loading system that Apple keeps in
+DataDetectorsCore (links, addresses, phone numbers and IP addresses found in text). With them, Apple's Terminal runs on Finch. Foundation carries the URL loading system that Apple keeps in
 the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
 

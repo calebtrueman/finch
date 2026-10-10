@@ -188,6 +188,10 @@
 {
 }
 
+/* Window restoration isn't kept between launches yet: there's nothing to mark stale. */
+- (void)invalidateRestorableState {}
++ (NSArray<NSString *> *)restorableStateKeyPaths { return @[]; }
+
 /* Events go up the chain; at its end, -noResponderFor:. */
 #define FORWARD(sel)                                \
     -(void)sel:(NSEvent *)event                     \

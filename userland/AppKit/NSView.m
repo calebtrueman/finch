@@ -409,8 +409,16 @@ did_move_to_window(NSView *view, NSWindow *window)
     _f.alphaSet = YES;
     [self setNeedsDisplay:YES];
 }
-- (NSUserInterfaceLayoutDirection)userInterfaceLayoutDirection { return NSUserInterfaceLayoutDirectionLeftToRight; }
-- (void)setUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)direction {}
+static char layout_direction_key;
+- (NSUserInterfaceLayoutDirection)userInterfaceLayoutDirection
+{
+    NSNumber *v = objc_getAssociatedObject(self, &layout_direction_key);
+    return v ? (NSUserInterfaceLayoutDirection)[v integerValue] : NSUserInterfaceLayoutDirectionLeftToRight;
+}
+- (void)setUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)direction
+{
+    objc_setAssociatedObject(self, &layout_direction_key, @(direction), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 /* Auto Layout is NSViewLayout.m's; the flags live here. */
 - (BOOL)translatesAutoresizingMaskIntoConstraints { return _f.translatesMask; }
 - (void)setTranslatesAutoresizingMaskIntoConstraints:(BOOL)flag
@@ -1473,5 +1481,86 @@ static char dragged_types_key;
 {
     objc_setAssociatedObject(self, &dragged_types_key, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
+
+@end
+
+#pragma mark - More of what apps call
+
+@implementation NSView (FinchMoreCalls)
+
+/* Whether the find indicator is drawing the view's content into itself just now. */
+- (BOOL)isDrawingFindIndicator
+{
+    Class indicator = NSClassFromString(@"NSFindIndicator");
+    return [indicator respondsToSelector:@selector(isDrawing)] && ((BOOL(*)(id, SEL))objc_msgSend)(indicator, @selector(isDrawing));
+}
+
+/* Rects that needed display move with content scrolled by delta. */
+- (void)translateRectsNeedingDisplayInRect:(NSRect)clipRect by:(NSSize)delta
+{
+    [self setNeedsDisplayInRect:NSOffsetRect(clipRect, delta.width, delta.height)];
+}
+
+/* Look Up: Finch has no dictionary panel yet. */
+- (void)showDefinitionForAttributedString:(NSAttributedString *)attrString atPoint:(NSPoint)textBaselineOrigin {}
+- (void)showDefinitionForAttributedString:(NSAttributedString *)attrString range:(NSRange)targetRange
+                                  options:(NSDictionary *)options
+                   baselineOriginProvider:(NSPoint (^)(NSRange adjustedRange))originProvider {}
+
+/* Finch has no drag and drop between views yet: a drag ends where it began. */
+- (void)dragImage:(NSImage *)image at:(NSPoint)viewLocation offset:(NSSize)initialOffset event:(NSEvent *)event
+       pasteboard:(NSPasteboard *)pboard source:(id)sourceObj slideBack:(BOOL)slideFlag
+{
+    [[self window] dragImage:image at:[self convertPoint:viewLocation toView:nil] offset:initialOffset event:event
+                  pasteboard:pboard source:sourceObj slideBack:slideFlag];
+}
+
+@end
+
+#pragma mark - Focus ring, touches, compositing
+
+static char focus_ring_key, touch_types_key, compositing_key;
+
+@implementation NSView (FinchViewProperties)
+
++ (NSFocusRingType)defaultFocusRingType { return NSFocusRingTypeDefault; }
+
+- (NSFocusRingType)focusRingType
+{
+    NSNumber *v = objc_getAssociatedObject(self, &focus_ring_key);
+    return v ? (NSFocusRingType)[v unsignedIntegerValue] : [[self class] defaultFocusRingType];
+}
+
+- (void)setFocusRingType:(NSFocusRingType)type
+{
+    objc_setAssociatedObject(self, &focus_ring_key, @(type), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+/* Touch types the view takes from a trackpad (Finch has no direct touch: indirect only). */
+- (NSTouchTypeMask)allowedTouchTypes
+{
+    NSNumber *v = objc_getAssociatedObject(self, &touch_types_key);
+    return v ? (NSTouchTypeMask)[v unsignedIntegerValue] : NSTouchTypeMaskIndirect;
+}
+
+- (void)setAllowedTouchTypes:(NSTouchTypeMask)types
+{
+    objc_setAssociatedObject(self, &touch_types_key, @(types), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+/* How the view's drawing combines with what's under it (private): kept, drawn source-over. */
+- (NSCompositingOperation)compositingOperation
+{
+    NSNumber *v = objc_getAssociatedObject(self, &compositing_key);
+    return v ? (NSCompositingOperation)[v unsignedIntegerValue] : NSCompositingOperationSourceOver;
+}
+
+- (void)setCompositingOperation:(NSCompositingOperation)op
+{
+    objc_setAssociatedObject(self, &compositing_key, @(op), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (CGFloat)backingScaleFactor { return [self window] ? [[self window] backingScaleFactor] : [[NSScreen mainScreen] backingScaleFactor]; }
+
 
 @end

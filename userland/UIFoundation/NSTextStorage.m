@@ -432,3 +432,28 @@ needs_glyph(unichar c)
 }
 
 @end
+
+/* The scripting view of a text storage (NSTextStorageScripting.h): its font and colour
+   are the first character's, and setting them sets the whole text's. */
+@implementation NSTextStorage (FinchScripting)
+
+- (NSFont *)font { return [self length] ? [self attribute:NSFontAttributeName atIndex:0 effectiveRange:NULL] : nil; }
+
+- (void)setFont:(NSFont *)font
+{
+    if (font)
+        [self addAttribute:NSFontAttributeName value:font range:NSMakeRange(0, [self length])];
+}
+
+- (NSColor *)foregroundColor
+{
+    return [self length] ? [self attribute:NSForegroundColorAttributeName atIndex:0 effectiveRange:NULL] : nil;
+}
+
+- (void)setForegroundColor:(NSColor *)color
+{
+    if (color)
+        [self addAttribute:NSForegroundColorAttributeName value:color range:NSMakeRange(0, [self length])];
+}
+
+@end

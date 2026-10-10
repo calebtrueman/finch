@@ -333,3 +333,8 @@ along(NSScroller *self, NSPoint p)
 }
 
 @end
+
+@implementation NSScroller (FinchScrollerImp)
+/* The scroller's drawing object (private): Finch's scrollers draw themselves. */
+- (id)scrollerImp { return nil; }
+@end

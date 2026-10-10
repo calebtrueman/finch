@@ -571,6 +571,51 @@ appearances(void)
                                 [NSAppearance appearanceNamed:NSAppearanceNameAqua]);
 }
 
+/* Input contexts, Dock tiles, window tabs' objects and other calls apps make */
+static void
+app_calls(void)
+{
+    NSView *plain = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+    NSTextView *tv = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 100, 100)];
+    NSTextInputContext *c = tv.inputContext;
+    printf("input context: plain %d text view %d same %d client %d\n", plain.inputContext != nil, c != nil,
+           c == tv.inputContext, c.client == (id)tv);
+    printf("US layout name: %s\n", [NSTextInputContext localizedNameForInputSource:@"com.apple.keylayout.US"].UTF8String);
+    NSEvent *key = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0
+                                windowNumber:0 context:nil characters:@"q" charactersIgnoringModifiers:@"q"
+                                   isARepeat:NO keyCode:12];
+    NSEvent *flags = [NSEvent keyEventWithType:NSEventTypeFlagsChanged location:NSZeroPoint
+                                 modifierFlags:NSEventModifierFlagShift timestamp:0 windowNumber:0 context:nil
+                                    characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:56];
+    printf("handle key: %d text '%s'; flags changed handled %d\n", [c handleEvent:key], tv.string.UTF8String,
+           [c handleEvent:flags]);
+
+    NSDockTile *tile = NSApp.dockTile;
+    printf("dock tile: %gx%g badge '%s' shows badge %d owner app %d\n", tile.size.width, tile.size.height,
+           tile.badgeLabel.UTF8String, tile.showsApplicationBadge, tile.owner == NSApp);
+    tile.badgeLabel = @"3";
+    printf("badge now '%s'\n", tile.badgeLabel.UTF8String);
+    tile.badgeLabel = @"";
+    printf("badge emptied %d\n", tile.badgeLabel == nil);
+
+    NSWindow *w = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 100, 100) styleMask:NSWindowStyleMaskTitled
+                                                backing:NSBackingStoreBuffered defer:YES];
+    w.title = @"Tabbed";
+    printf("window tab: title '%s' tooltip '%s'; tabbed windows %lu; identifier %s\n", w.tab.title.UTF8String,
+           w.tab.toolTip.UTF8String, (unsigned long)w.tabbedWindows.count, w.tabbingIdentifier.UTF8String);
+    w.tabbingIdentifier = @"group";
+    printf("tab group: has %lu, selected is window %d, bar visible %d, identifier %s\n",
+           (unsigned long)w.tabGroup.windows.count, w.tabGroup.selectedWindow == w, w.tabGroup.isTabBarVisible,
+           w.tabbingIdentifier.UTF8String);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundeclared-selector"
+    printf("bottom corner rounded %d\n", (int)(long)[w performSelector:@selector(bottomCornerRounded)]);
+#pragma clang diagnostic pop
+    [[NSUserDefaults standardUserDefaults] setObject:@"0 0 10 10 0 0 100 100 " forKey:@"NSWindow Frame finch-test-frame"];
+    [NSWindow removeFrameUsingName:@"finch-test-frame"];
+    printf("frame removed %d\n", [[NSUserDefaults standardUserDefaults] objectForKey:@"NSWindow Frame finch-test-frame"] == nil);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -587,6 +632,7 @@ main(int argc, char **argv)
         windows();
         actions();
         appearances();
+        app_calls();
     }
     return 0;
 }

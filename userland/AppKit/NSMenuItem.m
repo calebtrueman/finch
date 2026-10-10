@@ -715,3 +715,36 @@ FinchMenuKeyEquivalentString(NSMenuItem *item)
 - (void)_setActionImage:(NSImage *)image { [self setImage:image]; }
 - (NSImage *)_actionImage { return [self image]; }
 @end
+
+#pragma mark - More of what apps call
+
+static char item_accessibility_title_key;
+
+@implementation NSMenuItem (FinchMoreCalls)
+
+/* The standard item for previewing the selection (Apple's is Quick Look's "Preview";
+   Finch has no Quick Look yet, so the item sends quickLookPreviewItems: up the chain). */
++ (NSMenuItem *)standardQuickLookMenuItem
+{
+    NSMenuItem *item = [[[NSMenuItem alloc] initWithTitle:@"Preview" action:@selector(quickLookPreviewItems:)
+                                            keyEquivalent:@""] autorelease];
+    [item setKeyEquivalentModifierMask:NSEventModifierFlagCommand];
+    return item;
+}
+
+- (NSString *)accessibilityTitle { return objc_getAssociatedObject(self, &item_accessibility_title_key) ?: [self title]; }
+- (void)setAccessibilityTitle:(NSString *)title
+{
+    objc_setAssociatedObject(self, &item_accessibility_title_key, title, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+@end
+
+@implementation NSMenu (FinchMoreCalls)
++ (void)_setAppleMenuEnabled:(BOOL)flag {}
+- (NSString *)accessibilityTitle { return objc_getAssociatedObject(self, &item_accessibility_title_key) ?: [self title]; }
+- (void)setAccessibilityTitle:(NSString *)title
+{
+    objc_setAssociatedObject(self, &item_accessibility_title_key, title, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+@end

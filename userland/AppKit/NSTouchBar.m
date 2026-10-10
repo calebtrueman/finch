@@ -788,3 +788,31 @@ in_range(NSArray *a, NSInteger i)
 }
 
 @end
+
+static char default_items_key, customization_defaults_key, press_and_hold_key;
+
+@implementation NSTouchBar (FinchMoreCalls)
+/* Items and identifiers the customization palette starts from (private). Finch's Macs
+   have no Touch Bar; they're kept. */
+- (NSSet *)defaultItems { return objc_getAssociatedObject(self, &default_items_key); }
+- (void)setDefaultItems:(NSSet *)items
+{
+    objc_setAssociatedObject(self, &default_items_key, items, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+- (NSArray *)customizationDefaultItemIdentifiers
+{
+    return objc_getAssociatedObject(self, &customization_defaults_key) ?: [self defaultItemIdentifiers];
+}
+- (void)setCustomizationDefaultItemIdentifiers:(NSArray *)identifiers
+{
+    objc_setAssociatedObject(self, &customization_defaults_key, identifiers, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+@end
+
+@implementation NSPopoverTouchBarItem (FinchMoreCalls)
+- (BOOL)supportsPressAndHold { return [objc_getAssociatedObject(self, &press_and_hold_key) boolValue]; }
+- (void)setSupportsPressAndHold:(BOOL)flag
+{
+    objc_setAssociatedObject(self, &press_and_hold_key, @(flag), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+@end

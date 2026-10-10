@@ -1094,6 +1094,31 @@ load_roboto(const char *path)
     return nil;
 }
 
+/* Words and URLs in text: -doubleClickAtIndex:, -nextWordFromIndex:forward:, -URLAtIndex:effectiveRange: */
+static void
+test_words(void)
+{
+    NSMutableAttributedString *a = [[NSMutableAttributedString alloc]
+        initWithString:@"Hello, wide world! foo_bar.baz  x-y 3.14 it's (see https://a.com/x) www.b.org."];
+    [a addAttribute:NSLinkAttributeName value:[NSURL URLWithString:@"https://b.org"] range:NSMakeRange(7, 4)];
+    for (NSUInteger i = 0; i < a.length; i += 3) {
+        NSRange r = [a doubleClickAtIndex:i];
+        printf("double-click %lu: %lu,%lu\n", (unsigned long)i, (unsigned long)r.location, (unsigned long)r.length);
+    }
+    for (NSUInteger i = 0; i < a.length; i += 5)
+        printf("next word %lu: %lu %lu\n", (unsigned long)i, (unsigned long)[a nextWordFromIndex:i forward:YES],
+               (unsigned long)[a nextWordFromIndex:i forward:NO]);
+    for (NSUInteger i = 0; i < a.length; i += 4) {
+        NSRange r = {0, 0};
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        NSURL *u = [a URLAtIndex:i effectiveRange:&r];
+#pragma clang diagnostic pop
+        printf("URL at %lu: %s %lu,%lu\n", (unsigned long)i, u ? u.absoluteString.UTF8String : "-", (unsigned long)r.location,
+               (unsigned long)r.length);
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -1122,6 +1147,7 @@ main(int argc, char **argv)
         test_tabs_and_lists();
         test_shadows();
         test_misc();
+        test_words();
         test_measuring();
         test_text_system();
         test_drawing(ref ? ref : "/usr/local/share/finch/uifoundation-reference.bin", NULL);

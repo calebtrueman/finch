@@ -1138,9 +1138,6 @@ server_flags(NSWindow *w)
 + (BOOL)allowsAutomaticWindowTabbing { return NO; }
 + (void)setAllowsAutomaticWindowTabbing:(BOOL)flag {}
 + (NSWindowUserTabbingPreference)userTabbingPreference { return NSWindowUserTabbingPreferenceManual; }
-- (NSWindowTabbingIdentifier)tabbingIdentifier { return [self className]; }
-- (void)setTabbingIdentifier:(NSWindowTabbingIdentifier)identifier {}
-- (NSArray<NSWindow *> *)tabbedWindows { return nil; }
 - (NSWindowSharingType)sharingType { return _sharingType; }
 - (void)setSharingType:(NSWindowSharingType)type { _sharingType = type; }
 - (NSWindowOcclusionState)occlusionState { return _w.visible ? NSWindowOcclusionStateVisible : 0; }
@@ -1579,6 +1576,7 @@ server_flags(NSWindow *w)
     _w.closing = YES;
     [self retain];
     [[NSNotificationCenter defaultCenter] postNotificationName:NSWindowWillCloseNotification object:self];
+    FinchWindowTabWillClose(self);  /* a closing tab hands over to the one beside it */
     [self orderOut:nil];
     [self _finchDestroyServerWindow];
     _w.closing = NO;
@@ -2010,4 +2008,102 @@ static const void *kIdentifier = &kIdentifier, *kRestoration = &kRestoration;
     _mouseDownView = view;
 }
 
+@end
+
+#pragma mark - More of what apps call
+
+static char bottom_corner_key;
+
+@implementation NSWindow (FinchMoreCalls)
+
+/* Whether the window's bottom corners are rounded (private; on by default, as Apple's). */
+- (BOOL)bottomCornerRounded
+{
+    NSNumber *v = objc_getAssociatedObject(self, &bottom_corner_key);
+    return v ? [v boolValue] : YES;
+}
+
+- (void)setBottomCornerRounded:(BOOL)flag
+{
+    objc_setAssociatedObject(self, &bottom_corner_key, @(flag), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
++ (void)removeFrameUsingName:(NSWindowFrameAutosaveName)name
+{
+    if ([name length])
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:[@"NSWindow Frame " stringByAppendingString:name]];
+}
+
+/* The windows on screen, front to back: this app's, or with
+   NSWindowNumberListAllApplications every app's (from the window server). */
++ (NSArray<NSNumber *> *)windowNumbersWithOptions:(NSWindowNumberListOptions)options
+{
+    NSMutableArray *out = [NSMutableArray array];
+    if (options & NSWindowNumberListAllApplications) {
+        uint32_t count = 0;
+        FWSWindowInfo *list = FWSCopyWindowList(&count);
+        for (uint32_t i = 0; i < count; i++)
+            if (list[i].on_screen)
+                [out addObject:@(list[i].window)];
+        free(list);
+        return out;
+    }
+    for (NSWindow *w in [NSApp orderedWindows])
+        if ([w isVisible] && [w windowNumber] > 0)
+            [out addObject:@([w windowNumber])];
+    return out;
+}
+
+/* The frontmost window at a point (screen coordinates) below the given one, of any app. */
++ (NSInteger)windowNumberAtPoint:(NSPoint)point belowWindowWithWindowNumber:(NSInteger)windowNumber
+{
+    uint32_t count = 0;
+    FWSWindowInfo *list = FWSCopyWindowList(&count);
+    CGFloat top = NSMaxY([[[NSScreen screens] firstObject] frame]);
+    BOOL below = windowNumber <= 0;
+    NSInteger found = 0;
+    for (uint32_t i = 0; i < count && !found; i++) {
+        if ((NSInteger)list[i].window == windowNumber) {
+            below = YES;
+            continue;
+        }
+        if (!below || !list[i].on_screen)
+            continue;
+        NSRect r = NSMakeRect(list[i].frame.x, top - list[i].frame.y - list[i].frame.height, list[i].frame.width,
+                              list[i].frame.height);
+        if (NSPointInRect(point, r))
+            found = (NSInteger)list[i].window;
+    }
+    free(list);
+    return found;
+}
+
+- (void)invalidateCursorRectsForView:(NSView *)view
+{
+    [view discardCursorRects];
+    [view resetCursorRects];
+}
+
+/* Finch has no drag and drop between views yet: a drag ends where it began. */
+- (void)dragImage:(NSImage *)image at:(NSPoint)baseLocation offset:(NSSize)initialOffset event:(NSEvent *)event
+       pasteboard:(NSPasteboard *)pboard source:(id)sourceObj slideBack:(BOOL)slideFlag
+{
+    if ([sourceObj respondsToSelector:@selector(draggedImage:endedAt:operation:)])
+        [sourceObj draggedImage:image endedAt:[self convertPointToScreen:baseLocation] operation:NSDragOperationNone];
+}
+
+@end
+
+static char window_layout_direction_key;
+
+@implementation NSWindow (FinchLayoutDirection)
+- (NSUserInterfaceLayoutDirection)userInterfaceLayoutDirection
+{
+    NSNumber *v = objc_getAssociatedObject(self, &window_layout_direction_key);
+    return v ? (NSUserInterfaceLayoutDirection)[v integerValue] : [NSApp userInterfaceLayoutDirection];
+}
+- (void)setUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)direction
+{
+    objc_setAssociatedObject(self, &window_layout_direction_key, @(direction), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 @end

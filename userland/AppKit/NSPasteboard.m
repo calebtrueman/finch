@@ -447,3 +447,8 @@ NSGetFileTypes(NSArray<NSPasteboardType> *pboardTypes)
     }
     return [a count] ? a : nil;
 }
+
+@implementation NSPasteboard (FinchSourceIdentity)
+/* The signing identifier of the app that wrote the contents (private); not known on Finch's in-process pasteboard. */
+- (NSString *)_sourceSigningIdentifier { return nil; }
+@end

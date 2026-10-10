@@ -222,6 +222,25 @@ geometry(void)
         NSStringFromPoint(NSPointFromString(@"{7,8}")).UTF8String, NSStringFromSize(NSSizeFromString(@"{9}")).UTF8String);
 }
 
+/* A key path ending in a key the object only notifies about (no accessor): observing
+   without old values reads nothing, so nothing raises */
+static void
+notified_only(void)
+{
+    Model *m = [Model new];
+    m.child = [Model new];
+    Observer *o = [Observer new];
+    [m addObserver:o forKeyPath:@"child.thumbnail" options:NSKeyValueObservingOptionPrior context:(void *)7];
+    @try {
+        [m.child willChangeValueForKey:@"thumbnail"];
+        [m.child didChangeValueForKey:@"thumbnail"];
+        printf("notified-only key: no exception\n");
+    } @catch (NSException *e) {
+        printf("notified-only key: %s\n", e.name.UTF8String);
+    }
+    [m removeObserver:o forKeyPath:@"child.thumbnail" context:(void *)7];
+}
+
 int
 main(int argc, char **argv)
 {
@@ -230,6 +249,7 @@ main(int argc, char **argv)
         kvo();
         indexes();
         geometry();
+        notified_only();
     }
     return 0;
 }

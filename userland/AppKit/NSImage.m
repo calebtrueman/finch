@@ -278,6 +278,17 @@ names(void)
     return nil;
 }
 
+/* An image drawn by a block on demand (private; the block draws into the destination rect). */
++ (instancetype)imageWithSize:(NSSize)size drawHandler:(void (^)(NSRect dstRect))drawHandler
+{
+    void (^handler)(NSRect) = [[drawHandler copy] autorelease];
+    return [self imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect r) {
+        if (handler)
+            handler(r);
+        return YES;
+    }];
+}
+
 + (instancetype)imageWithSize:(NSSize)size flipped:(BOOL)flipped drawingHandler:(BOOL (^)(NSRect dstRect))drawingHandler
 {
     NSImage *i = [[[self alloc] initWithSize:size] autorelease];

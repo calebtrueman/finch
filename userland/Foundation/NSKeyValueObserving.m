@@ -248,7 +248,12 @@ did_change(id obj, NSString *key)
 {
     [_child release];
     _child = [[_root valueForKey:_first] retain];
-    [_child addObserver:self forKeyPath:_rest options:NSKeyValueObservingOptionPrior | NSKeyValueObservingOptionOld context:NULL];
+    /* old values only when the observer wants them: reading one can raise for a key the
+       object only notifies about, which Apple's never reads unasked */
+    NSKeyValueObservingOptions opts = NSKeyValueObservingOptionPrior;
+    if (_observance && (_observance->_options & NSKeyValueObservingOptionOld))
+        opts |= NSKeyValueObservingOptionOld;
+    [_child addObserver:self forKeyPath:_rest options:opts context:NULL];
 }
 
 - (void)_finchDetach
@@ -263,7 +268,7 @@ did_change(id obj, NSString *key)
     __NSKVOObservance *o = _observance;
     if (prior) {
         [_oldValue release];
-        _oldValue = [[_root valueForKeyPath:_full] retain];
+        _oldValue = (o->_options & NSKeyValueObservingOptionOld) ? [[_root valueForKeyPath:_full] retain] : nil;
         if (o->_options & NSKeyValueObservingOptionPrior) {
             NSMutableDictionary *c = [NSMutableDictionary dictionaryWithObject:[NSNumber numberWithUnsignedInteger:NSKeyValueChangeSetting]
                                                                          forKey:NSKeyValueChangeKindKey];

@@ -51,6 +51,10 @@ FINCH_PRIVATE void FinchEventNoteModifiers(NSEventModifierFlags flags, NSPoint m
 /* NSApplication (NSApplication.m) */
 FINCH_PRIVATE void FinchApplicationNeedsDisplay(void);
 FINCH_PRIVATE void FinchApplicationWindowOrderedOut(NSWindow *window);
+/* The app's Dock tile (NSDockTile.m). */
+FINCH_PRIVATE NSDockTile *FinchApplicationDockTile(NSApplication *app);
+/* A window that is closing leaves its tab group (NSWindowTabbing.m). */
+FINCH_PRIVATE void FinchWindowTabWillClose(NSWindow *window);
 FINCH_PRIVATE void FinchApplicationSetKeyWindow(NSWindow *window);
 FINCH_PRIVATE void FinchApplicationSetMainWindow(NSWindow *window);
 FINCH_PRIVATE NSEvent *FinchEventApplyLocalMonitors(NSEvent *event);

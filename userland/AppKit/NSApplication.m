@@ -897,7 +897,7 @@ resolve_target(NSApplication *self, SEL action, id target)
 - (void)updateWindowsItem:(NSWindow *)win {}
 - (NSImage *)applicationIconImage { return _icon; }
 - (void)setApplicationIconImage:(NSImage *)image { [_icon autorelease]; _icon = [image retain]; }
-- (NSDockTile *)dockTile { return nil; }
+- (NSDockTile *)dockTile { return FinchApplicationDockTile(self); }
 - (void)orderFrontStandardAboutPanel:(id)sender {}
 - (void)orderFrontStandardAboutPanelWithOptions:(NSDictionary *)options {}
 - (void)orderFrontCharacterPalette:(id)sender {}
@@ -1057,4 +1057,31 @@ static NSMenu *dock_menu;
 /* Apple's performance-test hooks. */
 - (void)startedTest:(NSString *)name {}
 - (void)finishedTest:(NSString *)name {}
+@end
+
+#pragma mark - Help menu search
+
+static NSMutableArray *search_handlers;
+static BOOL help_book_search = YES;
+
+@implementation NSApplication (FinchHelpSearch)
+
+/* Handlers the Help menu's search field asks for matching items (Finch's Help menu has
+   no search field yet; the handlers are kept for it). */
+- (void)registerUserInterfaceItemSearchHandler:(id<NSUserInterfaceItemSearching>)handler
+{
+    if (!search_handlers)
+        search_handlers = [[NSMutableArray alloc] init];
+    if (handler && ![search_handlers containsObject:handler])
+        [search_handlers addObject:handler];
+}
+
+- (void)unregisterUserInterfaceItemSearchHandler:(id<NSUserInterfaceItemSearching>)handler
+{
+    [search_handlers removeObject:handler];
+}
+
+- (BOOL)defaultHelpBookSearchEnabled { return help_book_search; }
+- (void)setDefaultHelpBookSearchEnabled:(BOOL)flag { help_book_search = flag; }
+
 @end

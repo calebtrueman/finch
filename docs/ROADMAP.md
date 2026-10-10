@@ -336,6 +336,12 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         (host, Finch's headless window server, 2026-10-09). `finch-imagekit-test` matches
         Apple's on the host and in the VM.
   - [ ] Cameras and scanners: device modules and Phase 3 USB support.
+  - [x] Apple's unmodified Terminal runs in the Finch VM (`FINCH_HOST_APPS=Terminal`): it opens
+        its window with a login shell at the prompt (2026-10-10). What it needed: ColorSync,
+        HIServices, DataDetectorsCore, Carbon/HIToolbox, CoreAudio, AudioToolbox and the
+        terminfo database; Cocoa scripting, Bonjour, bookmarks, window tabs, text input
+        contexts and a run of fixes in bindings and key-value observing. Next: its text is
+        spaced too wide (the cell width it takes from the font), then typing into the shell.
   - [x] Apple's unmodified Stickies runs in the Finch VM (`FINCH_HOST_APPS=Stickies`): its
         XPC migration service starts on demand from the app bundle, NSUnarchiver is there
         for its old database, and it loads its sample notes from RTFD with their text and

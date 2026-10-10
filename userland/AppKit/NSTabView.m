@@ -11,6 +11,8 @@
 #import "NSControl_Finch.h"
 #import "NSKeyValueBinding_Finch.h"
 
+static char tab_state_key, tab_rect_key;
+
 @implementation NSTabViewItem {
     id _identifier;
     NSString *_label, *_toolTip;
@@ -86,8 +88,22 @@
 - (void)_finchSetTabView:(NSTabView *)tabView { _tabView = tabView; }
 - (NSTabState)tabState
 {
+    NSNumber *set = objc_getAssociatedObject(self, &tab_state_key);
+    if (set)
+        return (NSTabState)[set unsignedIntegerValue];
     return [_tabView selectedTabViewItem] == self ? NSSelectedTab : NSBackgroundTab;
 }
+
+/* The state and rectangle a tab view that draws its own tabs gives the item (private). */
+- (void)_setTabState:(NSTabState)state
+{
+    objc_setAssociatedObject(self, &tab_state_key, @(state), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (void)_setTabRect:(NSRect)rect
+{
+    objc_setAssociatedObject(self, &tab_rect_key, [NSValue valueWithRect:rect], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+- (NSRect)_tabRect { return [objc_getAssociatedObject(self, &tab_rect_key) rectValue]; }
 - (id)initialFirstResponder { return _initialFirstResponder; }
 - (void)setInitialFirstResponder:(NSView *)view { _initialFirstResponder = view; }
 
