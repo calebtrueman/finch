@@ -178,12 +178,12 @@ public struct LongPressGesture: Gesture, PrimitiveGesture {
 
 @available(OpenSwiftUI_v1_0, *)
 extension View {
-    /// (pressing isn't told yet.)
     @_disfavoredOverload
     nonisolated public func onLongPressGesture(minimumDuration: Double = 0.5, maximumDistance: CGFloat = 10,
                                                pressing: ((Bool) -> Void)? = nil,
                                                perform action: @escaping () -> Void) -> some View {
-        gesture(LongPressGesture(minimumDuration: minimumDuration, maximumDistance: maximumDistance).onEnded { _ in action() })
+        modifier(_FinchLongPressModifier(minimumDuration: minimumDuration, maximumDistance: maximumDistance,
+                                         pressing: pressing, action: action))
     }
 
     @_alwaysEmitIntoClient
@@ -192,5 +192,56 @@ extension View {
                                                onPressingChanged: ((Bool) -> Void)? = nil) -> some View {
         onLongPressGesture(minimumDuration: minimumDuration, maximumDistance: maximumDistance,
                            pressing: onPressingChanged, perform: action)
+    }
+}
+
+/// A view's long press: pressing (true) as the pointer goes down, then the action once it has
+/// been held for the minimum time (on a timer, as Apple's: no event need arrive then), and
+/// pressing (false) when it fires, is let go, or moves too far first.
+struct _FinchLongPressModifier: ViewModifier {
+    var minimumDuration: Double
+    var maximumDistance: CGFloat
+    var pressing: ((Bool) -> Void)?
+    var action: () -> Void
+
+    final class Press {
+        enum Phase { case idle, pressing, done }
+        var phase = Phase.idle
+        /// Counts presses, so a timer from an earlier one does nothing.
+        var generation = 0
+    }
+
+    @State private var press = Press()
+
+    func body(content: Content) -> some View {
+        content.simultaneousGesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                .onChanged { value in
+                    let distance = hypot(value.translation.width, value.translation.height)
+                    switch press.phase {
+                    case .idle:
+                        press.phase = .pressing
+                        press.generation += 1
+                        pressing?(true)
+                        let generation = press.generation, press = press, pressing = pressing, action = action
+                        DispatchQueue.main.asyncAfter(deadline: .now() + minimumDuration) {
+                            guard press.generation == generation, press.phase == .pressing else { return }
+                            press.phase = .done
+                            pressing?(false)
+                            action()
+                        }
+                    case .pressing where distance > maximumDistance:
+                        press.phase = .done
+                        pressing?(false)
+                    case .pressing, .done:
+                        break
+                    }
+                }
+                .onEnded { _ in
+                    if press.phase == .pressing { pressing?(false) }
+                    press.phase = .idle
+                    press.generation += 1
+                }
+        )
     }
 }

@@ -307,4 +307,7 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     (URLs) and Email (mailto:, when an app handles it); NSSharingService and
     NSSharingServicePicker are new in AppKit for it. Previews are kept but not drawn (the
     picker is a menu, not a share sheet). The default label's icon waits on SF Symbols.
-  - Next: the long-press `pressing` callback, ScrollViewReader in Lists.
+  - `onLongPressGesture` fires on a timer once the press has been held for the minimum time
+    (Apple's does too; no event need arrive then), and tells `pressing` true as the pointer
+    goes down and false when it fires, is let go, or moves too far first.
+  - Next: ScrollViewReader in Lists.
