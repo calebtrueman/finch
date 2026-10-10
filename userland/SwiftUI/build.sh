@@ -124,7 +124,10 @@ link SwiftUICore 7.4.26 "${core[@]}" "${PKG}/stubs.o" "${PKG}/demangle.o" -- -Wl
     -lz -framework AppKit -framework QuartzCore -framework CoreText \
     -framework Combine -framework CoreGraphics -framework Foundation -lc++
 ui=(); while IFS= read -r o; do ui+=("$o"); done < <(objs SwiftUI)
-link SwiftUI 7.4.26 "${ui[@]}" "${PKG}/stubs.o" -- -Wl,-reexport_framework,SwiftUICore -framework AppKit -framework QuartzCore \
+# Apple's names for SwiftUI's extensions of SwiftUICore's types, as well (extension-aliases.py)
+python3 "${HERE}/extension-aliases.py" "${ui[@]}" > "${PKG}/extension-aliases.txt"
+link SwiftUI 7.4.26 "${ui[@]}" "${PKG}/stubs.o" -- -Wl,-reexport_framework,SwiftUICore -Wl,-alias_list,"${PKG}/extension-aliases.txt" \
+    -framework AppKit -framework QuartzCore \
     -framework Combine -framework Foundation
 
 # Notices for the open code linked in.

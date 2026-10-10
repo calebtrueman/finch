@@ -126,12 +126,13 @@ small_icon(FinchIconKind kind)
 
 - (void)drawRect:(NSRect)dirty
 {
-    [[NSColor whiteColor] setFill];
+    [[NSColor controlBackgroundColor] setFill];
     NSRectFill(dirty);
     NSFont *font = [NSFont systemFontOfSize:13];
     BOOL key = [[self window] isKeyWindow] && [[self window] firstResponder] == self;
-    NSColor *accent = [NSColor colorWithSRGBRed:0 green:122 / 255.0 blue:1 alpha:1];
-    NSColor *unfocused = [NSColor colorWithSRGBRed:0.84 green:0.86 blue:0.90 alpha:1];
+    /* the theme's selection, as a table's */
+    NSColor *accent = [NSColor selectedContentBackgroundColor];
+    NSColor *unfocused = [NSColor unemphasizedSelectedContentBackgroundColor];
     NSUInteger first = (NSUInteger)MAX(0, floor(NSMinY(dirty) / kRowHeight));
     for (NSUInteger i = first; i < _entries.count && i * kRowHeight < NSMaxY(dirty); i++) {
         FinchFileEntry *e = _entries[i];
@@ -149,7 +150,7 @@ small_icon(FinchIconKind kind)
                                fraction:e->enabled ? 1 : 0.4
                          respectFlipped:YES
                                   hints:nil];
-        NSColor *ink = selected && key ? [NSColor whiteColor]
+        NSColor *ink = selected && key ? [NSColor alternateSelectedControlTextColor]
                        : e->enabled    ? [NSColor labelColor]
                                        : [NSColor colorWithSRGBRed:0.6 green:0.6 blue:0.6 alpha:1];
         NSDictionary *attrs = @{NSFontAttributeName : font, NSForegroundColorAttributeName : ink};

@@ -107,8 +107,17 @@ static const char *
 kind(const uint8_t *p)
 {
     int r = p[2], g = p[1], b = p[0];
-    if (b > 180 && r < 120 && g > 60 && g < 170)
+    /* the theme's accent (Fieldwork's green; Apple's blue in the classic theme) */
+    static int accent[3] = {-1};
+    if (accent[0] < 0) {
+        NSColor *c = [[NSColor controlAccentColor] colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        accent[0] = (int)([c redComponent] * 255), accent[1] = (int)([c greenComponent] * 255);
+        accent[2] = (int)([c blueComponent] * 255);
+    }
+    if (abs(r - accent[0]) < 40 && abs(g - accent[1]) < 40 && abs(b - accent[2]) < 40)
         return "accent";
+    if (b > 180 && r < 120 && g > 60 && g < 170)
+        return "blue";
     if (r > 225 && g > 225 && b > 225)
         return "light";
     if (r < 90 && g < 90 && b < 90)

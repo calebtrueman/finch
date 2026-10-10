@@ -131,19 +131,10 @@ struct _FinchScrollView<Content: View>: NSViewRepresentable {
     func updateNSView(_ scrollView: ScrollView, context: Context) {
         // the values the content inherits; not the whole environment, which holds the
         // outer graph's own state
-        let environment = context.environment
         scrollView.controller?.rootView = AnyView(
             content
                 .padding(configuration.contentInsets)
-                .environment(\.font, environment.font)
-                .environment(\.isEnabled, environment.isEnabled)
-                .environment(\.colorScheme, environment.colorScheme)
-                .environment(\.layoutDirection, environment.layoutDirection)
-                .environment(\.locale, environment.locale)
-                .environment(\.multilineTextAlignment, environment.multilineTextAlignment)
-                .environment(\.lineLimit, environment.lineLimit)
-                .environment(\.controlSize, environment.controlSize)
-                .environment(\._finchButtonStyles, environment._finchButtonStyles)
+                ._finchInheriting(context.environment)
         )
         scrollView.axes = configuration.axes
         scrollView.insets = configuration.contentInsets
@@ -163,5 +154,26 @@ struct _FinchScrollView<Content: View>: NSViewRepresentable {
                                                         : fit.width + insets.leading + insets.trailing,
                       height: axes.contains(.vertical) ? (proposal.height ?? fit.height + insets.top + insets.bottom)
                                                        : fit.height + insets.top + insets.bottom)
+    }
+}
+
+extension View {
+    /// The environment values content hosted apart (in a scroll view's document, a sheet, a
+    /// popover) inherits from where it is presented. Not the whole environment, which holds
+    /// the presenting graph's own state.
+    func _finchInheriting(_ environment: EnvironmentValues) -> some View {
+        self.environment(\.font, environment.font)
+            .environment(\.isEnabled, environment.isEnabled)
+            .environment(\.colorScheme, environment.colorScheme)
+            .environment(\.layoutDirection, environment.layoutDirection)
+            .environment(\.locale, environment.locale)
+            .environment(\.multilineTextAlignment, environment.multilineTextAlignment)
+            .environment(\.lineLimit, environment.lineLimit)
+            .environment(\.controlSize, environment.controlSize)
+            .environment(\._finchButtonStyles, environment._finchButtonStyles)
+            .environment(\._finchTextFieldStyles, environment._finchTextFieldStyles)
+            .environment(\._finchFormStyles, environment._finchFormStyles)
+            .environment(\._finchListStyle, environment._finchListStyle)
+            .environment(\._finchPickerStyle, environment._finchPickerStyle)
     }
 }

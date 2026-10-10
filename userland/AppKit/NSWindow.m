@@ -234,6 +234,8 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
     BOOL enabled[3] = {(style & NSWindowStyleMaskClosable) != 0, (style & NSWindowStyleMaskMiniaturizable) != 0,
                        (style & NSWindowStyleMaskResizable) != 0};
     BOOL fieldwork = !FinchThemeIsClassic();
+    /* a transparent title bar with no controls enabled (an alert's) shows none */
+    BOOL bare = [w titlebarAppearsTransparent] && !enabled[0] && !enabled[1] && !enabled[2];
     if (fieldwork) {
         /* slate, a hairline under it, a faint highlight along the top edge, and the key window's green mark */
         if (![w titlebarAppearsTransparent]) {
@@ -249,7 +251,8 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
             CGFloat mark = FinchThemeMetric(@"keyWindowMarkWidth", 2);
             CGContextFillRect(cg, CGRectMake(0, NSMaxY(b) - mark, b.size.width, mark));
         }
-        draw_fieldwork_controls(cg, b, t, key, enabled, _pressed);
+        if (!bare)
+            draw_fieldwork_controls(cg, b, t, key, enabled, _pressed);
     } else {
         if (![w titlebarAppearsTransparent]) {
             CGContextSetRGBFillColor(cg, key ? 0.965 : 0.945, key ? 0.965 : 0.945, key ? 0.965 : 0.945, 1);
@@ -258,7 +261,7 @@ fill_circle(CGContextRef cg, NSRect r, CGFloat red, CGFloat green, CGFloat blue,
             CGContextFillRect(cg, CGRectMake(0, NSMinY(bar), b.size.width, 0.5));
         }
         static const CGFloat colours[3][3] = {{0.93, 0.33, 0.30}, {0.96, 0.73, 0.22}, {0.30, 0.76, 0.33}};
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3 && !bare; i++) {
             NSRect r = button_rect(i, b, t);
             if (enabled[i] && key)
                 fill_circle(cg, r, colours[i][0], colours[i][1], colours[i][2], _pressed == i ? 0.8 : 1);

@@ -75,6 +75,9 @@ make_button(NSString *title, NSAlert *target)
     [_panel setReleasedWhenClosed:NO];
     [_panel setHidesOnDeactivate:NO];
     [_panel setTitle:@""];
+    /* no title bar to see, as Apple's: its content runs to the top */
+    [_panel setTitlebarAppearsTransparent:YES];
+    [_panel setTitleVisibility:NSWindowTitleHidden];
     _iconView = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, kIcon, kIcon)];
     [_iconView setImageScaling:NSImageScaleProportionallyUpOrDown];
     _messageField = [[NSTextField wrappingLabelWithString:@""] retain];

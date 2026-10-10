@@ -216,4 +216,13 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - Text field styles; Menu (a pull-down button), menu styles and `contextMenu` (an AppKit
     view over the content that takes right-clicks), shown as AppKit menus built from the
     content: buttons, toggles (checked), dividers, sections, pickers and submenus.
-  - Next: sheets, alerts, popovers and toolbars.
+  - Sheets (an AppKit sheet hosting the content), alerts and confirmation dialogs (NSAlert
+    sheets whose buttons are the actions'; the original `Alert` type too), popovers
+    (NSPopover from the view's bounds) and `dismiss`/`isPresented`. A presentation follows
+    its binding; `onDismiss` runs after the update that dismissed it.
+  - Apple's names for SwiftUI's extensions of SwiftUICore's structs, enums and classes
+    (`EnvironmentValues.dismiss`, `.scenePhase`): Swift mangles the extension context into
+    them, Apple's binary mostly doesn't, and apps import the shorter name. The build exports
+    both (`extension-aliases.py`, an `ld -alias_list`).
+  - Next: toolbars, `navigationTitle`, NavigationStack and NavigationSplitView, then
+    `onSubmit`, ScrollViewReader, lazy stacks and grids, gradients and DragGesture.

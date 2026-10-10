@@ -27,6 +27,7 @@ struct _FinchMenuItem {
     var title: Text?
     var fallback = ""
     var isDestructive = false
+    var isCancel = false
 }
 
 /// A view that is one or more menu items.
@@ -59,7 +60,7 @@ extension Button: _FinchMenuItems {
     var _finchMenuItems: [_FinchMenuItem] {
         let action = action
         return [_FinchMenuItem(kind: .action { action() }, title: _finchOptionTitles(label).first ?? nil,
-                               isDestructive: role == .destructive)]
+                               isDestructive: role == .destructive, isCancel: role == .cancel)]
     }
 }
 
