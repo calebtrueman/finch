@@ -33,6 +33,13 @@ fi
 : "${RAMDISK:=${FW}/ramdisk.dmg}"
 : "${TC:=${FW}/ramdisk.tc}"
 
+# Apple silicon's 24 MHz timebase, not the base tree's 1 MHz (tools/vm/dtree-timebase.py)
+DTREE="${FINCH_ROOT}/build/vm/dtree"
+if [[ ! "${DTREE}" -nt "${FW}/dtree" || "${FINCH_ROOT}/tools/vm/dtree-timebase.py" -nt "${DTREE}" ]]; then
+    mkdir -p "${FINCH_ROOT}/build/vm"
+    python3 "${FINCH_ROOT}/tools/vm/dtree-timebase.py" "${FW}/dtree" "${DTREE}"
+fi
+
 boot_args="rd=md0 serial=3 -v -noprogress wdt=-1 wlan-olyhal-abort"
 [[ "${FINCH_INIT:-0}" == 1 ]] && boot_args+=" launchdsuffix=finch"
 # no RTC in the emulated M4: finch-init sets the clock from the host's time
@@ -41,7 +48,7 @@ boot_args+=" finch_time=$(date +%s)"
 
 args=(
     -M darwin
-    -bootkc "${KC}" -dtree "${FW}/dtree" -tc "${TC}" -ramdisk "${RAMDISK}"
+    -bootkc "${KC}" -dtree "${DTREE}" -tc "${TC}" -ramdisk "${RAMDISK}"
     -args "${boot_args}"
     -nographic -serial mon:stdio -m 8G
 )

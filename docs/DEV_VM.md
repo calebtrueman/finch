@@ -64,6 +64,11 @@ tools/vm/run.sh                   # boot with finch-init as PID 1 (launchdsuffix
 expect tools/vm/smoke.exp
 ```
 
+The base device tree runs the CPU's timer at 1 MHz; `tools/vm/run.sh` boots a copy
+(`build/vm/dtree`, made by `tools/vm/dtree-timebase.py`) with Apple silicon's 24 MHz timebase,
+which code built for the M4 assumes (Swift's `Task.sleep` turns deadlines into ticks at 24 MHz, and
+at 1 MHz never woke).
+
 The emulated M4 has no real-time clock. `tools/vm/run.sh` passes the host's time as the
 boot-arg `finch_time=SECONDS`, and finch-init sets the clock from it when the clock is behind.
 
