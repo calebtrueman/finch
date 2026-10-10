@@ -18,6 +18,8 @@ struct __CTRun {
     std::vector<CFIndex> *indices;     /* into the attributed string */
     double width;
     double tracking;                   /* added after each glyph */
+    bool delegated;                    /* a run delegate's: its metrics, and nothing drawn */
+    CGFloat delegate_ascent, delegate_descent;
 };
 
 struct __CTLine {
@@ -35,5 +37,10 @@ CT_PRIVATE CTFontRef CTDefaultFont(void);
 CT_PRIVATE CTLineRef CTLineCreateWithAttributedSubstring(CFAttributedStringRef string, CFRange range);
 CT_PRIVATE CTLineRef CTLineCreateSlice(CTLineRef whole, CFRange range);
 CT_PRIVATE bool CTLineHasRightToLeft(CTLineRef l);
+/* A CTRunDelegate's ascent, descent and width (false if `d` isn't one). */
+CT_PRIVATE bool CTRunDelegateGetMetrics(CFTypeRef d, CGFloat *ascent, CGFloat *descent, CGFloat *width);
+/* A run's ascent and descent: its delegate's, else its font's. */
+CT_PRIVATE CGFloat CTRunAscent(const struct __CTRun *r);
+CT_PRIVATE CGFloat CTRunDescent(const struct __CTRun *r);
 
 #endif

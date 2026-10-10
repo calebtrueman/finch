@@ -3,6 +3,8 @@
  * NSShadow, NSStringDrawingContext and NSTextAttachment (its data, bounds
  * and attributed-string form; drawing attachments comes with the text system).
  */
+#import <objc/message.h>
+#import <objc/runtime.h>
 #import "UIFoundationInternal.h"
 
 #pragma mark - NSShadow
@@ -236,6 +238,7 @@ UIFStringDrawingContextSetResult(NSStringDrawingContext *c, CGFloat scale, CGRec
     id _attachmentCell;
     CGFloat _lineLayoutPadding;
     BOOL _allowsTextAttachmentView;
+    id _derivedImage;   /* from the contents or file wrapper, when no image was set */
 }
 
 + (BOOL)supportsSecureCoding { return YES; }
@@ -285,7 +288,25 @@ static NSMutableDictionary *view_provider_classes;
     [_image release];
     [_fileWrapper release];
     [_attachmentCell release];
+    [_derivedImage release];
     [super dealloc];
+}
+
+/* The image shown: the one set, else (as Apple's) one made from the contents or the
+ * file wrapper's file, when AppKit is there to make it. */
+- (id)_finchDisplayImage
+{
+    if (_image)
+        return _image;
+    if (!_derivedImage) {
+        Class imageClass = objc_getClass("NSImage");
+        NSData *data = _contents;
+        if (!data && [_fileWrapper isRegularFile])
+            data = [_fileWrapper regularFileContents];
+        if (imageClass && data)
+            _derivedImage = ((id(*)(id, SEL, NSData *))objc_msgSend)([imageClass alloc], @selector(initWithData:), data);
+    }
+    return _derivedImage;
 }
 
 - (NSData *)contents { return _contents; }
@@ -340,15 +361,17 @@ static NSMutableDictionary *view_provider_classes;
 {
     if (!CGRectIsEmpty(_bounds))
         return _bounds;
-    id image = _image;
-    if ([image respondsToSelector:@selector(size)])
-        return CGRectMake(0, 0, [image size].width, [image size].height);
+    id image = [self _finchDisplayImage];
+    if ([image respondsToSelector:@selector(size)]) {
+        CGSize size = ((CGSize(*)(id, SEL))objc_msgSend)(image, @selector(size));
+        return CGRectMake(0, 0, size.width, size.height);
+    }
     return CGRectZero;
 }
 
 - (NSImage *)imageForBounds:(CGRect)imageBounds textContainer:(NSTextContainer *)textContainer characterIndex:(NSUInteger)charIndex
 {
-    return _image;
+    return [self _finchDisplayImage];
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder

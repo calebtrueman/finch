@@ -114,6 +114,18 @@ CTRunGetBaseAdvancesAndOrigins(CTRunRef r, CFRange range, CGSize *advances, CGPo
     }
 }
 
+CGFloat
+CTRunAscent(const struct __CTRun *r)
+{
+    return r->delegated ? r->delegate_ascent : r->font ? CTFontGetAscent(r->font) : 0;
+}
+
+CGFloat
+CTRunDescent(const struct __CTRun *r)
+{
+    return r->delegated ? r->delegate_descent : r->font ? CTFontGetDescent(r->font) : 0;
+}
+
 double
 CTRunGetTypographicBounds(CTRunRef r, CFRange range, CGFloat *ascent, CGFloat *descent, CGFloat *leading)
 {
@@ -121,9 +133,9 @@ CTRunGetTypographicBounds(CTRunRef r, CFRange range, CGFloat *ascent, CGFloat *d
         return 0;
     range = glyph_range(r, range);
     if (ascent)
-        *ascent = CTFontGetAscent(r->font);
+        *ascent = CTRunAscent(r);
     if (descent)
-        *descent = CTFontGetDescent(r->font);
+        *descent = CTRunDescent(r);
     if (leading)
         *leading = CTFontGetLeading(r->font);
     double w = 0;
@@ -157,7 +169,7 @@ static void
 draw_run(CTRunRef r, CGContextRef c, CFRange range, CGPoint origin)
 {
     range = glyph_range(r, range);
-    if (!range.length)
+    if (!range.length || r->delegated)   /* a delegate's space is the client's to draw in */
         return;
     CGContextSaveGState(c);
     CFTypeRef fromContext = CFDictionaryGetValue(r->attributes, kCTForegroundColorFromContextAttributeName);
@@ -381,6 +393,25 @@ shape(const Piece &p, CFIndex base, const UniChar *chars, CFIndex nchars)
         run->status |= kCTRunStatusHasNonIdentityMatrix;
         run->text_matrix = font->matrix;
     }
+    CGFloat dw;
+    if (p.attributes && CTRunDelegateGetMetrics(CFDictionaryGetValue(p.attributes, kCTRunDelegateAttributeName),
+                                                &run->delegate_ascent, &run->delegate_descent, &dw)) {
+        /* a run delegate's characters: one glyph each, of the delegate's width, not shaped */
+        run->delegated = true;
+        double x = 0;
+        for (CFIndex i = 0; i < p.range.length; i++) {
+            UniChar ch = chars[p.range.location - base + i];
+            CGGlyph g = 0;
+            CTFontGetGlyphsForCharacters(font, &ch, &g, 1);
+            run->glyphs->push_back(g);
+            run->positions->push_back(CGPointMake(x, 0));
+            run->advances->push_back(CGSizeMake(dw, 0));
+            run->indices->push_back(p.range.location + i);
+            x += dw;
+        }
+        run->width = x;
+        return run;
+    }
     hb_buffer_t *buf = hb_buffer_create();
     hb_buffer_add_utf16(buf, (const uint16_t *)chars, (int)nchars, (unsigned)(p.range.location - base),
                         (int)p.range.length);
@@ -545,8 +576,8 @@ CTLineCreateWithAttributedSubstring(CFAttributedStringRef string, CFRange range)
             p.x += x;
         x += run->width;
         if (run->font) {
-            ascent = std::max(ascent, CTFontGetAscent(run->font));
-            descent = std::max(descent, CTFontGetDescent(run->font));
+            ascent = std::max(ascent, CTRunAscent(run));
+            descent = std::max(descent, CTRunDescent(run));
             leading = std::max(leading, CTFontGetLeading(run->font));
         }
         l->glyph_count += (CFIndex)run->glyphs->size();
@@ -636,6 +667,8 @@ CTLineCreateSlice(CTLineRef whole, CFRange range)
         n->attributes = (CFDictionaryRef)CFRetain(r->attributes);
         n->font = (CTFontRef)CFRetain(r->font);
         n->status = r->status;
+        n->delegated = r->delegated;
+        n->delegate_ascent = r->delegate_ascent, n->delegate_descent = r->delegate_descent;
         n->text_matrix = r->text_matrix;
         n->tracking = r->tracking;
         CFIndex lo = std::max(range.location, r->range.location);
@@ -655,8 +688,8 @@ CTLineCreateSlice(CTLineRef whole, CFRange range)
             n->width += (*r->advances)[k].width;
         }
         x += n->width;
-        ascent = std::max(ascent, CTFontGetAscent(n->font));
-        descent = std::max(descent, CTFontGetDescent(n->font));
+        ascent = std::max(ascent, CTRunAscent(n));
+        descent = std::max(descent, CTRunDescent(n));
         leading = std::max(leading, CTFontGetLeading(n->font));
         l->glyph_count += (CFIndex)n->glyphs->size();
         CFArrayAppendValue(runs, n);

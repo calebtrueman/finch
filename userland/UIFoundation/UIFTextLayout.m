@@ -25,6 +25,7 @@
  *   A table's cells (NSTextTableBlock) share its columns equally and stand
  *   side by side; a row is as tall as its tallest cell.
  */
+#import <objc/message.h>
 #import "UIFTextLayout.h"
 #import "UIFTextBlock.h"
 
@@ -302,7 +303,7 @@ drawn_here(NSDictionary *attrs)
     static NSString *const *keys[] = {
         &NSUnderlineStyleAttributeName, &NSUnderlineColorAttributeName, &NSStrikethroughStyleAttributeName,
         &NSStrikethroughColorAttributeName, &NSBackgroundColorAttributeName, &NSShadowAttributeName,
-        &NSBaselineOffsetAttributeName, &NSForegroundColorAttributeName,
+        &NSBaselineOffsetAttributeName, &NSForegroundColorAttributeName, &NSAttachmentAttributeName,
     };
     NSMutableDictionary *d = nil;
     for (size_t i = 0; i < sizeof keys / sizeof keys[0]; i++) {
@@ -322,10 +323,45 @@ static __thread CGColorRef default_foreground;
 /* The attributes CoreText lays out and draws with: fonts (Helvetica 12 where
  * there is none), kerning, ligatures, colours as CGColors. Paragraph styles
  * are applied here, so they are left out. */
+/* An attachment's place in the line: a run delegate as wide and tall as its bounds
+ * (whose origin's y is the offset from the baseline). */
+typedef struct {
+    CGFloat ascent, descent, width;
+} AttachmentMetrics;
+
+static CGFloat attachment_ascent(void *m) { return ((AttachmentMetrics *)m)->ascent; }
+static CGFloat attachment_descent(void *m) { return ((AttachmentMetrics *)m)->descent; }
+static CGFloat attachment_width(void *m) { return ((AttachmentMetrics *)m)->width; }
+static void attachment_dealloc(void *m) { free(m); }
+
+static CGRect
+attachment_bounds(NSTextAttachment *attachment)
+{
+    if (![attachment respondsToSelector:@selector(attachmentBoundsForTextContainer:proposedLineFragment:glyphPosition:characterIndex:)])
+        return CGRectZero;
+    return [attachment attachmentBoundsForTextContainer:nil proposedLineFragment:CGRectZero glyphPosition:CGPointZero characterIndex:0];
+}
+
+static id
+attachment_delegate(NSTextAttachment *attachment)
+{
+    CGRect b = attachment_bounds(attachment);
+    AttachmentMetrics *m = malloc(sizeof *m);
+    m->width = b.size.width;
+    m->ascent = MAX(0, b.size.height + b.origin.y);
+    m->descent = MAX(0, -b.origin.y);
+    CTRunDelegateCallbacks callbacks = {kCTRunDelegateVersion1, attachment_dealloc, attachment_ascent, attachment_descent,
+                                        attachment_width};
+    return [(id)CTRunDelegateCreate(&callbacks, m) autorelease];
+}
+
 static NSDictionary *
 ct_attributes(NSDictionary *attrs)
 {
     NSMutableDictionary *a = [NSMutableDictionary dictionaryWithCapacity:6];
+    id attachment = attrs[NSAttachmentAttributeName];
+    if (attachment)
+        a[(id)kCTRunDelegateAttributeName] = attachment_delegate(attachment);
     NSDictionary *here = drawn_here(attrs);
     if (here)
         a[kDrawnHere] = here;
@@ -379,6 +415,13 @@ line_metrics(CTLineRef line, NSAttributedString *source, NSDictionary *typing, C
     CFIndex n = runs ? CFArrayGetCount(runs) : 0;
     for (CFIndex i = 0; i < n; i++) {
         CTRunRef run = CFArrayGetValueAtIndex(runs, i);
+        if (CFDictionaryGetValue(CTRunGetAttributes(run), kCTRunDelegateAttributeName)) {
+            /* an attachment: as tall as its bounds */
+            CGFloat a = 0, d = 0;
+            CTRunGetTypographicBounds(run, CFRangeMake(0, 0), &a, &d, NULL);
+            asc = MAX(asc, ceil(a));
+            desc = MAX(desc, ceil(d));
+        }
         CTFontRef f = (CTFontRef)CFDictionaryGetValue(CTRunGetAttributes(run), kCTFontAttributeName);
         if (!f)
             continue;
@@ -736,6 +779,37 @@ UIFLayoutDrawLines(UIFLayout *L, size_t first, size_t count, CGFloat left, CGFlo
     UIFLayoutDrawLinesInContext(UIFCurrentCGContext(), L, first, count, left, top, flipped);
 }
 
+/* An attachment's image, in the run delegate's space: on the baseline (raised or
+ * lowered by its bounds' origin), as tall as its bounds. */
+static void
+draw_attachment(CGContextRef cg, NSTextAttachment *attachment, CTRunRef run, CGFloat x, CGFloat baseline, BOOL flipped)
+{
+    CGRect b = attachment_bounds(attachment);
+    if (CGRectIsEmpty(b) || ![attachment respondsToSelector:@selector(imageForBounds:textContainer:characterIndex:)])
+        return;
+    id image = [attachment imageForBounds:b textContainer:nil characterIndex:0];
+    SEL cgSel = sel_registerName("CGImageForProposedRect:context:hints:");
+    if (![image respondsToSelector:cgSel])
+        return;
+    CGImageRef im = ((CGImageRef(*)(id, SEL, void *, id, id))objc_msgSend)(image, cgSel, NULL, nil, nil);
+    if (!im)
+        return;
+    CGPoint p0;
+    CTRunGetPositions(run, CFRangeMake(0, 1), &p0);
+    CGFloat left = x + p0.x;
+    CGContextSaveGState(cg);
+    if (flipped) {
+        /* the image's top at the baseline less its height */
+        CGFloat top = baseline - (b.size.height + b.origin.y);
+        CGContextTranslateCTM(cg, left, top + b.size.height);
+        CGContextScaleCTM(cg, 1, -1);
+        CGContextDrawImage(cg, CGRectMake(0, 0, b.size.width, b.size.height), im);
+    } else {
+        CGContextDrawImage(cg, CGRectMake(left, baseline + b.origin.y, b.size.width, b.size.height), im);
+    }
+    CGContextRestoreGState(cg);
+}
+
 void
 UIFLayoutDrawLinesInContext(CGContextRef cg, UIFLayout *L, size_t first, size_t count, CGFloat left, CGFloat top, BOOL flipped)
 {
@@ -776,6 +850,9 @@ UIFLayoutDrawLinesInContext(CGContextRef cg, UIFLayout *L, size_t first, size_t 
                 [shadow set];
             CGContextSetTextPosition(cg, x, by);
             CTRunDraw(run, cg, CFRangeMake(0, 0));
+            NSTextAttachment *attachment = a[NSAttachmentAttributeName];
+            if (attachment && CTRunGetGlyphCount(run))
+                draw_attachment(cg, attachment, run, x, by, flipped);
             /* Underline and strikethrough, from the run's start to its end. */
             CFIndex gc = CTRunGetGlyphCount(run);
             NSInteger ul = [a[NSUnderlineStyleAttributeName] integerValue];

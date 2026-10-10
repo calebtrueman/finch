@@ -129,6 +129,18 @@ CTRunDelegateGetRefCon(CTRunDelegateRef d)
     return d ? d->refcon : NULL;
 }
 
+bool
+CTRunDelegateGetMetrics(CFTypeRef cf, CGFloat *ascent, CGFloat *descent, CGFloat *width)
+{
+    if (!cf || CFGetTypeID(cf) != CTRunDelegateGetTypeID())
+        return false;
+    struct __CTRunDelegate *d = (struct __CTRunDelegate *)cf;
+    *ascent = d->callbacks.getAscent ? d->callbacks.getAscent(d->refcon) : 0;
+    *descent = d->callbacks.getDescent ? d->callbacks.getDescent(d->refcon) : 0;
+    *width = d->callbacks.getWidth ? d->callbacks.getWidth(d->refcon) : 0;
+    return true;
+}
+
 #pragma mark - CTRubyAnnotation
 
 struct __CTRubyAnnotation {
