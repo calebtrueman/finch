@@ -168,3 +168,9 @@ build/userland/apps/SwiftUIHello.app/Contents/PkgInfo /Applications/SwiftUIHello
 build/userland/apps/SwiftUIGallery.app/Contents/MacOS/SwiftUIGallery /Applications/SwiftUIGallery.app/Contents/MacOS/SwiftUIGallery
 build/userland/apps/SwiftUIGallery.app/Contents/Info.plist /Applications/SwiftUIGallery.app/Contents/Info.plist
 build/userland/apps/SwiftUIGallery.app/Contents/PkgInfo /Applications/SwiftUIGallery.app/Contents/PkgInfo
+build/userland/apps/SwiftUIForms.app/Contents/MacOS/SwiftUIForms /Applications/SwiftUIForms.app/Contents/MacOS/SwiftUIForms
+build/userland/apps/SwiftUIForms.app/Contents/Info.plist /Applications/SwiftUIForms.app/Contents/Info.plist
+build/userland/apps/SwiftUIForms.app/Contents/PkgInfo /Applications/SwiftUIForms.app/Contents/PkgInfo
+build/userland/apps/SwiftUINavigation.app/Contents/MacOS/SwiftUINavigation /Applications/SwiftUINavigation.app/Contents/MacOS/SwiftUINavigation
+build/userland/apps/SwiftUINavigation.app/Contents/Info.plist /Applications/SwiftUINavigation.app/Contents/Info.plist
+build/userland/apps/SwiftUINavigation.app/Contents/PkgInfo /Applications/SwiftUINavigation.app/Contents/PkgInfo
