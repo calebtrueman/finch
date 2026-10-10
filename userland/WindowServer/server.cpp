@@ -6,7 +6,7 @@
  * app. Frames go to a backend: the host viewer over TCP (input comes back
  * the same way), or none (headless, for tests: FWS_SNAPSHOT).
  *
- *   finch-windowserver [--size WxH] [--scale S] [--socket PATH] [--viewer PORT | --headless]
+ *   finch-windowserver [--size WxH] [--scale S] [--socket PATH] [--viewer PORT | --viewer-tty PATH | --headless]
  */
 #include "FinchWSProtocol.h"
 #include "include/core/SkCanvas.h"
@@ -19,6 +19,8 @@
 #include "include/core/SkPixmap.h"
 #include "include/core/SkRRect.h"
 #include <strings.h>
+#include <termios.h>
+#include <zlib.h>
 #include "include/core/SkSurface.h"
 #include <algorithm>
 #include <arpa/inet.h>
@@ -159,6 +161,8 @@ static uint64_t buttons_down;
 static double last_click_time, last_click_x, last_click_y;
 static uint32_t click_count;
 static int viewer_listen = -1, viewer_fd = -1;
+/* the viewer on a serial line (--viewer-tty): frames go out only once it has attached, deflated */
+static bool viewer_tty = false, viewer_attached = true;
 
 static void
 damage_points(const FWSRect &r)
@@ -269,6 +273,47 @@ window_shape(const SkRect &r, uint32_t flags)
     return rr;
 }
 
+/* Writes all of a buffer to a file (the viewer's serial line: not a socket). */
+static bool
+write_all(int fd, const void *buf, size_t len)
+{
+    size_t done = 0;
+    while (done < len) {
+        ssize_t n = write(fd, (const char *)buf + done, len - done);
+        if (n < 0 && (errno == EINTR || errno == EAGAIN))
+            continue;
+        if (n <= 0)
+            return false;
+        done += (size_t)n;
+    }
+    return true;
+}
+
+/* A damaged rect to the viewer on a serial line: its rows deflated, written in full. */
+static void
+send_deflated_frame(SkIRect rect)
+{
+    size_t stride = (size_t)pixel_w * 4, row = (size_t)rect.width() * 4;
+    std::vector<uint8_t> raw(row * (size_t)rect.height());
+    for (int y = 0; y < rect.height(); y++)
+        memcpy(raw.data() + (size_t)y * row, (uint8_t *)screen.ptr + (size_t)(rect.y() + y) * stride + (size_t)rect.x() * 4,
+               row);
+    z_stream z = {};
+    if (deflateInit2(&z, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+        return;
+    std::vector<uint8_t> packed(deflateBound(&z, (uLong)raw.size()));
+    z.next_in = raw.data(), z.avail_in = (uInt)raw.size();
+    z.next_out = packed.data(), z.avail_out = (uInt)packed.size();
+    deflate(&z, Z_FINISH);
+    size_t size = packed.size() - z.avail_out;
+    deflateEnd(&z);
+    FWSViewerHeader h = {FWS_VIEWER_FRAME_DEFLATED, (uint32_t)(sizeof(FWSViewerFrame) + size)};
+    FWSViewerFrame f = {(uint32_t)rect.x(), (uint32_t)rect.y(), (uint32_t)rect.width(), (uint32_t)rect.height()};
+    write_all(viewer_fd, &h, sizeof h);
+    write_all(viewer_fd, &f, sizeof f);
+    write_all(viewer_fd, packed.data(), size);
+}
+
 static void
 composite(void)
 {
@@ -339,7 +384,9 @@ composite(void)
     draw_cursor(c);
     c->restore();
     /* to the viewer */
-    if (viewer_fd >= 0) {
+    if (viewer_fd >= 0 && viewer_attached && viewer_tty) {
+        send_deflated_frame(damage);
+    } else if (viewer_fd >= 0 && viewer_attached) {
         FWSViewerHeader h = {FWS_VIEWER_FRAME, (uint32_t)(sizeof(FWSViewerFrame) + 4 * damage.width() * damage.height())};
         FWSViewerFrame f = {(uint32_t)damage.x(), (uint32_t)damage.y(), (uint32_t)damage.width(), (uint32_t)damage.height()};
         std::vector<uint8_t> out(sizeof h + h.length);
@@ -829,6 +876,8 @@ read_viewer(void)
     if (n <= 0) {
         if (n < 0 && (errno == EINTR || errno == EAGAIN))
             return;
+        if (viewer_tty)  /* a line stays: the viewer attaches again */
+            return;
         close(viewer_fd);
         viewer_fd = -1;
         logf("viewer disconnected");
@@ -841,7 +890,17 @@ read_viewer(void)
         memcpy(&h, viewer_in.data() + off, sizeof h);
         if (viewer_in.size() - off < sizeof h + h.length)
             break;
-        if (h.type == FWS_VIEWER_INPUT && h.length >= sizeof(FWSEvent)) {
+        if (h.type == FWS_VIEWER_ATTACH && viewer_tty) {
+            /* a viewer at the other end of the line: sync, the display, then the whole screen */
+            write_all(viewer_fd, FWS_VIEWER_SYNC, strlen(FWS_VIEWER_SYNC));
+            FWSViewerHeader hh = {FWS_VIEWER_HELLO, sizeof(FWSViewerHello)};
+            FWSViewerHello hello = {pixel_w, pixel_h, scale};
+            write_all(viewer_fd, &hh, sizeof hh);
+            write_all(viewer_fd, &hello, sizeof hello);
+            viewer_attached = true;
+            damage_all();
+            logf("viewer attached");
+        } else if (h.type == FWS_VIEWER_INPUT && h.length >= sizeof(FWSEvent)) {
             FWSEvent e;
             memcpy(&e, viewer_in.data() + off + sizeof h, sizeof e);
             handle_input(e);
@@ -858,6 +917,7 @@ main(int argc, char **argv)
 {
     const char *socket_path = getenv(FWS_SOCKET_ENV) ? getenv(FWS_SOCKET_ENV) : FWS_SOCKET_DEFAULT;
     int viewer_port = FWS_VIEWER_PORT;
+    const char *viewer_tty_path = nullptr;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--size") && i + 1 < argc)
             sscanf(argv[++i], "%lfx%lf", &screen_w, &screen_h);
@@ -867,10 +927,13 @@ main(int argc, char **argv)
             socket_path = argv[++i];
         else if (!strcmp(argv[i], "--viewer") && i + 1 < argc)
             viewer_port = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--viewer-tty") && i + 1 < argc)
+            viewer_tty_path = argv[++i], viewer_port = 0;
         else if (!strcmp(argv[i], "--headless"))
             viewer_port = 0;
         else {
-            fprintf(stderr, "usage: %s [--size WxH] [--scale S] [--socket PATH] [--viewer PORT | --headless]\n", argv[0]);
+            fprintf(stderr, "usage: %s [--size WxH] [--scale S] [--socket PATH] [--viewer PORT | --viewer-tty PATH | --headless]\n",
+                    argv[0]);
             return 2;
         }
     }
@@ -912,8 +975,28 @@ main(int argc, char **argv)
             return 1;
         }
     }
+    if (viewer_tty_path) {
+        viewer_fd = open(viewer_tty_path, O_RDWR | O_NOCTTY | O_NONBLOCK);
+        if (viewer_fd >= 0)
+            fcntl(viewer_fd, F_SETFL, 0);  /* opened without waiting for carrier; then blocking */
+        if (viewer_fd < 0) {
+            logf("can't open %s: %s", viewer_tty_path, strerror(errno));
+            return 1;
+        }
+        struct termios t;
+        if (tcgetattr(viewer_fd, &t) == 0) {
+            cfmakeraw(&t);
+            /* the far end comes and goes (a viewer connecting to the VM's port): no modem
+               control, or its going away hangs the line up for good */
+            t.c_cflag |= CLOCAL | CREAD;
+            t.c_cflag &= ~(tcflag_t)HUPCL;
+            tcsetattr(viewer_fd, TCSANOW, &t);
+        }
+        viewer_tty = true;
+        viewer_attached = false;
+    }
     logf("%gx%g points at %gx on %s%s", screen_w, screen_h, scale, socket_path,
-         viewer_port ? ", viewer port open" : " (headless)");
+         viewer_tty_path ? ", viewer on the line" : viewer_port ? ", viewer port open" : " (headless)");
 
     double frame_interval = 1.0 / refresh, last = 0;
     for (;;) {
@@ -927,6 +1010,15 @@ main(int argc, char **argv)
         for (Client *c : clients)
             fds.push_back({c->fd, POLLIN, 0});
         int timeout = damage.isEmpty() ? -1 : std::max(0, (int)((last + frame_interval - now()) * 1000));
+        /* a line with no viewer attached: the beacon, every two seconds */
+        if (viewer_tty && !viewer_attached) {
+            static double beacon = 0;
+            if (now() - beacon >= 2) {
+                write_all(viewer_fd, FWS_VIEWER_BEACON, strlen(FWS_VIEWER_BEACON));
+                beacon = now();
+            }
+            timeout = timeout < 0 ? 2000 : std::min(timeout, 2000);
+        }
         int n = poll(fds.data(), (nfds_t)fds.size(), timeout);
         if (n < 0 && errno != EINTR)
             break;

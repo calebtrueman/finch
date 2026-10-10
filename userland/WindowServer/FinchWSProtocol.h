@@ -186,7 +186,18 @@ typedef struct {
 
 /* The viewer backend's stream (TCP): frames out, input in. */
 #define FWS_VIEWER_PORT 5901
-enum { FWS_VIEWER_FRAME = 1, FWS_VIEWER_INPUT = 2, FWS_VIEWER_HELLO = 3 };
+enum { FWS_VIEWER_FRAME = 1, FWS_VIEWER_INPUT = 2, FWS_VIEWER_HELLO = 3, FWS_VIEWER_FRAME_DEFLATED = 4,
+       FWS_VIEWER_ATTACH = 5 };
+/* Over a serial line (--viewer-tty; the VM's tunnel UART) the server is silent until the
+ * viewer sends FWS_VIEWER_ATTACH (no body), as bytes sent with no viewer at the other end are
+ * lost and a viewer may join mid-stream. It answers with FWS_VIEWER_SYNC, then HELLO and
+ * the whole screen. Frames on such a line are FWS_VIEWER_FRAME_DEFLATED: the rect, then its
+ * rows as raw deflate (RFC 1951). */
+#define FWS_VIEWER_SYNC "FWSSYNC1"
+/* Until a viewer attaches, the server says it's there every two seconds. The viewer sends
+ * nothing before it hears this: bytes sent before the guest opens its end of the line are
+ * lost, and filling the guest's receive FIFO then stalls the line's input. */
+#define FWS_VIEWER_BEACON "FWSBEACN"
 typedef struct {
     uint32_t type;
     uint32_t length;  /* of what follows */
