@@ -45,6 +45,8 @@ var testInput: NSPoint?
 /// The server is at the other end of a serial line (the VM's tunnel UART behind QEMU's TCP
 /// port): attach to it, find the sync marker, and take deflated frames.
 var lineMode = false
+/// The frame after which --test-input's click is sent (an app may not be up at the first).
+var testAfter = 1
 
 do {
     var args = CommandLine.arguments.dropFirst()
@@ -55,6 +57,7 @@ do {
     while let a = args.popFirst() {
         switch a {
         case "--line": lineMode = true
+        case "--test-after": testAfter = max(1, Int(next(a)) ?? 1)
         case "--dump": dumpPath = next(a)
         case "--frames": dumpFrames = max(1, Int(next(a)) ?? 1)
         case "--test-input":
@@ -62,7 +65,7 @@ do {
             guard xy.count == 2 else { die("--test-input takes X,Y") }
             testInput = NSPoint(x: xy[0], y: xy[1])
         case "-h", "--help":
-            print("usage: finch-viewer [host[:port]] [--line] [--dump PATH [--frames N]] [--test-input X,Y]")
+            print("usage: finch-viewer [host[:port]] [--line] [--dump PATH [--frames N]] [--test-input X,Y [--test-after N]]")
             exit(0)
         default:
             if a.hasPrefix("-") { die("unknown option \(a)") }
@@ -534,7 +537,7 @@ final class Viewer: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func frameArrived() {
         frames += 1
         view.needsDisplay = true
-        if let p = testInput, !testDone {
+        if let p = testInput, !testDone, frames >= testAfter {
             testDone = true
             view.postTestInput(at: p)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if dumpPath == nil { exit(0) } }
