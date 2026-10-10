@@ -150,5 +150,15 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     mutable CF string (`NSMutableString` appends, attributed strings), because `NSString`
     told CF they fit in eight bits.
 
-  Next: `Picker`, `List` and tag traits (for `SwiftUIGallery`), window placement (it is
-  centred while still empty), Text styles and fonts, then larger apps.
+- 2026-10-09: `SwiftUIGallery` draws: shapes (filled and stroked), styled text, a divider,
+  the controls, a `Picker` and a `List`.
+  - `Picker` (on macOS an AppKit pop-up button) and `List` (rows with selection) are Finch's
+    own, over variadic views: an option or row is chosen by its tag, or its identity in a
+    `ForEach`. The pop-up's item titles are the options' Texts. `_TagTraitWritingModifier`,
+    which `tag(_:)` uses from macOS 26, writes the tag traits.
+  - `Path.strokedPath` strokes (and dashes) through CoreGraphics.
+  - OpenRenderBox released a path by the address of its own handle rather than its
+    storage, and couldn't turn a path into a CGPath (`patches/OpenRenderBox`).
+
+  Next: window sizing (the window is shorter than its content), fonts (bold, italic,
+  monospaced, text styles), the bordered button, scrolling lists, then larger apps.

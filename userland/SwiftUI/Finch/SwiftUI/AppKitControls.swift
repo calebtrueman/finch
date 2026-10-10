@@ -86,6 +86,53 @@ struct _FinchSlider: NSViewRepresentable {
     }
 }
 
+/// A pop-up button's item: its title, and what to show when the title isn't a Text.
+struct _FinchPopUpItem {
+    var title: Text?
+    var fallback: String
+}
+
+/// A pop-up button over NSPopUpButton, for a picker: an item for each option, the selected
+/// one shown (none when the selection matches no option, or several).
+struct _FinchPopUpButton: NSViewRepresentable {
+    var items: [_FinchPopUpItem]
+    var selectedIndex: Int?
+    var select: (Int) -> Void
+
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let button = NSPopUpButton(frame: .zero, pullsDown: false)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.changed(_:))
+        return button
+    }
+
+    func updateNSView(_ button: NSPopUpButton, context: Context) {
+        context.coordinator.parent = self
+        let titles = items.map { $0.title?._resolveText(in: context.environment) ?? $0.fallback }
+        if button.itemArray.map(\.title) != titles {
+            // items one by one: addItems(withTitles:) merges items with the same title
+            button.removeAllItems()
+            for title in titles {
+                button.menu?.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
+            }
+        }
+        let index = selectedIndex ?? -1
+        if button.indexOfSelectedItem != index { button.selectItem(at: index) }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject {
+        var parent: _FinchPopUpButton
+        init(_ parent: _FinchPopUpButton) { self.parent = parent }
+
+        @objc func changed(_ sender: NSPopUpButton) {
+            let index = sender.indexOfSelectedItem
+            if index >= 0 && index < parent.items.count { parent.select(index) }
+        }
+    }
+}
+
 /// What a TextField edits: its text (through get and set, so formatted values work too),
 /// its placeholder, and what to tell as editing begins, ends and is committed.
 struct _FinchTextFieldModel {

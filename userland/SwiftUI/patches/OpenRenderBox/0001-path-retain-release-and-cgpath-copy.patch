@@ -1,0 +1,59 @@
+diff --git a/Sources/OpenRenderBoxCxx/Path/ORBPath.cpp b/Sources/OpenRenderBoxCxx/Path/ORBPath.cpp
+index 3364c4b..1af03cc 100644
+--- a/Sources/OpenRenderBoxCxx/Path/ORBPath.cpp
++++ b/Sources/OpenRenderBoxCxx/Path/ORBPath.cpp
+@@ -42,14 +42,14 @@ const ORBPath ORBPathNull = {
+ void ORBPathRetain(ORBPath path) {
+     auto retain = path.callbacks->retain;
+     if (retain != nullptr) {
+-        retain(&path);
++        retain(path.storage);
+     }
+ }
+ 
+ void ORBPathRelease(ORBPath path) {
+     auto release = path.callbacks->release;
+     if (release != nullptr) {
+-        release(&path);
++        release(path.storage);
+     }
+ }
+ 
+@@ -244,8 +244,35 @@ bool ORBPathEqualToPath(ORBPath lhs, ORBPath rhs) {
+ 
+ #if ORB_TARGET_OS_DARWIN
+ CGPathRef ORBPathCopyCGPath(ORBPath path) {
+-    // TODO: Return a retained copy of the CGPath
+-    return nullptr;
++    // a path over a CGPath is that path; any other is rebuilt from its elements
++    if (path.callbacks == &ORBPathCGPathCallbacks && path.storage != nullptr) {
++        return CGPathRetain(reinterpret_cast<CGPathRef>(path.storage));
++    }
++    CGMutablePathRef result = CGPathCreateMutable();
++    ORBPathApplyElements(path, result, +[](void *info, ORBPathElement element, const CGFloat *points, const void *) -> bool {
++        auto cgPath = static_cast<CGMutablePathRef>(info);
++        switch (element) {
++        case ORBPathElementMoveToPoint:
++            CGPathMoveToPoint(cgPath, nullptr, points[0], points[1]);
++            break;
++        case ORBPathElementAddLineToPoint:
++            CGPathAddLineToPoint(cgPath, nullptr, points[0], points[1]);
++            break;
++        case ORBPathElementAddQuadCurveToPoint:
++            CGPathAddQuadCurveToPoint(cgPath, nullptr, points[0], points[1], points[2], points[3]);
++            break;
++        case ORBPathElementAddCurveToPoint:
++            CGPathAddCurveToPoint(cgPath, nullptr, points[0], points[1], points[2], points[3], points[4], points[5]);
++            break;
++        case ORBPathElementCloseSubpath:
++            CGPathCloseSubpath(cgPath);
++            break;
++        default:
++            break;
++        }
++        return true;
++    });
++    return result;
+ }
+ 
+ bool ORBPathContainsPoint(ORBPath path, CGPoint point, bool eoFill) {

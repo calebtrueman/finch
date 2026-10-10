@@ -46,6 +46,19 @@ FIXES = [
             storage = .either(type.type,''',
      '''            let type = conditionalStorageType(metadata.genericType(at: 0), metadata.genericType(at: 1))
             storage = .either(type,'''),
+    # a stroked path's outline, through CoreGraphics (dashed first when the style has dashes)
+    ('SwiftUICore/Shape/Path.swift',
+     '''    public func strokedPath(_ style: StrokeStyle) -> Path {
+        _openSwiftUIUnimplementedFailure()
+    }''',
+     '''    public func strokedPath(_ style: StrokeStyle) -> Path {
+        var path = cgPath
+        if !style.dash.isEmpty {
+            path = path.copy(dashingWithPhase: style.dashPhase, lengths: style.dash)
+        }
+        return Path(path.copy(strokingWithWidth: style.lineWidth, lineCap: style.lineCap,
+                              lineJoin: style.lineJoin, miterLimit: style.miterLimit))
+    }'''),
     ('SwiftUICore/Runtime/ConditionalMetadata.swift', '\nextension Optional {',
      '''
 /// `_ConditionalContent<T, F>.Storage`, for the true and false content types.
