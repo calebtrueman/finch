@@ -799,7 +799,10 @@ row_top(NSTableView *self, NSInteger r)
 - (void)setRowHeight:(CGFloat)rowHeight
 {
     if (rowHeight <= 0) return;
-    CGFloat scale = MAX(1, [[self window] backingScaleFactor]);
+    /* to the backing's pixels: the window's, else the main screen's (2 when there's none,
+     * as on every Apple silicon Mac's display) */
+    CGFloat scale = [self window] ? [[self window] backingScaleFactor] : [[NSScreen mainScreen] backingScaleFactor];
+    if (scale < 1) scale = 2;
     _rowHeight = round(rowHeight * scale) / scale;
     [self _finchInvalidateRowGeometry];
     [self tile];

@@ -116,8 +116,9 @@ kind(const uint8_t *p)
     }
     if (abs(r - accent[0]) < 40 && abs(g - accent[1]) < 40 && abs(b - accent[2]) < 40)
         return "accent";
+    /* a blue accent (the classic theme's) is drawn in Aqua's shades of blue */
     if (b > 180 && r < 120 && g > 60 && g < 170)
-        return "blue";
+        return accent[2] > accent[0] + 60 ? "accent" : "blue";
     if (r > 225 && g > 225 && b > 225)
         return "light";
     if (r < 90 && g < 90 && b < 90)

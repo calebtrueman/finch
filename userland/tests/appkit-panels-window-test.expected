@@ -3,7 +3,7 @@ buttons right to left 1, along the bottom 1
 default button: accent
 other button: light
 cancel title: ink
-icon: blue
+icon: accent
 panel background: light
 click Cancel: 1001, alert visible after 0
 Return: 1000
