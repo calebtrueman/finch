@@ -214,6 +214,62 @@ index 3b3cfae..8664768 100644
  
  #if TARGET_OS_MAC
      void *region = mmap(nullptr, initial_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+diff --git a/Sources/ComputeCxx/Data/Zone.cpp b/Sources/ComputeCxx/Data/Zone.cpp
+index 2c20f06..4a9769c 100644
+--- a/Sources/ComputeCxx/Data/Zone.cpp
++++ b/Sources/ComputeCxx/Data/Zone.cpp
+@@ -47,8 +47,10 @@ void zone::realloc_bytes(ptr<void> *buffer, uint32_t size, uint32_t new_size, ui
+         memcpy(new_buffer.get(), (*buffer).get(), size);
+ 
+         ptr<bytes_info> aligned_old_bytes = (*buffer).aligned<bytes_info>();
+-        if ((*buffer).page_ptr() == aligned_old_bytes.page_ptr()) {
+-            uint32_t remaining_size = size - (aligned_old_bytes - *buffer);
++        // Finch: aligning can skip past a small buffer's end; only a positive remainder is free
++        uint32_t skipped = aligned_old_bytes - *buffer;
++        if ((*buffer).page_ptr() == aligned_old_bytes.page_ptr() && skipped < size) {
++            uint32_t remaining_size = size - skipped;
+             if (remaining_size >= sizeof(bytes_info)) {
+                 aligned_old_bytes->next = _free_bytes;
+                 aligned_old_bytes->size = remaining_size;
+@@ -95,7 +97,9 @@ ptr<void> zone::alloc_bytes_recycle(uint32_t size, uint32_t alignment_mask) {
+ 
+         // Check the difference between needed and available bytes
+         // XXX: Dissassembly seems to rely on unsigned integer underflow here?
+-        if (size - bytes->size > 0xff) {
++        // Finch: at most 255 bytes of the block go unused (the subtraction was reversed, which
++        // let only exact sizes through)
++        if (usable_size - size > 0xff) {
+             continue;
+         }
+ 
+@@ -104,8 +108,12 @@ ptr<void> zone::alloc_bytes_recycle(uint32_t size, uint32_t alignment_mask) {
+ 
+         // check if there will be some bytes remaining within the same page
+         ptr<bytes_info> aligned_end = aligned_bytes.advanced<void>(size).aligned<bytes_info>();
+-        if (aligned_bytes.page_ptr() == aligned_end.page_ptr()) {
+-            uint32_t remaining_size = usable_size - (aligned_end - aligned_bytes);
++        // Finch: aligning the end can pass the block's end (a size that isn't a multiple of
++        // bytes_info's alignment); the remainder then wrapped around, and the "free" bytes_info
++        // written there overwrote the live data that follows
++        uint32_t consumed = aligned_end - aligned_bytes;
++        if (aligned_bytes.page_ptr() == aligned_end.page_ptr() && consumed < usable_size) {
++            uint32_t remaining_size = usable_size - consumed;
+             if (remaining_size >= sizeof(bytes_info)) {
+                 bytes_info *remaining_bytes = aligned_end.get();
+                 remaining_bytes->next = _free_bytes;
+@@ -127,8 +135,10 @@ ptr<void> zone::alloc_slow(uint32_t size, uint32_t alignment_mask) {
+         ptr<void> next_bytes = _first_page.advanced<void>(_first_page->in_use);
+         if (next_bytes.page_ptr() == _first_page) {
+             ptr<bytes_info> aligned_next_bytes = next_bytes.aligned<bytes_info>();
+-            if (aligned_next_bytes.page_ptr() == _first_page) {
+-                uint32_t remaining_size = _first_page->total - _first_page->in_use - (aligned_next_bytes - next_bytes);
++            // Finch: only when the aligned start is still inside the page's bytes
++            uint32_t skipped = aligned_next_bytes - next_bytes;
++            if (aligned_next_bytes.page_ptr() == _first_page && _first_page->in_use + skipped < _first_page->total) {
++                uint32_t remaining_size = _first_page->total - _first_page->in_use - skipped;
+                 if (remaining_size >= sizeof(bytes_info)) {
+                     bytes_info *remaining_bytes = aligned_next_bytes.get();
+                     remaining_bytes->next = _free_bytes;
 diff --git a/Sources/ComputeCxx/Graph/Graph.cpp b/Sources/ComputeCxx/Graph/Graph.cpp
 index 8084e12..7f9680d 100644
 --- a/Sources/ComputeCxx/Graph/Graph.cpp
@@ -469,6 +525,75 @@ index 0000000..6ad7285
 +
 +} // namespace swift
 +} // namespace IAG
+diff --git a/Sources/ComputeCxx/Vector/Vector.h b/Sources/ComputeCxx/Vector/Vector.h
+index fb1c0a9..9604293 100644
+--- a/Sources/ComputeCxx/Vector/Vector.h
++++ b/Sources/ComputeCxx/Vector/Vector.h
+@@ -31,7 +31,12 @@ class vector {
+     using size_type = _size_type;
+ 
+   private:
+-    T _inline_buffer[_inline_capacity];
++    // Finch: raw storage, so the vector alone constructs and destroys its inline elements (an
++    // array of T ran ~T() on every slot again when the vector went, releasing a popped
++    // cf_ptr a second time: its destructor's nulling store is dead and may be dropped)
++    alignas(T) unsigned char _inline_bytes[sizeof(T) * _inline_capacity];
++    T *_Nonnull inline_buffer() { return reinterpret_cast<T *>(_inline_bytes); }
++    const T *_Nonnull inline_buffer() const { return reinterpret_cast<const T *>(_inline_bytes); }
+     T *_Nullable _buffer = nullptr;
+     size_type _size = 0;
+     size_type _capacity = _inline_capacity;
+@@ -62,8 +67,8 @@ class vector {
+     reference back() { return *&data()[_size - 1]; };
+     const_reference back() const { return *&data()[_size - 1]; };
+ 
+-    T *_Nonnull data() { return _buffer != nullptr ? _buffer : _inline_buffer; };
+-    const T *_Nonnull data() const { return _buffer != nullptr ? _buffer : _inline_buffer; };
++    T *_Nonnull data() { return _buffer != nullptr ? _buffer : inline_buffer(); };
++    const T *_Nonnull data() const { return _buffer != nullptr ? _buffer : inline_buffer(); };
+ 
+     // Iterators
+ 
+@@ -171,8 +176,8 @@ vector<T, _inline_capacity, size_type>::vector(vector &&other) noexcept
+         _buffer = std::exchange(other._buffer, nullptr);
+     } else {
+         for (auto i = 0; i < _size; ++i) {
+-            new (&_inline_buffer[i]) T(std::move(other._inline_buffer[i]));
+-            other._inline_buffer[i].~T();
++            new (&inline_buffer()[i]) T(std::move(other.inline_buffer()[i]));
++            other.inline_buffer()[i].~T();
+         }
+         _buffer = nullptr;
+     }
+@@ -194,8 +199,8 @@ vector<T, _inline_capacity, size_type> &vector<T, _inline_capacity, size_type>::
+             _capacity = other._capacity;
+         } else {
+             for (auto i = 0; i < other._size; ++i) {
+-                new (&_inline_buffer[i]) T(std::move(other._inline_buffer[i]));
+-                other._inline_buffer[i].~T();
++                new (&inline_buffer()[i]) T(std::move(other.inline_buffer()[i]));
++                other.inline_buffer()[i].~T();
+             }
+             _buffer = nullptr;
+             _size = other._size;
+@@ -212,7 +217,7 @@ template <typename T, unsigned int _inline_capacity, typename size_type>
+ void vector<T, _inline_capacity, size_type>::reserve_slow(size_type new_cap) {
+     size_type effective_new_cap = std::max(capacity() * 1.5, new_cap * 1.0);
+     _buffer = reinterpret_cast<T *>(details::realloc_vector<size_type, sizeof(T)>(
+-        (void *)_buffer, (void *)_inline_buffer, _inline_capacity, &_capacity, effective_new_cap));
++        (void *)_buffer, (void *)inline_buffer(), _inline_capacity, &_capacity, effective_new_cap));
+ }
+ 
+ template <typename T, unsigned int _inline_capacity, typename size_type>
+@@ -229,7 +234,7 @@ template <typename T, unsigned int _inline_capacity, typename size_type>
+ void vector<T, _inline_capacity, size_type>::shrink_to_fit() {
+     if (capacity() > _size) {
+         _buffer = reinterpret_cast<T *>(details::realloc_vector<size_type, sizeof(T)>(
+-            _buffer, _inline_buffer, _inline_capacity, &_capacity, _size));
++            _buffer, inline_buffer(), _inline_capacity, &_capacity, _size));
+     }
+ }
+ 
 diff --git a/Sources/ComputeCxx/include/ComputeCxx/IAGGraph.h b/Sources/ComputeCxx/include/ComputeCxx/IAGGraph.h
 index fdf4588..a2dc401 100644
 --- a/Sources/ComputeCxx/include/ComputeCxx/IAGGraph.h

@@ -284,11 +284,14 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     rects hung the app). Compute grew its data region by remapping it elsewhere, and values
     reached through pointers into the old mapping diverged (about 40 rows of buttons crashed);
     it now reserves 512 MB up front.
-  - Open (worked around): in SwiftUIGallery, a Button inside the ScrollViewReader's HStack
-    made the first render crash. `PlatformViewDisplayList<…_FinchTextField>`, inside
-    `_FinchStyledTextField`'s `if`, read a value whose pointer had tag bits in its high bits.
-    It depended on the rest of the gallery, and a small app with the same views was fine.
-    The styled text field now builds its branches as AnyView, which avoids it. Suspect:
-    Compute's handling of large values (more than half a 512-byte page get pages of their
-    own) in a conditional's storage.
+  - Fixed in Compute (userland/SwiftUI/patches/Compute): its small vector kept its inline
+    elements in an array of T, so destroying the vector ran ~T() on every inline slot again,
+    popped ones included. A popped `cf_ptr`'s nulling store is dead and gets dropped, so
+    `Subgraph::update`'s stack released a subgraph a second time: a dynamic container's item
+    subgraph was freed while the item held it, and its outputs were read afterwards (the
+    gallery's text field read garbage, or Compute stopped on "accessing attribute in a
+    different namespace"). The inline buffer is raw storage now. The zone allocator's
+    recycling was also wrong: it took only exact sizes (a reversed subtraction), and the
+    remainder after aligning a block's end could wrap around, writing a free-list header
+    over live bytes. The styled text field builds its branches as a conditional again.
   - Next: Table, ShareLink.

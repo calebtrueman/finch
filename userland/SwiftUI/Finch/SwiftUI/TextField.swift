@@ -96,11 +96,11 @@ struct _FinchStyledTextField<Label: View>: View {
 
     var body: some View {
         if let style = styles.last, style.border == nil {
-            return AnyView(style.body(TextField(model: model, label: _TextFieldStyleLabel()))
+            style.body(TextField(model: model, label: _TextFieldStyleLabel()))
                 .environment(\._finchTextFieldStyles, Array(styles.dropLast()))
-                .viewAlias(_TextFieldStyleLabel.self) { label })
+                .viewAlias(_TextFieldStyleLabel.self) { label }
         } else {
-            return AnyView(_FinchTextField(model: model, border: styles.last?.border ?? .square))
+            _FinchTextField(model: model, border: styles.last?.border ?? .square)
         }
     }
 }
