@@ -65,6 +65,8 @@ steps=(
     "libmd|oss libmd libmd"
     "OpenBSM|oss OpenBSM bsm.0"
     "ncurses|oss ncurses libncurses"
+    # its terminfo database, compiled from the same source
+    "terminfo|userland/terminfo/build.sh"
     "OpenPAM|oss OpenPAM OpenPAM"
     # (the other pam_modules need closed frameworks: OpenDirectory, Heimdal, LocalAuthentication)
     # ICU (libicucore + data), for CoreFoundation (docs/design/COREFOUNDATION.md)
@@ -90,6 +92,9 @@ steps=(
     "CoreText|userland/CoreText/build.sh"
     "WindowServer|userland/WindowServer/build.sh"
     "ImageIO|userland/ImageIO/build.sh"
+    # ColorSync (over skcms) and HIServices, which ApplicationServices re-exports
+    "ColorSync|userland/ColorSync/build.sh"
+    "HIServices|userland/HIServices/build.sh"
     # AppKit and the frameworks around it (docs/design/APPKIT.md)
     "ApplicationServices|userland/ApplicationServices/build.sh"
     "UIFoundation|userland/UIFoundation/build.sh"
@@ -97,6 +102,13 @@ steps=(
     "AppKit|userland/AppKit/build.sh"
     "RecapPerformanceTesting|userland/RecapPerformanceTesting/build.sh"
     "Cocoa|userland/Cocoa/build.sh"
+    # What Terminal links besides: Carbon (HIToolbox), audio, analytics, data detectors
+    "Carbon|userland/Carbon/build.sh"
+    "CoreAudio|userland/CoreAudio/build.sh"
+    "AudioToolbox|userland/AudioToolbox/build.sh"
+    "CoreAnalytics|userland/CoreAnalytics/build.sh"
+    "libScreenReader|userland/libScreenReader/build.sh"
+    "DataDetectorsCore|userland/DataDetectorsCore/build.sh"
     # Image Capture's frameworks: ImageCaptureCore, ICADevices, and Quartz with ImageKit
     # (docs/design/IMAGECAPTURE.md)
     "ImageCaptureCore|userland/ImageCaptureCore/build.sh"

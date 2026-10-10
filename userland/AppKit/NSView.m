@@ -1428,3 +1428,50 @@ FinchViewDrawTree(NSView *view, CGContextRef cg, NSRect rect, BOOL inViewSpace)
 }
 
 const CGFloat NSViewNoIntrinsicMetric = -1;
+
+#pragma mark - Drag types
+
+/* The pasteboard types a view (or window) accepts in a drag. Finch has no drag and drop
+   between views yet; the registration is kept for when it does, and for apps that read it. */
+static char dragged_types_key;
+
+@implementation NSView (FinchDraggedTypes)
+
+- (void)registerForDraggedTypes:(NSArray<NSPasteboardType> *)newTypes
+{
+    NSMutableArray *types = [NSMutableArray arrayWithArray:[self registeredDraggedTypes]];
+    for (NSPasteboardType t in newTypes)
+        if (![types containsObject:t])
+            [types addObject:t];
+    objc_setAssociatedObject(self, &dragged_types_key, types, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+- (void)unregisterDraggedTypes
+{
+    objc_setAssociatedObject(self, &dragged_types_key, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+- (NSArray<NSPasteboardType> *)registeredDraggedTypes
+{
+    return objc_getAssociatedObject(self, &dragged_types_key) ?: @[];
+}
+
+@end
+
+@implementation NSWindow (FinchDraggedTypes)
+
+- (void)registerForDraggedTypes:(NSArray<NSPasteboardType> *)newTypes
+{
+    NSMutableArray *types = [NSMutableArray arrayWithArray:objc_getAssociatedObject(self, &dragged_types_key) ?: @[]];
+    for (NSPasteboardType t in newTypes)
+        if (![types containsObject:t])
+            [types addObject:t];
+    objc_setAssociatedObject(self, &dragged_types_key, types, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+- (void)unregisterDraggedTypes
+{
+    objc_setAssociatedObject(self, &dragged_types_key, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+@end

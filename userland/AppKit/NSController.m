@@ -66,6 +66,21 @@ static int proxyContext;
 }
 @end
 
+static void
+watch(id obj, id observer, NSSet *paths, BOOL add)
+{
+    if (obj == [NSNull null])
+        return;
+    for (NSString *kp in paths)
+        @try {
+            if (add)
+                [obj addObserver:observer forKeyPath:kp options:NSKeyValueObservingOptionPrior context:&proxyContext];
+            else
+                [obj removeObserver:observer forKeyPath:kp context:&proxyContext];
+        } @catch (NSException *e) {
+        }
+}
+
 @implementation _FinchObservingProxySupport
 
 - (instancetype)init
@@ -78,12 +93,13 @@ static int proxyContext;
 
 - (void)_finchUnwatch
 {
+    NSHashTable *seen = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality |
+                                                          NSPointerFunctionsStrongMemory];
     for (id o in _watchedObjects)
-        for (NSString *kp in _watchedPaths)
-            @try {
-                [o removeObserver:self forKeyPath:kp context:&proxyContext];
-            } @catch (NSException *e) {
-            }
+        if (![seen containsObject:o]) {
+            [seen addObject:o];
+            watch(o, self, _watchedPaths, NO);
+        }
     [_watchedObjects release];
     _watchedObjects = nil;
     [_watchedPaths removeAllObjects];
@@ -97,24 +113,39 @@ static int proxyContext;
     [super dealloc];
 }
 
-/* Observe what the observers want on the objects behind the proxy now. */
+/* Observe what the observers want on the objects behind the proxy now: only the objects
+   that came or went, and the key paths added or dropped, change. A content array is
+   rewatched before and after every change and as each observer arrives; observing everything
+   again each time makes filling a controller with many objects quadratic in KVO work. */
 - (void)_finchRewatch:(NSArray *)objects
 {
-    [self _finchUnwatch];
     NSMutableSet *paths = [NSMutableSet set];
     for (_FinchProxyObservation *o in _observations)
         if (![o->_keyPath hasPrefix:@"@"])
             [paths addObject:o->_keyPath];
-    _watchedObjects = [objects copy];
-    for (id obj in _watchedObjects) {
-        if (obj == [NSNull null])
-            continue;
-        for (NSString *kp in paths)
-            @try {
-                [obj addObserver:self forKeyPath:kp options:NSKeyValueObservingOptionPrior context:&proxyContext];
-            } @catch (NSException *e) {
-            }
+    NSMutableSet *added = [[paths mutableCopy] autorelease], *dropped = [[_watchedPaths mutableCopy] autorelease];
+    [added minusSet:_watchedPaths];
+    [dropped minusSet:paths];
+    NSPointerFunctionsOptions identity = NSPointerFunctionsObjectPointerPersonality | NSPointerFunctionsStrongMemory;
+    NSHashTable *before = [NSHashTable hashTableWithOptions:identity], *after = [NSHashTable hashTableWithOptions:identity];
+    for (id obj in _watchedObjects)
+        [before addObject:obj];
+    for (id obj in objects)
+        [after addObject:obj];
+    for (id obj in before) {
+        if (![after containsObject:obj]) {
+            watch(obj, self, _watchedPaths, NO);
+        } else {
+            watch(obj, self, dropped, NO);
+            watch(obj, self, added, YES);
+        }
     }
+    for (id obj in after)
+        if (![before containsObject:obj])
+            watch(obj, self, paths, YES);
+    NSArray *copy = [objects copy];
+    [_watchedObjects release];
+    _watchedObjects = copy;
     [_watchedPaths setSet:paths];
 }
 

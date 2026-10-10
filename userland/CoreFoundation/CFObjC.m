@@ -396,6 +396,7 @@ __CFFinchInitializeObjC(void)
         __CFFinchInitializeSetClasses(void), __CFFinchInitializeDataClasses(void),
         __CFFinchInitializeDateClasses(void);
     extern void __CFFinchInstallExceptionHandler(void), __CFFinchInstallForwardHandler(void);
+    extern void __CFFinchStartStallSampler(void);
     set_class(_kCFRuntimeIDCFArray, __CFFinchInitializeArrayClasses());
     set_class(_kCFRuntimeIDCFDictionary, __CFFinchInitializeDictionaryClasses());
     set_class(_kCFRuntimeIDCFSet, __CFFinchInitializeSetClasses());
@@ -424,5 +425,6 @@ __CFFinchInitializeObjC(void)
     set_class(_kCFRuntimeIDCFWriteStream, output);
     __CFFinchInstallExceptionHandler();
     __CFFinchInstallForwardHandler();
+    __CFFinchStartStallSampler(); /* FINCH_SAMPLE_MAIN (CFStallSampler_Finch.c) */
     reparent_blocks();
 }

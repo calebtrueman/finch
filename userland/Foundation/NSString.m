@@ -666,6 +666,84 @@ transformed(NSString *self, void (*fn)(CFMutableStringRef, CFLocaleRef), CFLocal
     }
 }
 
+- (void)getCharacters:(unichar *)buffer
+{
+    [self getCharacters:buffer range:NSMakeRange(0, [self length])];
+}
+
+/* The pieces of a range, as Apple's gives them: each piece's range (a line or paragraph
+   without its terminator, a word, a sentence with the spaces after it, a composed
+   character) and its enclosing range (the terminator, or the gap to the next word, too).
+   The enclosing ranges cover the range. */
+- (void)enumerateSubstringsInRange:(NSRange)range options:(NSStringEnumerationOptions)opts
+                        usingBlock:(void (^)(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop))block
+{
+    NSUInteger kind = opts & 0xFF, end = NSMaxRange(range);
+    NSMutableArray *pieces = [NSMutableArray array]; /* pairs of NSValue ranges */
+    if (kind == NSStringEnumerationByLines || kind == NSStringEnumerationByParagraphs) {
+        NSUInteger at = range.location;
+        while (at < end) {
+            NSUInteger e, c;
+            if (kind == NSStringEnumerationByLines)
+                [self getLineStart:NULL end:&e contentsEnd:&c forRange:NSMakeRange(at, 0)];
+            else
+                [self getParagraphStart:NULL end:&e contentsEnd:&c forRange:NSMakeRange(at, 0)];
+            e = MIN(e, end), c = MIN(c, end);
+            [pieces addObject:@[ [NSValue valueWithRange:NSMakeRange(at, c - at)], [NSValue valueWithRange:NSMakeRange(at, e - at)] ]];
+            if (e <= at)
+                break;
+            at = e;
+        }
+    } else if (kind == NSStringEnumerationByWords || kind == NSStringEnumerationBySentences) {
+        CFLocaleRef locale = (opts & NSStringEnumerationLocalized) ? CFLocaleCopyCurrent() : NULL;
+        CFStringTokenizerRef t = CFStringTokenizerCreate(NULL, (CFStringRef)self, CFRangeMake((CFIndex)range.location, (CFIndex)range.length),
+                                                         kind == NSStringEnumerationByWords ? kCFStringTokenizerUnitWordBoundary
+                                                                                            : kCFStringTokenizerUnitSentence,
+                                                         locale);
+        if (locale)
+            CFRelease(locale);
+        NSMutableArray *found = [NSMutableArray array];
+        for (CFStringTokenizerTokenType type; (type = CFStringTokenizerAdvanceToNextToken(t)) != kCFStringTokenizerTokenNone;) {
+            CFRange r = CFStringTokenizerGetCurrentTokenRange(t);
+            NSRange token = NSMakeRange((NSUInteger)r.location, (NSUInteger)r.length);
+            if (kind == NSStringEnumerationByWords) {
+                /* word boundaries give the gaps too: a word has a letter, digit or symbol */
+                NSString *piece = [self substringWithRange:token];
+                if ([piece rangeOfCharacterFromSet:[NSCharacterSet alphanumericCharacterSet]].location == NSNotFound &&
+                    [piece rangeOfCharacterFromSet:[NSCharacterSet symbolCharacterSet]].location == NSNotFound)
+                    continue;
+            }
+            [found addObject:[NSValue valueWithRange:token]];
+        }
+        CFRelease(t);
+        for (NSUInteger i = 0; i < [found count]; i++) {
+            NSRange r = [[found objectAtIndex:i] rangeValue];
+            NSUInteger from = i == 0 ? range.location : r.location;
+            NSUInteger to = i + 1 < [found count] ? [[found objectAtIndex:i + 1] rangeValue].location : end;
+            [pieces addObject:@[ [NSValue valueWithRange:r], [NSValue valueWithRange:NSMakeRange(from, to - from)] ]];
+        }
+    } else {
+        NSUInteger at = range.location;
+        while (at < end) {
+            NSRange r = [self rangeOfComposedCharacterSequenceAtIndex:at];
+            r = NSIntersectionRange(r, NSMakeRange(at, end - at));
+            if (!r.length)
+                r.length = 1;
+            [pieces addObject:@[ [NSValue valueWithRange:r], [NSValue valueWithRange:r] ]];
+            at = NSMaxRange(r);
+        }
+    }
+    BOOL stop = NO;
+    NSEnumerator *e = (opts & NSStringEnumerationReverse) ? [pieces reverseObjectEnumerator] : [pieces objectEnumerator];
+    for (NSArray *pair in e) {
+        NSRange sub = [[pair objectAtIndex:0] rangeValue], enclosing = [[pair objectAtIndex:1] rangeValue];
+        NSString *str = (opts & NSStringEnumerationSubstringNotRequired) ? nil : [self substringWithRange:sub];
+        block(str, sub, enclosing, &stop);
+        if (stop)
+            break;
+    }
+}
+
 - (NSString *)decomposedStringWithCanonicalMapping { return [self _finchNormalized:kCFStringNormalizationFormD]; }
 - (NSString *)precomposedStringWithCanonicalMapping { return [self _finchNormalized:kCFStringNormalizationFormC]; }
 - (NSString *)decomposedStringWithCompatibilityMapping { return [self _finchNormalized:kCFStringNormalizationFormKD]; }
@@ -772,6 +850,21 @@ trimmed(NSString *s)
     NSString *rest = slash.location == NSNotFound ? @"" : [self substringFromIndex:slash.location];
     NSString *home = [user length] ? NSHomeDirectoryForUser(user) : NSHomeDirectory();
     return home ? [home stringByAppendingString:rest] : self;
+}
+
+/* The home folder at the start of a path written as "~", as Apple's: the path standardized
+   when it is under home, untouched otherwise. */
+- (NSString *)stringByAbbreviatingWithTildeInPath
+{
+    NSString *home = [NSHomeDirectory() stringByStandardizingPath];
+    if (![home length] || ![self hasPrefix:home])
+        return self;
+    NSString *s = [self stringByStandardizingPath];
+    if ([s isEqualToString:home])
+        return @"~";
+    if ([s hasPrefix:[home stringByAppendingString:@"/"]])
+        return [@"~" stringByAppendingString:[s substringFromIndex:[home length]]];
+    return self;
 }
 
 - (NSString *)stringByStandardizingPath

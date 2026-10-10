@@ -418,9 +418,8 @@ enumerate_snapshot(NSFastEnumerationState *state, id __unsafe_unretained buffer[
     if (state->state == 0) {
         NSMutableData *d = [NSMutableData data];
         for (id o in [snapshot() allObjects]) [d appendBytes:&o length:sizeof(o)];
-        state->extra[1] = (unsigned long)(uintptr_t)[d retain];
-        [d autorelease];
-        [(id)(uintptr_t)state->extra[1] release];
+        /* autoreleased: it lasts the enumeration, as the loop runs in this pool */
+        state->extra[1] = (unsigned long)(uintptr_t)d;
         state->mutationsPtr = &state->extra[0];
         state->state = 1;
         state->extra[2] = 0;

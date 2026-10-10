@@ -295,6 +295,53 @@ extern CFStringRef CFBundleCopyLocalizedStringForLocalization(CFBundleRef bundle
     return [(id)CFBundleCopyLocalizedString(_cf, (CFStringRef)key, (CFStringRef)value, (CFStringRef)tableName) autorelease];
 }
 
+/* Every string in a table for a localization (nil: the preferred one), as Apple's gives
+   them: a mutable dictionary, empty when there's no such table. The .strings file, with
+   its .stringsdict's entries over it; else the localization's part of a .loctable. */
+- (NSDictionary *)localizedStringsForTable:(NSString *)tableName localization:(NSString *)localization
+{
+    NSString *table = [tableName length] ? tableName : @"Localizable";
+    NSString *loc = localization ?: [[self preferredLocalizations] firstObject];
+    NSMutableDictionary *out = [NSMutableDictionary dictionary];
+    NSString *strings = [self pathForResource:table ofType:@"strings" inDirectory:nil forLocalization:loc];
+    NSString *dict = [self pathForResource:table ofType:@"stringsdict" inDirectory:nil forLocalization:loc];
+    for (NSString *path in @[strings ?: @"", dict ?: @""]) {
+        if (![path length])
+            continue;
+        NSData *data = [NSData dataWithContentsOfFile:path];
+        id plist = data ? [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:NULL] : nil;
+        if (!plist && data) {
+            /* a .strings file without braces: the old strings-file form */
+            NSString *text = [[[NSString alloc] initWithData:data encoding:NSUTF16StringEncoding] autorelease];
+            if (!text)
+                text = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
+            plist = [text propertyListFromStringsFileFormat];
+        }
+        if ([plist isKindOfClass:[NSDictionary class]])
+            [out addEntriesFromDictionary:plist];
+    }
+    if (!strings && !dict) {
+        NSString *path = [self pathForResource:table ofType:@"loctable"];
+        NSData *data = path ? [NSData dataWithContentsOfFile:path] : nil;
+        NSDictionary *all = data ? [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:NULL] : nil;
+        if ([all isKindOfClass:[NSDictionary class]]) {
+            NSString *pick = loc;
+            if (!localization || ![all objectForKey:pick]) {
+                NSMutableArray *locs = [NSMutableArray arrayWithArray:[all allKeys]];
+                [locs removeObject:@"LocProvenance"];
+                NSArray *preferred = localization ? [NSBundle preferredLocalizationsFromArray:locs forPreferences:@[localization]]
+                                                  : [NSBundle preferredLocalizationsFromArray:locs];
+                pick = localization && ![preferred containsObject:localization] && ![all objectForKey:localization] ? nil
+                                                                                                                  : [preferred firstObject];
+            }
+            NSDictionary *t = pick ? [all objectForKey:pick] : nil;
+            if ([t isKindOfClass:[NSDictionary class]])
+                [out addEntriesFromDictionary:t];
+        }
+    }
+    return out;
+}
+
 - (NSArray<NSString *> *)localizations { return [(id)CFBundleCopyBundleLocalizations(_cf) autorelease]; }
 - (NSArray<NSString *> *)preferredLocalizations
 {

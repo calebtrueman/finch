@@ -14,7 +14,7 @@
  *
  * An object is CF's when its class is the one CF's class table holds for
  * the type its CFRuntimeBase records (or, for strings, CFSTR's constant-string
- * class). Anything else, tagged pointers included, is Objective-C. Reading
+ * class, or the subclass key-value observing makes of either). Anything else, tagged pointers included, is Objective-C. Reading
  * _cfinfo from an ObjC object reads its first ivar (heap blocks are at least
  * 16 bytes); a wrong type ID read that way fails the class comparison.
  *
@@ -25,6 +25,7 @@
 #define CF_OBJC_DISPATCH_FINCH_H
 
 #include <objc/runtime.h>
+#include <string.h>
 #include "CFObjCMessages_Finch.h"
 
 extern int __CFConstantStringClassReference[];
@@ -32,12 +33,23 @@ extern id objc_retain(id);
 extern void objc_release(id);
 CF_EXPORT CFTypeID __CFGenericTypeID(const void *cf);
 
+/* Key-value observing gives an observed object a subclass of its class
+   (NSKVONotifying___NSCFDictionary, say); such an object is still CF's. */
+CF_INLINE Boolean
+__CFFinchIsKVOSubclassOf(Class cls, uintptr_t isa)
+{
+    Class super = class_getSuperclass(cls);
+    return super && (uintptr_t)super == isa && strncmp(class_getName(cls), "NSKVONotifying_", 15) == 0;
+}
+
 CF_INLINE Boolean
 __CFFinchIsCFClassForType(Class cls, CFTypeID typeID)
 {
     if (typeID >= __CFRuntimeClassTableSize) return false;
-    if ((uintptr_t)cls == __CFISAForTypeID(typeID)) return true;
-    return typeID == _kCFRuntimeIDCFString && cls == (Class)(void *)__CFConstantStringClassReference;
+    uintptr_t isa = __CFISAForTypeID(typeID);
+    if ((uintptr_t)cls == isa) return true;
+    if (typeID == _kCFRuntimeIDCFString && cls == (Class)(void *)__CFConstantStringClassReference) return true;
+    return isa && __CFFinchIsKVOSubclassOf(cls, isa);
 }
 
 /* arm64 tagged pointers have the top bit set (objc4's _objc_isTaggedPointer). */

@@ -404,8 +404,9 @@ NSAccessibilityEntryPointIsAttributeSupported(id element, NSAccessibilityAttribu
     return NO;
 }
 
-AK_EXPORT id
-NSAccessibilityEntryPointValueForAttribute(id element, NSAccessibilityAttributeName attribute)
+/* An attribute's value from the element's accessibility getter, or nil. */
+static id
+value_from_getter(id element, NSAccessibilityAttributeName attribute)
 {
     if ([attribute isEqualToString:NSAccessibilityPositionAttribute] && [element respondsToSelector:@selector(accessibilityFrame)])
         return [NSValue valueWithPoint:[element accessibilityFrame].origin];
@@ -439,9 +440,16 @@ NSAccessibilityEntryPointValueForAttribute(id element, NSAccessibilityAttributeN
         }
         return [NSValue valueWithBytes:buf objCType:t];
     }
-    if ([element respondsToSelector:@selector(accessibilityAttributeValue:)])
-        return [element accessibilityAttributeValue:attribute];
     return nil;
+}
+
+AK_EXPORT id
+NSAccessibilityEntryPointValueForAttribute(id element, NSAccessibilityAttributeName attribute)
+{
+    id v = value_from_getter(element, attribute);
+    if (!v && [element respondsToSelector:@selector(accessibilityAttributeValue:)])
+        return [element accessibilityAttributeValue:attribute];
+    return v;
 }
 
 static const struct {
@@ -504,6 +512,131 @@ NSAccessibilityEntryPointPerformAction(id element, NSAccessibilityActionName act
     }
     return NO;
 }
+
+#pragma mark - The informal protocol
+
+/* NSObject's side of the older, attribute-named accessibility protocol, in terms of the
+   accessibility properties: an attribute "AXName" is -accessibilityName (or
+   -isAccessibilityName), settable when -setAccessibilityName: exists. Values set with
+   accessibilitySetOverrideValue:forAttribute: come first, as Apple's do. */
+
+static char legacy_override_values_key;
+
+static NSString *const kLegacyAttributes[] = {
+    @"AXRole", @"AXSubrole", @"AXRoleDescription", @"AXTitle", @"AXValue", @"AXHelp", @"AXDescription",
+    @"AXEnabled", @"AXFocused", @"AXParent", @"AXChildren", @"AXSelectedChildren", @"AXVisibleChildren",
+    @"AXWindow", @"AXTopLevelUIElement", @"AXPosition", @"AXSize", @"AXOrientation", @"AXIdentifier",
+    @"AXSelected", @"AXExpanded", @"AXMinValue", @"AXMaxValue", @"AXPlaceholderValue", @"AXLabelValue",
+};
+
+@implementation NSObject (FinchAccessibilityInformalProtocol)
+
+- (BOOL)accessibilitySetOverrideValue:(id)value forAttribute:(NSAccessibilityAttributeName)attribute
+{
+    NSMutableDictionary *d = objc_getAssociatedObject(self, &legacy_override_values_key);
+    if (!d) {
+        d = [NSMutableDictionary dictionary];
+        objc_setAssociatedObject(self, &legacy_override_values_key, d, OBJC_ASSOCIATION_RETAIN);
+    }
+    if (value)
+        [d setObject:value forKey:attribute];
+    else
+        [d removeObjectForKey:attribute];
+    return YES;
+}
+
+- (NSArray<NSAccessibilityAttributeName> *)accessibilityAttributeNames
+{
+    NSMutableArray *names = [NSMutableArray array];
+    for (size_t i = 0; i < sizeof kLegacyAttributes / sizeof *kLegacyAttributes; i++)
+        if (getter_for_attribute(self, kLegacyAttributes[i]))
+            [names addObject:kLegacyAttributes[i]];
+    for (NSString *k in objc_getAssociatedObject(self, &legacy_override_values_key))
+        if (![names containsObject:k])
+            [names addObject:k];
+    return names;
+}
+
+- (id)accessibilityAttributeValue:(NSAccessibilityAttributeName)attribute
+{
+    id v = [objc_getAssociatedObject(self, &legacy_override_values_key) objectForKey:attribute];
+    return v ?: value_from_getter(self, attribute);
+}
+
+- (BOOL)accessibilityIsAttributeSettable:(NSAccessibilityAttributeName)attribute
+{
+    if (![attribute hasPrefix:@"AX"])
+        return NO;
+    return [self respondsToSelector:NSSelectorFromString([NSString stringWithFormat:@"setAccessibility%@:", [attribute substringFromIndex:2]])];
+}
+
+- (void)accessibilitySetValue:(id)value forAttribute:(NSAccessibilityAttributeName)attribute
+{
+    if (![self accessibilityIsAttributeSettable:attribute])
+        return;
+    @try {
+        [self setValue:value forKey:[@"accessibility" stringByAppendingString:[attribute substringFromIndex:2]]];
+    } @catch (NSException *e) {
+    }
+}
+
+- (NSArray<NSAccessibilityParameterizedAttributeName> *)accessibilityParameterizedAttributeNames { return @[]; }
+- (id)accessibilityAttributeValue:(NSAccessibilityParameterizedAttributeName)attribute forParameter:(id)parameter { return nil; }
+
+- (NSArray<NSAccessibilityActionName> *)accessibilityActionNames
+{
+    NSMutableArray *names = [NSMutableArray array];
+    for (size_t i = 0; i < sizeof actions / sizeof actions[0]; i++)
+        if (implements(self, sel_registerName(actions[i].selector)))
+            [names addObject:*actions[i].action];
+    return names;
+}
+
+- (NSString *)accessibilityActionDescription:(NSAccessibilityActionName)action
+{
+    return NSAccessibilityActionDescription(action);
+}
+
+- (void)accessibilityPerformAction:(NSAccessibilityActionName)action
+{
+    for (size_t i = 0; i < sizeof actions / sizeof actions[0]; i++) {
+        SEL sel = sel_registerName(actions[i].selector);
+        if ([action isEqualToString:*actions[i].action] && [self respondsToSelector:sel]) {
+            ((BOOL(*)(id, SEL))objc_msgSend)(self, sel);
+            return;
+        }
+    }
+}
+
+- (BOOL)accessibilityIsIgnored
+{
+    if ([self respondsToSelector:@selector(isAccessibilityElement)])
+        return !((BOOL(*)(id, SEL))objc_msgSend)(self, @selector(isAccessibilityElement));
+    return YES;
+}
+
+- (NSUInteger)accessibilityIndexOfChild:(id)child
+{
+    NSArray *children = [self accessibilityAttributeValue:NSAccessibilityChildrenAttribute];
+    return [children isKindOfClass:[NSArray class]] ? [children indexOfObject:child] : NSNotFound;
+}
+
+- (NSUInteger)accessibilityArrayAttributeCount:(NSAccessibilityAttributeName)attribute
+{
+    id v = [self accessibilityAttributeValue:attribute];
+    return [v isKindOfClass:[NSArray class]] ? [v count] : 0;
+}
+
+- (NSArray *)accessibilityArrayAttributeValues:(NSAccessibilityAttributeName)attribute index:(NSUInteger)index
+                                      maxCount:(NSUInteger)maxCount
+{
+    id v = [self accessibilityAttributeValue:attribute];
+    if (![v isKindOfClass:[NSArray class]] || index >= [v count])
+        return @[];
+    return [v subarrayWithRange:NSMakeRange(index, MIN(maxCount, [v count] - index))];
+}
+
+@end
 
 #pragma mark - Remote UI
 

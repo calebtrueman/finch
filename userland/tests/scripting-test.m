@@ -106,6 +106,13 @@ main(void)
         NSNetService *svc = [[NSNetService alloc] initWithDomain:@"local." type:@"_ssh._tcp." name:@"host" port:22];
         printf("service %s %s %s port %ld host %s\n", svc.name.UTF8String, svc.type.UTF8String, svc.domain.UTF8String, (long)svc.port,
                svc.hostName ? svc.hostName.UTF8String : "(none)");
+        printf("isEqualTo %d %d, lessThan %d %d, greater %d, contain %d %d\n", [@"a" isEqualTo:@"a"], [@1 isEqualTo:@2],
+               [@1 isLessThan:@2], [@"b" isLessThan:@"a"], [@3 isGreaterThanOrEqualTo:@3], [@[@1, @2] doesContain:@2],
+               [@"abc" doesContain:@"b"]);
+        printf("like %d %d %d %d %d, case %d\n", [@"hello.txt" isLike:@"*.txt"], [@"hello" isLike:@"h?llo"],
+               [@"hello" isLike:@"h*z"], [@"" isLike:@"*"], [@"abc" isLike:@"a**c"], [@"HeLLo" isCaseInsensitiveLike:@"hello"]);
+        printf("scripting begins %d ends %d contains %d\n", [@"hello" scriptingBeginsWith:@"he"], [@"hello" scriptingEndsWith:@"lo"],
+               [@"hello" scriptingContains:@"ell"]);
         show(@"error key", NSNetServicesErrorCode);
         show(@"error domain", NSNetServicesErrorDomain);
     }

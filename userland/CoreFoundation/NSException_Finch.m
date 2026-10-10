@@ -9,12 +9,16 @@
  * ("*** Terminating app due to uncaught exception ...") before abort().
  */
 #include "CFObjCClasses_Finch.h"
+#include <execinfo.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 extern void objc_exception_throw(id exception) __attribute__((noreturn));
 typedef void (*objc_uncaught_exception_handler)(id exception);
 extern objc_uncaught_exception_handler objc_setUncaughtExceptionHandler(objc_uncaught_exception_handler fn);
+typedef id (*objc_exception_preprocessor)(id exception);
+extern objc_exception_preprocessor objc_setExceptionPreprocessor(objc_exception_preprocessor fn);
 
 NSExceptionName const NSGenericException = (NSString *)CFSTR("NSGenericException");
 NSExceptionName const NSRangeException = (NSString *)CFSTR("NSRangeException");
@@ -91,8 +95,44 @@ create_reason(CFStringRef format, va_list args)
 - (NSString *)reason { return reason; }
 - (NSDictionary *)userInfo { return userInfo; }
 - (NSString *)description { return reason ? reason : name; }
-- (NSArray *)callStackReturnAddresses { return nil; }
-- (NSArray *)callStackSymbols { return nil; }
+/* The stack where the exception was first thrown (reserved holds the return addresses,
+   recorded by the throw preprocessor below), as Apple's records it. */
+- (NSArray *)callStackReturnAddresses { return [reserved isKindOfClass:[NSArray class]] ? reserved : nil; }
+
+- (NSArray *)callStackSymbols
+{
+    NSArray *addrs = [self callStackReturnAddresses];
+    NSUInteger n = [addrs count];
+    if (!n) return nil;
+    void **frames = malloc(sizeof(void *) * n);
+    for (NSUInteger i = 0; i < n; i++)
+        frames[i] = (void *)[[addrs objectAtIndex:i] unsignedLongValue];
+    char **syms = backtrace_symbols(frames, (int)n);
+    CFMutableArrayRef out = CFArrayCreateMutable(NULL, (CFIndex)n, &kCFTypeArrayCallBacks);
+    for (NSUInteger i = 0; syms && i < n; i++) {
+        CFStringRef str = CFStringCreateWithCString(NULL, syms[i], kCFStringEncodingUTF8);
+        if (str) {
+            CFArrayAppendValue(out, str);
+            CFRelease(str);
+        }
+    }
+    free(syms);
+    free(frames);
+    return [(NSArray *)out autorelease];
+}
+
+- (void)_finchRecordCallStack:(void *const *)frames count:(int)count
+{
+    if (reserved) return;
+    CFMutableArrayRef a = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+    for (int i = 0; i < count; i++) {
+        unsigned long v = (unsigned long)frames[i];
+        CFNumberRef num = CFNumberCreate(NULL, kCFNumberLongType, &v);
+        CFArrayAppendValue(a, num);
+        CFRelease(num);
+    }
+    reserved = (id)a;
+}
 - (id)copyWithZone:(struct _NSZone *)zone { return [self retain]; }
 
 - (BOOL)isEqual:(id)other
@@ -138,6 +178,20 @@ static NSUncaughtExceptionHandler *user_handler;
 CF_EXPORT NSUncaughtExceptionHandler *NSGetUncaughtExceptionHandler(void) { return user_handler; }
 CF_EXPORT void NSSetUncaughtExceptionHandler(NSUncaughtExceptionHandler *handler) { user_handler = handler; }
 
+/* Every throw: an NSException records where it was first thrown. */
+static id
+preprocess(id exception)
+{
+    if ([exception isKindOfClass:[NSException class]]) {
+        void *frames[128];
+        int n = backtrace(frames, 128);
+        /* leave out this function and objc_exception_throw */
+        int skip = n > 2 ? 2 : 0;
+        [(NSException *)exception _finchRecordCallStack:frames + skip count:n - skip];
+    }
+    return exception;
+}
+
 static void
 uncaught(id exception)
 {
@@ -148,6 +202,13 @@ uncaught(id exception)
         if ([e name]) CFStringGetCString((CFStringRef)[e name], n, sizeof(n), kCFStringEncodingUTF8);
         if ([e reason]) CFStringGetCString((CFStringRef)[e reason], r, sizeof(r), kCFStringEncodingUTF8);
         fprintf(stderr, "*** Terminating app due to uncaught exception '%s', reason: '%s'\n", n, r);
+        NSArray *stack = [e callStackSymbols];
+        if ([stack count]) {
+            fprintf(stderr, "*** First throw call stack:\n(\n");
+            for (NSString *line in stack)
+                fprintf(stderr, "\t%s\n", [line UTF8String]);
+            fprintf(stderr, ")\n");
+        }
     } else {
         fprintf(stderr, "*** Terminating app due to uncaught exception of class '%s'\n", object_getClassName(exception));
     }
@@ -157,4 +218,5 @@ CF_PRIVATE void
 __CFFinchInstallExceptionHandler(void)
 {
     objc_setUncaughtExceptionHandler(uncaught);
+    objc_setExceptionPreprocessor(preprocess);
 }

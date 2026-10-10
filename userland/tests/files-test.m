@@ -127,6 +127,35 @@ main(int argc, char **argv)
         printf("remove missing: %d ", [fm removeItemAtPath:[root stringByAppendingPathComponent:@"x"] error:&e]);
         err("error", e);
 
+        /* Bookmarks: made, resolved (also relative to a folder), their resource values */
+        {
+            NSString *target = [root stringByAppendingPathComponent:@"bookmarked.txt"];
+            [@"b" writeToFile:target atomically:NO encoding:NSUTF8StringEncoding error:NULL];
+            NSURL *u = [NSURL fileURLWithPath:target];
+            NSError *be = nil;
+            NSData *bm = [u bookmarkDataWithOptions:0 includingResourceValuesForKeys:@[ NSURLLocalizedNameKey ] relativeToURL:nil error:&be];
+            BOOL stale = YES;
+            NSURL *back = [NSURL URLByResolvingBookmarkData:bm options:NSURLBookmarkResolutionWithoutUI relativeToURL:nil
+                                        bookmarkDataIsStale:&stale error:&be];
+            printf("bookmark: made %d, resolves to %s, stale %d\n", bm != nil, [back.path.lastPathComponent UTF8String], stale);
+            NSDictionary *vals = [NSURL resourceValuesForKeys:@[ NSURLNameKey, NSURLLocalizedNameKey ] fromBookmarkData:bm];
+            printf("bookmark values: %s %s\n", [vals[NSURLNameKey] UTF8String], [vals[NSURLLocalizedNameKey] UTF8String]);
+            NSURL *base = [NSURL fileURLWithPath:root isDirectory:YES];
+            NSData *rel = [u bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:base error:&be];
+            back = [NSURL URLByResolvingBookmarkData:rel options:NSURLBookmarkResolutionWithoutUI relativeToURL:base
+                                 bookmarkDataIsStale:&stale error:&be];
+            printf("relative bookmark resolves to %s\n", [back.path.lastPathComponent UTF8String]);
+            be = nil;
+            NSData *none = [[NSURL fileURLWithPath:[root stringByAppendingPathComponent:@"nothing-here"]]
+                bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:&be];
+            printf("bookmark of a missing file: %d error %s %ld\n", none != nil, be.domain.UTF8String, (long)be.code);
+            [fm removeItemAtPath:target error:NULL];
+            be = nil;
+            back = [NSURL URLByResolvingBookmarkData:bm options:NSURLBookmarkResolutionWithoutUI relativeToURL:nil
+                                 bookmarkDataIsStale:&stale error:&be];
+            printf("bookmark of a removed file: %d error %s %ld\n", back != nil, be.domain.UTF8String, (long)be.code);
+        }
+
         /* Search paths */
         NSString *home = NSHomeDirectory();
         for (NSNumber *dir in @[ @(NSDocumentDirectory), @(NSLibraryDirectory), @(NSCachesDirectory), @(NSApplicationSupportDirectory), @(NSApplicationDirectory) ]) {
@@ -135,6 +164,11 @@ main(int argc, char **argv)
             for (NSString *p in paths) [shown addObject:[p hasPrefix:home] ? [@"~" stringByAppendingString:[p substringFromIndex:home.length]] : p];
             printf("search path %lu: %s\n", (unsigned long)dir.unsignedIntegerValue, [shown componentsJoinedByString:@" "].UTF8String);
         }
+        for (NSString *tail in @[ @"", @"/Docs/a.txt", @"x/y", @"/", @"//b/" ])
+            printf("abbreviated home%s: %s\n", tail.UTF8String,
+                   [[[home stringByAppendingString:tail] stringByAbbreviatingWithTildeInPath] stringByReplacingOccurrencesOfString:home withString:@"$HOME"].UTF8String);
+        printf("abbreviated /tmp/x: %s, ~/a: %s\n", [@"/tmp/x" stringByAbbreviatingWithTildeInPath].UTF8String,
+               [@"~/a" stringByAbbreviatingWithTildeInPath].UTF8String);
         printf("unexpanded: %s\n", [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, NO).firstObject UTF8String]);
         NSURL *caches = [fm URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject;
         printf("caches URL is directory: %d ends %s\n", caches.hasDirectoryPath, caches.lastPathComponent.UTF8String);

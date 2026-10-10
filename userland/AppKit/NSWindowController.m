@@ -89,14 +89,17 @@
 }
 
 - (NSNibName)windowNibName { return _nibName; }
+/* The nib's path, from -windowNibName (which subclasses override, as Apple's documents),
+   in the owner's bundle or else the main bundle. */
 - (NSString *)windowNibPath
 {
     if (_nibPath)
         return _nibPath;
-    if (!_nibName)
+    NSString *name = [self windowNibName];
+    if (!name)
         return nil;
-    NSBundle *b = [NSBundle bundleForClass:[_owner class]];
-    return [b pathForResource:_nibName ofType:@"nib"] ?: [[NSBundle mainBundle] pathForResource:_nibName ofType:@"nib"];
+    NSBundle *b = [NSBundle bundleForClass:[_owner ?: self class]];
+    return [b pathForResource:name ofType:@"nib"] ?: [[NSBundle mainBundle] pathForResource:name ofType:@"nib"];
 }
 - (id)owner { return _owner; }
 - (NSWindowFrameAutosaveName)windowFrameAutosaveName { return _autosaveName ?: @""; }
@@ -114,7 +117,7 @@
 - (NSStoryboard *)storyboard { return _storyboard; }
 
 /* As Apple's: with no nib to load, the window counts as loaded. */
-- (BOOL)isWindowLoaded { return _window != nil || (!_nibName && !_nibPath); }
+- (BOOL)isWindowLoaded { return _window != nil || (![self windowNibName] && !_nibPath); }
 
 - (NSWindow *)window
 {
@@ -159,14 +162,17 @@
     if (_window)
         return;
     NSString *path = [self windowNibPath];
-    NSNib *nib = path ? [[[NSNib alloc] initWithNibData:[NSData dataWithContentsOfFile:path] bundle:nil] autorelease]
-                      : nil;
+    if (path && ![path isAbsolutePath])
+        path = [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:path];
+    NSBundle *bundle = [NSBundle bundleForClass:[_owner ?: self class]];
+    /* a compiled nib is a file or a directory: NSNib reads either */
+    NSNib *nib = path ? [[[NSNib alloc] initWithNibNamed:path bundle:bundle] autorelease] : nil;
     if (!nib || ![nib instantiateWithOwner:_owner ?: self topLevelObjects:NULL]) {
-        NSLog(@"%@: unable to load nib file: %@", self, _nibName);
+        NSLog(@"%@: unable to load nib file: %@", self, [self windowNibName]);
         return;
     }
     if (!_window)
-        NSLog(@"%@: could not find window in nib %@ (is the window outlet connected?)", self, _nibName);
+        NSLog(@"%@: could not find window in nib %@ (is the window outlet connected?)", self, [self windowNibName]);
 }
 
 - (void)loadWindowIfNeeded

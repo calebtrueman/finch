@@ -35,7 +35,10 @@
     _cellSize = NSMakeSize(100, 15); _spacing = NSMakeSize(1, 1);
     _background = [[NSColor controlColor] retain]; _cellBackground = [[NSColor controlColor] retain];
     _toolTips = [[NSMapTable strongToStrongObjectsMapTable] retain];
-    [self renewRows:rows columns:columns]; return self;
+    [self renewRows:rows columns:columns];
+    /* as Apple's: a radio matrix starts with its first cell chosen */
+    if (_mode == NSRadioModeMatrix && !_allowsEmpty && [_cells count]) [self selectCellAtRow:0 column:0];
+    return self;
 }
 - (instancetype)initWithFrame:(NSRect)frame mode:(NSMatrixMode)mode prototype:(NSCell *)prototype numberOfRows:(NSInteger)rows numberOfColumns:(NSInteger)columns
 {
@@ -268,6 +271,7 @@
     _selected = row * _columns + column; _anchor = _selected; [_selection addIndex:_selected]; [cell setState:NSControlStateValueOn];
     [self setKeyCell:cell]; [self setNeedsDisplay:YES];
 }
+- (NSInteger)selectedTag { NSCell *cell = [self selectedCell]; return cell ? [cell tag] : -1; }
 - (BOOL)selectCellWithTag:(NSInteger)tag
 {
     NSCell *cell = [self cellWithTag:tag]; NSInteger row, column;
@@ -459,17 +463,44 @@
     }
 }
 - (BOOL)validateUserInterfaceItem:(id<NSValidatedUserInterfaceItem>)item { return [self isEnabled]; }
-+ (NSArray *)_finchBuiltinBindings { return [[super _finchBuiltinBindings] arrayByAddingObjectsFromArray:@[NSSelectedIndexBinding, NSSelectedTagBinding, NSSelectedObjectBinding]]; }
++ (NSArray *)_finchBuiltinBindings { return [[super _finchBuiltinBindings] arrayByAddingObjectsFromArray:@[NSSelectedIndexBinding, NSSelectedTagBinding, NSSelectedObjectBinding, NSSelectedValueBinding]]; }
+/* A selection binding's value picks the cell; no value or a marker (no selection, multiple
+   values) leaves the selection as it is, as Apple's does. */
 - (void)_finchBindingChanged:(_FinchBinding *)b
 {
-    if ([b->_name isEqual:NSSelectedTagBinding]) [self selectCellWithTag:[[b rawValue] integerValue]];
-    else if ([b->_name isEqual:NSSelectedIndexBinding] && _columns) { NSInteger i = [[b rawValue] integerValue]; [self selectCellAtRow:i / _columns column:i % _columns]; }
-    else [super _finchBindingChanged:b];
+    NSString *name = b->_name;
+    BOOL selection = [name isEqual:NSSelectedTagBinding] || [name isEqual:NSSelectedIndexBinding] ||
+                     [name isEqual:NSSelectedObjectBinding] || [name isEqual:NSSelectedValueBinding];
+    if (!selection) {
+        [super _finchBindingChanged:b];
+        return;
+    }
+    int kind;
+    id v = [b valueWithKind:&kind];
+    if (!v || NSIsControllerMarker(v))
+        return;
+    if ([name isEqual:NSSelectedTagBinding] && [v respondsToSelector:@selector(integerValue)]) {
+        [self selectCellWithTag:[v integerValue]];
+    } else if ([name isEqual:NSSelectedIndexBinding] && _columns && [v respondsToSelector:@selector(integerValue)]) {
+        NSInteger i = [v integerValue];
+        [self selectCellAtRow:i / _columns column:i % _columns];
+    } else {
+        for (NSCell *cell in _cells) {
+            id candidate = [name isEqual:NSSelectedObjectBinding] ? [cell representedObject] : [cell title];
+            if (candidate == v || [candidate isEqual:v]) {
+                NSInteger row, column;
+                [self getRow:&row column:&column ofCell:cell];
+                [self selectCellAtRow:row column:column];
+                break;
+            }
+        }
+    }
 }
 - (void)_finchWillSendAction
 {
     [super _finchWillSendAction]; FinchBindingPush(self, NSSelectedIndexBinding, @(_selected));
     FinchBindingPush(self, NSSelectedTagBinding, @([[self selectedCell] tag])); FinchBindingPush(self, NSSelectedObjectBinding, [[self selectedCell] representedObject]);
+    FinchBindingPush(self, NSSelectedValueBinding, [[self selectedCell] title]);
 }
 - (BOOL)isAccessibilityElement { return YES; }
 - (NSString *)accessibilityRole { return NSAccessibilityListRole; }

@@ -9,6 +9,7 @@
 #import "NSView_Finch.h"
 #import "FinchTheme.h"
 #import "NSControl_Finch.h"
+#import "NSKeyValueBinding_Finch.h"
 
 @implementation NSTabViewItem {
     id _identifier;
@@ -296,6 +297,51 @@
     [self setNeedsDisplay:YES];
     if ([(id)_delegate respondsToSelector:@selector(tabView:didSelectTabViewItem:)])
         [_delegate tabView:self didSelectTabViewItem:item];
+    /* the selection bindings take the new selection */
+    FinchBindingPush(self, NSSelectedIndexBinding, @([_items indexOfObject:item]));
+    FinchBindingPush(self, NSSelectedIdentifierBinding, [item identifier]);
+    FinchBindingPush(self, NSSelectedLabelBinding, [item label]);
+}
+
+#pragma mark Bindings
+
+/* As Apple's: selectedIndex, selectedIdentifier and selectedLabel pick the tab; no value
+   or a marker leaves the selection as it is. */
++ (NSArray *)_finchBuiltinBindings
+{
+    return [[super _finchBuiltinBindings]
+        arrayByAddingObjectsFromArray:@[NSSelectedIndexBinding, NSSelectedIdentifierBinding, NSSelectedLabelBinding]];
+}
+
+- (BOOL)_finchHandlesBinding:(NSString *)binding
+{
+    return [binding isEqual:NSSelectedIndexBinding] || [binding isEqual:NSSelectedIdentifierBinding] ||
+           [binding isEqual:NSSelectedLabelBinding] || [super _finchHandlesBinding:binding];
+}
+
+- (void)_finchBindingChanged:(_FinchBinding *)b
+{
+    NSString *name = b->_name;
+    if (![self _finchHandlesBinding:name] || ![name hasPrefix:@"selected"]) {
+        [super _finchBindingChanged:b];
+        return;
+    }
+    id v = [b valueWithKind:NULL];
+    if (!v || NSIsControllerMarker(v))
+        return;
+    if ([name isEqual:NSSelectedIndexBinding]) {
+        NSInteger i = [v respondsToSelector:@selector(integerValue)] ? [v integerValue] : -1;
+        if (i >= 0 && i < (NSInteger)[_items count])
+            [self selectTabViewItem:_items[(NSUInteger)i]];
+    } else if ([name isEqual:NSSelectedIdentifierBinding]) {
+        [self selectTabViewItemWithIdentifier:v];
+    } else {
+        for (NSTabViewItem *item in _items)
+            if ([[item label] isEqual:v]) {
+                [self selectTabViewItem:item];
+                break;
+            }
+    }
 }
 
 - (void)selectTabViewItemAtIndex:(NSInteger)index { [self selectTabViewItem:_items[(NSUInteger)index]]; }

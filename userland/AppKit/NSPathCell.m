@@ -56,7 +56,7 @@
     if ([o isKindOfClass:[NSURL class]] || !o) [self setURL:o];
     else if ([o isKindOfClass:[NSString class]]) {
         NSURL *URL = [NSURL URLWithString:o]; [self setURL:[[URL scheme] length] ? URL : [NSURL fileURLWithPath:o]];
-    } else [NSException raise:NSInvalidArgumentException format:@"A path needs a URL or string"];
+    } else [NSException raise:NSInvalidArgumentException format:@"%@ should be an NSString or NSURL when calling setObjectValue: for %@", o, [self class]];
 }
 - (void)setURL:(NSURL *)URL
 {

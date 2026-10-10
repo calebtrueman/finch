@@ -255,5 +255,21 @@ main(int argc, char **argv)
         caches();
         errors();
     }
+    /* fast enumeration of pointer collections, in a pool that drains */
+    @autoreleasepool {
+        NSHashTable *h = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality | NSPointerFunctionsStrongMemory];
+        NSMapTable *m = [NSMapTable strongToStrongObjectsMapTable];
+        for (int i = 0; i < 3; i++) {
+            [h addObject:@(i)];
+            [m setObject:@(i * 10) forKey:@(i)];
+        }
+        long sum = 0;
+        for (NSNumber *n in h)
+            sum += n.longValue;
+        for (NSNumber *k in m)
+            sum += [[m objectForKey:k] longValue];
+        printf("enumerated pointer collections: %ld\n", sum);
+    }
+    printf("pool drained\n");
     return 0;
 }

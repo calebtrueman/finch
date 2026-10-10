@@ -1291,3 +1291,119 @@ static NSScriptSuiteRegistry *shared_registry;
 #undef _classes
 #undef _commands
 #undef _suites
+
+#pragma mark - Comparison methods (NSScriptWhoseTests.h)
+
+static NSComparisonResult
+compare_objects(id a, id b, BOOL *ok)
+{
+    *ok = [a respondsToSelector:@selector(compare:)];
+    if (!*ok || !b)
+        return NSOrderedSame;
+    @try {
+        return ((NSComparisonResult(*)(id, SEL, id))objc_msgSend)(a, @selector(compare:), b);
+    } @catch (NSException *e) {
+        *ok = NO;
+        return NSOrderedSame;
+    }
+}
+
+/* '*' matches any run of characters and '?' any one, as Apple's isLike: does. */
+static BOOL
+like(NSString *s, NSString *pattern, BOOL caseInsensitive)
+{
+    if (caseInsensitive) {
+        s = [s lowercaseString];
+        pattern = [pattern lowercaseString];
+    }
+    NSUInteger n = [s length], m = [pattern length];
+    unichar *a = malloc(sizeof(unichar) * (n + 1)), *p = malloc(sizeof(unichar) * (m + 1));
+    [s getCharacters:a range:NSMakeRange(0, n)];
+    [pattern getCharacters:p range:NSMakeRange(0, m)];
+    NSUInteger i = 0, j = 0, star = NSNotFound, mark = 0;
+    BOOL result = YES;
+    while (i < n) {
+        if (j < m && (p[j] == '?' || p[j] == a[i])) {
+            i++, j++;
+        } else if (j < m && p[j] == '*') {
+            star = j++;
+            mark = i;
+        } else if (star != NSNotFound) {
+            j = star + 1;
+            i = ++mark;
+        } else {
+            result = NO;
+            break;
+        }
+    }
+    while (result && j < m && p[j] == '*')
+        j++;
+    result = result && j == m;
+    free(a);
+    free(p);
+    return result;
+}
+
+@implementation NSObject (NSComparisonMethods)
+- (BOOL)isEqualTo:(id)object { return [self isEqual:object]; }
+- (BOOL)isNotEqualTo:(id)object { return ![self isEqual:object]; }
+- (BOOL)isLessThanOrEqualTo:(id)object
+{
+    BOOL ok;
+    NSComparisonResult r = compare_objects(self, object, &ok);
+    return ok && r != NSOrderedDescending;
+}
+- (BOOL)isLessThan:(id)object
+{
+    BOOL ok;
+    NSComparisonResult r = compare_objects(self, object, &ok);
+    return ok && r == NSOrderedAscending;
+}
+- (BOOL)isGreaterThanOrEqualTo:(id)object
+{
+    BOOL ok;
+    NSComparisonResult r = compare_objects(self, object, &ok);
+    return ok && r != NSOrderedAscending;
+}
+- (BOOL)isGreaterThan:(id)object
+{
+    BOOL ok;
+    NSComparisonResult r = compare_objects(self, object, &ok);
+    return ok && r == NSOrderedDescending;
+}
+- (BOOL)doesContain:(id)object
+{
+    return [self isKindOfClass:[NSArray class]] ? [(NSArray *)self containsObject:object] : NO;
+}
+- (BOOL)isLike:(NSString *)object
+{
+    return [self isKindOfClass:[NSString class]] && [object isKindOfClass:[NSString class]] ? like((NSString *)self, object, NO) : NO;
+}
+- (BOOL)isCaseInsensitiveLike:(NSString *)object
+{
+    return [self isKindOfClass:[NSString class]] && [object isKindOfClass:[NSString class]] ? like((NSString *)self, object, YES)
+                                                                                            : NO;
+}
+@end
+
+@implementation NSObject (NSScriptingComparisonMethods)
+- (BOOL)scriptingIsEqualTo:(id)object { return [self isEqualTo:object]; }
+- (BOOL)scriptingIsLessThanOrEqualTo:(id)object { return [self isLessThanOrEqualTo:object]; }
+- (BOOL)scriptingIsLessThan:(id)object { return [self isLessThan:object]; }
+- (BOOL)scriptingIsGreaterThanOrEqualTo:(id)object { return [self isGreaterThanOrEqualTo:object]; }
+- (BOOL)scriptingIsGreaterThan:(id)object { return [self isGreaterThan:object]; }
+- (BOOL)scriptingBeginsWith:(id)object
+{
+    return [self isKindOfClass:[NSString class]] && [object isKindOfClass:[NSString class]] && [(NSString *)self hasPrefix:object];
+}
+- (BOOL)scriptingEndsWith:(id)object
+{
+    return [self isKindOfClass:[NSString class]] && [object isKindOfClass:[NSString class]] && [(NSString *)self hasSuffix:object];
+}
+- (BOOL)scriptingContains:(id)object
+{
+    if ([self isKindOfClass:[NSString class]] && [object isKindOfClass:[NSString class]])
+        return [(NSString *)self rangeOfString:object].location != NSNotFound;
+    return [self doesContain:object];
+}
+@end

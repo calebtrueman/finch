@@ -193,4 +193,22 @@
 - (BOOL)isAccessibilityElement { return NO; }
 - (NSString *)accessibilityRole { return NSAccessibilityUnknownRole; }
 - (NSString *)accessibilitySubrole { return nil; }
+
+/* A bound value shows as the path; anything else (the binding's placeholder for no value,
+   which nibs give as a string or attributed string) shows as the placeholder text, as
+   Apple's does. */
+- (void)_finchShowBoundValue:(id)value kind:(int)kind binding:(id)binding
+{
+    NSPathCell *cell = (NSPathCell *)[self cell];
+    if ([value isKindOfClass:[NSURL class]] || (kind == 0 && [value isKindOfClass:[NSString class]])) {
+        [self setObjectValue:value];
+        return;
+    }
+    [cell setURL:nil];
+    if ([value isKindOfClass:[NSAttributedString class]])
+        [cell setPlaceholderAttributedString:value];
+    else if ([value isKindOfClass:[NSString class]])
+        [cell setPlaceholderString:value];
+    [self setNeedsDisplay:YES];
+}
 @end

@@ -238,6 +238,32 @@ memory(void)
     printf("handler: %d version %.1f\n", NSGetUncaughtExceptionHandler() == uncaught_handler, NSFoundationVersionNumber);
 }
 
+/* -enumerateSubstringsInRange:options:usingBlock: by each unit, forwards and back */
+static void
+substrings(void)
+{
+    NSString *s = @"Hello, world. It's 3.5 o'clock!\nNext line  here.\r\nLast";
+    NSUInteger kinds[] = {NSStringEnumerationByLines, NSStringEnumerationByParagraphs, NSStringEnumerationByWords,
+                          NSStringEnumerationBySentences, NSStringEnumerationByComposedCharacterSequences | NSStringEnumerationReverse,
+                          NSStringEnumerationByWords | NSStringEnumerationReverse | NSStringEnumerationSubstringNotRequired};
+    for (size_t k = 0; k < sizeof kinds / sizeof *kinds; k++) {
+        printf("substrings %lx:", (unsigned long)kinds[k]);
+        __block int n = 0;
+        [s enumerateSubstringsInRange:NSMakeRange(2, s.length - 2) options:kinds[k]
+                           usingBlock:^(NSString *x, NSRange r, NSRange e, BOOL *stop) {
+                               printf(" [%s %lu,%lu/%lu,%lu]", x ? [[x stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"]
+                                                                      stringByReplacingOccurrencesOfString:@"\r" withString:@"\\r"].UTF8String : "-",
+                                      (unsigned long)r.location, (unsigned long)r.length, (unsigned long)e.location, (unsigned long)e.length);
+                               if (++n == 6)
+                                   *stop = YES;
+                           }];
+        printf("\n");
+    }
+    unichar b[5];
+    [@"abcde" getCharacters:b];
+    printf("getCharacters: %c%c\n", b[0], b[4]);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -248,6 +274,7 @@ main(int argc, char **argv)
         undo();
         queues();
         memory();
+        substrings();
     }
     return 0;
 }

@@ -49,6 +49,15 @@ flush(const char *label)
 }
 @end
 
+/* A controller naming its nib by overriding -windowNibName, found in the main bundle
+   (the tool's folder, where doc-test.nib is) */
+@interface NamedWC : NSWindowController
+@property (strong) NSView *marker;
+@end
+@implementation NamedWC
+- (NSNibName)windowNibName { return @"doc-test"; }
+@end
+
 @interface VC : NSViewController
 @end
 @implementation VC
@@ -103,6 +112,9 @@ controllers(NSString *dir)
     flush("load");
     printf("loaded %d title %s controller %d next responder is wc %d\n", wc.isWindowLoaded, w.title.UTF8String,
            w.windowController == wc, w.nextResponder == wc);
+    NamedWC *named = [[NamedWC alloc] initWithWindow:nil];
+    printf("named: loaded before %d, window %d, path ends %s\n", named.isWindowLoaded, named.window != nil,
+           named.windowNibPath.lastPathComponent.UTF8String);
     NSWindowController *plain = [[NSWindowController alloc] initWithWindow:nil];
     printf("plain window %p loaded %d\n", plain.window, plain.isWindowLoaded);
     NSWindow *w2 = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 10, 10) styleMask:0

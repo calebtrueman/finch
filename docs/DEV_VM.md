@@ -192,6 +192,21 @@ A crash that happens only in the VM may depend on what memory holds: try the hos
 `MallocPreScribble=1 MallocScribble=1`, which fills new and freed memory, before a
 long VM hunt.
 
+### A stalled app
+
+An app that hangs or spins shows nothing to `finch-app-test`. With `FINCH_SAMPLE_MAIN` set
+to the app's process name (or `*`), Finch's CoreFoundation samples its main thread from
+inside the process, which needs no debugger rights (Apple's apps grant none, and the VM
+ignores `DYLD_*` variables): after `FINCH_SAMPLE_DELAY` seconds (10), `FINCH_SAMPLE_COUNT`
+times (3), `FINCH_SAMPLE_INTERVAL` seconds apart (2), it prints the stack as `sample:` lines.
+
+```sh
+tools/vm/with-vm-lock.sh expect tools/vm/smoke.exp \
+  "FINCH_SAMPLE_MAIN=Terminal FINCH_SAMPLE_DELAY=30 finch-app-test /usr/libexec/finch-windowserver /Applications/Terminal.app/Contents/MacOS/Terminal wait:40000 output"
+```
+
+An uncaught exception prints its first throw call stack, as on macOS.
+
 ## Console output
 The serial console drops bytes 0x80–0x9F, so 4-byte UTF-8 characters (emoji)
 look garbled in `smoke.exp` logs, though the program wrote the right bytes.
