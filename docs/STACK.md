@@ -14,7 +14,7 @@ built by Finch. Finch's CoreGraphics has begun, over Skia
 clips, shadows and transparency layers as Apple's do, PDF contexts write
 through Skia's PDF backend, and Finch's own parser reads and draws PDF. Finch's ImageIO reads
 PNG, JPEG, GIF, BMP, ICO and WebP and writes PNG and JPEG over the open
-codecs Skia builds, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does,
+codecs Skia builds, and reads and writes TIFF with its own codec, returning the CGImages and properties Apple's does. CoreText lays out text with HarfBuzz, FreeType and ICU, as Apple's does,
 in open fonts Finch ships in place of Apple's (Inter for the system
 font, Open Runde for rounded text, Fragment Mono for SF Mono, XCharter for
 Charter, and TeX Gyre Pagella for Palatino). Liberation stays for Helvetica,
@@ -38,7 +38,9 @@ Combine is open code (OpenCombine with Finch's additions) built to Apple's ABI
 modules, on Compute's attribute graph and the Swift runtime's Observation (apps'
 `@Observable` types work with it); an unmodified SwiftUI app built with Xcode draws
 its window on Finch's frameworks (`docs/design/SWIFTUI.md`); the frameworks it links that Apple keeps closed are Finch's own:
-CoreVideo's display link, Accessibility, CoreTransferable and DeveloperToolsSupport. Foundation carries the URL loading system that Apple keeps in
+CoreVideo's display link, Accessibility, CoreTransferable and DeveloperToolsSupport. Terminal's need brought
+CoreAudio (no devices until there's an audio driver), AudioToolbox's system sounds, Carbon with HIToolbox's
+Carbon events and key translation, CoreAnalytics (which collects nothing) and libScreenReader. Foundation carries the URL loading system that Apple keeps in
 the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
 
@@ -82,7 +84,7 @@ block-beta
         t6["App frameworks"]
         appkit["AppKit<br/>apps, windows, views, events,<br/>title bars, nib-loaded toolbars,<br/>drawing, nibs, storyboards,<br/>Auto Layout, stack views, text views and<br/>scrolling, tables, outlines and<br/>collection views, menus and a menu bar,<br/>alerts, sheets, open and save panels,<br/>NSWorkspace (on the window server);<br/>Cocoa bindings and controllers,<br/>font and color panels, search/token/date controls,<br/>grids, popovers, drawers and rule editors;<br/>rulers, the find bar, text tables;<br/>animation groups and Touch Bar state;<br/>Fieldwork theme (Classic for Aqua compatibility);<br/>UIFoundation: fonts, string drawing,<br/>TextKit 1 and 2; Cocoa and<br/>ApplicationServices umbrellas"]
         cg["CoreGraphics<br/>bitmap contexts, paths, images,<br/>gradients, patterns, fonts, text,<br/>shadows (over Skia, skcms);<br/>PDF writing (SkPDF), PDF reading<br/>and drawing (own parser);<br/>window server client, displays"]
-        imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia)"]
+        imageio["ImageIO<br/>image sources, thumbnails,<br/>destinations, property keys<br/>(libpng, libjpeg-turbo, libwebp,<br/>wuffs, via Skia); TIFF (own codec)"]
         space6[" "]
         ctio["CoreText<br/>fonts, shaping, lines, frames<br/>(HarfBuzz, FreeType, ICU)"]
         quartzcore["QuartzCore<br/>layers drawn through CoreGraphics,<br/>animation objects, transactions;<br/>animation playback still to come"]
@@ -91,7 +93,7 @@ block-beta
         coreservices["CoreServices<br/>app lookup and launch,<br/>local Apple events, files"]
         later["Metal, AV"]
         coreui["CoreUI<br/>compiled asset catalogs,<br/>named images and colors"]
-        appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport"]
+        appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport; CoreAudio,<br/>AudioToolbox (system sounds),<br/>Carbon/HIToolbox (events, keys),<br/>CoreAnalytics, libScreenReader"]
         swiftui["SwiftUI, SwiftUICore<br/>(OpenSwiftUI on Compute's<br/>attribute graph; first app draws)"]
     end
     block:L5
