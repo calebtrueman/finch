@@ -257,4 +257,7 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     row height, `scrollContentBackground`, `menuIndicator`. Row and section separators and
     `textSelection` change nothing yet: macOS lists draw no separators, and Finch's text
     can't be selected.
-  - Next: ScrollViewReader, DragGesture and commands.
+  - DragGesture: built from upstream's gesture parts (a spatial event listener in a
+    coordinate space, under a gesture state that tracks the start, distance and velocity).
+    finch-app-test has a `drag:` step.
+  - Next: ScrollViewReader (needs views' frames by identity), long presses, commands.

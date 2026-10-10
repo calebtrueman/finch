@@ -19,6 +19,7 @@ struct SwiftUIGalleryApp: App {
 }
 
 struct Gallery: View {
+    @State private var drag = CGSize.zero
     @State private var on = true
     @State private var level = 0.4
     @State private var name = "Finch"
@@ -69,6 +70,10 @@ struct Gallery: View {
                 LazyHStack(spacing: 6) {
                     ForEach(["Lazy", "stack", "of", "words"], id: \.self) { Text($0) }
                 }
+                Circle().fill(.pink).frame(width: 20, height: 20)
+                    .offset(drag)
+                    .gesture(DragGesture().onChanged { drag = $0.translation })
+                Text("drag \(Int(drag.width)),\(Int(drag.height))")
             }
             HStack {
                 Text("Styled").foregroundStyle(.purple).italic()
