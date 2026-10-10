@@ -41,7 +41,10 @@ its window on Finch's frameworks (`docs/design/SWIFTUI.md`); the frameworks it l
 CoreVideo's display link, Accessibility, CoreTransferable and DeveloperToolsSupport. Terminal's need brought
 CoreAudio (no devices until there's an audio driver), AudioToolbox's system sounds, Carbon with HIToolbox's
 Carbon events and key translation, CoreAnalytics (which collects nothing), libScreenReader and
-ColorSync (ICC profiles, Apple's named ones written by Finch, and transforms over skcms). Foundation carries the URL loading system that Apple keeps in
+ColorSync (ICC profiles, Apple's named ones written by Finch, and transforms over skcms),
+HIServices (the accessibility client API, which reports no trust until Finch has an
+accessibility server, Universal Access settings and the Process Manager) and
+DataDetectorsCore (links, addresses, phone numbers and IP addresses found in text). Foundation carries the URL loading system that Apple keeps in
 the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
 
@@ -94,7 +97,7 @@ block-beta
         coreservices["CoreServices<br/>app lookup and launch,<br/>local Apple events, files"]
         later["Metal, AV"]
         coreui["CoreUI<br/>compiled asset catalogs,<br/>named images and colors"]
-        appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport; CoreAudio,<br/>AudioToolbox (system sounds),<br/>Carbon/HIToolbox (events, keys),<br/>CoreAnalytics, libScreenReader;<br/>ColorSync (profiles, transforms)"]
+        appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport; CoreAudio,<br/>AudioToolbox (system sounds),<br/>Carbon/HIToolbox (events, keys),<br/>CoreAnalytics, libScreenReader;<br/>ColorSync (profiles, transforms);<br/>HIServices (AX client, Process Manager),<br/>DataDetectorsCore (links in text)"]
         swiftui["SwiftUI, SwiftUICore<br/>(OpenSwiftUI on Compute's<br/>attribute graph; first app draws)"]
     end
     block:L5
@@ -227,6 +230,7 @@ flowchart LR
     ctfw["CoreText"]:::finch
     imageio["ImageIO"]:::finch
     colorsync["ColorSync"]:::finch
+    hiservices["HIServices"]:::finch
     coreui["CoreUI"]:::finch
     coreservices["CoreServices"]:::finch
     uti["UniformTypeIdentifiers"]:::finch
@@ -292,6 +296,8 @@ flowchart LR
     appservices -->|"re-exports"| ctfw
     appservices -->|"re-exports"| imageio
     appservices -->|"re-exports"| colorsync
+    appservices -->|"re-exports"| hiservices
+    hiservices --> cf
     colorsync --> cf
     colorsync --> skialib
     quartz -->|"re-exports"| qc

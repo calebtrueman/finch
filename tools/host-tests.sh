@@ -20,14 +20,15 @@ B=build/userland
 R=build/root/System/Library
 # (frameworks nested in umbrellas are found by their own name, so their folders are listed too)
 FW="${FINCH_TRIAL:+${FINCH_TRIAL}:}${R}/Frameworks:${R}/PrivateFrameworks:${R}/Frameworks/Quartz.framework/Frameworks"
-FW="${FW}:${R}/Frameworks/CoreServices.framework/Versions/A/Frameworks"
+FW="${FW}:${R}/Frameworks/CoreServices.framework/Versions/A/Frameworks:${R}/Frameworks/ApplicationServices.framework/Versions/A/Frameworks"
+FW="${FW}:${R}/Frameworks/Carbon.framework/Versions/A/Frameworks"
 SERVER=build/root/usr/libexec/finch-windowserver
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
 # name|arguments: comparison tests (arguments are relative to the repo root)
 COMPARE=(
-    "cf-test|" "foundation-test|" "intl-test|" "misc-test|" "data-test|" "collections-test|" "kvc-test|" "typedstream-test|" "tiff-test|" "colorsync-test|"
+    "cf-test|" "foundation-test|" "intl-test|" "misc-test|" "data-test|" "collections-test|" "kvc-test|" "typedstream-test|" "tiff-test|" "colorsync-test|" "hiservices-test|"
     "archive-test|" "predicate-test|" "measurement-test|" "bridge-test|" "streams-test|" "documents-test|"
     "files-test|" "xmlparser-test|" "cfnotify-test|" "l10n-test|" "uti-test|" "cg-test|" "imageio-test|"
     "ct-test|" "quartzcore-test|" "calayer-test|" "uifoundation-test|" "appkit-core-test|" "appkit-draw-test|"
