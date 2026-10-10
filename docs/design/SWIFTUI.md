@@ -231,5 +231,15 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     window's title.
   - A rounded rectangle's hit test is geometric (OpenRenderBox's path storage can't take
     elements yet).
-  - Next: NavigationStack and NavigationSplitView, then `onSubmit`, ScrollViewReader,
-    lazy stacks and grids, gradients and DragGesture.
+  - NavigationStack (its own path, a NavigationPath binding or a collection binding),
+    NavigationLink (by value or by view; the old isActive and tag forms), the
+    `navigationDestination` forms, NavigationSplitView (sidebar, content, detail; column
+    widths; visibility) and NavigationView. A stack shows its root or its top page with a
+    back button in the toolbar. The pages under it stay alive but covered, so they keep their
+    state, and only the top page's title and toolbar items reach the window. Links in a split
+    view's sidebar replace the detail column's pages. `SwiftUINavigation` tests them.
+  - AppKit controls in SwiftUI views (buttons' press trackers, sliders) keep the mouse
+    after a container's SwiftUI gesture takes the mouse-down (NSWindow `_latchView`), as an
+    inner control wins over its container's gestures.
+  - Next: `onSubmit`, ScrollViewReader, lazy stacks and grids, gradients, DragGesture and
+    commands.

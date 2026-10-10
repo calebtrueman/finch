@@ -1984,11 +1984,17 @@ static const void *kIdentifier = &kIdentifier, *kRestoration = &kRestoration;
     return [self respondsToSelector:a];
 }
 - (BOOL)_finchHasCloseTarget { return NO; }
-/* Private, as Apple's: a left mouse-down's drags and up go to this view from now on. */
+/* Private, as Apple's: a left mouse-down's drags and up go to this view from now on. A view
+ * inside it that took the mouse-down itself (an AppKit control in a SwiftUI view) keeps them,
+ * as an inner control wins over its container's gestures; the container's recognizers still
+ * see them on their way. */
 - (void)_latchView:(NSView *)view forEvent:(NSEvent *)event
 {
-    if ([event type] == NSEventTypeLeftMouseDown && _mouseDownView)
-        _mouseDownView = view;
+    if ([event type] != NSEventTypeLeftMouseDown || !_mouseDownView)
+        return;
+    if (_mouseDownView != view && [_mouseDownView isDescendantOf:view])
+        return;
+    _mouseDownView = view;
 }
 
 @end

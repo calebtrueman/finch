@@ -522,11 +522,13 @@ struct _FinchToolbarHost: NSViewRepresentable {
         let items = items
         let environment = context.environment
         let coordinator = context.coordinator
+        // a covered page's items aren't the window's
+        let covered = environment._finchNavigationCovered
         view.update = { [weak view] in
             guard let window = view?.window else { return }
             let toolbar = _FinchWindowToolbar.of(window)
             coordinator.toolbar = toolbar
-            toolbar.set(items(), for: ObjectIdentifier(coordinator), environment: environment)
+            toolbar.set(covered ? [] : items(), for: ObjectIdentifier(coordinator), environment: environment)
         }
         view.update?()
     }
@@ -567,13 +569,15 @@ struct _FinchWindowTitle: NSViewRepresentable {
         }
 
         func apply() {
-            if let window, window.title != title { window.title = title }
+            if let window, !title.isEmpty, window.title != title { window.title = title }
         }
     }
 
     func makeNSView(context: Context) -> TitleView { TitleView() }
 
     func updateNSView(_ view: TitleView, context: Context) {
+        // a covered page's title isn't the window's
+        guard !context.environment._finchNavigationCovered else { return }
         view.title = title._resolveText(in: context.environment)
         view.apply()
         // and once the window has its scene's title, which it gets after its content
