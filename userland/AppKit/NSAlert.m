@@ -431,3 +431,120 @@ button_width(NSButton *b)
 }
 
 @end
+
+#pragma mark - The old alert functions
+
+/* An alert as the NS*AlertPanel / NS*AlertSheet functions make one: Apple's button
+   order and the old return codes (NSAlertDefaultReturn, ...Alternate, ...Other). */
+static NSAlert *
+legacy_alert(NSAlertStyle style, NSString *title, NSString *defaultButton, NSString *alternateButton,
+             NSString *otherButton, NSString *format, va_list ap)
+{
+    NSAlert *a = [NSAlert alertWithMessageText:title ?: @"" defaultButton:defaultButton alternateButton:alternateButton
+                                   otherButton:otherButton informativeTextWithFormat:@"%@", @""];
+    if (format) {
+        NSString *s = [[NSString alloc] initWithFormat:format arguments:ap];
+        [a setInformativeText:s];
+        [s release];
+    }
+    [a setAlertStyle:style];
+    return a;
+}
+
+static NSInteger
+run_panel(NSAlertStyle style, NSString *title, NSString *msgFormat, NSString *defaultButton, NSString *alternateButton,
+          NSString *otherButton, va_list ap)
+{
+    NSAlert *a = legacy_alert(style, title, defaultButton, alternateButton, otherButton, msgFormat, ap);
+    return [a runModal];
+}
+
+NSInteger
+NSRunAlertPanel(NSString *title, NSString *msgFormat, NSString *defaultButton, NSString *alternateButton,
+                NSString *otherButton, ...)
+{
+    va_list ap;
+    va_start(ap, otherButton);
+    NSInteger r = run_panel(NSAlertStyleWarning, title, msgFormat, defaultButton, alternateButton, otherButton, ap);
+    va_end(ap);
+    return r;
+}
+
+NSInteger
+NSRunInformationalAlertPanel(NSString *title, NSString *msgFormat, NSString *defaultButton,
+                             NSString *alternateButton, NSString *otherButton, ...)
+{
+    va_list ap;
+    va_start(ap, otherButton);
+    NSInteger r = run_panel(NSAlertStyleInformational, title, msgFormat, defaultButton, alternateButton, otherButton, ap);
+    va_end(ap);
+    return r;
+}
+
+NSInteger
+NSRunCriticalAlertPanel(NSString *title, NSString *msgFormat, NSString *defaultButton, NSString *alternateButton,
+                        NSString *otherButton, ...)
+{
+    va_list ap;
+    va_start(ap, otherButton);
+    NSInteger r = run_panel(NSAlertStyleCritical, title, msgFormat, defaultButton, alternateButton, otherButton, ap);
+    va_end(ap);
+    return r;
+}
+
+/* The sheet versions: the delegate's didEnd and didDismiss selectors are called as
+   - (void)sheetDidEnd:(NSWindow *)sheet returnCode:(NSInteger)code contextInfo:(void *)info. */
+static void
+begin_sheet(NSAlertStyle style, NSString *title, NSString *defaultButton, NSString *alternateButton,
+            NSString *otherButton, NSWindow *docWindow, id modalDelegate, SEL didEndSelector, SEL didDismissSelector,
+            void *contextInfo, NSString *msgFormat, va_list ap)
+{
+    NSAlert *a = legacy_alert(style, title, defaultButton, alternateButton, otherButton, msgFormat, ap);
+    NSWindow *sheet = [a window];
+    [a beginSheetModalForWindow:docWindow
+              completionHandler:^(NSModalResponse r) {
+                  if (modalDelegate && didEndSelector)
+                      ((void (*)(id, SEL, NSWindow *, NSInteger, void *))objc_msgSend)(modalDelegate, didEndSelector,
+                                                                                       sheet, r, contextInfo);
+                  [sheet orderOut:nil];
+                  if (modalDelegate && didDismissSelector)
+                      ((void (*)(id, SEL, NSWindow *, NSInteger, void *))objc_msgSend)(modalDelegate, didDismissSelector,
+                                                                                       sheet, r, contextInfo);
+              }];
+}
+
+void
+NSBeginAlertSheet(NSString *title, NSString *defaultButton, NSString *alternateButton, NSString *otherButton,
+                  NSWindow *docWindow, id modalDelegate, SEL didEndSelector, SEL didDismissSelector, void *contextInfo,
+                  NSString *msgFormat, ...)
+{
+    va_list ap;
+    va_start(ap, msgFormat);
+    begin_sheet(NSAlertStyleWarning, title, defaultButton, alternateButton, otherButton, docWindow, modalDelegate,
+                didEndSelector, didDismissSelector, contextInfo, msgFormat, ap);
+    va_end(ap);
+}
+
+void
+NSBeginInformationalAlertSheet(NSString *title, NSString *defaultButton, NSString *alternateButton,
+                               NSString *otherButton, NSWindow *docWindow, id modalDelegate, SEL didEndSelector,
+                               SEL didDismissSelector, void *contextInfo, NSString *msgFormat, ...)
+{
+    va_list ap;
+    va_start(ap, msgFormat);
+    begin_sheet(NSAlertStyleInformational, title, defaultButton, alternateButton, otherButton, docWindow, modalDelegate,
+                didEndSelector, didDismissSelector, contextInfo, msgFormat, ap);
+    va_end(ap);
+}
+
+void
+NSBeginCriticalAlertSheet(NSString *title, NSString *defaultButton, NSString *alternateButton, NSString *otherButton,
+                          NSWindow *docWindow, id modalDelegate, SEL didEndSelector, SEL didDismissSelector,
+                          void *contextInfo, NSString *msgFormat, ...)
+{
+    va_list ap;
+    va_start(ap, msgFormat);
+    begin_sheet(NSAlertStyleCritical, title, defaultButton, alternateButton, otherButton, docWindow, modalDelegate,
+                didEndSelector, didDismissSelector, contextInfo, msgFormat, ap);
+    va_end(ap);
+}

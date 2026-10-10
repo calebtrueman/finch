@@ -131,6 +131,7 @@ CGContextCreateBase(int type, size_t width, size_t height)
     g.interpolation = kCGInterpolationDefault;
     g.antialias = g.allows_antialias = true;
     g.smooth_fonts = g.allows_smoothing = g.subpixel_position = g.allows_subpixel_position = true;
+    g.font_smoothing_style = 48;
     g.subpixel_quantize = g.allows_subpixel_quantize = true;
     g.intent = kCGRenderingIntentDefault;
     g.clip = CGRectMake(0, 0, width, height);

@@ -14,6 +14,12 @@ NSPasteboardName NSPasteboardNameFont = @"Apple CFPasteboard font";
 NSPasteboardName NSPasteboardNameRuler = @"Apple CFPasteboard ruler";
 NSPasteboardName NSPasteboardNameFind = @"Apple CFPasteboard find";
 NSPasteboardName NSPasteboardNameDrag = @"Apple CFPasteboard drag";
+/* the names' old spellings */
+NSPasteboardName NSGeneralPboard = @"Apple CFPasteboard general";
+NSPasteboardName NSFontPboard = @"Apple CFPasteboard font";
+NSPasteboardName NSRulerPboard = @"Apple CFPasteboard ruler";
+NSPasteboardName NSFindPboard = @"Apple CFPasteboard find";
+NSPasteboardName NSDragPboard = @"Apple CFPasteboard drag";
 
 NSPasteboardType const NSPasteboardTypeString = @"public.utf8-plain-text";
 NSPasteboardType const NSPasteboardTypePDF = @"com.adobe.pdf";

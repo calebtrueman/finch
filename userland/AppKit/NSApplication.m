@@ -17,6 +17,7 @@ id NSApp = nil;
 NSNotificationName NSApplicationDidBecomeActiveNotification = @"NSApplicationDidBecomeActiveNotification";
 NSNotificationName NSApplicationDidHideNotification = @"NSApplicationDidHideNotification";
 NSNotificationName NSApplicationDidFinishLaunchingNotification = @"NSApplicationDidFinishLaunchingNotification";
+NSNotificationName const NSApplicationDidFinishRestoringWindowsNotification = @"NSApplicationDidFinishRestoringWindowsNotification";
 NSNotificationName NSApplicationDidResignActiveNotification = @"NSApplicationDidResignActiveNotification";
 NSNotificationName NSApplicationDidUnhideNotification = @"NSApplicationDidUnhideNotification";
 NSNotificationName NSApplicationDidUpdateNotification = @"NSApplicationDidUpdateNotification";
@@ -471,6 +472,8 @@ take_matching(NSEventMask mask, BOOL dequeue)
     if (_policy == NSApplicationActivationPolicyRegular)
         [self activateIgnoringOtherApps:YES];
     FinchMenuBarDidLaunch();  /* the menu bar shows from now on (FinchMenuWindow.m) */
+    /* windows would be restored here; none are kept between launches yet */
+    [nc postNotificationName:NSApplicationDidFinishRestoringWindowsNotification object:self];
     [nc postNotificationName:NSApplicationDidFinishLaunchingNotification
                       object:self
                     userInfo:@{NSApplicationLaunchIsDefaultLaunchKey : @YES}];

@@ -73,6 +73,7 @@ NSImageName const NSImageNameStopProgressFreestandingTemplate = @"NSStopProgress
 NSImageName const NSImageNameStopProgressTemplate = @"NSStopProgressTemplate";
 NSImageName const NSImageNameTouchBarAddDetailTemplate = @"NSTouchBarAddDetailTemplate";
 NSImageName const NSImageNameTouchBarAddTemplate = @"NSTouchBarAddTemplate";
+NSImageName const NSImageNameTouchBarAddTabTemplate = @"NSTouchBarAddTabTemplate";
 NSImageName const NSImageNameTouchBarAlarmTemplate = @"NSTouchBarAlarmTemplate";
 NSImageName const NSImageNameTouchBarAudioInputMuteTemplate = @"NSTouchBarAudioInputMuteTemplate";
 NSImageName const NSImageNameTouchBarAudioInputTemplate = @"NSTouchBarAudioInputTemplate";

@@ -7,6 +7,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <CoreText/CoreText.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define CT_SPI extern "C" __attribute__((visibility("default")))
@@ -250,4 +251,48 @@ CTParagraphStyleGetCompositionLanguageForLanguage(CFStringRef language)
     if (CFStringHasPrefix(language, CFSTR("zh")))
         return 1;
     return 0;
+}
+
+// Whether text in a font should be antialiased whatever the context says. On macOS
+// only Menlo, Lucida Grande and STHeiti answer yes (a property of those fonts, not of
+// their tables); Finch's stand-in for Menlo answers as Menlo does.
+CT_SPI bool
+CTFontShouldAntiAlias(CTFontRef font)
+{
+    if (!font)
+        return true;
+    CFStringRef ps = CTFontCopyPostScriptName(font);
+    char name[128] = "";
+    if (ps) {
+        CFStringGetCString(ps, name, sizeof name, kCFStringEncodingUTF8);
+        CFRelease(ps);
+    }
+    static const char *const always[] = {"Menlo", "LucidaGrande", "STHeiti", "DejaVuSansMono"};
+    for (const char *prefix : always)
+        if (!strncmp(name, prefix, strlen(prefix)))
+            return true;
+    return false;
+}
+
+// Draws glyphs from the context's text position, each advance (in text space) placing
+// the next, as CGContextShowGlyphsWithAdvances does; the text position ends after the
+// last glyph. The text matrix carries the text position, so positions start at zero.
+CT_SPI void
+CTFontDrawGlyphsWithAdvances(CTFontRef font, const CGGlyph glyphs[], const CGSize advances[], size_t count,
+                             CGContextRef context)
+{
+    if (!font || !glyphs || !advances || !count || !context)
+        return;
+    CGPoint *positions = (CGPoint *)malloc(sizeof(CGPoint) * count);
+    CGPoint p = CGPointZero;
+    for (size_t i = 0; i < count; i++) {
+        positions[i] = p;
+        p.x += advances[i].width;
+        p.y += advances[i].height;
+    }
+    CGAffineTransform tm = CGContextGetTextMatrix(context);
+    CTFontDrawGlyphs(font, glyphs, positions, count, context);
+    CGPoint end = CGPointApplyAffineTransform(p, tm);
+    CGContextSetTextPosition(context, end.x, end.y);
+    free(positions);
 }

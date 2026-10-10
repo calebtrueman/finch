@@ -26,6 +26,9 @@ NSNotificationName NSWindowDidResignMainNotification = @"NSWindowDidResignMainNo
 NSNotificationName NSWindowDidResizeNotification = @"NSWindowDidResizeNotification";
 NSNotificationName NSWindowDidUpdateNotification = @"NSWindowDidUpdateNotification";
 NSNotificationName NSWindowWillCloseNotification = @"NSWindowWillCloseNotification";
+/* private, as Apple's: a window coming onscreen and going off */
+NSNotificationName NSWindowDidOrderOnScreenNotification = @"_NSWindowDidBecomeVisible";
+NSNotificationName NSWindowDidOrderOffScreenNotification = @"NSWindowDidOrderOffScreenNotification";
 NSNotificationName NSWindowWillMiniaturizeNotification = @"NSWindowWillMiniaturizeNotification";
 NSNotificationName NSWindowWillMoveNotification = @"NSWindowWillMoveNotification";
 NSNotificationName NSWindowWillBeginSheetNotification = @"NSWindowWillBeginSheetNotification";
@@ -1439,6 +1442,7 @@ server_flags(NSWindow *w)
         if (_w.main)
             [self resignMainWindow];
         FinchApplicationWindowOrderedOut(self);
+        [[NSNotificationCenter defaultCenter] postNotificationName:NSWindowDidOrderOffScreenNotification object:self];
         return;
     }
     if (![self _finchServerWindow]) {
@@ -1463,6 +1467,8 @@ server_flags(NSWindow *w)
     FWSOrderWindow(_server, place == NSWindowBelow ? FWS_ORDER_BELOW : FWS_ORDER_ABOVE, (uint32_t)MAX(other, 0));
     for (NSWindow *child in _children)
         [child orderWindow:NSWindowAbove relativeTo:_number];
+    if (appearing)
+        [[NSNotificationCenter defaultCenter] postNotificationName:NSWindowDidOrderOnScreenNotification object:self];
 }
 
 - (void)orderFront:(id)sender { [self orderWindow:NSWindowAbove relativeTo:0]; }

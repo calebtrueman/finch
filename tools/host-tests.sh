@@ -28,7 +28,7 @@ trap 'rm -rf "${TMP}"' EXIT
 
 # name|arguments: comparison tests (arguments are relative to the repo root)
 COMPARE=(
-    "cf-test|" "foundation-test|" "intl-test|" "misc-test|" "data-test|" "collections-test|" "kvc-test|" "typedstream-test|" "tiff-test|" "colorsync-test|" "hiservices-test|"
+    "cf-test|" "foundation-test|" "intl-test|" "misc-test|" "data-test|" "collections-test|" "kvc-test|" "typedstream-test|" "tiff-test|" "colorsync-test|" "hiservices-test|" "scripting-test|"
     "archive-test|" "predicate-test|" "measurement-test|" "bridge-test|" "streams-test|" "documents-test|"
     "files-test|" "xmlparser-test|" "cfnotify-test|" "l10n-test|" "uti-test|" "cg-test|" "imageio-test|"
     "ct-test|" "quartzcore-test|" "calayer-test|" "uifoundation-test|" "appkit-core-test|" "appkit-draw-test|"

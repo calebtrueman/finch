@@ -74,6 +74,7 @@ __attribute__((visibility("default"))) NSString *const kCAScrollBoth = @"both";
 __attribute__((visibility("default"))) NSString *const kCAScrollHorizontally = @"horizontally";
 __attribute__((visibility("default"))) NSString *const kCAScrollNone = @"none";
 __attribute__((visibility("default"))) NSString *const kCAScrollVertically = @"vertically";
+__attribute__((visibility("default"))) NSString *const kCATransition = @"transition";
 __attribute__((visibility("default"))) NSString *const kCATransitionFade = @"fade";
 __attribute__((visibility("default"))) NSString *const kCATransitionFromBottom = @"fromBottom";
 __attribute__((visibility("default"))) NSString *const kCATransitionFromLeft = @"fromLeft";

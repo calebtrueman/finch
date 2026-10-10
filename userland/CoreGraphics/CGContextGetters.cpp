@@ -24,6 +24,10 @@ CGSize CGContextGetPatternPhase(CGContextRef c);
 CGFloat CGContextGetAlpha(CGContextRef c);
 CGFloat CGContextGetLineWidth(CGContextRef c);
 CGFloat CGContextGetFlatness(CGContextRef c);
+bool CGContextGetShouldSmoothFonts(CGContextRef c);
+bool CGContextGetAllowsFontSmoothing(CGContextRef c);
+int CGContextGetFontSmoothingStyle(CGContextRef c);
+void CGContextSetFontSmoothingStyle(CGContextRef c, int style);
 }
 
 static const int porter_duff_blend[13] = {
@@ -64,3 +68,7 @@ CGSize CGContextGetPatternPhase(CGContextRef c) { return c ? CGContextState(c).p
 CGFloat CGContextGetAlpha(CGContextRef c) { return c ? CGContextState(c).alpha : 1; }
 CGFloat CGContextGetLineWidth(CGContextRef c) { return c ? CGContextState(c).line_width : 1; }
 CGFloat CGContextGetFlatness(CGContextRef c) { return c ? CGContextState(c).flatness : 0.5; }
+bool CGContextGetShouldSmoothFonts(CGContextRef c) { return c ? CGContextState(c).smooth_fonts : true; }
+bool CGContextGetAllowsFontSmoothing(CGContextRef c) { return c ? CGContextState(c).allows_smoothing : true; }
+int CGContextGetFontSmoothingStyle(CGContextRef c) { return c ? CGContextState(c).font_smoothing_style : 48; }
+void CGContextSetFontSmoothingStyle(CGContextRef c, int style) { if (c) CGContextState(c).font_smoothing_style = style; }

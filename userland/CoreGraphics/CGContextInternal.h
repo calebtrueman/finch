@@ -29,6 +29,7 @@ struct CGGState {
     CGInterpolationQuality interpolation;
     bool antialias, allows_antialias;
     bool smooth_fonts, allows_smoothing, subpixel_position, allows_subpixel_position;
+    int font_smoothing_style; /* Apple's private style; 48 by default, as Apple's */
     bool subpixel_quantize, allows_subpixel_quantize;
     CGColorRenderingIntent intent;
     CGRect clip;                  /* clip bounds, in the default user space */
