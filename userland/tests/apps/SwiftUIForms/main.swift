@@ -13,6 +13,10 @@ struct FormsView: View {
                     TextField("Name", text: $name)
                     Toggle("Notifications", isOn: $on)
                 }
+                Section("Fields") {
+                    TextField("Rounded", text: $name).textFieldStyle(.roundedBorder)
+                    TextField("Plain", text: $name).textFieldStyle(.plain)
+                }
                 Section {
                     Text("Version 1.0")
                 } header: {

@@ -23,8 +23,135 @@ public struct TextField<Label>: View where Label: View {
     @MainActor
     @preconcurrency
     public var body: some View {
-        _FinchTextField(model: model)
+        _FinchStyledTextField(model: model, label: label)
     }
+}
+
+@available(OpenSwiftUI_v1_0, *)
+extension TextField where Label == _TextFieldStyleLabel {
+    /// The field a style is styling: drawn as the default field, under the style's own views.
+    var _finchStyledField: some View {
+        _FinchTextField(model: model, border: .square)
+    }
+}
+
+// MARK: - Styles
+
+@available(OpenSwiftUI_v1_0, *)
+public protocol TextFieldStyle {
+    associatedtype _Body: View
+    @ViewBuilder func _body(configuration: TextField<Self._Label>) -> Self._Body
+    typealias _Label = _TextFieldStyleLabel
+}
+
+@available(OpenSwiftUI_v1_0, *)
+public struct _TextFieldStyleLabel: ViewAlias {
+    public typealias Body = Never
+    package init() {}
+}
+
+@available(*, unavailable)
+extension _TextFieldStyleLabel: Sendable {}
+
+/// A text field style as the field applies it.
+struct _FinchAnyTextFieldStyle: @unchecked Sendable {
+    let body: (TextField<_TextFieldStyleLabel>) -> AnyView
+    /// The bezel of Finch's own styles, which draw the field themselves.
+    let border: _FinchTextField.Border?
+
+    init<S: TextFieldStyle>(_ style: S) {
+        body = { AnyView(style._body(configuration: $0)) }
+        border = (style as? any _FinchTextFieldStyle)?.border
+    }
+}
+
+protocol _FinchTextFieldStyle: TextFieldStyle {
+    var border: _FinchTextField.Border { get }
+}
+
+private struct _FinchTextFieldStylesKey: EnvironmentKey {
+    static var defaultValue: [_FinchAnyTextFieldStyle] { [] }
+}
+
+extension EnvironmentValues {
+    var _finchTextFieldStyles: [_FinchAnyTextFieldStyle] {
+        get { self[_FinchTextFieldStylesKey.self] }
+        set { self[_FinchTextFieldStylesKey.self] = newValue }
+    }
+}
+
+@available(OpenSwiftUI_v1_0, *)
+extension View {
+    nonisolated public func textFieldStyle<S>(_ style: S) -> some View where S: TextFieldStyle {
+        transformEnvironment(\._finchTextFieldStyles) { $0.append(_FinchAnyTextFieldStyle(style)) }
+    }
+}
+
+/// A text field as the style in force makes it: Finch's styles set the field's bezel; another
+/// style's views wrap the field, drawn with the styles outside it.
+struct _FinchStyledTextField<Label: View>: View {
+    var model: _FinchTextFieldModel
+    var label: Label
+    @Environment(\._finchTextFieldStyles) private var styles
+
+    var body: some View {
+        if let style = styles.last, style.border == nil {
+            style.body(TextField(model: model, label: _TextFieldStyleLabel()))
+                .environment(\._finchTextFieldStyles, Array(styles.dropLast()))
+                .viewAlias(_TextFieldStyleLabel.self) { label }
+        } else {
+            _FinchTextField(model: model, border: styles.last?.border ?? .square)
+        }
+    }
+}
+
+@available(OpenSwiftUI_v1_0, *)
+public struct DefaultTextFieldStyle: TextFieldStyle, _FinchTextFieldStyle {
+    public init() {}
+    public func _body(configuration: TextField<_Label>) -> some View { configuration._finchStyledField }
+    var border: _FinchTextField.Border { .square }
+}
+
+@available(OpenSwiftUI_v1_0, *)
+public struct RoundedBorderTextFieldStyle: TextFieldStyle, _FinchTextFieldStyle {
+    public init() {}
+    public func _body(configuration: TextField<_Label>) -> some View { configuration._finchStyledField }
+    var border: _FinchTextField.Border { .rounded }
+}
+
+@available(OpenSwiftUI_v1_0, *)
+public struct PlainTextFieldStyle: TextFieldStyle, _FinchTextFieldStyle {
+    public init() {}
+    public func _body(configuration: TextField<_Label>) -> some View { configuration._finchStyledField }
+    var border: _FinchTextField.Border { .none }
+}
+
+@available(OpenSwiftUI_v1_0, *)
+public struct SquareBorderTextFieldStyle: TextFieldStyle, _FinchTextFieldStyle {
+    public init() {}
+    public func _body(configuration: TextField<_Label>) -> some View { configuration._finchStyledField }
+    var border: _FinchTextField.Border { .square }
+}
+
+@available(*, unavailable) extension DefaultTextFieldStyle: Sendable {}
+@available(*, unavailable) extension RoundedBorderTextFieldStyle: Sendable {}
+@available(*, unavailable) extension PlainTextFieldStyle: Sendable {}
+@available(*, unavailable) extension SquareBorderTextFieldStyle: Sendable {}
+
+extension TextFieldStyle where Self == DefaultTextFieldStyle {
+    @_alwaysEmitIntoClient public static var automatic: DefaultTextFieldStyle { .init() }
+}
+
+extension TextFieldStyle where Self == RoundedBorderTextFieldStyle {
+    @_alwaysEmitIntoClient public static var roundedBorder: RoundedBorderTextFieldStyle { .init() }
+}
+
+extension TextFieldStyle where Self == PlainTextFieldStyle {
+    @_alwaysEmitIntoClient public static var plain: PlainTextFieldStyle { .init() }
+}
+
+extension TextFieldStyle where Self == SquareBorderTextFieldStyle {
+    @_alwaysEmitIntoClient public static var squareBorder: SquareBorderTextFieldStyle { .init() }
 }
 
 @available(*, unavailable)

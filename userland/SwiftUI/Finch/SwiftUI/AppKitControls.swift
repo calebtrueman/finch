@@ -213,21 +213,36 @@ struct _FinchTextFieldModel {
 
 /// An editable text field over NSTextField.
 struct _FinchTextField: NSViewRepresentable {
+    /// How the field is framed: a square bezel (the default), a rounded one, or none.
+    enum Border {
+        case square, rounded, none
+    }
+
     var model: _FinchTextFieldModel
+    var border: Border = .square
 
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField(string: model.get())
         field.delegate = context.coordinator
         field.target = context.coordinator
         field.action = #selector(Coordinator.commit(_:))
-        field.isBordered = true
-        field.isBezeled = true
         field.isEditable = true
         field.usesSingleLineMode = !model.multiline
         return field
     }
 
     func updateNSView(_ field: NSTextField, context: Context) {
+        switch border {
+        case .square, .rounded:
+            if !field.isBezeled { field.isBezeled = true }
+            if !field.drawsBackground { field.drawsBackground = true }
+            let style: NSTextField.BezelStyle = border == .rounded ? .roundedBezel : .squareBezel
+            if field.bezelStyle != style { field.bezelStyle = style }
+        case .none:
+            if field.isBezeled { field.isBezeled = false }
+            if field.isBordered { field.isBordered = false }
+            if field.drawsBackground { field.drawsBackground = false }
+        }
         context.coordinator.parent = self
         let text = model.get()
         // don't disturb the field while it is being edited to the same text
