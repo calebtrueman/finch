@@ -50,6 +50,13 @@ struct Gallery: View {
                 Spacer()
                 Text("Level \(level, specifier: "%.2f")")
             }
+            ScrollView {
+                VStack(alignment: .leading) {
+                    ForEach(1...20, id: \.self) { Text("Scrolled line \($0)") }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 70)
             List {
                 Text("Row 1")
                 Text("Row 2")

@@ -173,4 +173,11 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   release over them. The system accent colour comes from AppKit's `controlAccentColor`
   (upstream reads CoreUI's asset catalogue).
 
-  Next: scrolling lists, then larger apps.
+- 2026-10-09: `ScrollView`, as Apple's on macOS: an AppKit scroll view whose document hosts
+  the content (ideal size along the scrolling axes, the scroll view's across them). The
+  content inherits the font, enablement, colour scheme, layout direction, locale, text
+  layout, control size and button styles; not the whole environment, which holds the outer
+  graph's state. `finch-app-test` has a `scroll:` step.
+
+  Next: lists that scroll (their rows belong to the outer graph, so they can't move into a
+  hosted document; they need scrolling within the graph), then larger apps.

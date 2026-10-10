@@ -15,6 +15,7 @@
  *   wait:N            wait N milliseconds
  *   window:TITLE      wait for a window titled TITLE and make it the current one
  *   click:X,Y         click at X,Y in the current window
+ *   scroll:X,Y,DX,DY  scroll by DX,DY points (a wheel's deltas) at X,Y in the current window
  *   type:TEXT         type TEXT (ASCII)
  *   key:CODE,CHAR     press a key (macOS virtual key code, character as a number)
  *   cmd:CHAR          press Command-CHAR
@@ -157,7 +158,7 @@ main(int argc, char **argv)
 
     for (int i = 3; i < argc; i++) {
         const char *s = argv[i];
-        double x, y;
+        double x, y, dx, dy;
         int n, c;
         char label[64];
         if (sscanf(s, "wait:%d", &n) == 1) {
@@ -172,6 +173,16 @@ main(int argc, char **argv)
             post(FWS_EVENT_MOUSE_MOVED, sx, sy, 0, 0, 0);
             post(FWS_EVENT_LEFT_DOWN, sx, sy, 0, 0, 0);
             post(FWS_EVENT_LEFT_UP, sx, sy, 0, 0, 0);
+        } else if (sscanf(s, "scroll:%lf,%lf,%lf,%lf", &x, &y, &dx, &dy) == 4) {
+            double sx = current.x + x, sy = current.y + y;
+            post(FWS_EVENT_MOUSE_MOVED, sx, sy, 0, 0, 0);
+            FWSEvent e;
+            memset(&e, 0, sizeof e);
+            e.type = FWS_EVENT_SCROLL;
+            e.screen_x = sx, e.screen_y = sy;
+            e.delta_x = dx, e.delta_y = dy;
+            FWSPostEvent(&e);
+            usleep(20000);
         } else if (!strncmp(s, "type:", 5)) {
             for (const char *p = s + 5; *p; p++)
                 key((uint16_t)(unsigned char)*p, 0, 0);
