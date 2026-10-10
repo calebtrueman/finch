@@ -871,12 +871,32 @@ release_data(void *info, const void *data, size_t size)
     NSColor *bg = properties[NSImageFallbackBackgroundColor];
     if (bg.CGColor)
         opts[(id)kCGImageDestinationBackgroundColor] = (id)bg.CGColor;
+    if (storageType == NSBitmapImageFileTypeTIFF) {
+        /* the compression asked for, else the (first) bitmap's own */
+        NSNumber *method = properties[NSImageCompressionMethod];
+        if (!method && [imageReps.firstObject isKindOfClass:[NSBitmapImageRep class]]) {
+            NSTIFFCompression c = NSTIFFCompressionNone;
+            float f = 0;
+            [(NSBitmapImageRep *)imageReps.firstObject getCompression:&c factor:&f];
+            method = @(c);
+        }
+        if (method)
+            opts[(id)kCGImagePropertyTIFFDictionary] = @{(id)kCGImagePropertyTIFFCompression: method};
+    }
     BOOL added = NO;
     for (NSImageRep *r in imageReps) {
         CGImageRef im = [r CGImageForProposedRect:NULL context:nil hints:nil];
         if (!im)
             continue;
-        CGImageDestinationAddImage(d, im, (CFDictionaryRef)opts);
+        NSMutableDictionary *o = opts;
+        NSSize size = [r size];
+        if (size.width > 0 && size.height > 0 && ([r pixelsWide] != size.width || [r pixelsHigh] != size.height)) {
+            /* a rep drawn at another size than its pixels: its resolution */
+            o = [[opts mutableCopy] autorelease];
+            o[(id)kCGImagePropertyDPIWidth] = @(72.0 * [r pixelsWide] / size.width);
+            o[(id)kCGImagePropertyDPIHeight] = @(72.0 * [r pixelsHigh] / size.height);
+        }
+        CGImageDestinationAddImage(d, im, (CFDictionaryRef)o);
         added = YES;
     }
     BOOL ok = added && CGImageDestinationFinalize(d);
@@ -891,7 +911,8 @@ release_data(void *info, const void *data, size_t size)
 
 - (NSData *)TIFFRepresentationUsingCompression:(NSTIFFCompression)comp factor:(float)factor
 {
-    return [self representationUsingType:NSBitmapImageFileTypeTIFF properties:@{NSImageCompressionFactor: @(factor)}];
+    return [self representationUsingType:NSBitmapImageFileTypeTIFF
+                              properties:@{NSImageCompressionMethod: @(comp), NSImageCompressionFactor: @(factor)}];
 }
 
 + (NSData *)TIFFRepresentationOfImageRepsInArray:(NSArray<NSImageRep *> *)array
@@ -901,7 +922,8 @@ release_data(void *info, const void *data, size_t size)
 
 + (NSData *)TIFFRepresentationOfImageRepsInArray:(NSArray<NSImageRep *> *)array usingCompression:(NSTIFFCompression)comp factor:(float)factor
 {
-    return [self representationOfImageRepsInArray:array usingType:NSBitmapImageFileTypeTIFF properties:@{}];
+    return [self representationOfImageRepsInArray:array usingType:NSBitmapImageFileTypeTIFF
+                                       properties:@{NSImageCompressionMethod: @(comp), NSImageCompressionFactor: @(factor)}];
 }
 
 + (void)getTIFFCompressionTypes:(const NSTIFFCompression **)list count:(NSInteger *)numTypes

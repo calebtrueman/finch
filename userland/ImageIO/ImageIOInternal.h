@@ -149,6 +149,8 @@ struct IIOExif {
     std::string create_date;   /* xmp:CreateDate, as written */
 };
 IIO_PRIVATE bool IIOParseExif(const uint8_t *p, size_t n, IIOExif &out);
+/* One IFD of a TIFF file (at byte `ifd`), and the Exif and GPS IFDs it points to. */
+IIO_PRIVATE bool IIOParseTIFFIFD(const uint8_t *p, size_t n, size_t ifd, IIOExif &out);
 /* XMP packets: the tiff:, exif: and xmp: properties EXIF didn't give. */
 IIO_PRIVATE void IIOParseXMP(const char *p, size_t n, IIOExif &out);
 /* Photoshop image resources (JPEG APP13): IPTC, and the EXIF dates it implies. */
@@ -183,6 +185,7 @@ IIO_PRIVATE IIOCodec *IIOCodecCreateWebP();
 IIO_PRIVATE IIOCodec *IIOCodecCreateBMP();
 IIO_PRIVATE IIOCodec *IIOCodecCreateICO();
 IIO_PRIVATE IIOCodec *IIOCodecCreateICNS();
+IIO_PRIVATE IIOCodec *IIOCodecCreateTIFF();
 
 /* PNG and BMP helpers shared with ICO. */
 IIO_PRIVATE CFDictionaryRef IIOPNGCopyProperties(const uint8_t *p, size_t n, bool *ready, int *orientation);
@@ -197,6 +200,9 @@ struct IIOEncodeOptions {
 };
 IIO_PRIVATE bool IIOEncodePNG(CGImageRef im, const IIOEncodeOptions &o, std::vector<uint8_t> &out);
 IIO_PRIVATE bool IIOEncodeJPEG(CGImageRef im, const IIOEncodeOptions &o, std::vector<uint8_t> &out);
+/* TIFF: one image per IFD, in Apple's layout; compression 1 (none), 5 (LZW) or 32773 (PackBits). */
+IIO_PRIVATE bool IIOEncodeTIFF(const std::vector<CGImageRef> &images, const std::vector<IIOEncodeOptions> &o, int compression,
+                               std::vector<uint8_t> &out);
 
 /* Delay times, as GIF and WebP report them. */
 IIO_PRIVATE void IIOAddDelay(IIODict &d, double unclamped);

@@ -67,7 +67,7 @@ static const struct Format {
     {"public.jpeg", IIOCodecCreateJPEG},     {"public.png", IIOCodecCreatePNG},
     {"com.compuserve.gif", IIOCodecCreateGIF}, {"com.microsoft.ico", IIOCodecCreateICO},
     {"com.microsoft.bmp", IIOCodecCreateBMP}, {"org.webmproject.webp", IIOCodecCreateWebP},
-    {"com.apple.icns", IIOCodecCreateICNS},
+    {"com.apple.icns", IIOCodecCreateICNS},      {"public.tiff", IIOCodecCreateTIFF},
 };
 enum { kFormats = sizeof formats / sizeof formats[0] };
 
@@ -104,6 +104,8 @@ sniff(const uint8_t *p, size_t n)
         return 5;
     if (n >= 8 && !memcmp(p, "icns", 4))
         return 6;
+    if (n >= 8 && ((p[0] == 'I' && p[1] == 'I' && p[2] == 42 && p[3] == 0) || (p[0] == 'M' && p[1] == 'M' && p[2] == 0 && p[3] == 42)))
+        return 7;
     return -1;
 }
 

@@ -724,8 +724,17 @@ IIOParseExif(const uint8_t *p, size_t n, IIOExif &out)
     Reader r = {p, n, p[0] == 'I'};
     if (r.u16(2) != 42)
         return false;
+    return IIOParseTIFFIFD(p, n, r.u32(4), out);
+}
+
+bool
+IIOParseTIFFIFD(const uint8_t *p, size_t n, size_t ifd, IIOExif &out)
+{
+    if (n < 8 || !((p[0] == 'I' && p[1] == 'I') || (p[0] == 'M' && p[1] == 'M')))
+        return false;
+    Reader r = {p, n, p[0] == 'I'};
     size_t exif = 0, gps = 0;
-    read_ifd(r, r.u32(4), tiff_tags, sizeof tiff_tags / sizeof *tiff_tags, out.tiff, &exif, &gps, 0);
+    read_ifd(r, ifd, tiff_tags, sizeof tiff_tags / sizeof *tiff_tags, out.tiff, &exif, &gps, 0);
     if (exif)
         read_ifd(r, exif, exif_tags, sizeof exif_tags / sizeof *exif_tags, out.exif, NULL, NULL, 1);
     if (gps)

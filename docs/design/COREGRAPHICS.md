@@ -327,7 +327,22 @@ The tests follow Foundation's:
   within 4 levels of Apple's (a different IDCT and upsampler), and on about
   700 PNGs and JPEGs from macOS itself the PNG pixels are identical.
 - Known gaps (ImageIO): Apple's CgBI ("crushed" iOS) PNGs are not read. No
-  TIFF, HEIF or GIF writing yet; metadata (XMP) objects are empty.
+  HEIF or GIF writing yet; metadata (XMP) objects are empty.
+- 2026-10-10: TIFF, Finch's own (`IIOTIFF.cpp`; Skia has no TIFF codec).
+  Reading: every IFD a frame; strips or tiles, contiguous or planar;
+  uncompressed, LZW (with the horizontal predictor), PackBits and Deflate;
+  1-16 bits per sample; gray, RGB, palette and CMYK, with associated or
+  unassociated alpha and an embedded ICC profile. Images, properties
+  (the {TIFF} dictionary through the EXIF reader, DPI, depth, alpha) and
+  layouts are Apple's. Writing (`public.tiff` destinations, and through them
+  NSBitmapImageRep and NSImage) is byte for byte Apple's: big-endian, each
+  image's strips (floor(131072 / the source image's bytes per row) rows
+  each), then its IFD and the values after it, the same tags in the same
+  order, resolutions only when not 72 dpi, and LZW and PackBits encoded as
+  libtiff encodes them (LZW's clears when the table fills or the ratio
+  drops, PackBits's two-byte runs folded into literals). NSImage writes its
+  largest bitmap first. `finch-tiff-test` matches Apple's 51 lines. Stickies'
+  note images (RTFD attachments) are TIFFs.
 - 2026-10-08: ICC naming as Apple's: a profile becomes a named space only
   when its bytes are exactly a profile Apple's CG hands out (recognised by
   SHA-256 fingerprint; the profiles themselves aren't shipped) or one Finch

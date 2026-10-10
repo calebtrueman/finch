@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /*
  * CGImageDestination: images and their properties collected until
- * CGImageDestinationFinalize writes the file (PNG or JPEG) to a CFData, a
+ * CGImageDestinationFinalize writes the file (PNG, JPEG or TIFF) to a CFData, a
  * URL or a data consumer. As Apple's: finalizing with no image, or with more
  * images than the count given at creation, fails and writes nothing.
  */
@@ -18,7 +18,7 @@ struct DestImage {
 
 struct CGImageDestination {
     IIORuntimeBase base;
-    int format;  /* 0 PNG, 1 JPEG */
+    int format;  /* 0 PNG, 1 JPEG, 2 TIFF */
     size_t count;
     CFMutableDataRef data;
     CFURLRef url;
@@ -81,8 +81,8 @@ CGImageDestinationGetTypeID(void)
 CFArrayRef
 CGImageDestinationCopyTypeIdentifiers(void)
 {
-    const void *v[] = {CFSTR("public.jpeg"), CFSTR("public.png")};
-    return CFArrayCreate(NULL, v, 2, &kCFTypeArrayCallBacks);
+    const void *v[] = {CFSTR("public.jpeg"), CFSTR("public.png"), CFSTR("public.tiff")};
+    return CFArrayCreate(NULL, v, 3, &kCFTypeArrayCallBacks);
 }
 
 static CGImageDestinationRef
@@ -95,6 +95,8 @@ dest_create(CFStringRef type, size_t count)
         format = 0;
     else if (CFEqual(type, CFSTR("public.jpeg")))
         format = 1;
+    else if (CFEqual(type, CFSTR("public.tiff")))
+        format = 2;
     else
         return NULL;
     CGImageDestinationRef d =
@@ -213,21 +215,38 @@ CGImageDestinationFinalize(CGImageDestinationRef d)
     if (!d || d->finalized || d->images->empty() || d->images->size() > d->count)
         return false;
     d->finalized = true;
-    DestImage &im = (*d->images)[0];
-    IIOEncodeOptions o;
-    if (!IIOGetDouble(im.props, kCGImageDestinationLossyCompressionQuality, &o.quality))
-        IIOGetDouble(d->props, kCGImageDestinationLossyCompressionQuality, &o.quality);
-    IIOGetDouble(im.props, kCGImagePropertyDPIWidth, &o.dpi_x);
-    IIOGetDouble(im.props, kCGImagePropertyDPIHeight, &o.dpi_y);
-    double v;
-    if (IIOGetDouble(im.props, kCGImagePropertyOrientation, &v) && v >= 1 && v <= 8)
-        o.orientation = (int)v;
-    CFTypeRef png = im.props ? CFDictionaryGetValue(im.props, kCGImagePropertyPNGDictionary) : NULL;
-    if (png && CFGetTypeID(png) == CFDictionaryGetTypeID() &&
-        IIOGetDouble((CFDictionaryRef)png, kCGImagePropertyPNGInterlaceType, &v))
-        o.interlace = v != 0;
+    std::vector<IIOEncodeOptions> opts;
+    std::vector<CGImageRef> images;
+    int compression = 1;
+    for (DestImage &im : *d->images) {
+        IIOEncodeOptions o;
+        if (!IIOGetDouble(im.props, kCGImageDestinationLossyCompressionQuality, &o.quality))
+            IIOGetDouble(d->props, kCGImageDestinationLossyCompressionQuality, &o.quality);
+        IIOGetDouble(im.props, kCGImagePropertyDPIWidth, &o.dpi_x);
+        IIOGetDouble(im.props, kCGImagePropertyDPIHeight, &o.dpi_y);
+        double v;
+        if (IIOGetDouble(im.props, kCGImagePropertyOrientation, &v) && v >= 1 && v <= 8)
+            o.orientation = (int)v;
+        CFTypeRef png = im.props ? CFDictionaryGetValue(im.props, kCGImagePropertyPNGDictionary) : NULL;
+        if (png && CFGetTypeID(png) == CFDictionaryGetTypeID() &&
+            IIOGetDouble((CFDictionaryRef)png, kCGImagePropertyPNGInterlaceType, &v))
+            o.interlace = v != 0;
+        /* TIFF's compression: {TIFF} Compression, on the image or the destination */
+        for (CFDictionaryRef p : {im.props, d->props}) {
+            CFTypeRef tiff = p ? CFDictionaryGetValue(p, kCGImagePropertyTIFFDictionary) : NULL;
+            if (tiff && CFGetTypeID(tiff) == CFDictionaryGetTypeID() &&
+                IIOGetDouble((CFDictionaryRef)tiff, kCGImagePropertyTIFFCompression, &v)) {
+                compression = (int)v;
+                break;
+            }
+        }
+        opts.push_back(o);
+        images.push_back(im.image);
+    }
     std::vector<uint8_t> out;
-    bool ok = d->format == 0 ? IIOEncodePNG(im.image, o, out) : IIOEncodeJPEG(im.image, o, out);
+    bool ok = d->format == 2   ? IIOEncodeTIFF(images, opts, compression, out)
+              : d->format == 0 ? IIOEncodePNG(images[0], opts[0], out)
+                               : IIOEncodeJPEG(images[0], opts[0], out);
     if (!ok)
         return false;
     if (d->data) {

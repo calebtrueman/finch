@@ -759,6 +759,11 @@ rep_rect(NSImage *image, NSImageRep *rep, NSRect r)
                 [bitmaps addObject:b];
         }
     }
+    /* as Apple's: the largest first */
+    [bitmaps sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSImageRep *a, NSImageRep *b) {
+        NSInteger pa = [a pixelsWide] * [a pixelsHigh], pb = [b pixelsWide] * [b pixelsHigh];
+        return pa > pb ? NSOrderedAscending : pa < pb ? NSOrderedDescending : NSOrderedSame;
+    }];
     return [NSBitmapImageRep TIFFRepresentationOfImageRepsInArray:bitmaps usingCompression:comp factor:factor];
 }
 

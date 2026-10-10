@@ -67,6 +67,34 @@ typedef struct {
     NSString *infoKey;  /* DestInfoItem */
 } RTFState;
 
+/* The encoding of an RTF \fcharset (0 when it names none: the document's code page then). */
+static NSStringEncoding
+encoding_for_charset(int charset)
+{
+    int codepage;
+    switch (charset) {
+    case 0: codepage = 1252; break;     /* ANSI */
+    case 77: return NSMacOSRomanStringEncoding;
+    case 128: codepage = 932; break;    /* Shift-JIS */
+    case 129: codepage = 949; break;    /* Hangul */
+    case 134: codepage = 936; break;    /* GB2312 */
+    case 136: codepage = 950; break;    /* Big5 */
+    case 161: codepage = 1253; break;   /* Greek */
+    case 162: codepage = 1254; break;   /* Turkish */
+    case 163: codepage = 1258; break;   /* Vietnamese */
+    case 177: codepage = 1255; break;   /* Hebrew */
+    case 178: codepage = 1256; break;   /* Arabic */
+    case 186: codepage = 1257; break;   /* Baltic */
+    case 204: codepage = 1251; break;   /* Cyrillic */
+    case 222: codepage = 874; break;    /* Thai */
+    case 238: codepage = 1250; break;   /* Central European */
+    default: return 0;
+    }
+    CFStringEncoding e = CFStringConvertWindowsCodepageToEncoding((UInt32)codepage);
+    return e == kCFStringEncodingInvalidId ? 0 : CFStringConvertEncodingToNSStringEncoding(e);
+}
+
+
 @interface UIFRTFReader : NSObject {
 @public
     const uint8_t *_b;
@@ -83,6 +111,7 @@ typedef struct {
     NSMutableString *_field;          /* \fldinst text */
     NSString *_link;
     NSStringEncoding _encoding;
+    NSMutableDictionary<NSNumber *, NSNumber *> *_fontEncodings;  /* \fN's \fcharset, as an encoding */
     RTFState _stack[256];
     int _depth;
     RTFState _s;
@@ -161,6 +190,7 @@ generic_color(double r, double g, double b)
     [_out release];
     [_doc release];
     [_fonts release];
+    [_fontEncodings release];
     [_colors release];
     [_expandedColors release];
     [_text release];
@@ -445,6 +475,13 @@ color_at(NSArray *colors, NSArray *expanded, int i);
 }
 
 /* Text goes out in runs: a run ends where the attributes change. */
+/* The encoding bytes of text are in: the current font's \fcharset, else the document's code page. */
+- (NSStringEncoding)_textEncoding
+{
+    NSNumber *e = _s.c.font >= 0 ? _fontEncodings[@(_s.c.font)] : nil;
+    return e ? [e unsignedIntegerValue] : _encoding;
+}
+
 - (void)_emit:(NSString *)text
 {
     if (![text length])
@@ -565,6 +602,12 @@ is_word(const char *w, const char *name)
         if (is_word(w, "f")) {
             [self _endTableEntry];
             _fontNumber = param;
+        } else if (is_word(w, "fcharset") && _fontNumber >= 0) {
+            NSStringEncoding e = encoding_for_charset(param);
+            if (e) {
+                if (!_fontEncodings) _fontEncodings = [[NSMutableDictionary alloc] init];
+                _fontEncodings[@(_fontNumber)] = @(e);
+            }
         }
         return;
     }
@@ -854,7 +897,8 @@ is_word(const char *w, const char *name)
                     break;
                 }
                 uint8_t byte = (uint8_t)strtol(hex, NULL, 16);
-                NSString *s = [[NSString alloc] initWithBytes:&byte length:1 encoding:_encoding];
+                /* in the font's character set, as Apple's reader does, else the document's code page */
+                NSString *s = [[NSString alloc] initWithBytes:&byte length:1 encoding:[self _textEncoding]];
                 [self _emit:s];
                 [s release];
                 break;
@@ -913,7 +957,7 @@ is_word(const char *w, const char *name)
         while (_i < _n && _b[_i] != '\\' && _b[_i] != '{' && _b[_i] != '}' && _b[_i] != '\r' && _b[_i] != '\n' &&
                !(_b[_i] == ';' && 0))
             _i++;
-        NSString *s = [[NSString alloc] initWithBytes:_b + start length:_i - start encoding:_encoding];
+        NSString *s = [[NSString alloc] initWithBytes:_b + start length:_i - start encoding:[self _textEncoding]];
         if (!s)
             s = [[NSString alloc] initWithBytes:_b + start length:_i - start encoding:NSISOLatin1StringEncoding];
         [self _emit:s];
