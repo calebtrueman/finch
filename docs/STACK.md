@@ -5,7 +5,7 @@ What runs on Finch today and where each piece comes from, bottom to top.
 These diagrams are updated in every commit that changes the stack, and
 `tools/render-stack.sh` checks that they render.
 
-**As of 2026-10-09:** nothing Finch builds links a closed library
+**As of 2026-10-10:** nothing Finch builds links a closed library
 (`tools/check-closed.py`). Finch's own Foundation covers about 130 of Apple's
 classes, on a CoreFoundation that dispatches to Objective-C objects as Apple's
 does (`docs/design/FOUNDATION.md`); its NSXMLParser runs on Apple's libxml2,
@@ -35,7 +35,8 @@ AppKit and the window server draw in Fieldwork, Finch's own design language
 Aqua-compatible values for apps that need them and for the comparison tests.
 Combine is open code (OpenCombine with Finch's additions) built to Apple's ABI
 (`docs/design/COMBINE.md`). SwiftUI is built from OpenSwiftUI, renamed to Apple's
-modules, on Compute's attribute graph; an unmodified SwiftUI app built with Xcode draws
+modules, on Compute's attribute graph and the Swift runtime's Observation (apps'
+`@Observable` types work with it); an unmodified SwiftUI app built with Xcode draws
 its window on Finch's frameworks (`docs/design/SWIFTUI.md`); the frameworks it links that Apple keeps closed are Finch's own:
 CoreVideo's display link, Accessibility, CoreTransferable and DeveloperToolsSupport. Foundation carries the URL loading system that Apple keeps in
 the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
@@ -207,7 +208,7 @@ flowchart LR
     classDef closed fill:#ffffff,stroke:#b91c1c,color:#b91c1c,stroke-width:2px
 
     swiftui["SwiftUI"]:::upstream
-    swiftuicore["SwiftUICore<br/>(OpenSwiftUI, Compute)"]:::upstream
+    swiftuicore["SwiftUICore<br/>(OpenSwiftUI, Compute,<br/>Swift's Observation)"]:::upstream
     combine["Combine<br/>(OpenCombine + Finch)"]:::upstream
     gcore["GCoreFramework"]:::apple
     appkit["AppKit"]:::finch

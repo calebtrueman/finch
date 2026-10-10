@@ -55,10 +55,16 @@ if ! git -C "${HEADERS}" apply -R --check --include='include/*' "${SWIFT_PATCH}"
     git -C "${HEADERS}" checkout -q -- include   # an earlier version of the patch
     git -C "${HEADERS}" apply --include='include/*' "${SWIFT_PATCH}"
 fi
-swift build -c release --triple arm64e-apple-macosx26.0 --scratch-path "${PKG}/build" --target SwiftUI
+# Observation is the real one, as Apple's SwiftUI uses (apps' @Observable types conform to its
+# Observable): Finch's build of it, whose module has the SPI SwiftUI uses (the SDK's doesn't)
+OBSERVATION="${FINCH_ROOT}/build/obj/swift-supplemental/Observation"
+[[ -d "${OBSERVATION}/Observation.swiftmodule" ]] || { echo "build Finch's Swift runtime first (userland/swift)" >&2; exit 1; }
+swift build -c release --triple arm64e-apple-macosx26.0 --scratch-path "${PKG}/build" --target SwiftUI \
+    -Xswiftc -I -Xswiftc "${OBSERVATION}"
 # Compute's C++ helpers, which SwiftPM builds only as their own targets
 for t in Platform Utilities; do
-    swift build -c release --triple arm64e-apple-macosx26.0 --scratch-path "${PKG}/build" --target "${t}"
+    swift build -c release --triple arm64e-apple-macosx26.0 --scratch-path "${PKG}/build" --target "${t}" \
+        -Xswiftc -I -Xswiftc "${OBSERVATION}"
 done
 log "built"
 
@@ -110,7 +116,7 @@ xcrun clang -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -O2 -f
 xcrun clang++ -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -O2 -std=c++17 \
     -c "${HERE}/demangle.cpp" -o "${PKG}/demangle.o"
 core=(); while IFS= read -r o; do core+=("$o"); done < <(objs SwiftUICore COpenSwiftUI OpenSwiftUI_SPI Compute ComputeCxx ComputeCxxSwiftSupport Platform Utilities \
-    OpenAttributeGraphShims OpenCoreGraphicsShims OpenObservation OpenObservationCxx OpenQuartzCoreShims \
+    OpenAttributeGraphShims OpenCoreGraphicsShims OpenQuartzCoreShims \
     OpenRenderBox OpenRenderBoxCxx OpenRenderBoxShims OpenRenderBoxShimsCxx)
 # SwiftUICore names two of SwiftUI's protocols (Scene, Commands); SwiftUI, which re-exports it,
 # is always loaded with it, so they're found at load time.

@@ -204,6 +204,9 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     explicit `-synchronize`; a change now writes them a moment later and at exit), and AppKit
     sent tracking-area events only through the view under the pointer, not by the areas'
     rects as AppKit does.
-  - Next: `Observation` (apps' `@Observable` types conform to the real `Observation`
-    module's protocol, not OpenObservation's), then the style modifiers, Section, Form,
-    Menu, sheets and toolbars.
+  - Observation is the Swift runtime's, as Apple's SwiftUI uses, not OpenObservation:
+    apps' `@Observable` types conform to its `Observable`, and a model's changes update
+    the views that read it. SwiftUI compiles against Finch's own build of the module (whose
+    interface has the SPI SwiftUI uses; the SDK's doesn't), and shares its access list
+    through the runtime's thread-local slot for it, as Apple's does.
+  - Next: the style modifiers, Section, Form, Menu, sheets and toolbars.

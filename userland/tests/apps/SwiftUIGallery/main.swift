@@ -2,6 +2,12 @@
 // SwiftUIGallery: the common SwiftUI views and modifiers in one window, built against
 // Apple's SDK as Xcode would, to see which of them Finch's SwiftUI draws.
 import SwiftUI
+import Observation
+
+@Observable
+final class GalleryModel {
+    var taps = 0
+}
 
 @main
 struct SwiftUIGalleryApp: App {
@@ -20,6 +26,7 @@ struct Gallery: View {
     @AppStorage("galleryPresses") private var presses = 0
     @State private var taskRan = "task: waiting"
     @State private var hovering = false
+    @State private var model = GalleryModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -56,6 +63,7 @@ struct Gallery: View {
             HStack {
                 Button("Stored \(presses)") { presses += 1 }
                 Text(taskRan).task { taskRan = "task: ran" }
+                Button("Observed \(model.taps)") { model.taps += 1 }
                 Text(hovering ? "hovering" : "hover me")
                     .padding(4)
                     .background(hovering ? Color.yellow : Color.clear)

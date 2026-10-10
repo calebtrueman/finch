@@ -93,6 +93,22 @@ FIXES = [
             return .blue
         }
         return Color(cgColor: cgColor as! CGColor)'''),
+    # Observation's access list lives in the Swift runtime's thread-local slot for it
+    # (__PTK_FRAMEWORK_SWIFT_KEY6, as swift/Threading/Impl/Darwin.h has it), which the real
+    # Observation library sets while tracking; Apple's SwiftUI shares it the same way
+    ('SwiftUICore/Data/Observation/ObservationUtils.swift', '// MARK: - ObservationEntry',
+     '''// MARK: - _ThreadLocal
+
+private enum _ThreadLocal {
+    static let key = pthread_key_t(106)   // __PTK_FRAMEWORK_SWIFT_KEY6
+
+    static var value: UnsafeMutableRawPointer? {
+        get { pthread_getspecific(key) }
+        set { pthread_setspecific(key, newValue) }
+    }
+}
+
+// MARK: - ObservationEntry'''),
     # a stroked path's outline, through CoreGraphics (dashed first when the style has dashes)
     ('SwiftUICore/Shape/Path.swift',
      '''    public func strokedPath(_ style: StrokeStyle) -> Path {
@@ -172,6 +188,10 @@ def main():
             u = t.replace('15OpenSwiftUICore', '11SwiftUICore').replace('11OpenSwiftUI', '7SwiftUI')
             if f.endswith(('.swift', '.modulemap')):
                 u = MODULE.sub(rename, u)
+            if f.endswith('.swift') and (os.sep + 'SwiftUI' in dirpath):
+                # the real Observation, not OpenObservation (see build.sh); its SPI group is SwiftUI
+                u = u.replace('@_spi(OpenSwiftUI)\npackage import OpenObservation', '@_spi(SwiftUI)\npackage import Observation')
+                u = re.sub(r'\b(import|public import|package import) OpenObservation\b', r'\1 Observation', u)
             if u != t:
                 open(path, 'w', encoding='utf-8', errors='surrogateescape').write(u)
 
