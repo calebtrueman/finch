@@ -301,4 +301,10 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     The columns and rows are read from the content, as menus are. Test app: SwiftUITable.
   - ScrollView content shorter than the scroll view starts at its top, as Apple's does
     (it was centred).
-  - Next: ShareLink.
+  - ShareLink and SharePreview: a button showing AppKit's sharing service picker under it,
+    for the items (URLs and strings as they are, other transferables as text), the subject
+    for the chosen service and the message before the items. Finch's services are Copy, Open
+    (URLs) and Email (mailto:, when an app handles it); NSSharingService and
+    NSSharingServicePicker are new in AppKit for it. Previews are kept but not drawn (the
+    picker is a menu, not a share sheet). The default label's icon waits on SF Symbols.
+  - Next: the long-press `pressing` callback, ScrollViewReader in Lists.

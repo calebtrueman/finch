@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // SwiftUIForms: forms (grouped, with sections, headers and footers) and a sectioned list,
-// sheets, alerts, a confirmation dialog, a popover, a toolbar
+// sheets, alerts, a confirmation dialog, a popover, a share link, a toolbar
 // and a navigation title, built against Apple's SDK as Xcode would.
 import SwiftUI
 import Observation
@@ -57,6 +57,7 @@ struct FormsView: View {
                 .popover(isPresented: $showPopover, arrowEdge: .bottom) {
                     Text("Hello from a popover").padding()
                 }
+            ShareLink(item: name, subject: Text("A name"))
         }
         HStack(alignment: .top) {
             Form {
