@@ -17,6 +17,13 @@
  */
 
 #include <Block.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <servers/bootstrap.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <bsm/audit.h>
 #include <dispatch/dispatch.h>
 #include <os/lock.h>
@@ -129,6 +136,72 @@ _xpc_connection_teardown(struct xpc_connection_s *c)
 
 #pragma mark - Creation
 
+xpc_object_t xpc_create_from_plist(const void *data, size_t length);
+int _NSGetExecutablePath(char *buf, uint32_t *bufsize);
+
+/* Whether the .xpc bundle at `path` serves `name` (its CFBundleIdentifier). */
+static bool
+_xpc_bundle_serves(const char *path, const char *name)
+{
+	char plist_path[PATH_MAX];
+	struct stat st;
+	xpc_object_t info = NULL;
+	bool serves = false;
+	char *buf;
+	int fd;
+
+	snprintf(plist_path, sizeof(plist_path), "%s/Contents/Info.plist", path);
+	if ((fd = open(plist_path, O_RDONLY | O_CLOEXEC)) < 0) return false;
+	if (fstat(fd, &st) == 0 && st.st_size > 0 && st.st_size < (1 << 20) && (buf = malloc((size_t)st.st_size)) != NULL) {
+		if (read(fd, buf, (size_t)st.st_size) == st.st_size) info = xpc_create_from_plist(buf, (size_t)st.st_size);
+		free(buf);
+	}
+	close(fd);
+	if (info != NULL) {
+		const char *id = xpc_get_type(info) == XPC_TYPE_DICTIONARY ?
+		    xpc_dictionary_get_string(info, "CFBundleIdentifier") : NULL;
+		serves = id != NULL && strcmp(id, name) == 0;
+		xpc_release(info);
+	}
+	return serves;
+}
+
+/* If the main executable's app has an XPC service `name` in Contents/XPCServices,
+ * have finch-init load its job (once per domain; later calls find it there). */
+static void
+_xpc_app_service_load(const char *name)
+{
+	char exe[PATH_MAX], dir[PATH_MAX], path[PATH_MAX];
+	uint32_t size = sizeof(exe);
+	const char *macos;
+	struct dirent *e;
+	DIR *services;
+
+	if (_NSGetExecutablePath(exe, &size) != 0 || (macos = strstr(exe, "/Contents/MacOS/")) == NULL) {
+		return;
+	}
+	snprintf(dir, sizeof(dir), "%.*s/Contents/XPCServices", (int)(macos - exe), exe);
+	if ((services = opendir(dir)) == NULL) {
+		return;
+	}
+	while ((e = readdir(services)) != NULL) {
+		size_t n = strlen(e->d_name);
+		if (n < 5 || strcmp(e->d_name + n - 4, ".xpc") != 0) continue;
+		snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
+		if (_xpc_bundle_serves(path, name)) {
+			xpc_object_t req = xpc_dictionary_create(NULL, NULL, 0), reply = NULL;
+			xpc_dictionary_set_string(req, "op", "xpc-service");
+			xpc_dictionary_set_string(req, "path", path);
+			if (_xpc_pipe_routine_port(bootstrap_port, XPC_MSGID_PIPE_ROUTINE, req, &reply, NULL) == 0) {
+				xpc_release(reply);
+			}
+			xpc_release(req);
+			break;
+		}
+	}
+	closedir(services);
+}
+
 xpc_connection_t
 xpc_connection_create(const char *name, dispatch_queue_t targetq)
 {
@@ -136,8 +209,9 @@ xpc_connection_create(const char *name, dispatch_queue_t targetq)
 	mach_port_t port;
 
 	if (name != NULL) {
-		/* Named, non-Mach XPC services (app-bundled .xpc) are a non-goal for
-		 * now; treat the name as a Mach service. */
+		/* An XPC service in the app's bundle: finch-init starts it on demand
+		 * as the Mach service of that name (as launchd's per-app domain does). */
+		_xpc_app_service_load(name);
 		return xpc_connection_create_mach_service(name, targetq, 0);
 	}
 	/* Anonymous listener: a fresh receive right; reach it via an endpoint. */

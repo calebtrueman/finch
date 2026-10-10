@@ -27,6 +27,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
+#include <fcntl.h>
+#include <libproc.h>
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
@@ -385,13 +387,14 @@ const struct bootstrapd_hooks jobs_bootstrap_hooks = {
  * user (or root) and not be writable by others, as launchd requires of
  * ~/Library/LaunchAgents.
  */
+static int job_load_plist(struct job_domain *d, xpc_object_t plist, const char *path, struct job **out);
+
 static int
 job_load_file(struct job_domain *d, const char *path, bool strict, struct job **out)
 {
 	int fd = open(path, O_RDONLY | O_CLOEXEC | (strict ? O_NOFOLLOW : 0));
 	struct stat st;
-	xpc_object_t plist = NULL, services;
-	struct job *j;
+	xpc_object_t plist = NULL;
 	char *buf;
 
 	if (out) *out = NULL;
@@ -415,6 +418,17 @@ job_load_file(struct job_domain *d, const char *path, bool strict, struct job **
 		log_fn("%s: not a property list", path);
 		return EINVAL;
 	}
+	return job_load_plist(d, plist, path, out);
+}
+
+/* Load a job from its property list (released here), as from the file at `path`. */
+static int
+job_load_plist(struct job_domain *d, xpc_object_t plist, const char *path, struct job **out)
+{
+	xpc_object_t services;
+	struct job *j;
+
+	if (out) *out = NULL;
 	j = job_from_plist(d, plist, path);
 	if (j == NULL) {
 		xpc_release(plist);
@@ -728,6 +742,77 @@ may_change(const struct job_domain *d, uid_t euid)
 	return euid == 0 || (d != &system_domain && euid == d->uid);
 }
 
+
+/*
+ * An app's XPC service (libxpc asks when the app connects to one by name):
+ * the .xpc bundle must be in the caller's own app, in Contents/XPCServices. Its
+ * job runs the bundle's executable as the caller's user, on demand, serving the
+ * Mach service named by its CFBundleIdentifier, in the caller's domain. One job
+ * per service and domain: a second app instance shares the first's.
+ */
+static int
+xpc_service_load(void *context, const char *path, const audit_token_t *token, xpc_object_t reply)
+{
+	struct job_domain *d = context;
+	pid_t pid = (pid_t)token->val[5];
+	uid_t euid = (uid_t)token->val[1];
+	char caller[PROC_PIDPATHINFO_MAXSIZE], contents[PATH_MAX], real[PATH_MAX], plist_path[PATH_MAX];
+	const char *id, *exe, *macos;
+	xpc_object_t info, job, services, args;
+	struct passwd *pw;
+	struct job *loaded;
+	char *buf;
+	int fd, err;
+	struct stat st;
+
+	if (path == NULL || realpath(path, real) == NULL) return ENOENT;
+	/* the caller's bundle: .../X.app/Contents/MacOS/exe -> .../X.app/Contents */
+	if (proc_pidpath(pid, caller, sizeof(caller)) <= 0 || (macos = strstr(caller, "/Contents/MacOS/")) == NULL) {
+		return EPERM;
+	}
+	snprintf(contents, sizeof(contents), "%.*s/Contents/XPCServices/", (int)(macos - caller), caller);
+	if (strncmp(real, contents, strlen(contents)) != 0 || strchr(real + strlen(contents), '/') != NULL) {
+		return EPERM;
+	}
+	snprintf(plist_path, sizeof(plist_path), "%s/Contents/Info.plist", real);
+	if ((fd = open(plist_path, O_RDONLY | O_CLOEXEC)) < 0) return errno;
+	info = NULL;
+	if (fstat(fd, &st) == 0 && st.st_size > 0 && st.st_size < (1 << 20) && (buf = malloc((size_t)st.st_size)) != NULL) {
+		if (read(fd, buf, (size_t)st.st_size) == st.st_size) info = xpc_create_from_plist(buf, (size_t)st.st_size);
+		free(buf);
+	}
+	close(fd);
+	if (info == NULL || xpc_get_type(info) != XPC_TYPE_DICTIONARY ||
+	    (id = xpc_dictionary_get_string(info, "CFBundleIdentifier")) == NULL ||
+	    (exe = xpc_dictionary_get_string(info, "CFBundleExecutable")) == NULL || strchr(exe, '/') != NULL) {
+		if (info) xpc_release(info);
+		return EINVAL;
+	}
+	xpc_dictionary_set_string(reply, "label", id);
+	if (job_find_label(d, id) != NULL) {
+		xpc_release(info);
+		return 0;   /* already there */
+	}
+	job = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_string(job, "Label", id);
+	snprintf(plist_path, sizeof(plist_path), "%s/Contents/MacOS/%s", real, exe);
+	xpc_dictionary_set_string(job, "Program", plist_path);
+	args = xpc_array_create(NULL, 0);
+	xpc_array_set_string(args, XPC_ARRAY_APPEND, plist_path);
+	xpc_dictionary_set_value(job, "ProgramArguments", args);
+	xpc_release(args);
+	services = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_bool(services, id, true);
+	xpc_dictionary_set_value(job, "MachServices", services);
+	xpc_release(services);
+	if (d == &system_domain && (pw = getpwuid(euid)) != NULL) {
+		xpc_dictionary_set_string(job, "UserName", pw->pw_name);
+	}
+	xpc_release(info);
+	err = job_load_plist(d, job, real, &loaded);
+	return err == EEXIST ? 0 : err;
+}
+
 /*
  * Requests: {op, domain?, label?, path?, signal?, kill?, uid?}. Each acts on a
  * domain (target_domain). Anyone may read the system domain and a user its
@@ -767,6 +852,10 @@ control_hook(void *context, xpc_object_t request, xpc_object_t reply, const audi
 			}
 		}
 		return ESRCH;
+	}
+	if (strcmp(op, "xpc-service") == 0) {
+		/* An XPC service in the caller's app bundle, started on demand. */
+		return xpc_service_load(context, xpc_dictionary_get_string(request, "path"), token, reply);
 	}
 	if (strcmp(op, "reboot") == 0) {
 		int howto = (int)xpc_dictionary_get_uint64(request, "howto");

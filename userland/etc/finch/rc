@@ -26,4 +26,18 @@ ln -sfn /usr/share/zoneinfo /private/var/rw/db/timezone/zoneinfo
 chmod 755 /private/var/rw /private/var/rw/db /private/var/rw/Users
 chmod 750 /private/var/root
 
+# Home directories with macOS's standard folders (its User Template's): apps
+# expect ~/Library and the rest to be there (Stickies makes ~/Library/Stickies,
+# not its parents).
+make_home() {   # make_home DIR OWNER
+    for sub in Desktop Documents Downloads Movies Music Pictures Public \
+               Library "Library/Application Support" Library/Caches Library/Preferences; do
+        mkdir -p "$1/$sub"
+    done
+    chown -R "$2" "$1"
+}
+make_home /private/var/root root:wheel
+make_home /private/var/rw/Users/finchtest finchtest:staff
+chmod 750 /private/var/rw/Users/finchtest
+
 echo "rc: Finch userland coming up"

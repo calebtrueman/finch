@@ -487,6 +487,10 @@ optional attribute providers; it does not load a missing UI framework.
   with a fixed target), clients learn the server's audit token from replies and
   peers the client's from the handshake (so `processIdentifier` works), and a
   dead-name notification for a name already given up no longer trips a Mach
-  port guard. Not yet: finch-init doesn't find `.xpc` bundles in an app (the test
-  declares its service with a job plist), `NSProgress` returns, timeouts and
-  code-signing requirements.
+  port guard. An app's own XPC services (2026-10-10): `xpc_connection_create(name)`
+  looks for a bundle with that identifier in the main app's
+  `Contents/XPCServices` and asks finch-init (op `xpc-service`) to load it as
+  an on-demand job serving that Mach service, as the caller's user, in the
+  caller's domain (finch-init checks the bundle is inside the caller's app).
+  Stickies' StickiesMigration service runs this way. Not yet: `NSProgress`
+  returns, timeouts and code-signing requirements.
