@@ -109,6 +109,116 @@ private enum _ThreadLocal {
 }
 
 // MARK: - ObservationEntry'''),
+    # Gradient is Finch's (Finch/SwiftUICore/Gradients.swift)
+    ('SwiftUICore/Graphic/Gradient/ResolvedGradient.swift',
+     '''// FIXME
+public struct Gradient {
+    package init(_ resolved: ResolvedGradient) {
+//        self.init(
+//            stops: resolved.stops.map {
+//                Stop(color: Color($0.color), location: $0.location)
+//            }
+//        )
+    }
+
+}''', ''),
+    # a shape filled with a paint that isn't a color (a gradient): drawn by CoreGraphics,
+    # clipped to the shape, as the layer's contents
+    ('SwiftUICore/Shape/ShapeLayer.swift',
+     '''        guard let color else {
+            layer.backgroundColor = nil
+            layer.borderColor = nil
+            layer.borderWidth = 0
+            layer.contents = nil
+            _openSwiftUIUnimplementedWarning()
+            return
+        }''',
+     '''        guard let color else {
+            layer.backgroundColor = nil
+            layer.borderColor = nil
+            layer.borderWidth = 0
+            layer.cornerRadius = 0
+            layer.contentsScale = contentsScale
+            layer.contents = (paint as? _FinchCGPaint).flatMap {
+                _finchRasterize($0, shapeType: shapeType, path: path, origin: origin, paintBounds: paintBounds,
+                                eoFill: style.isEOFilled, scale: contentsScale)
+            }
+            return
+        }'''),
+    ('SwiftUICore/Shape/ShapeLayer.swift', '\nenum ShapeType {',
+     '''
+/// A paint drawn into an image the size of the layer showing `path` (at `origin` in the
+/// shape's space), clipped to the shape; `paintBounds` is the shape's frame in the layer.
+func _finchRasterize(_ paint: _FinchCGPaint, shapeType: ShapeType, path: Path, origin: CGPoint, paintBounds: CGRect,
+                     eoFill: Bool, scale: CGFloat) -> CGImage? {
+    let clip: CGPath
+    switch shapeType {
+    case .empty:
+        return nil
+    case let .rect(rect, radius, _):
+        clip = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+    case let .rectBorder(rect, radius, _, lineWidth):
+        let inner = rect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2)
+        let r = max(0, radius - lineWidth / 2)
+        clip = CGPath(roundedRect: inner, cornerWidth: r, cornerHeight: r, transform: nil)
+            .copy(strokingWithWidth: lineWidth, lineCap: .butt, lineJoin: .miter, miterLimit: 10)
+    case let .strokedPath(stroked, strokeStyle):
+        clip = stroked.strokedPath(strokeStyle).cgPath
+    case .other:
+        clip = path.cgPath
+    }
+    // the layer's bounds: the path's (ShapeLayerHelper.makeLayerBounds)
+    let layerSize = path.boundingRect.isNull ? .zero : path.boundingRect.size
+    let width = Int(ceil(layerSize.width * scale)), height = Int(ceil(layerSize.height * scale))
+    guard width > 0, height > 0, width < 16384, height < 16384,
+          let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
+    else { return nil }
+    // in points, then the shape's space (the layer shows its contents flipped, as the shape's
+    // space is: y down)
+    context.scaleBy(x: scale, y: scale)
+    context.translateBy(x: -origin.x, y: -origin.y)
+    context.addPath(clip)
+    context.clip(using: eoFill ? .evenOdd : .winding)
+    paint._finchDraw(in: context, bounds: paintBounds.offsetBy(dx: origin.x, dy: origin.y))
+    return context.makeImage()
+}
+
+enum ShapeType {'''),
+    # shapes filled with a paint that isn't a color (gradients): a shape with the paint
+    ('SwiftUICore/Shape/ShapeStyle/ShapeStyleRendering.swift',
+     '''            render(color: resolved)
+        default:
+            _openSwiftUIUnimplementedFailure()
+        }''',
+     '''            render(color: resolved)
+        case let .paint(paint):
+            render(paint: paint)
+        default:
+            _openSwiftUIUnimplementedFailure()
+        }'''),
+    ('SwiftUICore/Shape/ShapeStyle/ShapeStyleRendering.swift',
+     '''    private mutating func render(paint: AnyResolvedPaint) {
+        _openSwiftUIUnimplementedFailure()
+    }''',
+     '''    private mutating func render(paint: AnyResolvedPaint) {
+        defer {
+            if let data = interpolatorData {
+                addEffect(.interpolatorLayer(data.group, serial: data.serial))
+                interpolatorData = nil
+            }
+        }
+        guard !paint.isClear else { return }
+        switch shape {
+        case let .path(path, fillStyle):
+            item.value = .content(DisplayList.Content(.shape(path, paint, fillStyle), seed: contentSeed))
+        case .text:
+            item.value = .content(DisplayList.Content(.color(.clear), seed: contentSeed))
+        case .image, .alphaMask, .empty:
+            break
+        }
+    }'''),
     # whether a rounded rectangle holds a point, by its geometry: OpenRenderBox's path
     # storage can't take elements yet, and hit testing a rounded shape built one to ask
     ('SwiftUICore/Shape/RoundedCornerStyle.swift',

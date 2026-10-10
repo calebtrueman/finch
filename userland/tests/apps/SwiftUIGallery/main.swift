@@ -39,6 +39,22 @@ struct Gallery: View {
                 Capsule().stroke(.orange, lineWidth: 2).frame(width: 40, height: 20)
             }
             HStack {
+                Text("Gradients:")
+                Rectangle().fill(LinearGradient(colors: [.red, .blue], startPoint: .top, endPoint: .bottom))
+                    .frame(width: 30, height: 20)
+                Circle().fill(RadialGradient(colors: [.yellow, .orange], center: .center, startRadius: 0, endRadius: 10))
+                    .frame(width: 20, height: 20)
+                Circle().fill(AngularGradient(colors: [.red, .green, .blue, .red], center: .center))
+                    .frame(width: 20, height: 20)
+                RoundedRectangle(cornerRadius: 6).fill(EllipticalGradient(colors: [.white, .purple]))
+                    .frame(width: 40, height: 20)
+                Capsule().stroke(LinearGradient(colors: [.green, .blue], startPoint: .leading, endPoint: .trailing),
+                                 lineWidth: 3)
+                    .frame(width: 40, height: 20)
+                LinearGradient(colors: [.black, .gray], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 40, height: 20)
+            }
+            HStack {
                 Text("Styled").foregroundStyle(.purple).italic()
                 Text("Mono").font(.system(.body, design: .monospaced))
                 Text("Padded").padding(4).background(.yellow)

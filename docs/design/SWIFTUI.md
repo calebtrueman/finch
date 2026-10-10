@@ -241,5 +241,8 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - AppKit controls in SwiftUI views (buttons' press trackers, sliders) keep the mouse
     after a container's SwiftUI gesture takes the mouse-down (NSWindow `_latchView`), as an
     inner control wins over its container's gestures.
-  - Next: `onSubmit`, ScrollViewReader, lazy stacks and grids, gradients, DragGesture and
-    commands.
+  - Gradients (Gradient, LinearGradient, RadialGradient, EllipticalGradient,
+    AngularGradient) as shape styles and views. A paint that isn't a color is drawn by
+    CoreGraphics, clipped to the shape (filled or stroked), into its layer's contents. Upstream's
+    layer helper and style renderer had no paint path.
+  - Next: `onSubmit`, ScrollViewReader, lazy stacks and grids, DragGesture and commands.
