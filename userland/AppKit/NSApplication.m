@@ -564,6 +564,12 @@ wake_event(void)
 
 - (void)terminate:(id)sender
 {
+    /* as Apple's: documents that autosave in place are saved before quitting */
+    Class dc = FINCH_CLASS(NSDocumentController);
+    if (dc)
+        for (NSDocument *doc in [[[[dc sharedDocumentController] documents] copy] autorelease])
+            if ([[doc class] autosavesInPlace] && [doc hasUnautosavedChanges])
+                [doc autosaveWithImplicitCancellability:NO completionHandler:^(NSError *error) {}];
     NSApplicationTerminateReply reply = NSTerminateNow;
     if ([(id)_delegate respondsToSelector:@selector(applicationShouldTerminate:)])
         reply = [_delegate applicationShouldTerminate:self];

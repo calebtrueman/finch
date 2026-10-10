@@ -409,6 +409,7 @@ type_names(NSDictionary *t)
     NSInteger _untitledNumber;
     NSPrintInfo *_printInfo;
     BOOL _hasUndoManager;
+    BOOL _autosaveScheduled;
 }
 
 - (instancetype)init
@@ -627,6 +628,15 @@ type_names(NSDictionary *t)
     }
     for (NSWindowController *wc in _windowControllers)
         [wc setDocumentEdited:[self isDocumentEdited]];
+    switch (change & 0xff) {
+    case NSChangeDone:
+    case NSChangeUndone:
+    case NSChangeRedone:
+        [self scheduleAutosaving];
+        break;
+    default:
+        break;
+    }
 }
 
 - (id)changeCountTokenForSaveOperation:(NSSaveOperationType)op { return @(_changeCount); }
@@ -840,14 +850,42 @@ type_names(NSDictionary *t)
         [self revertToContentsOfURL:_fileURL ofType:_fileType error:NULL];
 }
 
+/* Autosaving in place: an edited document with a file is saved to it, as an
+ * autosave-in-place operation (Apple's do so a few seconds after an edit, and
+ * when the app quits). Autosaving elsewhere (autosavedContentsFileURL) isn't
+ * here yet. */
 - (void)autosaveWithImplicitCancellability:(BOOL)implicit completionHandler:(void (^)(NSError *))handler
 {
-    if (handler)
-        handler(nil);
+    if (![self hasUnautosavedChanges] || !_fileURL || ![[self class] autosavesInPlace]) {
+        if (handler)
+            handler(nil);
+        return;
+    }
+    [self saveToURL:_fileURL ofType:_fileType forSaveOperation:NSAutosaveInPlaceOperation completionHandler:^(NSError *e) {
+        if (handler)
+            handler(e);
+    }];
 }
 
 - (BOOL)checkAutosavingSafetyAndReturnError:(NSError **)outError { return YES; }
-- (void)scheduleAutosaving {}
+
+#define AUTOSAVE_IN_PLACE_DELAY 5.0   /* seconds after an edit */
+
+- (void)scheduleAutosaving
+{
+    NSTimeInterval delay = [[self class] autosavesInPlace] ? AUTOSAVE_IN_PLACE_DELAY
+                                                           : [[NSDocumentController sharedDocumentController] autosavingDelay];
+    if (_autosaveScheduled || delay <= 0 || ![self hasUnautosavedChanges])
+        return;
+    _autosaveScheduled = YES;
+    [self retain];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        self->_autosaveScheduled = NO;
+        if ([self hasUnautosavedChanges])
+            [self autosaveWithImplicitCancellability:YES completionHandler:^(NSError *error) {}];
+        [self release];
+    });
+}
 - (IBAction)runPageLayout:(id)sender {}
 - (IBAction)printDocument:(id)sender {}
 /* As Apple's: a copy of the shared print info until the document is given its own. */
