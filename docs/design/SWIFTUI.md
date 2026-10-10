@@ -179,5 +179,18 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   layout, control size and button styles; not the whole environment, which holds the outer
   graph's state. `finch-app-test` has a `scroll:` step.
 
-  Next: lists that scroll (their rows belong to the outer graph, so they can't move into a
-  hosted document; they need scrolling within the graph), then larger apps.
+- 2026-10-10: lists scroll, within the view graph (their rows belong to the list's graph,
+  so they can't move into a hosted document): the rows at full height, offset, clipped,
+  with an overlay scroller, and the wheel's events taken by an AppKit view over them.
+  `SwiftUIGallery` runs in the Finch VM: it draws, takes clicks and scrolls.
+  - Compute compared a part of a value (an indirect attribute's) at the wrong place:
+    `AttributeType::compare_values_partial` passes pointers already at the part, and
+    `compare_partial` added the part's offset again, so comparisons read neighbouring
+    fields as enums or objects. Which crashed depended on what memory held, so the host ran
+    and the VM didn't; with malloc scribbling the host crashed too. `find_partial` also lost
+    a nested layout's offset. Both fixed in `patches/Compute/0001-finch.patch`.
+  - Compute read a heap object's type from its first word, which for Objective-C objects
+    and Swift subclasses of NSObject is a non-pointer isa; it asks the Objective-C runtime
+    now, and doesn't read tagged pointers.
+
+  Next: larger apps.

@@ -27,6 +27,12 @@ actor Counter {
     func read() -> Int { value }
 }
 
+/// Copies through the value witnesses (an unspecialized generic copy).
+@inline(never)
+func copies<T>(_ value: T) -> [T] {
+    [value, value]
+}
+
 func read<Source: ValueSource>(_ source: Source) -> Source.Value {
     source.read()
 }
@@ -57,6 +63,15 @@ struct RuntimeTest {
         let mutex = Mutex(3)
         mutex.withLock { $0 += 4 }
         print("mutex:", mutex.withLock { $0 })
+        // enums with payloads, copied through the witnesses of generic types (as the
+        // attribute graph compares view values)
+        let range = 1...20
+        let second = range.index(after: range.startIndex)
+        print("enum payload copies:", copies(second) == [second, second], copies(Optional(second)).count,
+              copies(range.endIndex) == [range.endIndex, range.endIndex])
+        let anyIndex: Any = second
+        print("existential enum:", (anyIndex as? ClosedRange<Int>.Index) == second)
+        print("POD witnesses:", _isPOD(Int.self), _isPOD(ClosedRange<Int>.Index.self), _isPOD(Optional<Int>.self))
         let counter = Counter()
         await withTaskGroup(of: Void.self) { group in
             for value in 1...8 { group.addTask { await counter.add(value) } }

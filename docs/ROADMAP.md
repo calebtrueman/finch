@@ -341,7 +341,9 @@ is set up and reachable with `tools/vz/ssh` (2026-10-08).
         and cells' vertical alignment (2026-10-09). Next: NSFileVersion, sharing.
   - [x] App test tools: `finch-app-test` accepts `screenshot:PATH` to save a screen PNG and `screenshot64` to print one over the VM console; `tools/host-tests.sh` runs the host comparison suite;
         `tools/check-imports.py` finds libraries such as libxpc through the VM overlay list,
-        including builds outside `build/root` (2026-10-09).
+        including builds outside `build/root` (2026-10-09). `finch-app-test` reports an app's
+        crash with a backtrace, `tools/vm/symbolize-crash.py` symbolizes it on the host, and a
+        `scroll:` step scrolls (2026-10-10).
 
 **Exit:** an unmodified Mac app draws a window on Finch's own frameworks and
 window server.

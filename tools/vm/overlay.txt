@@ -165,3 +165,6 @@ build/userland/finch-urlsession-test /usr/local/bin/finch-urlsession-test
 build/userland/apps/SwiftUIHello.app/Contents/MacOS/SwiftUIHello /Applications/SwiftUIHello.app/Contents/MacOS/SwiftUIHello
 build/userland/apps/SwiftUIHello.app/Contents/Info.plist /Applications/SwiftUIHello.app/Contents/Info.plist
 build/userland/apps/SwiftUIHello.app/Contents/PkgInfo /Applications/SwiftUIHello.app/Contents/PkgInfo
+build/userland/apps/SwiftUIGallery.app/Contents/MacOS/SwiftUIGallery /Applications/SwiftUIGallery.app/Contents/MacOS/SwiftUIGallery
+build/userland/apps/SwiftUIGallery.app/Contents/Info.plist /Applications/SwiftUIGallery.app/Contents/Info.plist
+build/userland/apps/SwiftUIGallery.app/Contents/PkgInfo /Applications/SwiftUIGallery.app/Contents/PkgInfo

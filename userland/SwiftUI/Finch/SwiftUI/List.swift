@@ -4,7 +4,7 @@
 // background, the selected rows highlighted with the accent colour. A row is selected by
 // clicking it (with the Command key, added to or removed from a multiple selection), and is
 // identified by its tag, or by its identity in a ForEach, as Apple's are. Hierarchical lists
-// (OutlineGroup) and editing aren't here yet, and a list doesn't scroll yet.
+// (OutlineGroup) and editing aren't here yet.
 
 import AppKit
 import SwiftUICore
@@ -97,7 +97,7 @@ struct _FinchListRoot<Value: Hashable>: _VariadicView_UnaryViewRoot {
     var selection: _FinchListSelection<Value>
 
     func body(children: _VariadicView.Children) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        _FinchClipScroll(content: VStack(alignment: .leading, spacing: 0) {
             ForEach(children) { child in
                 let value = _finchTag(of: child, as: Value.self)
                 let selected = value.map(selection.isSelected) ?? false
@@ -116,8 +116,7 @@ struct _FinchListRoot<Value: Hashable>: _VariadicView_UnaryViewRoot {
                     }
             }
         }
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.vertical, 6))
         .background(Color(nsColor: .controlBackgroundColor))
         .clipped()
     }

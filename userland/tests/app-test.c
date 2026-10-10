@@ -27,6 +27,8 @@
  *                     as numbered, checksummed lines, twice; half scales it down
  *                     by two (tools/vm/png-from-console.py decodes it)
  *   output            print what the app has written since the last time
+ *
+ * If the app crashes, its exception, registers and backtrace are printed as "crash:" lines.
  */
 #include <CoreGraphics/CoreGraphics.h>
 #include <ImageIO/ImageIO.h>
@@ -40,6 +42,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "../WindowServer/FinchWSProtocol.h"
+#include "crashwatch.h"
 
 extern char **environ;
 bool FWSConnect(void);
@@ -147,11 +150,17 @@ main(int argc, char **argv)
     for (char *tok = extra ? strtok(extra, " ,") : NULL; tok && na < 15; tok = strtok(NULL, " ,"))
         aargs[na++] = tok;
     aargs[na] = NULL;
-    if (posix_spawn(&app, argv[2], &fa, NULL, aargs, environ)) {
+    /* a crash in the app is reported with a backtrace (crashwatch.c) */
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+    if (!getenv("FINCH_CRASHWATCH") || strcmp(getenv("FINCH_CRASHWATCH"), "0"))
+        crashwatch_spawnattr(&attr);
+    if (posix_spawn(&app, argv[2], &fa, &attr, aargs, environ)) {
         printf("can't start %s\n", argv[2]);
         kill(server, SIGTERM);
         return 1;
     }
+    crashwatch_child(app);
     close(pipefd[1]);
     app_out = pipefd[0];
     fcntl(app_out, F_SETFL, O_NONBLOCK);

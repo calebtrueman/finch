@@ -58,8 +58,7 @@ struct Gallery: View {
             }
             .frame(height: 70)
             List {
-                Text("Row 1")
-                Text("Row 2")
+                ForEach(1...8, id: \.self) { Text("Row \($0)") }
             }
             .frame(height: 60)
         }

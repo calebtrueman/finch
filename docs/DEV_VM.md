@@ -152,6 +152,31 @@ Rerunning boots normally.
   investigated. As with any qemu-sptm bug, it would be reported upstream
   as an issue.
 
+## Crashes in the VM
+
+There is no crash reporter in the VM yet. `finch-app-test` reports a crash of the app it
+runs: the exception, the registers and a frame-pointer backtrace as `crash:` lines on the
+console (`userland/tests/crashwatch.c`). It takes the app's exceptions on an exception
+port of the identity-protected kind; Finch's programs are platform binaries in the VM, and
+the kernel kills one that sets any other kind. It reads the app's memory for the backtrace
+as a declared debugger (`com.apple.security.cs.debugger`) of an app that allows debugging
+(`com.apple.security.get-task-allow`, which the test apps are signed with). Without that,
+it reports pc and lr only.
+
+Symbolize the report on the host:
+
+```sh
+tools/vm/symbolize-crash.py LOG
+```
+
+It finds each frame's image through `tools/vm/overlay.txt` or `build/root`; shared cache
+addresses go through `build/vm/dyld_shared_cache_arm64e.map` and the cache's slide, which
+the report prints.
+
+A crash that happens only in the VM may depend on what memory holds: try the host with
+`MallocPreScribble=1 MallocScribble=1`, which fills new and freed memory, before a
+long VM hunt.
+
 ## Console output
 The serial console drops bytes 0x80–0x9F, so 4-byte UTF-8 characters (emoji)
 look garbled in `smoke.exp` logs, though the program wrote the right bytes.

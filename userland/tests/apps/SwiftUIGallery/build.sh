@@ -12,5 +12,5 @@ xcrun -sdk macosx swiftc -target arm64e-apple-macos26.0 -O -parse-as-library \
     -o "${APP}/Contents/MacOS/SwiftUIGallery" "${HERE}/main.swift"
 cp "${HERE}/Info.plist" "${APP}/Contents/Info.plist"
 printf 'APPL????' > "${APP}/Contents/PkgInfo"
-codesign -f -s - "${APP}" 2>/dev/null
+codesign -f -s - --entitlements "${HERE}/../debug.entitlements" "${APP}" 2>/dev/null
 echo "built ${APP#"${FINCH_ROOT}/"}"

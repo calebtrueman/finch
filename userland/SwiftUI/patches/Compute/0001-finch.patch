@@ -87,6 +87,117 @@ index 392d171..a3e0e39 100644
  };
  
  template <typename Result>
+diff --git a/Sources/ComputeCxx/Comparison/LayoutDescriptor.cpp b/Sources/ComputeCxx/Comparison/LayoutDescriptor.cpp
+index 5710b86..f684d2e 100644
+--- a/Sources/ComputeCxx/Comparison/LayoutDescriptor.cpp
++++ b/Sources/ComputeCxx/Comparison/LayoutDescriptor.cpp
+@@ -3,6 +3,9 @@
+ #include <cstring>
+ #include <stdio.h>
+ #include <variant>
++#if __APPLE__
++#include <objc/runtime.h>
++#endif
+ 
+ #include <Utilities/HashTable.h>
+ #include <platform/lock.h>
+@@ -494,11 +497,23 @@ bool compare_heap_objects(const void *lhs, const void *rhs, IAGComparisonOptions
+         return false;
+     }
+ 
++#if __APPLE__
++    // Finch: the objects' types through the Objective-C runtime. The first field of a heap
++    // object is its metadata only for pure Swift objects: an Objective-C object's (and a
++    // Swift subclass of NSObject's) is a non-pointer isa, with other bits in it. Tagged
++    // pointers have no memory: different ones are different values.
++    if ((intptr_t)lhs < 0 || (intptr_t)rhs < 0) {
++        return false;
++    }
++    const swift::metadata *lhs_type = reinterpret_cast<const swift::metadata *>(object_getClass((id)lhs));
++    const swift::metadata *rhs_type = reinterpret_cast<const swift::metadata *>(object_getClass((id)rhs));
++#else
+     // The first field of a Swift HeapObject is a pointer to its metadata.
+     const swift::metadata *lhs_type;
+     const swift::metadata *rhs_type;
+     std::memcpy(&lhs_type, lhs, sizeof(lhs_type));
+     std::memcpy(&rhs_type, rhs, sizeof(rhs_type));
++#endif
+     if (lhs_type != rhs_type) {
+         return false;
+     }
+@@ -612,6 +627,8 @@ bool compare_existential_values(const swift::existential_type_metadata &type, co
+ 
+ bool compare_partial(ValueLayout layout, const unsigned char *lhs, const unsigned char *rhs, size_t offset, size_t size,
+                      IAGComparisonOptions options) {
++    // lhs and rhs point at the range compared, [offset, offset + size) of the values (as
++    // AttributeType::compare_values_partial passes them); the layout is the whole value's
+     if (lhs == rhs) {
+         return true;
+     }
+@@ -619,16 +636,23 @@ bool compare_partial(ValueLayout layout, const unsigned char *lhs, const unsigne
+     if (layout) {
+         Partial partial = find_partial(layout, offset, size);
+         if (partial.layout != nullptr) {
+-            size_t remaining_size = size;
+-            if (partial.location != 0) {
+-                if (!compare_bytes_top_level(lhs, rhs, partial.location, options)) {
++            size_t end = offset + size;
++            // the range's start lies inside an entry that begins before it: up to the next
++            // entry, it is compared as bytes
++            if (partial.location > offset) {
++                size_t head = (partial.location < end ? partial.location : end) - offset;
++                if (!compare_bytes_top_level(lhs, rhs, head, options)) {
+                     return false;
+                 }
+-                remaining_size = size >= partial.location ? size - partial.location : 0;
++            }
++            if (partial.location >= end) {
++                return true;
+             }
+ 
++            // the rest by the layout, which reads fields from the values' start
+             Compare compare_object = Compare();
+-            return compare_object(partial.layout, lhs, rhs, partial.location, remaining_size, options);
++            return compare_object(partial.layout, lhs - offset, rhs - offset, partial.location, end - partial.location,
++                                  options);
+         }
+     }
+ 
+@@ -643,6 +667,9 @@ Partial find_partial(ValueLayout layout, size_t range_location, size_t range_siz
+ 
+     ValueLayoutReader reader = ValueLayoutReader(layout);
+     size_t accumulated_size = 0;
++    // where the layout being read starts in the value (a nested one's offset): the location
++    // returned is from the start of the value, as the comparison reads it
++    size_t base = 0;
+ 
+     const swift::metadata *enum_type = nullptr;
+     while (accumulated_size < range_location) {
+@@ -701,6 +728,7 @@ Partial find_partial(ValueLayout layout, size_t range_location, size_t range_siz
+                 // offset after applying nested layout exceeds range
+                 // restart search from nested layout
+                 range_location -= accumulated_size;
++                base += accumulated_size;
+                 accumulated_size = 0;
+                 reader = ValueLayoutReader(nested_layout);
+             } else {
+@@ -719,6 +747,7 @@ Partial find_partial(ValueLayout layout, size_t range_location, size_t range_siz
+                 // offset after applying nested layout exceeds range
+                 // restart search from nested layout
+                 range_location -= accumulated_size;
++                base += accumulated_size;
+                 accumulated_size = 0;
+                 reader = ValueLayoutReader(nested_layout);
+             } else {
+@@ -766,7 +795,7 @@ Partial find_partial(ValueLayout layout, size_t range_location, size_t range_siz
+         }
+     };
+ 
+-    return {reader.layout, accumulated_size};
++    return {reader.layout, base + accumulated_size};
+ }
+ 
+ void print(std::string &output, ValueLayout layout) {
 diff --git a/Sources/ComputeCxx/Graph/Graph.cpp b/Sources/ComputeCxx/Graph/Graph.cpp
 index 8084e12..7f9680d 100644
 --- a/Sources/ComputeCxx/Graph/Graph.cpp

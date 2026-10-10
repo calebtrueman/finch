@@ -404,9 +404,10 @@ $(ASSETS_APP)/MacOS/finch-assets-test: assets-test.m apps/AssetsTest/Info.plist 
 	codesign -f -s - -i org.finch.test.assets $@
 
 # Runs an app on a headless window server and drives it (Finch-only); hello-test.sh drives Hello.app.
-$(OUT)/finch-app-test: app-test.c
+$(OUT)/finch-app-test: app-test.c crashwatch.c crashwatch.h debugger.entitlements
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) -o $@ $< ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics -framework CoreFoundation -framework ImageIO
+	$(CC) $(CFLAGS) -o $@ app-test.c crashwatch.c ../../build/root/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics -framework CoreFoundation -framework ImageIO
+	codesign -f -s - --entitlements debugger.entitlements $@
 
 $(OUT)/apps/Hello.app/Contents/MacOS/Hello: apps/Hello/main.m apps/Hello/AppDelegate.m apps/Hello/MainMenu.xib apps/Hello/Info.plist
 	apps/Hello/build.sh
