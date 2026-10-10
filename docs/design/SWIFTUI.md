@@ -310,4 +310,6 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
   - `onLongPressGesture` fires on a timer once the press has been held for the minimum time
     (Apple's does too; no event need arrive then), and tells `pressing` true as the pointer
     goes down and false when it fires, is let go, or moves too far first.
-  - Next: ScrollViewReader in Lists.
+  - ScrollViewReader scrolls Lists too: a list's rows report where they are by their
+    explicit id (their ForEach element's, or `id(_:)`), and its in-graph clip scroll takes
+    the reader's scrollTo like a scroll view.

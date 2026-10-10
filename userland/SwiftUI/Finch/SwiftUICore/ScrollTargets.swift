@@ -84,3 +84,10 @@ package struct _FinchReportedChild<Content: View>: Rule {
         content.modifier(_FinchScrollTargetModifier(id: id))
     }
 }
+
+extension _VariadicView.Children.Element {
+    /// The child's explicit id (its ForEach element's, or its `id(_:)`), of whatever type.
+    package var _finchExplicitID: AnyHashable? {
+        view.id.primaryExplicitID?.anyHashable
+    }
+}

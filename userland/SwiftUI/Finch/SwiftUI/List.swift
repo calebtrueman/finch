@@ -163,6 +163,8 @@ struct _FinchListRows<Value: Hashable>: View {
                     .onTapGesture {
                         if let value { selection.select(value) }
                     }
+                    // for a ScrollViewReader: where the row is, by its id
+                    .modifier(_FinchScrollTargetModifier(id: child._finchExplicitID ?? AnyHashable(child.id)))
     }
 
     private var background: Color {
