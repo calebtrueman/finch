@@ -224,5 +224,12 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     (`EnvironmentValues.dismiss`, `.scenePhase`): Swift mangles the extension context into
     them, Apple's binary mostly doesn't, and apps import the shorter name. The build exports
     both (`extension-aliases.py`, an `ld -alias_list`).
-  - Next: toolbars, `navigationTitle`, NavigationStack and NavigationSplitView, then
-    `onSubmit`, ScrollViewReader, lazy stacks and grids, gradients and DragGesture.
+  - Toolbars (ToolbarItem, ToolbarItemGroup, the builder and its tuples, groups and
+    conditions; custom content through its body) as the window's NSToolbar: navigation
+    items leading, principal and status in the middle, the rest trailing, each hosting its
+    content. Every `toolbar` in a window adds to the one toolbar. `navigationTitle` is the
+    window's title.
+  - A rounded rectangle's hit test is geometric (OpenRenderBox's path storage can't take
+    elements yet).
+  - Next: NavigationStack and NavigationSplitView, then `onSubmit`, ScrollViewReader,
+    lazy stacks and grids, gradients and DragGesture.

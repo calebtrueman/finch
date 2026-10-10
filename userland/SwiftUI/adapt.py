@@ -109,6 +109,25 @@ private enum _ThreadLocal {
 }
 
 // MARK: - ObservationEntry'''),
+    # whether a rounded rectangle holds a point, by its geometry: OpenRenderBox's path
+    # storage can't take elements yet, and hit testing a rounded shape built one to ask
+    ('SwiftUICore/Shape/RoundedCornerStyle.swift',
+     '''    package func contains(_ point: CGPoint) -> Bool {
+        withTemporaryPath { path in
+            path.contains(point: point, eoFill: false)
+        }
+    }''',
+     '''    package func contains(_ point: CGPoint) -> Bool {
+        let r = rect.standardized
+        guard r.contains(point) else { return false }
+        // the corners' ellipses (continuous corners taken as circular ones)
+        let rx = min(abs(cornerSize.width), r.width / 2), ry = min(abs(cornerSize.height), r.height / 2)
+        guard rx > 0, ry > 0 else { return true }
+        let cx = point.x < r.minX + rx ? r.minX + rx : point.x > r.maxX - rx ? r.maxX - rx : point.x
+        let cy = point.y < r.minY + ry ? r.minY + ry : point.y > r.maxY - ry ? r.maxY - ry : point.y
+        let dx = (point.x - cx) / rx, dy = (point.y - cy) / ry
+        return dx * dx + dy * dy <= 1
+    }'''),
     # a stroked path's outline, through CoreGraphics (dashed first when the style has dashes)
     ('SwiftUICore/Shape/Path.swift',
      '''    public func strokedPath(_ style: StrokeStyle) -> Path {

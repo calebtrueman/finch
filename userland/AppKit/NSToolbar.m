@@ -618,7 +618,12 @@ natural_width(NSToolbarItem *i)
             if ([[i view] superview] != self)
                 [self addSubview:[i view]];
             NSRect vf = [[i view] frame];
-            [[i view] setFrame:NSMakeRect(x, floor(NSMidY(r) - vf.size.height / 2), w, vf.size.height)];
+            NSRect nf = NSMakeRect(x, floor(NSMidY(r) - vf.size.height / 2), w, vf.size.height);
+            if (!NSEqualRects(vf, nf)) {
+                /* laid out while drawing: a moved view is drawn again where it now is */
+                [[i view] setFrame:nf];
+                [[i view] setNeedsDisplay:YES];
+            }
         }
         x += w + 8;
     }

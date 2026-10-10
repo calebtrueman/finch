@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // SwiftUIForms: forms (grouped, with sections, headers and footers) and a sectioned list,
-// sheets, alerts, a confirmation dialog and a popover, built against Apple's SDK as Xcode would.
+// sheets, alerts, a confirmation dialog, a popover, a toolbar
+// and a navigation title, built against Apple's SDK as Xcode would.
 import SwiftUI
 struct FormsView: View {
     @State private var on = true
@@ -83,6 +84,21 @@ struct FormsView: View {
         }
         }
         .padding()
+        .navigationTitle("Forms for \(name)")
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button("Back") { lastAction = "back" }
+            }
+            ToolbarItem(placement: .principal) {
+                Text("Principal")
+            }
+            ToolbarItemGroup {
+                Button("Add") { lastAction = "add" }
+                if on {
+                    Button("Share") { lastAction = "share" }
+                }
+            }
+        }
     }
 }
 struct SheetView: View {
