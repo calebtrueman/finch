@@ -15,6 +15,7 @@
  *   wait:N            wait N milliseconds
  *   window:TITLE      wait for a window titled TITLE and make it the current one
  *   click:X,Y         click at X,Y in the current window
+ *   rclick:X,Y        right-click at X,Y in the current window
  *   scroll:X,Y,DX,DY  scroll by DX,DY points (a wheel's deltas) at X,Y in the current window
  *   type:TEXT         type TEXT (ASCII)
  *   key:CODE,CHAR     press a key (macOS virtual key code, character as a number)
@@ -182,6 +183,11 @@ main(int argc, char **argv)
             post(FWS_EVENT_MOUSE_MOVED, sx, sy, 0, 0, 0);
             post(FWS_EVENT_LEFT_DOWN, sx, sy, 0, 0, 0);
             post(FWS_EVENT_LEFT_UP, sx, sy, 0, 0, 0);
+        } else if (sscanf(s, "rclick:%lf,%lf", &x, &y) == 2) {
+            double sx = current.x + x, sy = current.y + y;
+            post(FWS_EVENT_MOUSE_MOVED, sx, sy, 0, 0, 0);
+            post(FWS_EVENT_RIGHT_DOWN, sx, sy, 0, 0, 0);
+            post(FWS_EVENT_RIGHT_UP, sx, sy, 0, 0, 0);
         } else if (sscanf(s, "scroll:%lf,%lf,%lf,%lf", &x, &y, &dx, &dy) == 4) {
             double sx = current.x + x, sy = current.y + y;
             post(FWS_EVENT_MOUSE_MOVED, sx, sy, 0, 0, 0);

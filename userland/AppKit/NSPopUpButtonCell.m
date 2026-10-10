@@ -412,7 +412,13 @@ NSNotificationName NSPopUpButtonWillPopUpNotification = @"NSPopUpButtonWillPopUp
     /* The selected item over the title (its row is 22 points); a pull-down's menu under the button. */
     NSPoint p = _p.pullsDown ? NSMakePoint(NSMinX(r), NSMinY(r))
                              : NSMakePoint(NSMinX(r), item ? NSMaxY(r) - floor((r.size.height - 22) / 2) : NSMinY(r));
+    /* A pull-down's first item is its title, never in its menu, however the menu was made
+       (a menu set whole, as SwiftUI's is, keeps the item visible itself). */
+    NSMenuItem *title = _p.pullsDown && [_menu numberOfItems] ? [_menu itemAtIndex:0] : nil;
+    BOOL titleHidden = [title isHidden];
+    [title setHidden:YES];
     FinchMenuPopUp(_menu, item, p, view, [NSApp currentEvent], r.size.width, [self font], YES);
+    [title setHidden:titleHidden];
 }
 
 - (void)dismissPopUp

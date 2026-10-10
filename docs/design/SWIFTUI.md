@@ -213,4 +213,7 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     segmented control or radio buttons), Section (headers and footers marked by the
     section traits, as upstream's group lists make them), Form and the form styles
     (columns, grouped). `SwiftUIForms` tests them.
-  - Next: text field styles, Menu, sheets and toolbars.
+  - Text field styles; Menu (a pull-down button), menu styles and `contextMenu` (an AppKit
+    view over the content that takes right-clicks), shown as AppKit menus built from the
+    content: buttons, toggles (checked), dividers, sections, pickers and submenus.
+  - Next: sheets, alerts, popovers and toolbars.

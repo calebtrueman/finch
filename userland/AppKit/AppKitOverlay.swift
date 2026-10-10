@@ -846,3 +846,13 @@ extension CocoaError.Code {
     return CocoaError.Code(rawValue: 67072)
   }
 }
+
+// MARK: - NSMenuItem
+
+@available(macOS 14.0, *)
+extension NSMenuItem {
+  /// A menu section's header (+sectionHeaderWithTitle:, refined for Swift as Apple's is).
+  public static func sectionHeader(title: String) -> NSMenuItem {
+    return __sectionHeader(withTitle: title)
+  }
+}

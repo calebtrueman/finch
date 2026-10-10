@@ -6,7 +6,24 @@ struct FormsView: View {
     @State private var on = true
     @State private var name = "Finch"
     @State private var pick: String? = "b"
+    @State private var lastAction = "none"
     var body: some View {
+        VStack(alignment: .leading) {
+        HStack {
+            Menu("Actions") {
+                Button("Rename") { lastAction = "rename" }
+                Divider()
+                Toggle("Notifications", isOn: $on)
+                Menu("More") {
+                    Button("Archive") { lastAction = "archive" }
+                }
+            }
+            Text("Last: \(lastAction)")
+                .padding(4)
+                .contextMenu {
+                    Button("Copy") { lastAction = "copy" }
+                }
+        }
         HStack(alignment: .top) {
             Form {
                 Section("Account") {
@@ -37,6 +54,7 @@ struct FormsView: View {
                 }
             }
             .frame(width: 180, height: 220)
+        }
         }
         .padding()
     }
