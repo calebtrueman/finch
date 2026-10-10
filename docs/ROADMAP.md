@@ -399,7 +399,7 @@ and AppKit come in Phase 2).
       and collecting by time; every Combine symbol the system apps import (2026-10-09)
 - [ ] SwiftUI: OpenSwiftUI (MIT) built as SwiftUI and SwiftUICore (`docs/design/SWIFTUI.md`)
   - [x] Both frameworks build and link against Finch's frameworks alone (2026-10-09)
-  - [ ] A minimal app draws and responds on the host, then in the VM
+  - [x] A minimal app draws and responds on the host, then in the VM (2026-10-09)
   - [ ] ABI parity, then the system apps, smallest first
 - [ ] The URL loading system (Apple's is in the closed CFNetwork; Finch's is in Foundation)
   - [x] Requests, responses, sessions; file, data and HTTP/1.1 loading; TLS over OpenSSL;

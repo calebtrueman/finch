@@ -257,6 +257,29 @@ owned_url(CFURLRef u)
 }
 
 extern NSAttributedString *_FinchAttributedStringFromInlineMarkdown(NSString *string) NS_RETURNS_RETAINED;
+/* swift-corelibs CF's (Finch's CoreFoundation exports it) */
+extern CFStringRef CFBundleCopyLocalizedStringForLocalization(CFBundleRef bundle, CFStringRef key, CFStringRef value,
+                                                              CFStringRef tableName, CFStringRef localizationName);
+
+/* A string from a given localization's table (nil: the preferred one). */
+- (NSString *)localizedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)tableName
+                       localization:(NSString *)localization
+{
+    if (!localization)
+        return [self localizedStringForKey:key value:value table:tableName];
+    if (!key)
+        return value ? value : @"";
+    return [(id)CFBundleCopyLocalizedStringForLocalization(_cf, (CFStringRef)key, (CFStringRef)value, (CFStringRef)tableName,
+                                                           (CFStringRef)localization) autorelease];
+}
+
+- (NSAttributedString *)localizedAttributedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)tableName
+                                           localization:(NSString *)localization
+{
+    NSString *s = [self localizedStringForKey:key value:value table:tableName localization:localization];
+    NSAttributedString *a = _FinchAttributedStringFromInlineMarkdown(s);
+    return a ? [a autorelease] : [[[NSAttributedString alloc] initWithString:s] autorelease];
+}
 
 /* The localized string read as inline Markdown, as Apple's does; plain text if it doesn't parse. */
 - (NSAttributedString *)localizedAttributedStringForKey:(NSString *)key value:(NSString *)value table:(NSString *)tableName
@@ -281,6 +304,13 @@ extern NSAttributedString *_FinchAttributedStringFromInlineMarkdown(NSString *st
 + (NSArray<NSString *> *)preferredLocalizationsFromArray:(NSArray<NSString *> *)localizationsArray
 {
     return [(id)CFBundleCopyPreferredLocalizationsFromArray((CFArrayRef)localizationsArray) autorelease];
+}
+
++ (NSArray<NSString *> *)preferredLocalizationsFromArray:(NSArray<NSString *> *)localizationsArray
+                                          forPreferences:(NSArray<NSString *> *)preferencesArray
+{
+    return [(id)CFBundleCopyLocalizationsForPreferences((CFArrayRef)localizationsArray, (CFArrayRef)preferencesArray)
+        autorelease];
 }
 
 - (NSArray<NSNumber *> *)executableArchitectures { return [(id)CFBundleCopyExecutableArchitectures(_cf) autorelease]; }

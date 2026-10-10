@@ -127,5 +127,12 @@ QuartzCore draws layers through CoreGraphics, and AppKit is Finch's own.
     Finch's runtime now builds without clang's struct-pointer signing at its interfaces,
     matching what compiled code passes.
 
+  - In the Finch VM (QEMU) too: the app draws and the button counts. The VM showed what the
+    host had hidden: Finch's dyld, from AvailabilityVersions-157.2, knew OS version sets only
+    up to 2023, so a program built with the macOS 26 SDK read as linked before 2024 and
+    SwiftUI took unimplemented legacy paths. `tools/extend-version-map.py` adds the 2024 and
+    2025 sets to dyld's `VersionMap.h`. Foundation also gained
+    `+preferredLocalizationsFromArray:forPreferences:` and the `localization:` string lookups.
+
   Next: window placement (it is centred while still empty), Text styles and fonts, then
   larger apps.

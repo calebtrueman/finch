@@ -35,6 +35,8 @@ copy_headers() {
 # xnu: private libsyscall/os headers, and System.framework private headers
 # (reachable both as <System/sys/fsctl.h> and as <sys/fsctl.h>).
 copy_headers "${XNU_ROOT}/usr/local/include" "${INC}"
+# dyld's OS version sets, past the 2023 ones AvailabilityVersions publishes
+python3 "${FINCH_ROOT}/tools/extend-version-map.py" "${INC}/dyld/VersionMap.h"
 sysfw="${XNU_ROOT}/System/Library/Frameworks/System.framework"
 rsync -a "${sysfw}" "${SDK}/Frameworks/"
 # Kernel.framework private headers (<Kernel/sys/decmpfs.h>, used by copyfile).

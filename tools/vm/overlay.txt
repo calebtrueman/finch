@@ -162,3 +162,6 @@ build/userland/finch-combine-test /usr/local/bin/finch-combine-test
 build/userland/finch-cftokenizer-test /usr/local/bin/finch-cftokenizer-test
 userland/tests/table.rtf /usr/local/share/finch/table.rtf
 build/userland/finch-urlsession-test /usr/local/bin/finch-urlsession-test
+build/userland/apps/SwiftUIHello.app/Contents/MacOS/SwiftUIHello /Applications/SwiftUIHello.app/Contents/MacOS/SwiftUIHello
+build/userland/apps/SwiftUIHello.app/Contents/Info.plist /Applications/SwiftUIHello.app/Contents/Info.plist
+build/userland/apps/SwiftUIHello.app/Contents/PkgInfo /Applications/SwiftUIHello.app/Contents/PkgInfo

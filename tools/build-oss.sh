@@ -71,6 +71,9 @@ grep -rl --include='*.xcconfig' 'Makefiles/CoreOS/Xcode/BSD.xcconfig' "${SRC}" 2
 # Projects that are part of libSystem itself need xnu's private headers (and a
 # matching Availability set) ahead of the public SDK. Opt in with a marker file.
 fr="${FINCH_ROOT}/build/xnu-work/fakeroot"
+# dyld's OS version sets, past the 2023 ones AvailabilityVersions publishes (idempotent)
+[[ -f "${fr}/usr/local/include/dyld/VersionMap.h" ]] &&
+    python3 "${FINCH_ROOT}/tools/extend-version-map.py" "${fr}/usr/local/include/dyld/VersionMap.h"
 private_first="-I${SDK}/override -I${SDK}/availability -I${fr}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -I${fr}/usr/local/include"
 cflags_private=""
 is_private_first=""
