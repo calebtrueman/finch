@@ -229,6 +229,35 @@ not offset by its outline's bounds as Apple's are (Apple Color Emoji draws
 0.125 em higher than on macOS); a text clip drawn through `CTLineDraw` is
 lost (Apple's keeps it, as `CTFontDrawGlyphs` now does).
 
+## ColorSync
+
+`ColorSync.framework` (`userland/ColorSync`) is Finch's own, re-exported by
+ApplicationServices as Apple's is. A profile is a CF type holding ICC bytes: read
+from a file or memory, or, for Apple's named profiles (sRGB, Display P3, DCI-P3,
+Adobe RGB, Rec. 709 and 2020, ACEScg, ROMM, the generic RGB, gray, Lab and XYZ
+ones), written by Finch as ICC v4 profiles with the colorants, curves and white
+points Apple's carry (Apple's ColorSync reads Finch's and converts through them
+identically). Tags are read, set and removed in place; headers are handed out in
+host byte order, field by field, as Apple's are.
+
+Transforms run through D50 XYZ. Matrix/curve RGB, gray, Lab and XYZ profiles are
+converted by Finch's code, matching Apple's conventions measured on macOS:
+
+- Lab floats are L/100, a/255 + 0.5, b/255 + 0.5; XYZ floats are raw D50.
+- An RGB matrix's rows are scaled so device white lands on D50 exactly.
+- Rec. 709 and 2020 camera curves are shown with BT.1886's pure 2.4 gamma unless
+  the transform's options set `kColorSyncTransformUseITU709OETF`.
+- Floats are unclamped; integers are clamped. 8-bit values are `floor(v * 256)`
+  (clamped to 255). 8-bit premultiplied input is unpremultiplied as
+  `floor(c * 255 / a)` wrapped to 8 bits, and premultiplied output is
+  `floor(v * a * 256)`. The byte order is ignored for 8-bit components.
+
+Lookup-table profiles (CMYK, most printer and camera profiles) convert through
+skcms. Gaps: no Generic CMYK or Web Safe Colors named profiles, no device links
+(`ColorSyncProfileCreateLink`), no third-party CMMs, and displays report sRGB.
+Results agree with Apple's to about 1/1000 in floats and usually exactly in 8 bits;
+`finch-colorsync-test` compares them.
+
 ## Testing
 
 The tests follow Foundation's:

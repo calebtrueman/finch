@@ -11,7 +11,8 @@
 #   /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox
 #   /usr/lib/libScreenReader.dylib
 # Frameworks get Versions/Current and the top-level links; BUNDLE_ID "-" skips the plist.
-# Sources are .c, .m or .cpp; Objective-C is built without ARC.
+# Sources are .c, .m or .cpp; Objective-C is built without ARC. CFLAGS in the
+# environment are added to every compile (e.g. -I for a library's headers).
 set -euo pipefail
 FINCH_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="${FINCH_ROOT}/build/root"
@@ -30,7 +31,7 @@ LINK=("$@")
 NAME="$(basename "${INSTALL}")"
 OUT="${ROOT}${INSTALL}"
 OBJ="${FINCH_ROOT}/build/obj/${NAME}"
-FLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g -fblocks
+FLAGS=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -g -fblocks ${CFLAGS:-}
        -Wall -Wextra -Werror -Wno-unused-parameter -Wno-deprecated-declarations)
 
 log "compiling ${NAME}"

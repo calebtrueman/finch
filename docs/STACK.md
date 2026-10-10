@@ -40,7 +40,8 @@ modules, on Compute's attribute graph and the Swift runtime's Observation (apps'
 its window on Finch's frameworks (`docs/design/SWIFTUI.md`); the frameworks it links that Apple keeps closed are Finch's own:
 CoreVideo's display link, Accessibility, CoreTransferable and DeveloperToolsSupport. Terminal's need brought
 CoreAudio (no devices until there's an audio driver), AudioToolbox's system sounds, Carbon with HIToolbox's
-Carbon events and key translation, CoreAnalytics (which collects nothing) and libScreenReader. Foundation carries the URL loading system that Apple keeps in
+Carbon events and key translation, CoreAnalytics (which collects nothing), libScreenReader and
+ColorSync (ICC profiles, Apple's named ones written by Finch, and transforms over skcms). Foundation carries the URL loading system that Apple keeps in
 the closed CFNetwork: file, data and HTTP(S) loading over OpenSSL. The desktop's frame is the Instrument Bar (each app's menu bar) and the Rail, a
 Finch app down the left edge that replaces the Dock.
 
@@ -93,7 +94,7 @@ block-beta
         coreservices["CoreServices<br/>app lookup and launch,<br/>local Apple events, files"]
         later["Metal, AV"]
         coreui["CoreUI<br/>compiled asset catalogs,<br/>named images and colors"]
-        appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport; CoreAudio,<br/>AudioToolbox (system sounds),<br/>Carbon/HIToolbox (events, keys),<br/>CoreAnalytics, libScreenReader"]
+        appsupport["CoreVideo (display link),<br/>Accessibility, CoreTransferable,<br/>DeveloperToolsSupport; CoreAudio,<br/>AudioToolbox (system sounds),<br/>Carbon/HIToolbox (events, keys),<br/>CoreAnalytics, libScreenReader;<br/>ColorSync (profiles, transforms)"]
         swiftui["SwiftUI, SwiftUICore<br/>(OpenSwiftUI on Compute's<br/>attribute graph; first app draws)"]
     end
     block:L5
@@ -124,7 +125,7 @@ block-beta
         ess["libEndpointSecuritySystem"]
         space4b[" "]
         tz["tzdata 2026c (IANA)"]
-        skia["Skia m155 + FreeType, HarfBuzz,<br/>libpng, libjpeg-turbo, libwebp, wuffs<br/>(static, for CoreGraphics<br/>and ImageIO)"]
+        skia["Skia m155 + FreeType, HarfBuzz,<br/>libpng, libjpeg-turbo, libwebp, wuffs<br/>(static, for CoreGraphics,<br/>ImageIO and ColorSync)"]
         fonts["Open fonts (data, not code)<br/>Inter, Open Runde, Fragment Mono,<br/>XCharter, Pagella, Liberation, DejaVu,<br/>Noto for other scripts and emoji,<br/>in place of Apple's, which can't ship"]
     end
     block:L3
@@ -225,6 +226,7 @@ flowchart LR
     cgfw["CoreGraphics"]:::finch
     ctfw["CoreText"]:::finch
     imageio["ImageIO"]:::finch
+    colorsync["ColorSync"]:::finch
     coreui["CoreUI"]:::finch
     coreservices["CoreServices"]:::finch
     uti["UniformTypeIdentifiers"]:::finch
@@ -289,6 +291,9 @@ flowchart LR
     appservices -->|"re-exports"| cgfw
     appservices -->|"re-exports"| ctfw
     appservices -->|"re-exports"| imageio
+    appservices -->|"re-exports"| colorsync
+    colorsync --> cf
+    colorsync --> skialib
     quartz -->|"re-exports"| qc
     quartz -->|"re-exports"| imagekit
     qc --> ffound

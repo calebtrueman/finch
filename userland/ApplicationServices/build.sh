@@ -20,7 +20,7 @@ SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 CC="$(xcrun -f clang)"
 log() { echo "==> $*"; }
 
-REEXPORTS=(CoreGraphics CoreText ImageIO)
+REEXPORTS=(CoreGraphics CoreText ImageIO ColorSync)
 for dep in "${REEXPORTS[@]}"; do
     [[ -f "${ROOT}/System/Library/Frameworks/${dep}.framework/${dep}" ]] || { echo "build ${dep} first" >&2; exit 1; }
 done
