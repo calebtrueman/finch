@@ -2720,8 +2720,12 @@ start_blinking(NSTextView *self)
 /* With no menu to give them, the standard editing equivalents. */
 - (BOOL)performKeyEquivalent:(NSEvent *)event
 {
-    if (!is_first_responder(self) || [[NSApp mainMenu] performKeyEquivalent:event])
+    if (!is_first_responder(self))
         return [super performKeyEquivalent:event];
+    /* the menu's own equivalents first: once it has performed one, the event is
+     * done (returning NO would have the application perform it again) */
+    if ([[NSApp mainMenu] performKeyEquivalent:event])
+        return YES;
     NSEventModifierFlags m = [event modifierFlags] & (NSEventModifierFlagCommand | NSEventModifierFlagShift |
                                                       NSEventModifierFlagOption | NSEventModifierFlagControl);
     NSString *k = [event charactersIgnoringModifiers];
