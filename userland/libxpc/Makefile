@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Finch libxpc. See docs/design/XPC.md.
 #
-#   make            -> build/userland/libxpc/libxpc.dylib   (arm64e, for the VM image)
+#   make            -> build/userland/libxpc/libxpc.dylib   (arm64e, for the VM image; FINCH_VARIANT=phone: build/userland-phone)
 #   make test       -> host unit tests against an arm64 test build
 #
 # Needs build/sdk (tools/mksdk.sh) for libdispatch's private os_object headers.
 
 ROOT    := $(abspath ../..)
-OUT     := $(ROOT)/build/userland/libxpc
+include $(ROOT)/userland/variant.mk
+OUT     := $(ROOT)/build/userland$(V)/libxpc
 SDK     := $(ROOT)/build/sdk
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 CC      := xcrun -sdk macosx clang
@@ -30,7 +31,7 @@ all: $(OUT)/libxpc.dylib
 # The VM library: arm64e, part of the libSystem umbrella.
 $(OUT)/libxpc.dylib: $(SRCS) $(HDRS) Makefile
 	@mkdir -p $(OUT)
-	$(CC) -arch arm64e $(COMMON) -dynamiclib -nodefaultlibs \
+	$(CC) -arch $(FINCH_ARCH) $(FINCH_VARIANT_CFLAGS) $(COMMON) -dynamiclib -nodefaultlibs \
 	    -install_name /usr/lib/system/libxpc.dylib -umbrella System \
 	    -compatibility_version 1 -current_version $(VERSION) \
 	    $(SRCS) $(LIBS) -o $@

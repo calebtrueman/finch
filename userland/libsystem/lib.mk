@@ -11,9 +11,10 @@
 # tools/vm/mkramdisk.sh installs it in place of Apple's.
 
 FINCH_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
+include $(FINCH_ROOT)/userland/variant.mk
 INSTALL_DIR ?= /usr/lib/system
 UMBRELLA    ?= -umbrella System
-OUT     ?= $(FINCH_ROOT)/build/root$(INSTALL_DIR)
+OUT     ?= $(FINCH_ROOT)/build/root$(V)$(INSTALL_DIR)
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 SDK     := $(FINCH_ROOT)/build/sdk
 CC      := xcrun -sdk macosx clang
@@ -23,9 +24,9 @@ XNU_FAKEROOT := $(FINCH_ROOT)/build/xnu-work/fakeroot
 PRIVATE := -I$(SDK)/override -I$(SDK)/availability \
            -I$(XNU_FAKEROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders \
            -I$(XNU_FAKEROOT)/usr/local/include
-CFLAGS  := -arch arm64e -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror \
+CFLAGS  := -arch $(FINCH_ARCH) -mmacosx-version-min=26.0 -O2 -Wall -Wextra -Werror \
            -fno-common -fvisibility=default $(PRIVATE) -idirafter $(SDK)/include \
-           $(EXTRA_CFLAGS)
+           $(FINCH_VARIANT_CFLAGS) $(EXTRA_CFLAGS)
 LDFLAGS := -dynamiclib -nostdlib -install_name $(INSTALL_DIR)/$(NAME).dylib \
            -current_version $(VERSION) -compatibility_version 1 $(UMBRELLA) \
            -L$(SDKROOT)/usr/lib/system -L$(SDKROOT)/usr/lib -L$(FINCH_ROOT)/build/userland/lib $(LIBS) -lcompiler_rt -ldyld

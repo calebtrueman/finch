@@ -25,11 +25,11 @@ cp -f "${FAKEROOT}/System/Library/Frameworks/Kernel.framework/Versions/A/Headers
 cd "${SRC}"
 env LD="$(xcrun -find clang)" LDPLUSPLUS="$(xcrun -find clang++)" \
 xcodebuild install -target Libsyscall_dynamic -sdk macosx \
-    ARCHS=arm64e VALID_ARCHS="arm64 arm64e" ONLY_ACTIVE_ARCH=NO \
+    ARCHS="${FINCH_ARCH:-arm64e}" VALID_ARCHS="arm64 arm64e" ONLY_ACTIVE_ARCH=NO \
     TARGET_CONFIGS="DEVELOPMENT ARM64 T8132" \
     RC_ProjectSourceVersion=12377.101.15 CURRENT_PROJECT_VERSION=12377.101.15 VERSIONING_SYSTEM='$(FINCH_VERSIONING_$(TARGET_NAME))' FINCH_VERSIONING_Libsyscall_static=apple-generic VERSION_INFO_PREFIX=___ \
     OBJROOT="${OBJ}" SYMROOT="${OBJ}/sym" DSTROOT="${STAGE}" \
     FAKEROOT_DIR="${FAKEROOT}" \
     OTHER_MIGFLAGS="-novouchers -I${FAKEROOT}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -I${FAKEROOT}/usr/local/include -I${FAKEROOT}/usr/include -I${SDKROOT}/usr/include -DKOBJECT_SERVER" \
     CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=NO \
-    OTHER_CFLAGS='$(inherited) -Wno-error '"${PRIVATE_FIRST} ${FINCH_SDK_CFLAGS} -idirafter ${OBJ}/kernel-hdrs"
+    OTHER_CFLAGS='$(inherited) -Wno-error '"${PRIVATE_FIRST} ${FINCH_SDK_CFLAGS} -idirafter ${OBJ}/kernel-hdrs ${FINCH_VARIANT_CFLAGS:-}"

@@ -14,6 +14,9 @@
 set -uo pipefail
 FINCH_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${FINCH_ROOT}"
+# FINCH_VARIANT=phone (tools/variant.sh) builds the steps in phone_steps below into
+# build/root-phone; steps whose build files don't take a variant yet are refused.
+source tools/variant.sh
 
 oss() {   # oss <project> <targets...>: build, then fail on any compile/link error
     local out status
@@ -22,7 +25,7 @@ oss() {   # oss <project> <targets...>: build, then fail on any compile/link err
     echo "${out}"
     [[ "${status}" -eq 0 ]] && grep -q "(build exit 0)" <<<"${out}" \
         && ! grep -q "failed in:" <<<"${out}" \
-        && ! grep -q "linker command failed" "build/logs/$1.log"
+        && ! grep -q "linker command failed" "build/logs${V}/$1.log"
 }
 
 # Like oss, for command projects: the tools listed in userland/oss/<project>.deferred
@@ -36,7 +39,7 @@ oss_cmds() {   # oss_cmds <project> <targets...>
     failed=$(sed -n 's/^  failed in: \(.*\)  (see.*/\1/p' <<<"${out}")
     if ! grep -q "(build exit 0)" <<<"${out}" && [[ -z "${failed}" ]] \
         && ! grep -q "failed only in test targets" <<<"${out}"; then
-        echo "error: $1 failed without a known deferred target; see build/logs/$1.log" >&2
+        echo "error: $1 failed without a known deferred target; see build/logs${V}/$1.log" >&2
         return 1
     fi
     allowed=$(grep -v '^\s*#' "userland/oss/$1.deferred" 2>/dev/null)
@@ -60,7 +63,7 @@ steps=(
     "collections|oss Libc libsystem_collections"
     "libclosure|oss libclosure Blocks-dynamic"
     # (Xcode 26.4.1 builds the static variants too, as dependencies; they stay out of the image)
-    "libdispatch|oss libdispatch libdispatch && rm -f build/root/usr/lib/system/liblibdispatch.a build/root/usr/lib/system/liblibdispatch_debug.a build/root/usr/lib/system/liblibfirehose_server.a"
+    "libdispatch|oss libdispatch libdispatch && rm -f build/root${V}/usr/lib/system/liblibdispatch.a build/root${V}/usr/lib/system/liblibdispatch_debug.a build/root${V}/usr/lib/system/liblibfirehose_server.a"
     "Libinfo|oss Libinfo Libinfo"
     "libxpc|make -s -C userland/libxpc"
     "Libnotify|oss Libnotify libnotify notifyd notifyutil"
@@ -86,7 +89,7 @@ steps=(
     "ca-certificates|userland/certificates/build.sh"
     "CoreFoundation|userland/CoreFoundation/build.sh"
     "SystemConfiguration|userland/SystemConfiguration/build.sh"
-    "configd|userland/oss/configd.daemon.build.sh"
+    "configd-daemon|userland/oss/configd.daemon.build.sh"
     # libxml2, for Foundation's NSXMLParser
     "libxml2|oss libxml2"
     # Auto Layout's private framework, which Foundation re-exports (docs/design/APPKIT.md)
@@ -201,7 +204,7 @@ steps=(
     "libsysmon|make -s -C userland/libsysmon"
     # libdispatch's firehose server for finch-logd: a static archive (named by Xcode's
     # lib prefix on its target name), moved out of the image tree.
-    "firehose|oss libdispatch libfirehose_server && mkdir -p build/userland/lib && mv -f build/root/usr/lib/system/liblibfirehose_server.a build/userland/lib/libfirehose_server.a"
+    "firehose|oss libdispatch libfirehose_server && mkdir -p build/userland/lib && mv -f build/root${V}/usr/lib/system/liblibfirehose_server.a build/userland/lib/libfirehose_server.a"
     "logd|make -s -C userland/logd"
     "pboard|make -s -C userland/pboard"
     # Commands (userland/INVENTORY.md lists the deferred ones that don't build yet)
@@ -230,12 +233,18 @@ for requested in "$@"; do
         exit 1
     fi
 done
+# Steps whose build files honour FINCH_VARIANT: libSystem and dyld.
+phone_steps=" sdk crashreporter corecrypto libsystem-finch libm libsyscall libplatform libpthread libpthread-dyld libmalloc Libc libdarwin libc-dyld collections libclosure libdispatch Libinfo libxpc Libnotify keymgr removefile copyfile syslog configd dnssd libmacho trace Libsystem llvm-runtimes dyld "
 for s in "${steps[@]}"; do
     name="${s%%|*}" cmd="${s#*|}"
     [[ -n "${selected}" && " ${selected} " != *" ${name} "* ]] && continue
+    if [[ -n "${V}" && "${phone_steps}" != *" ${name} "* ]]; then
+        [[ -n "${selected}" ]] && { echo "error: step '${name}' doesn't build for FINCH_VARIANT=${FINCH_VARIANT} yet" >&2; exit 1; }
+        continue
+    fi
     echo "==> ${name}"
     if ! eval "${cmd}"; then
-        echo "error: step '${name}' failed (logs in build/logs/)" >&2
+        echo "error: step '${name}' failed (logs in build/logs${V}/)" >&2
         exit 1
     fi
 done

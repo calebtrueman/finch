@@ -2,10 +2,11 @@
 # Finch's pieces of dyld that Apple links from closed static libraries.
 # libfinch_dyld.a goes where dyld's archive list picks up every .a
 # (userland/patches/dyld, configure-dyld-archives.sh).
-OUT  ?= ../../build/userland/dyld
-ROOT ?= ../../build/root
+include ../variant.mk
+OUT  ?= ../../build/userland$(V)/dyld
+ROOT ?= ../../build/root$(V)
 CC   := xcrun -sdk macosx clang
-CFLAGS := -arch arm64e -mmacosx-version-min=26.0 -Os -Wall -Wextra -Werror \
+CFLAGS := -arch $(FINCH_ARCH) $(FINCH_VARIANT_CFLAGS) -mmacosx-version-min=26.0 -Os -Wall -Wextra -Werror \
           -I../sdk/include -fno-stack-protector -fno-builtin -fvisibility=hidden
 
 all: $(ROOT)/usr/local/lib/dyld/libfinch_dyld.a

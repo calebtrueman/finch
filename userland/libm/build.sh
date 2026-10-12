@@ -20,6 +20,7 @@
 #   userland/libm/build.sh    -> build/root/usr/lib/system/libsystem_m.dylib
 set -euo pipefail
 FINCH_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "${FINCH_ROOT}/tools/variant.sh"
 HERE="${FINCH_ROOT}/userland/libm"
 MSUN_TAG=release/14.5.0
 MSUN="${FINCH_ROOT}/build/src/msun"
@@ -28,8 +29,8 @@ PRED_SHA256=f8662c3f407d1c1c5dcd4dd49ea8b8ddd801a71827d65734206ddc3741792029
 PRED="${FINCH_ROOT}/build/src/predicates/predicates.c"
 CM_COMMIT=9ef800d2597afb49e5d0f35963160c0a18abbd06
 CM="${FINCH_ROOT}/build/src/core-math"
-OBJ="${FINCH_ROOT}/build/obj/libm"
-OUT="${FINCH_ROOT}/build/root/usr/lib/system/libsystem_m.dylib"
+OBJ="${FINCH_ROOT}/build/obj${V}/libm"
+OUT="${FINCH_ROOT}/build/root${V}/usr/lib/system/libsystem_m.dylib"
 SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 CC="xcrun -sdk macosx clang"
 log() { echo "==> $*"; }
@@ -131,7 +132,7 @@ mkdir -p "${OBJ}"
     done | grep -vE "^_cr_lgamma"
 } | sort -u > "${OBJ}/aliases.txt"
 
-flags=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -O2 -fno-builtin
+flags=(-arch "${FINCH_ARCH}" ${FINCH_VARIANT_CFLAGS} -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -O2 -fno-builtin
        -fno-stack-protector -ffp-contract=off -fno-math-errno)
 msun_flags=(-include "${HERE}/freebsd_compat.h" -I"${HERE}/include" -I"${MSUN}/lib/msun/src" -I"${MSUN}/lib/msun/bsdsrc"
             -I"${MSUN}/lib/libc/include" -I"${MSUN}/lib/libc/arm" -w)
@@ -169,7 +170,7 @@ objs+=("${OBJ}/predicates.o")
 
 log "linking libsystem_m.dylib"
 mkdir -p "$(dirname "${OUT}")"
-${CC} -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
+${CC} -arch "${FINCH_ARCH}" -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
     -install_name /usr/lib/system/libsystem_m.dylib -compatibility_version 1 -current_version 3312.100.1 \
     -umbrella System -Wl,-exported_symbols_list,"${HERE}/exports.txt" -Wl,-alias_list,"${OBJ}/aliases.txt" \
     -Wl,-dead_strip "${objs[@]}" -L"${SDKROOT}/usr/lib/system" -ldyld -lcompiler_rt \
@@ -179,7 +180,7 @@ codesign -f -s - "${OUT}" 2>/dev/null
 # Licence notices of the third-party code built in (docs/LICENSING.md).
 # Shewchuk's predicates are public domain and need none.
 log "collecting licence notices"
-LICENSES="${FINCH_ROOT}/build/root/usr/share/finch/licenses"
+LICENSES="${FINCH_ROOT}/build/root${V}/usr/share/finch/licenses"
 cm_files=()
 for f in ${CM_FNS}; do
     cm_files+=("${CM}/src/binary64/${f}/${f}.c" "${CM}/src/binary32/${f}/${f}f.c")

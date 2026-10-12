@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Keep the unfinished library out of the boot image until its checks pass.
 FINCH := $(abspath ../../..)
-OUT ?= $(FINCH)/build/userland/trace
+include $(FINCH)/userland/variant.mk
+OUT ?= $(FINCH)/build/userland$(V)/trace
 CC := xcrun -sdk macosx clang
-CFLAGS := -arch arm64e -Os -Wall -Wextra -Werror -fblocks -fno-objc-arc \
+CFLAGS := -arch $(FINCH_ARCH) $(FINCH_VARIANT_CFLAGS) -Os -Wall -Wextra -Werror -fblocks -fno-objc-arc \
  -I$(FINCH)/build/sdk/override -I$(FINCH)/build/sdk/availability \
  -idirafter $(FINCH)/build/sdk/include
 SOURCES := mode.c diagnostic_stream.c preferences.c format.c format_spi.c stream_entry.c log.c fault.c object.m activity.c util.c backtrace.c blob.c ring.c amfi.c storage.c transport.c state.c control.c rtconnection.c metric.c metric_object.m image.c
@@ -85,7 +86,7 @@ $(OUT)/fault-callbacks: tests/fault-callbacks.c
 
 # The image library: Apple's 197 exports, identity and dependencies (in
 # Apple's order; libobjc, corecrypto and asl upward, as Apple links them).
-ROOT ?= $(FINCH)/build/root
+ROOT ?= $(FINCH)/build/root$(V)
 SDKROOT := $(shell xcrun --sdk macosx --show-sdk-path)
 BOOT_LIB := $(ROOT)/usr/lib/system/libsystem_trace.dylib
 BOOT_LIBS := -lsystem_kernel -lsystem_platform -lsystem_pthread -lmacho -ldyld -lcompiler_rt \

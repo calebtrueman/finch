@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Finch's corecrypto pieces. libcorecrypto_static.a: the digests dyld links
 # statically (installed where dyld's archive list expects it).
-OUT  ?= ../../build/userland/corecrypto
-ROOT ?= ../../build/root
+include ../variant.mk
+OUT  ?= ../../build/userland$(V)/corecrypto
+ROOT ?= ../../build/root$(V)
 CC   := xcrun -sdk macosx clang
-CFLAGS := -arch arm64e -mmacosx-version-min=26.0 -Os -Wall -Wextra -Werror -Iinclude \
+CFLAGS := -arch $(FINCH_ARCH) $(FINCH_VARIANT_CFLAGS) -mmacosx-version-min=26.0 -Os -Wall -Wextra -Werror -Iinclude \
           -fno-stack-protector -fno-builtin -fvisibility=hidden
 
 all: $(ROOT)/usr/local/lib/libcorecrypto_static.a
@@ -47,19 +48,19 @@ openssl-backend:
 check-openssl: openssl-backend
 	@mkdir -p $(OUT)
 	$(CC) -arch arm64e -O2 -Wall -Wextra -Werror \
-	    -I../../build/obj/corecrypto-openssl/include -I../../build/src/openssl/include \
-	    tests/openssl-backend.c ../../build/obj/corecrypto-openssl/libcrypto.a -o $(OUT)/openssl-backend-check
+	    -I../../build/obj$(V)/corecrypto-openssl/include -I../../build/src/openssl/include \
+	    tests/openssl-backend.c ../../build/obj$(V)/corecrypto-openssl/libcrypto.a -o $(OUT)/openssl-backend-check
 	$(OUT)/openssl-backend-check
 
 .PHONY: openssl-backend check-openssl
 
-OPENSSL_ARCHIVE := ../../build/obj/corecrypto-openssl/libcrypto.a
+OPENSSL_ARCHIVE := ../../build/obj$(V)/corecrypto-openssl/libcrypto.a
 $(OPENSSL_ARCHIVE): build-openssl.sh openssl-arm64e.conf
 	./build-openssl.sh
 
 ABI_SOURCES := abi/digest.c abi/hmac.c abi/aes_ecb.c abi/aes_cbc.c abi/aes_ctr.c abi/aes_gcm.c abi/aes_xts.c abi/aes_feedback.c abi/aes_ccm.c abi/rng.c abi/kdf.c abi/cmac.c abi/digest_extra.c abi/shake.c abi/ccn.c abi/der.c abi/ccz.c abi/chacha.c abi/common.c abi/legacy_ciphers.c abi/padding.c abi/keywrap.c abi/cczp.c abi/ecc.c abi/curve25519.c abi/ed25519.c abi/dh.c abi/rsa.c abi/rsa_der.c abi/drbg.c abi/pq.c abi/pq_mldsa.c abi/srp.c abi/kdf_extra.c abi/ccckg.c abi/spake.c abi/cch2c.c abi/siv.c abi/ascon.c abi/siv_hmac.c abi/secret_sharing.c abi/aes_alternate.c abi/entropy.c abi/rng_test.c abi/sae.c abi/cchpke.c abi/ccecies.c abi/ccapsic.c abi/lr.c abi/post.c abi/support.c abi/sigma.c abi/vrf.c abi/fips.c abi/cche.c abi/cche_context.c abi/cche_crypto.c abi/cche_compose.c abi/cche_keys.c abi/cche_serial.c
 ABI_HEADERS := $(wildcard abi/*.h)
-OPENSSL_INCLUDES := -I../../build/obj/corecrypto-openssl/include -I../../build/src/openssl/include
+OPENSSL_INCLUDES := -I../../build/obj$(V)/corecrypto-openssl/include -I../../build/src/openssl/include
 $(OUT)/abi-crypto.dylib: $(ABI_SOURCES) $(ABI_HEADERS) digest.c $(OPENSSL_ARCHIVE) Makefile tools/seal-corecrypto.py
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) $(OPENSSL_INCLUDES) -dynamiclib $(ABI_SOURCES) $(OPENSSL_ARCHIVE) -o $@

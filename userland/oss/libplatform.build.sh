@@ -13,11 +13,11 @@ mkdir -p "${OBJ}" "${STAGE}/usr/lib/system"
 
 CC="xcrun -sdk macosx clang"
 common=(
-    -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os
+    -arch "${FINCH_ARCH:-arm64e}" -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os
     -fno-stack-protector -fdollars-in-identifiers -fno-common -momit-leaf-frame-pointer
     -D_FORTIFY_SOURCE=0 -DCONFIG_MTE=1
     -Iprivate -Iinclude -Iinternal -Isrc/os/resolver
-    ${FINCH_PRIVATE_CFLAGS} ${FINCH_SDK_CFLAGS}
+    ${FINCH_PRIVATE_CFLAGS} ${FINCH_SDK_CFLAGS} ${FINCH_VARIANT_CFLAGS:-}
     -Wno-error -Wno-error=int-conversion -w
 )
 # Per-component OSAtomic settings (xcodeconfig/{libplatform,os,atomics}.xcconfig).
@@ -70,7 +70,7 @@ echo "archived libplatform_dyld.a from ${#objs[@]} objects"
 compile_all "${OBJ}/normal"
 # The dylib's own crash annotations (dyld gets them from libCrashReporterClient.a).
 compile "${FINCH_SRC}/finch_crash_info.c" "${defs_default[@]}"
-${CC} -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
+${CC} -arch "${FINCH_ARCH:-arm64e}" -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
     -install_name /usr/lib/system/libsystem_platform.dylib \
     -compatibility_version 1 -current_version 375.100.10 \
     -umbrella System -L"${SDKROOT}/usr/lib/system" -lsystem_kernel \

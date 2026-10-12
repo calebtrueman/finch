@@ -1,0 +1,76 @@
+diff --git a/libsyscall/os/tsd.h b/libsyscall/os/tsd.h
+index 3b0f6cddd..35ff2e080 100644
+--- a/libsyscall/os/tsd.h
++++ b/libsyscall/os/tsd.h
+@@ -52,6 +52,19 @@
+ #define __TPIDR_CPU_CLUSTER_ID_SHIFT 12
+ #define __TPIDR_CPU_CLUSTER_ID_MASK 0x00000000000ff000
+ 
++/*
++ * Finch Phone (FINCH_LINUX_TSD): Darwin userland on a Linux kernel, where user code can't
++ * set TPIDRRO_EL0. The thread's TSD base lives in TPIDR_EL0 instead, and the CPU number
++ * isn't published, so it reads as CPU 0 in cluster 0.
++ */
++#if defined(FINCH_LINUX_TSD) && FINCH_LINUX_TSD
++#define __OS_TSD_SYSREG TPIDR_EL0
++#else
++#define __OS_TSD_SYSREG TPIDRRO_EL0
++#endif
++#define __OS_TSD_STR2(_r) #_r
++#define __OS_TSD_STR(_r) __OS_TSD_STR2(_r)
++
+ #ifndef __ASSEMBLER__
+ 
+ #include <stdint.h>
+@@ -75,6 +88,8 @@ _os_cpu_number(void)
+ 	uintptr_t p;
+ 	__asm__ __volatile__ ("mrc	p15, 0, %[p], c13, c0, 3" : [p] "=&r" (p));
+ 	return (unsigned int)(p & 0x3ul);
++#elif defined(__arm64__) && defined(FINCH_LINUX_TSD) && FINCH_LINUX_TSD
++	return 0;
+ #elif defined(__arm64__)
+ 	uint64_t p;
+ 	__asm__ __volatile__ ("mrs %0, TPIDR_EL0" : "=r" (p));
+@@ -96,7 +111,9 @@ __attribute__((always_inline))
+ static __inline__ unsigned int
+ _os_cpu_cluster_number(void)
+ {
+-#if defined(__arm64__)
++#if defined(__arm64__) && defined(FINCH_LINUX_TSD) && FINCH_LINUX_TSD
++	return 0;
++#elif defined(__arm64__)
+ 	uint64_t p;
+ 	__asm__ __volatile__ ("mrs %0, TPIDR_EL0" : "=r" (p));
+ 	return (p & __TPIDR_CPU_CLUSTER_ID_MASK) >> __TPIDR_CPU_CLUSTER_ID_SHIFT;
+@@ -160,7 +177,7 @@ _os_tsd_get_base(void)
+ 	 * is coalesced properly.
+ 	 */
+ 	uint64_t tsd;
+-	__asm__ ("mrs %0, TPIDRRO_EL0" : "=r" (tsd));
++	__asm__ ("mrs %0, " __OS_TSD_STR(__OS_TSD_SYSREG) : "=r" (tsd));
+ #endif
+ 
+ 	return (void**)(uintptr_t)tsd;
+@@ -229,7 +246,7 @@ _os_ptr_munge(uintptr_t ptr)
+ #elif defined(__arm64__)
+ 
+ #define _OS_PTR_MUNGE_TOKEN(_reg, _token) \
+-	mrs _reg, TPIDRRO_EL0 %% \
++	mrs _reg, __OS_TSD_SYSREG %% \
+ 	ldr	_token, [ _reg,  #_OS_TSD_OFFSET(__TSD_PTR_MUNGE) ]
+ 
+ #endif // defined(__arm64__)
+diff --git a/libsyscall/os/x18.c b/libsyscall/os/x18.c
+index 564cc9f96..0be0b52be 100644
+--- a/libsyscall/os/x18.c
++++ b/libsyscall/os/x18.c
+@@ -61,6 +61,9 @@ os_custom_x18_abi(bool const want_custom_x18_abi)
+ bool
+ os_custom_x18_abi_get(void)
+ {
++#if defined(FINCH_LINUX_TSD) && FINCH_LINUX_TSD
++	return false;   /* TPIDR_EL0 holds the TSD base (os/tsd.h), not machdep flags */
++#endif
+ 	return (bool)(__builtin_arm_rsr64("TPIDR_EL0") & MACHDEP_TPIDR_FLAG_PRESERVE_X18);
+ }
+ 

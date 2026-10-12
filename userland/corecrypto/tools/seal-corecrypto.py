@@ -15,6 +15,7 @@ import sys
 MH_MAGIC_64 = 0xFEEDFACF
 CPU_TYPE_ARM64 = 0x0100000C
 CPU_SUBTYPE_ARM64E = 2
+CPU_SUBTYPE_ARM64_ALL = 0   # the Finch Phone build (FINCH_VARIANT=phone) is plain arm64
 LC_SEGMENT_64 = 0x19
 
 
@@ -26,8 +27,9 @@ def text_sections(data):
     if len(data) < 32:
         raise ValueError("Mach-O header is missing")
     magic, cpu, subtype, _, ncmds, cmdbytes, _, _ = struct.unpack_from("<8I", data)
-    if magic != MH_MAGIC_64 or cpu != CPU_TYPE_ARM64 or subtype & 0xFFFFFF != CPU_SUBTYPE_ARM64E:
-        raise ValueError("expected a thin arm64e Mach-O file")
+    if magic != MH_MAGIC_64 or cpu != CPU_TYPE_ARM64 \
+            or subtype & 0xFFFFFF not in (CPU_SUBTYPE_ARM64E, CPU_SUBTYPE_ARM64_ALL):
+        raise ValueError("expected a thin arm64 or arm64e Mach-O file")
     end = 32 + cmdbytes
     if end > len(data) or ncmds > cmdbytes // 8:
         raise ValueError("load commands extend past the file")

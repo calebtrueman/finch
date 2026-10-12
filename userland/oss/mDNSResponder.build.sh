@@ -13,7 +13,7 @@ cd "${SRC}/mDNSShared"
 rm -rf "${OBJ}"; mkdir -p "${OBJ}" "${STAGE}/usr/lib/system"
 
 CC="xcrun -sdk macosx clang"
-flags=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -fblocks
+flags=(-arch "${FINCH_ARCH:-arm64e}" ${FINCH_VARIANT_CFLAGS:-} -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -fblocks
        -I. -I../mDNSCore
        -DAPPLE_OSX_mDNSResponder=1 -DMDNS_NO_STRICT=1 -D__APPLE_USE_RFC_3542=1
        ${FINCH_SDK_CFLAGS} -Wno-error)
@@ -29,7 +29,7 @@ for f in "${HERE}"/*.c; do
 done
 
 # Sub-libraries of libSystem link their siblings, not the umbrella.
-${CC} -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
+${CC} -arch "${FINCH_ARCH:-arm64e}" -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
     -install_name /usr/lib/system/libsystem_dnssd.dylib \
     -compatibility_version 1 -current_version 2881.100.56 -umbrella System \
     -Wl,-exported_symbols_list,"${HERE}/libsystem_dnssd.exports" \

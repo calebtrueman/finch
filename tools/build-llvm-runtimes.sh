@@ -9,10 +9,11 @@
 #   tools/build-llvm-runtimes.sh
 set -euo pipefail
 FINCH_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "${FINCH_ROOT}/tools/variant.sh"
 LLVM_TAG=llvmorg-22.1.8          # first release with arm64e (ptrauth) unwinding
 SRC="${FINCH_ROOT}/build/src/llvm-project"
-OBJ="${FINCH_ROOT}/build/obj/llvm-runtimes"
-ROOT="${FINCH_ROOT}/build/root"
+OBJ="${FINCH_ROOT}/build/obj${V}/llvm-runtimes"
+ROOT="${FINCH_ROOT}/build/root${V}"
 HERE="${FINCH_ROOT}/userland/llvm"
 SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 CC="$(xcrun -f clang)"; CXX="$(xcrun -f clang++)"
@@ -35,14 +36,14 @@ done
 log "compiling (upstream Apple configuration)"
 cmake -G Ninja -S "${SRC}/runtimes" -B "${OBJ}" -C "${SRC}/libcxx/cmake/caches/Apple.cmake" \
     -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
-    -DCMAKE_OSX_ARCHITECTURES=arm64e -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 -DCMAKE_OSX_SYSROOT="${SDKROOT}" \
+    -DCMAKE_OSX_ARCHITECTURES="${FINCH_ARCH}" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 -DCMAKE_OSX_SYSROOT="${SDKROOT}" \
     -DCMAKE_C_COMPILER="${CC}" -DCMAKE_CXX_COMPILER="${CXX}" \
     -DLIBCXX_INCLUDE_TESTS=OFF -DLIBCXXABI_INCLUDE_TESTS=OFF -DLIBUNWIND_INCLUDE_TESTS=OFF \
-    -DLIBCXX_INCLUDE_BENCHMARKS=OFF > "${FINCH_ROOT}/build/logs/llvm-runtimes-cmake.log"
-ninja -C "${OBJ}" cxx_shared cxxabi_shared unwind_shared > "${FINCH_ROOT}/build/logs/llvm-runtimes.log"
+    -DLIBCXX_INCLUDE_BENCHMARKS=OFF > "${FINCH_ROOT}/build/logs${V}/llvm-runtimes-cmake.log"
+ninja -C "${OBJ}" cxx_shared cxxabi_shared unwind_shared > "${FINCH_ROOT}/build/logs${V}/llvm-runtimes.log"
 
 objs() { find "${OBJ}/$1" -name '*.o' | sort; }
-common=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os)
+common=(-arch "${FINCH_ARCH}" ${FINCH_VARIANT_CFLAGS} -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os)
 out="${OBJ}/finch"; mkdir -p "${out}"
 
 log "Finch additions"
@@ -54,7 +55,7 @@ log "Finch additions"
 ld_markers() {  # <exports list> <output object>
     grep '^\$ld\$' "$1" | while read -r s; do printf '.globl "%s"\n"%s":\n  .byte 0\n' "$s" "$s"; done \
         | { echo '.section __TEXT,__const'; cat; } > "${2%.o}.s"
-    "${CC}" -arch arm64e -c "${2%.o}.s" -o "$2"
+    "${CC}" -arch "${FINCH_ARCH}" -c "${2%.o}.s" -o "$2"
 }
 ld_markers "${HERE}/exports/libc++.exp" "${out}/ld-previous.o"
 ld_markers "${HERE}/exports/libcompiler_rt.exp" "${out}/compiler_rt-hide.o"
@@ -111,7 +112,7 @@ log "linking libc++"
     -Wl,-reexported_symbols_list,"${HERE}/exports/libc++.reexports" \
     -lSystem
 
-log "installing into build/root"
+log "installing into build/root${V}"
 mkdir -p "${ROOT}/usr/lib/system"
 install -m 755 "${out}/libunwind.dylib" "${ROOT}/usr/lib/system/libunwind.dylib"
 install -m 755 "${out}/libcompiler_rt.dylib" "${ROOT}/usr/lib/system/libcompiler_rt.dylib"

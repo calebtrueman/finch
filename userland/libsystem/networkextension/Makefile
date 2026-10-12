@@ -6,7 +6,7 @@ SRCS    := networkextension.c stubs.c
 # Finch's, which exports it.
 LIBS     = -lsystem_kernel -lsystem_platform -lsystem_c -lsystem_malloc -lsystem_blocks \
            -lsystem_notify -lsystem_trace -ldispatch -lxpc \
-           $(FINCH_ROOT)/build/root/usr/lib/system/libsystem_darwin.dylib
+           $(FINCH_ROOT)/build/root$(V)/usr/lib/system/libsystem_darwin.dylib
 include ../lib.mk
 
 TESTBIN := $(FINCH_ROOT)/build/obj/networkextension/ne-compare

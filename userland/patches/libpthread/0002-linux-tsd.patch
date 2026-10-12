@@ -1,0 +1,16 @@
+diff --git a/src/pthread_asm.s b/src/pthread_asm.s
+index a79bd8c..1d3c25d 100644
+--- a/src/pthread_asm.s
++++ b/src/pthread_asm.s
+@@ -284,7 +284,11 @@ ____chkstk_darwin: // %w9/x9 == alloca size
+ 	stp     x10, x11, [sp, #-16]
+ 
+ 	// validate that the frame pointer is on our stack (no alt stack)
++#if defined(FINCH_LINUX_TSD) && FINCH_LINUX_TSD	// Finch Phone: the TSD base is in TPIDR_EL0 (os/tsd.h)
++	mrs     x10, TPIDR_EL0
++#else
+ 	mrs     x10, TPIDRRO_EL0
++#endif
+ 
+ 	// (%sp - pthread_self()->stackaddr) > 0 ?
+ #if defined(__ARM64_ARCH_8_32__)

@@ -7,7 +7,7 @@ HDRS    := errors.h
 # libsystem_darwin's, private: link Finch's, which exports it).
 LIBS     = -lsystem_kernel -lsystem_platform -lsystem_c -lsystem_malloc -lsystem_blocks \
            -lsystem_info -lsystem_notify -lsystem_sandbox -ldispatch -lxpc -lcopyfile \
-           -lremovefile -lquarantine $(FINCH_ROOT)/build/root/usr/lib/system/libsystem_darwin.dylib
+           -lremovefile -lquarantine $(FINCH_ROOT)/build/root$(V)/usr/lib/system/libsystem_darwin.dylib
 include ../lib.mk
 
 TESTBIN := $(FINCH_ROOT)/build/obj/containermanager/cm-compare

@@ -1,0 +1,16 @@
+diff --git a/xcodescripts/linker_arguments.sh b/xcodescripts/linker_arguments.sh
+index ceb43cf..46f3c31 100755
+--- a/xcodescripts/linker_arguments.sh
++++ b/xcodescripts/linker_arguments.sh
+@@ -55,7 +55,10 @@ for arch in ${ARCHS}; do
+ 		if [ "${l: -6}" == ".dylib" ]; then
+ 			xcrun -sdk "${SDKROOT}" lipo "${LSYS}/${l}" -verify_arch "${arch}" 2>/dev/null
+ 		else
+-			xcrun -sdk "${SDKROOT}" tapi archive "${LSYS}/${l}" --verify-arch "${arch}" 2>/dev/null
++			xcrun -sdk "${SDKROOT}" tapi archive "${LSYS}/${l}" --verify-arch "${arch}" 2>/dev/null \
++			|| { [ "${arch}" == arm64 ] && xcrun -sdk "${SDKROOT}" tapi archive "${LSYS}/${l}" --verify-arch arm64e 2>/dev/null; }
++			# Finch: the macOS SDK's stubs are arm64e-only, and the linker accepts them for
++			# arm64, as it does for every arm64 Mac program; Finch Phone builds arm64.
+ 		fi
+ 		if [ $? -eq 0 ]; then
+ 			  echo "${l}"

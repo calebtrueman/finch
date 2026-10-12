@@ -3,7 +3,7 @@ NAME    := libcache
 VERSION := 95
 SRCS    := cache.c
 # os_simple_hash is libsystem_darwin's (private): link Finch's, which exports it.
-LIBS     = -lsystem_kernel -lsystem_platform $(FINCH_ROOT)/build/root/usr/lib/system/libsystem_darwin.dylib -lsystem_c -lsystem_malloc -lsystem_blocks -ldispatch
+LIBS     = -lsystem_kernel -lsystem_platform $(FINCH_ROOT)/build/root$(V)/usr/lib/system/libsystem_darwin.dylib -lsystem_c -lsystem_malloc -lsystem_blocks -ldispatch
 include ../lib.mk
 
 TESTBIN := $(FINCH_ROOT)/build/obj/cache/cache-compare

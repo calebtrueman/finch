@@ -10,8 +10,8 @@ cd "${SRC}"
 rm -rf "${OBJ}"; mkdir -p "${OBJ}" "${STAGE}/usr/lib/system"
 
 CC="xcrun -sdk macosx clang"
-flags=(-arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -Iinclude
-       ${FINCH_SDK_CFLAGS} -Wno-error -Wno-deprecated-declarations)
+flags=(-arch "${FINCH_ARCH:-arm64e}" -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -Os -Iinclude
+       ${FINCH_SDK_CFLAGS} ${FINCH_VARIANT_CFLAGS:-} -Wno-error -Wno-deprecated-declarations)
 objs=()
 for f in libmacho/*.c "${HERE}"/*.c; do
     [[ -f "$f" ]] || continue
@@ -22,7 +22,7 @@ done
 
 # Sub-libraries of libSystem link their siblings, not the umbrella (as
 # Apple's: upward links to compiler_rt, malloc, c, kernel).
-${CC} -arch arm64e -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
+${CC} -arch "${FINCH_ARCH:-arm64e}" -mmacosx-version-min=26.0 -isysroot "${SDKROOT}" -dynamiclib -nostdlib \
     -install_name /usr/lib/system/libmacho.dylib \
     -compatibility_version 1 -current_version 1040 -umbrella System \
     -Wl,-exported_symbols_list,"${HERE}/libmacho.exports" \

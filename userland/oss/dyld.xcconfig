@@ -3,7 +3,7 @@
 // internal SDK (see userland/patches/dyld and userland/oss/dyld.pre.sh).
 CLANG_ENABLE_MODULES = NO
 RC_ProjectSourceVersion = 1376.6
-FINCH_DYLD_ARCHIVES_ROOT = $(FINCH_ROOT)/build/root
+FINCH_DYLD_ARCHIVES_ROOT = $(FINCH_ROOT)/build/root$(FINCH_V)
 FINCH_CRASHREPORTER_ARCHIVE = $(FINCH_ROOT)/build/userland/lib/libCrashReporterClient.a
 FINCH_DYLD_GENERATED = $(FINCH_ROOT)/build/obj/dsc-builder/generated
 ARM_SDK = $(SDKROOT)

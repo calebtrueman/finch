@@ -4,8 +4,9 @@
 # into the host or Finch image. Keep any existing source checkout intact.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
+source "${root}/tools/variant.sh"
 src="${root}/build/src/openssl"
-obj="${root}/build/obj/corecrypto-openssl"
+obj="${root}/build/obj${V}/corecrypto-openssl"
 revision=45e844fa2a14ec92d146bd8f5778ac130b6625fb
 tag=openssl-3.5.9
 if [[ ! -e "${src}" ]]; then
@@ -23,7 +24,7 @@ fi
 mkdir -p "${obj}"
 cd "${obj}"
 perl "${src}/Configure" --config="${root}/userland/corecrypto/openssl-arm64e.conf" \
-    finch-arm64e no-shared no-tests no-apps no-docs no-module no-dso no-engine no-sock \
-    --prefix="${root}/build/userland/openssl" --openssldir=/etc/ssl CC="xcrun -sdk macosx clang"
+    "finch-${FINCH_ARCH}" no-shared no-tests no-apps no-docs no-module no-dso no-engine no-sock \
+    --prefix="${root}/build/userland${V}/openssl" --openssldir=/etc/ssl CC="xcrun -sdk macosx clang"
 make -j"${JOBS:-6}" build_libs
 echo "Built ${obj}/libcrypto.a from ${tag} (${revision})."
